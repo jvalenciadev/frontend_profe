@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-xl: var(--radius);
+  --radius-lg: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+:root {
+  --primary-h: 200;
+  --primary-s: 78%;
+  --primary-l: 37%;
+  --primary: hsl(var(--primary-h) var(--primary-s) var(--primary-l));
+  --primary-foreground: hsl(0 0% 100%);
+
+  /* Technical "Clean Studio" Palette */
+  --background: hsl(0 0% 98%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 47% 11%);
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222 47% 11.2%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222 47% 11.2%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(214.3 31.8% 91.4%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --ring: var(--primary);
+  --radius: 1rem;
+  /* More professional, less "bubbly" */
+}
+
+[data-theme='dark'] {
+  --background: hsl(222 47% 4%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222 47% 6%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222 47% 6%);
+  --popover-foreground: hsl(210 40% 98%);
+  --secondary: hsl(217.2 32.6% 12%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --muted: hsl(217.2 32.6% 12%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --accent: hsl(217.2 32.6% 12%);
+  --accent-foreground: hsl(210 40% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(217.2 32.6% 14%);
+  --input: hsl(217.2 32.6% 14%);
+}
+
+@layer base {
+
+  *,
+  ::after,
+  ::before {
+    border-color: var(--border);
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 200ms;
+  }
+
+  html {
+    font-family: var(--font-sans) !important;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display) !important;
+    font-weight: 800;
+  }
+}
+
+/* Typography Mapping - Integrated and Clean */
+[data-font="Inter"] {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter);
+}
+
+[data-font="Outfit"] {
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-outfit);
+}
+
+[data-font="Space Grotesk"] {
+  --font-sans: var(--font-space);
+  --font-display: var(--font-space);
+}
+
+[data-font="Manrope"] {
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-manrope);
+}
+
+[data-font="Syne"] {
+  --font-sans: var(--font-syne);
+  --font-display: var(--font-syne);
+}
+
+[data-font="Kanit"] {
+  --font-sans: var(--font-kanit);
+  --font-display: var(--font-kanit);
+}
+
+[data-font="JetBrains Mono"] {
+  --font-sans: var(--font-jetbrains);
+  --font-display: var(--font-jetbrains);
+}
+
+[data-font="Fraunces"] {
+  --font-sans: var(--font-fraunces);
+  --font-display: var(--font-fraunces);
+}
+
+[data-font="Poppins"] {
+  --font-sans: var(--font-poppins);
+  --font-display: var(--font-poppins);
+}
+
+[data-font="Montserrat"] {
+  --font-sans: var(--font-montserrat);
+  --font-display: var(--font-montserrat);
+}
+
+[data-font="Urbanist"] {
+  --font-sans: var(--font-urbanist);
+  --font-display: var(--font-urbanist);
+}
+
+[data-font="Raleway"] {
+  --font-sans: var(--font-raleway);
+  --font-display: var(--font-raleway);
+}
+
+@layer components {
+  .sidebar-glass {
+    background: hsla(222, 47%, 10%, 0.02);
+    backdrop-filter: blur(24px);
+  }
+
+  .input-premium {
+    @apply w-full px-5 h-12 rounded-2xl bg-background border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-[13px] font-bold text-foreground placeholder:text-muted-foreground/50;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white shadow-lg shadow-primary/20 hover:opacity-90;
+  }
+
+  .btn-outline {
+    @apply border border-border bg-transparent hover:bg-accent text-foreground;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-accent text-foreground;
+  }
+
+  .btn-premium {
+    @apply flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Premium Modal System */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-slate-900/40 backdrop-blur-[8px] transition-opacity duration-300;
+  }
+
+  .modal-container {
+    @apply relative bg-card rounded-[2.5rem] border border-border/40 w-full max-w-2xl overflow-hidden transform transition-all duration-300 ease-out;
+    box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.2);
+  }
+
+  .modal-header {
+    @apply relative px-8 pt-8 pb-4 flex items-center justify-between;
+  }
+
+  .modal-title-wrapper {
+    @apply space-y-1;
+  }
+
+  .modal-title {
+    @apply text-2xl font-black text-foreground tracking-tighter uppercase leading-tight;
+  }
+
+  .modal-title-accent {
+    @apply h-1.5 w-12 bg-primary rounded-full;
+  }
+
+  .modal-close-btn {
+    @apply w-10 h-10 flex items-center justify-center rounded-2xl bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-all active:scale-90;
+  }
+
+  .modal-body {
+    @apply px-8 pb-8 pt-4;
+  }
+}
+
+@keyframes scan {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-scan {
+  animation: scan 8s linear infinite;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border), transparent 40%);
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--primary), transparent 60%);
+}
