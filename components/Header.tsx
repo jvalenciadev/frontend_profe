@@ -14,11 +14,18 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useProfe } from '@/contexts/ProfeContext';
 
 export function Header() {
     const { user } = useAuth();
     const { setMobileSidebarOpen } = useTheme();
+    const { config: profe } = useProfe();
     const pathname = usePathname();
+
+    const IMG = (src: string | null) => {
+        if (!src) return null;
+        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+    };
 
     const section = pathname.split('/').pop() || 'Dashboard';
     const displaySection = section.charAt(0).toUpperCase() + section.slice(1);
@@ -82,13 +89,23 @@ export function Header() {
                 </div>
 
                 <Link
-                    href="/dashboard/perfil"
+                    href="/dashboard/mi-ficha"
                     className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20 cursor-pointer hover:bg-primary hover:text-white transition-colors overflow-hidden group/avatar"
                 >
                     {user?.imagen ? (
-                        <img src={user.imagen} alt="Profile" className="w-full h-full object-cover group-hover/avatar:scale-110 transition-transform" />
+                        <img
+                            src={user.imagen.startsWith('http') ? user.imagen : `${process.env.NEXT_PUBLIC_API_URL}${user.imagen.startsWith('/') ? '' : '/'}${user.imagen}`}
+                            alt="Profile"
+                            className="w-full h-full object-cover group-hover/avatar:scale-110 transition-transform"
+                        />
                     ) : (
-                        user?.nombre?.charAt(0) || 'U'
+                        <div className="w-full h-full p-2.5 flex items-center justify-center bg-white dark:bg-card">
+                            {profe?.imagen ? (
+                                <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                            ) : (
+                                <span>{user?.nombre?.charAt(0) || 'U'}</span>
+                            )}
+                        </div>
                     )}
                 </Link>
             </div>

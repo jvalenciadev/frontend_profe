@@ -5,15 +5,15 @@ import { toast } from 'sonner';
 
 // Configuración de constantes de entorno
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'profe_secret_2026';
+// IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
 // Crear instancia de Axios con configuraciones base obligatorias
 export const api = axios.create({
     baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
-        'X-SECRET': API_SECRET,
-        'x-secret': API_SECRET // Normalización para servidores sensibles
+        'X-SECRET': API_SECRET
     },
 });
 
@@ -21,17 +21,16 @@ export const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         // Garantizar integridad de headers
-        const secret = process.env.NEXT_PUBLIC_API_SECRET || 'profe_secret_2026';
+        const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
         // Inyección de Secret (X-SECRET)
         if (config.headers) {
             config.headers['X-SECRET'] = secret;
-            config.headers['x-secret'] = secret; // Doble validación por sensibilidad de servidor
         }
 
         // Token de Sesión
         const token = Cookies.get('token');
-        if (token && config.headers) {
+        if (token && config.headers && !config.headers.Authorization) {
             config.headers.Authorization = `Bearer ${token}`;
         }
 

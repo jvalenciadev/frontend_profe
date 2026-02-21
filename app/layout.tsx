@@ -20,6 +20,8 @@ import './globals.css';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ProfeProvider } from '@/contexts/ProfeContext';
+import ConditionalNavbar from '@/components/ConditionalNavbar';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit', display: 'swap' });
@@ -38,15 +40,21 @@ const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', displa
 const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'PROFE - Sistema Nacional de Gestión Educativa',
+  title: 'PROGRAMA PROFE - Sistema Nacional de Gestión Educativa',
   description: 'Arquitectura premium para la gestión de programas de formación especializada.',
+  icons: {
+    icon: '/logo.svg',
+  },
 };
+
+import { Suspense } from 'react';
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // ... (fontVariables definition remains the same)
   const fontVariables = [
     inter.variable,
     outfit.variable,
@@ -68,12 +76,17 @@ export default function RootLayout({
   return (
     <html lang="es" className={fontVariables} suppressHydrationWarning={true}>
       <body className="antialiased" suppressHydrationWarning={true}>
-        <ThemeProvider>
-          <AuthProvider>
-            <Toaster position="top-right" richColors closeButton />
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
+        <ProfeProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <Toaster position="top-right" richColors closeButton />
+              <Suspense fallback={null}>
+                <ConditionalNavbar />
+                {children}
+              </Suspense>
+            </AuthProvider>
+          </ThemeProvider>
+        </ProfeProvider>
       </body>
     </html>
   );

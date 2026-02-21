@@ -11,6 +11,7 @@
   "dependencies": {
     "@casl/ability": "^6.8.0",
     "@casl/react": "^5.0.1",
+    "@react-pdf/renderer": "^4.3.2",
     "axios": "^1.13.5",
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.0",

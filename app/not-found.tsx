@@ -103,7 +103,7 @@ export default function NotFound() {
                     </div>
                     <div className="flex items-center gap-2">
                         <InfinityIcon className="w-3 h-3" />
-                        <span>PROFE OS Core v4.5.0</span>
+                        <span>PROGRAMA PROFE Core v4.5.0</span>
                     </div>
                 </motion.div>
             </div>

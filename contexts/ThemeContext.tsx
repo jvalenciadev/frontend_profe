@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useProfe } from './ProfeContext';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type EffectiveTheme = 'light' | 'dark';
@@ -88,7 +89,7 @@ function hexToHSL(hex: string): HSL {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [theme, setThemeState] = useState<ThemeMode>('system');
+    const [theme, setThemeState] = useState<ThemeMode>('light');
     const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>('light');
     const [primaryColor, setPrimaryColorState] = useState<string>('profe');
     const [customHex, setCustomHexState] = useState<string>('#1474a6');
@@ -96,6 +97,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const [isSidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(false);
     const [isMobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
     const [isMounted, setIsMounted] = useState(false);
+    const { config } = useProfe();
 
     useEffect(() => {
         const savedTheme = localStorage.getItem('theme') as ThemeMode;
@@ -127,8 +129,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         root.setAttribute('data-theme', effectiveTheme);
         root.setAttribute('data-font', typography);
 
+        if (effectiveTheme === 'dark') {
+            root.classList.add('dark');
+        } else {
+            root.classList.remove('dark');
+        }
+
         let hsl: HSL = ColorPresets.profe;
-        if (primaryColor === 'custom' && customHex) {
+        if (primaryColor === 'profe' && config?.color) {
+            hsl = hexToHSL(config.color);
+        } else if (primaryColor === 'custom' && customHex) {
             hsl = hexToHSL(customHex);
         } else if (ColorPresets[primaryColor]) {
             hsl = ColorPresets[primaryColor];
@@ -143,7 +153,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('customHex', customHex);
         localStorage.setItem('typography', typography);
         localStorage.setItem('sidebarCollapsed', isSidebarCollapsed.toString());
-    }, [effectiveTheme, theme, primaryColor, customHex, typography, isSidebarCollapsed, isMounted]);
+    }, [effectiveTheme, theme, primaryColor, customHex, typography, isSidebarCollapsed, isMounted, config]);
 
     return (
         <ThemeContext.Provider value={{

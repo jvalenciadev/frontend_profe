@@ -17,6 +17,8 @@ interface AuthContextType {
     logout: () => void;
     updateUser: (newUser: User) => void;
     isSuperAdmin: () => boolean;
+    checkPermission: (action: string, subject: string) => boolean;
+    hasRole: (roleName: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,6 +137,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return roles.includes('SUPER_ADMIN') || roles.includes('ADMINISTRADOR_SISTEMA');
     };
 
+    const checkPermission = (action: string, subject: string): boolean => {
+        return ability.can(action, subject);
+    };
+
+    const hasRole = (roleName: string): boolean => {
+        const roles = getRolesFromUser(user);
+        return roles.includes(roleName) || isSuperAdmin();
+    };
+
     const value: AuthContextType = {
         user,
         token,
@@ -145,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateUser,
         isSuperAdmin,
+        checkPermission,
+        hasRole,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

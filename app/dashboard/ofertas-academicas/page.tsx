@@ -49,6 +49,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { asignacionService } from '@/services/asignacionService';
 import { userService } from '@/services/userService';
+import { StatusBadge } from '@/components/StatusBadge';
 
 export default function OfertasAcademicasPage() {
     const { user } = useAuth();
@@ -88,7 +89,7 @@ export default function OfertasAcademicasPage() {
         fechaFinIns: '',
         fechaIniClase: '',
         estadoInscripcion: true,
-        estado: 'ACTIVO',
+        estado: 'activo',
         modulos: [] as any[],
         turnos: [] as any[]
     });
@@ -206,7 +207,7 @@ export default function OfertasAcademicasPage() {
             fechaFinIns: '',
             fechaIniClase: '',
             estadoInscripcion: true,
-            estado: 'ACTIVO',
+            estado: 'activo',
             modulos: [],
             turnos: []
         });
@@ -218,7 +219,7 @@ export default function OfertasAcademicasPage() {
             ...formData,
             modulos: [
                 ...formData.modulos,
-                { nombre: '', codigo: '', descripcion: '', notaMinima: 69, fechaInicio: '', fechaFin: '', estado: 'ACTIVO' }
+                { nombre: '', codigo: '', descripcion: '', notaMinima: 69, fechaInicio: '', fechaFin: '', estado: 'activo' }
             ]
         });
     };
@@ -240,7 +241,7 @@ export default function OfertasAcademicasPage() {
             ...formData,
             turnos: [
                 ...formData.turnos,
-                { turnoIds: '', cupo: 0, cupoPre: 0, estado: 'ACTIVO' }
+                { turnoIds: '', cupo: 0, cupoPre: 0, estado: 'activo' }
             ]
         });
     };
@@ -289,7 +290,7 @@ export default function OfertasAcademicasPage() {
             fechaFinIns: formatDate(oferta.fechaFinIns),
             fechaIniClase: formatDate(oferta.fechaIniClase),
             estadoInscripcion: oferta.estadoInscripcion ?? true,
-            estado: oferta.estado || 'ACTIVO',
+            estado: oferta.estado || 'activo',
             // Load the CURRENT operative modules (ProgramaModuloDos)
             modulos: oferta.modulos?.map((m: any) => ({
                 id: m.id,
@@ -298,7 +299,7 @@ export default function OfertasAcademicasPage() {
                 codigo: m.codigo,
                 descripcion: m.descripcion,
                 notaMinima: m.notaMinima || 69,
-                estado: m.estado || 'ACTIVO',
+                estado: m.estado || 'activo',
                 fechaInicio: formatDate(m.fechaInicio),
                 fechaFin: formatDate(m.fechaFin)
             })) || [],
@@ -307,7 +308,7 @@ export default function OfertasAcademicasPage() {
                 turnoIds: t.turnoIds,
                 cupo: t.cupo || 0,
                 cupoPre: t.cupoPre || 0,
-                estado: t.estado || 'ACTIVO'
+                estado: t.estado || 'activo'
             })) || []
         });
         setModalStep('form');
@@ -361,7 +362,7 @@ export default function OfertasAcademicasPage() {
                         codigo: m.codigo,
                         descripcion: m.descripcion,
                         notaMinima: m.notaMinima || 69,
-                        estado: m.estado || 'ACTIVO',
+                        estado: m.estado || 'activo',
                         fechaInicio: inTwoMonths, // Default startup date
                         fechaFin: inTwoMonths     // Default end date
                     })) || [],
@@ -550,8 +551,8 @@ export default function OfertasAcademicasPage() {
         const matchesSearch = m.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             m.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesTipo = selectedTipoMaster ? m.tipoId === selectedTipoMaster : true;
-        // Only show ACTIVO programs (explicitly check for ACTIVO or treat undefined/null as ACTIVO for backwards compatibility)
-        const isActive = !m.estado || m.estado === 'ACTIVO';
+        // Only show ACTIVO programs (check for both cases to support backend enum)
+        const isActive = !m.estado || m.estado === 'ACTIVO' || m.estado === 'activo';
         return matchesSearch && matchesTipo && isActive;
     });
 
@@ -808,12 +809,11 @@ export default function OfertasAcademicasPage() {
 
                                                     {/* Badges Overlay */}
                                                     <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                                                        <span className={cn(
-                                                            "px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-xl backdrop-blur-md border",
-                                                            o.estadoInscripcion ? "bg-emerald-500/90 text-white border-emerald-400/30" : "bg-rose-500/90 text-white border-rose-400/30"
-                                                        )}>
-                                                            {o.estadoInscripcion ? 'Inscripciones' : 'Cerrado'}
-                                                        </span>
+                                                        <StatusBadge
+                                                            status={o.estadoInscripcion ? 'OPEN' : 'CLOSED'}
+                                                            showIcon={false}
+                                                            className="backdrop-blur-md shadow-xl"
+                                                        />
                                                         {o.version && (
                                                             <span className="px-2 py-0.5 rounded-md bg-black/50 backdrop-blur-sm text-white text-[8px] font-black uppercase border border-white/10">
                                                                 {o.version.nombre} {o.version.romano} ({o.version.gestion})
@@ -963,7 +963,11 @@ export default function OfertasAcademicasPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar pb-4">
                             {programasMaster
-                                .filter(m => m.nombre.toLowerCase().includes(masterSearch.toLowerCase()) || m.codigo.toLowerCase().includes(masterSearch.toLowerCase()))
+                                .filter(m => {
+                                    const isActive = !m.estado || m.estado === 'activo' || m.estado === 'ACTIVO';
+                                    const matchesSearch = (m.nombre?.toLowerCase() || '').includes(masterSearch.toLowerCase()) || (m.codigo?.toLowerCase() || '').includes(masterSearch.toLowerCase());
+                                    return isActive && matchesSearch;
+                                })
                                 .map((master) => (
                                     <div
                                         key={master.id}
@@ -1257,10 +1261,10 @@ export default function OfertasAcademicasPage() {
                                     value={formData.estado}
                                     onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                                 >
-                                    <option value="ACTIVO">ACTIVO</option>
-                                    <option value="INACTIVO">INACTIVO</option>
-                                    <option value="ELIMINADO">ELIMINADO</option>
-                                    <option value="VISTA">SOLO VISTA</option>
+                                    <option value="activo">ACTIVO</option>
+                                    <option value="inactivo">INACTIVO</option>
+                                    <option value="eliminado">ELIMINADO</option>
+                                    <option value="vista">SOLO VISTA</option>
                                 </select>
                             </div>
 
@@ -1373,8 +1377,8 @@ export default function OfertasAcademicasPage() {
                                                         value={modulo.estado}
                                                         onChange={(e) => updateModulo(index, 'estado', e.target.value)}
                                                     >
-                                                        <option value="ACTIVO">ACTIVO</option>
-                                                        <option value="INACTIVO">INACTIVO</option>
+                                                        <option value="activo">ACTIVO</option>
+                                                        <option value="inactivo">INACTIVO</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -1462,8 +1466,8 @@ export default function OfertasAcademicasPage() {
                                                         value={turno.estado}
                                                         onChange={(e) => updateTurno(index, 'estado', e.target.value)}
                                                     >
-                                                        <option value="ACTIVO">ACTIVO</option>
-                                                        <option value="INACTIVO">INACTIVO</option>
+                                                        <option value="activo">ACTIVO</option>
+                                                        <option value="inactivo">INACTIVO</option>
                                                     </select>
                                                 </div>
                                             </div>

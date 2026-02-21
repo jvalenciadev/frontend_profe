@@ -31,6 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { StatusBadge } from '@/components/StatusBadge';
 
 const TABS = [
     {
@@ -248,13 +249,7 @@ export default function ConfigAcademicaPage() {
                                             <div className="p-3.5 rounded-2xl bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
                                                 <activeTab.icon className="w-6 h-6" />
                                             </div>
-                                            <div className={cn(
-                                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5",
-                                                item.estado === 'ACTIVO' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                                            )}>
-                                                {item.estado === 'ACTIVO' ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                                {item.estado}
-                                            </div>
+                                            <StatusBadge status={item.estado} />
                                         </div>
 
                                         <div className="space-y-4">

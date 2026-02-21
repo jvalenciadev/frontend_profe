@@ -34,6 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { StatusBadge } from '@/components/StatusBadge';
 
 export default function ProgramaDosPage() {
     const [programas, setProgramas] = useState<any[]>([]);
@@ -276,12 +277,7 @@ export default function ProgramaDosPage() {
                                                 {p.codigo}
                                             </span>
                                             <div className="mt-2">
-                                                <span className={cn(
-                                                    "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm",
-                                                    p.estado === 'ACTIVO' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                                                )}>
-                                                    {p.estado}
-                                                </span>
+                                                <StatusBadge status={p.estado} showIcon={false} />
                                             </div>
                                         </div>
                                     </div>

@@ -5,6 +5,7 @@ import { userService } from '@/services/userService';
 import { roleService } from '@/services/roleService';
 import { departmentService } from '@/services/departmentService';
 import { sedeService } from '@/services/sedeService';
+import { cargoService, Cargo } from '@/services/cargoService';
 import { User, Role } from '@/types';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
@@ -43,13 +44,22 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfe } from '@/contexts/ProfeContext';
+import { StatusBadge } from '@/components/StatusBadge';
 
 export default function UsuariosPage() {
     const { user: currentUser } = useAuth();
+    const { config: profe } = useProfe();
+
+    const IMG = (src: string | null) => {
+        if (!src) return null;
+        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+    };
     const [usuarios, setUsuarios] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [departments, setDepartments] = useState<any[]>([]);
     const [sedes, setSedes] = useState<any[]>([]);
+    const [cargos, setCargos] = useState<Cargo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
@@ -86,6 +96,9 @@ export default function UsuariosPage() {
         sedeIds: [] as string[],
         // Roles
         roleIds: [] as string[],
+        cargoPostulacionId: '',
+        personaId: '',
+        ci: '',
         activo: true
     });
 
@@ -96,11 +109,12 @@ export default function UsuariosPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [usersData, rolesData, deptsData, sedesData] = await Promise.all([
+            const [usersData, rolesData, deptsData, sedesData, cargosData] = await Promise.all([
                 userService.getAll(),
                 roleService.getAll(),
                 departmentService.getAll(),
-                sedeService.getAll()
+                sedeService.getAll(),
+                cargoService.getAll()
             ]);
             console.log('[DEBUG] Usuarios Page - Users:', usersData);
             console.log('[DEBUG] Usuarios Page - Roles Master:', rolesData);
@@ -108,6 +122,7 @@ export default function UsuariosPage() {
             setRoles(rolesData);
             setDepartments(deptsData);
             setSedes(sedesData);
+            setCargos(cargosData);
         } catch (error) {
             console.error('Error loading data:', error);
             toast.error('Error al sincronizar datos');
@@ -134,15 +149,18 @@ export default function UsuariosPage() {
                 estadoCivil: user.estadoCivil || '',
                 facebook: user.facebook || '',
                 tiktok: user.tiktok || '',
+                ci: user.ci ? String(user.ci) : '',
                 cargo: user.cargo || '',
                 celular: user.celular || 0,
                 tenantId: user.tenantId || '',
+                personaId: user.personaId || '',
                 sedeIds: user.sedes?.map((s: any) => s.sedeId || s.id) || [],
                 roleIds: user.roles?.map(r => {
                     if (typeof r === 'string') return r;
                     if (r && 'role' in r) return r.role.id;
                     return (r as any).id;
                 }) || [],
+                cargoPostulacionId: (user as any).cargoPostulacionId || '',
                 activo: user.activo ?? true
             });
         } else {
@@ -167,6 +185,9 @@ export default function UsuariosPage() {
                 tenantId: '',
                 sedeIds: [],
                 roleIds: [],
+                cargoPostulacionId: '',
+                personaId: '',
+                ci: '',
                 activo: true
             });
         }
@@ -182,7 +203,7 @@ export default function UsuariosPage() {
                 ...rest,
                 roles: roleIds,
                 sedes: sedeIds,
-                estado: activo ? 'ACTIVO' : 'INACTIVO'
+                estado: activo ? 'activo' : 'inactivo'
             };
 
             // Solo enviar password si se ha escrito algo nuevo
@@ -225,6 +246,17 @@ export default function UsuariosPage() {
         }
     };
 
+    const handleResetPassword = async (id: string, name: string) => {
+        if (!confirm(`¿Estás seguro de resetear la contraseña de ${name}? La nueva contraseña será 'password123'.`)) return;
+        try {
+            await userService.resetPassword(id);
+            toast.success(`Contraseña de ${name} reseteada correctamente`);
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            toast.error('Error al resetear la contraseña');
+        }
+    };
+
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -238,7 +270,8 @@ export default function UsuariosPage() {
             u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.apellidos?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.correo?.toLowerCase().includes(searchTerm.toLowerCase());
+            u.correo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.ci?.toString().includes(searchTerm);
 
         const matchesRole = filterRole === 'all' || u.roles?.some(r => {
             if (typeof r === 'string') return r === filterRole;
@@ -470,12 +503,36 @@ export default function UsuariosPage() {
                                             <tr key={u.id} className="group hover:bg-muted/50 transition-all duration-300">
                                                 <td className="px-6 py-5">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center font-black text-lg border border-primary/10 group-hover:scale-110 transition-transform">
-                                                            {u.nombre?.charAt(0) || 'U'}
+                                                        <div className="w-12 h-12 rounded-2xl bg-white dark:bg-card border border-border/50 text-primary flex items-center justify-center font-black text-lg group-hover:scale-110 transition-transform overflow-hidden relative">
+                                                            {u.imagen ? (
+                                                                <img src={`${process.env.NEXT_PUBLIC_API_URL}${u.imagen}`} alt={u.nombre} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full p-2.5 flex items-center justify-center">
+                                                                    {profe?.imagen ? (
+                                                                        <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                                                    ) : (
+                                                                        <span className="relative z-10">{u.nombre?.charAt(0) || 'U'}</span>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-col min-w-0">
                                                             <span className="text-sm font-black text-foreground truncate uppercase tracking-tight">{u.nombre} {u.apellidos}</span>
-                                                            <span className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase">@{u.username}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase">@{u.username}</span>
+                                                                {u.ci ? (
+                                                                    <>
+                                                                        <span className="text-[10px] text-muted-foreground/30">•</span>
+                                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">CI: {u.ci}</span>
+                                                                    </>
+                                                                ) : null}
+                                                                {(u as any).cargoPostulacion?.nombre || u.cargo ? (
+                                                                    <>
+                                                                        <span className="text-[10px] text-muted-foreground/30">•</span>
+                                                                        <span className="text-[9px] font-black text-primary uppercase tracking-tighter">{(u as any).cargoPostulacion?.nombre || u.cargo}</span>
+                                                                    </>
+                                                                ) : null}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -534,15 +591,10 @@ export default function UsuariosPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
-                                                    <div className={cn(
-                                                        "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.1em] transition-all",
-                                                        (u.estado === 'ACTIVO' || u.activo)
-                                                            ? "bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm shadow-emerald-500/5"
-                                                            : "bg-rose-50 text-rose-600 border border-rose-100 shadow-sm shadow-rose-500/5"
-                                                    )}>
-                                                        <div className={cn("w-1.5 h-1.5 rounded-full", (u.estado === 'ACTIVO' || u.activo) ? "bg-emerald-500 animate-pulse" : "bg-rose-500")} />
-                                                        {u.estado || (u.activo ? 'OPERATIVO' : 'BLOQUEADO')}
-                                                    </div>
+                                                    <StatusBadge
+                                                        status={u.estado || (u.activo ? 'OPERATIVO' : 'BLOQUEADO')}
+                                                        showIcon={false}
+                                                    />
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -552,6 +604,15 @@ export default function UsuariosPage() {
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
+                                                        <Can action="update" subject="User">
+                                                            <button
+                                                                onClick={() => handleResetPassword(u.id, u.nombre)}
+                                                                title="Resetear Contraseña"
+                                                                className="p-2.5 rounded-xl bg-amber-500/5 text-amber-500 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                                            >
+                                                                <RefreshCw className="w-4 h-4" />
+                                                            </button>
+                                                        </Can>
                                                         <Can action="delete" subject="User">
                                                             <button
                                                                 onClick={() => setIsDeleting(u.id)}
@@ -581,8 +642,18 @@ export default function UsuariosPage() {
                             <Card key={u.id} className="group relative border-border/40 overflow-hidden bg-card hover:border-primary/30 transition-all p-0">
                                 <div className="p-6 space-y-4">
                                     <div className="flex items-start justify-between">
-                                        <div className="w-16 h-16 rounded-3xl bg-primary/5 text-primary flex items-center justify-center font-black text-2xl border border-primary/10 group-hover:rotate-6 transition-transform">
-                                            {u.nombre?.charAt(0) || 'U'}
+                                        <div className="w-16 h-16 rounded-3xl bg-white dark:bg-card border border-border/50 text-primary flex items-center justify-center font-black text-2xl group-hover:rotate-6 transition-transform overflow-hidden relative">
+                                            {u.imagen ? (
+                                                <img src={`${process.env.NEXT_PUBLIC_API_URL}${u.imagen}`} alt={u.nombre} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full p-3.5 flex items-center justify-center">
+                                                    {profe?.imagen ? (
+                                                        <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                                    ) : (
+                                                        <span className="relative z-10">{u.nombre?.charAt(0) || 'U'}</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className={cn(
                                             "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
@@ -596,7 +667,14 @@ export default function UsuariosPage() {
                                         <h3 className="text-lg font-black tracking-tight text-foreground uppercase truncate">
                                             {u.nombre} {u.apellidos}
                                         </h3>
-                                        <p className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">@{u.username}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">@{u.username}</p>
+                                            {(u as any).cargoPostulacion?.nombre || u.cargo ? (
+                                                <span className="text-[9px] font-black text-primary uppercase px-2 py-0.5 bg-primary/5 rounded-md">
+                                                    {(u as any).cargoPostulacion?.nombre || u.cargo}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </div>
 
                                     <div className="pt-2 flex flex-col gap-2">
@@ -634,6 +712,14 @@ export default function UsuariosPage() {
                                     >
                                         <Edit2 className="w-4 h-4" />
                                     </button>
+                                    <Can action="update" subject="User">
+                                        <button
+                                            onClick={() => handleResetPassword(u.id, u.nombre)}
+                                            className="p-2 rounded-xl bg-white shadow-xl border border-border text-amber-500 hover:bg-amber-500 hover:text-white transition-all"
+                                        >
+                                            <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                    </Can>
                                     <Can action="delete" subject="User">
                                         <button
                                             onClick={() => setIsDeleting(u.id)}
@@ -873,6 +959,17 @@ export default function UsuariosPage() {
                         </div>
 
                         <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cédula de Identidad (CI)</label>
+                            <input
+                                type="text"
+                                className="w-full h-12 px-5 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-[13px] font-black text-foreground"
+                                placeholder="00000000"
+                                value={formData.ci}
+                                onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Fecha de Nacimiento</label>
                             <input
                                 type="date"
@@ -909,14 +1006,17 @@ export default function UsuariosPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                            <input
-                                type="text"
-                                className="w-full h-12 px-5 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-[13px] font-medium text-foreground"
-                                placeholder="Director, Profesor, etc."
-                                value={formData.cargo}
-                                onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-                            />
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo Institucional</label>
+                            <select
+                                className="w-full h-12 px-5 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-[13px] font-black text-foreground appearance-none"
+                                value={formData.cargoPostulacionId}
+                                onChange={(e) => setFormData({ ...formData, cargoPostulacionId: e.target.value })}
+                            >
+                                <option value="">Seleccionar Cargo</option>
+                                {cargos.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="space-y-1.5 md:col-span-2">
@@ -971,6 +1071,17 @@ export default function UsuariosPage() {
                                 placeholder="https://ejemplo.com/cv.pdf"
                                 value={formData.curriculum}
                                 onChange={(e) => setFormData({ ...formData, curriculum: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Persona ID / Código de Sincronización</label>
+                            <input
+                                type="text"
+                                className="w-full h-12 px-5 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-[13px] font-medium text-foreground"
+                                placeholder="UUID o Código Externo"
+                                value={formData.personaId}
+                                onChange={(e) => setFormData({ ...formData, personaId: e.target.value })}
                             />
                         </div>
                     </div>

@@ -1,14 +1,36 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+    BookOpen,
+    Plus,
+    Search,
+    Edit2,
+    Trash2,
+    Eye,
+    Clock,
+    DollarSign,
+    LayoutGrid,
+    CheckCircle2,
+    XCircle,
+    Activity,
+    Award
+} from 'lucide-react';
 import { Can } from '@/components/Can';
 import api from '@/lib/api';
 import { Programa } from '@/types';
+import { Card } from '@/components/ui/Card';
+import { motion, AnimatePresence } from 'framer-motion';
+import { StatusBadge } from '@/components/StatusBadge';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function ProgramasPage() {
     const [programas, setProgramas] = useState<Programa[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterEstado, setFilterEstado] = useState('');
+    const [filterTipo, setFilterTipo] = useState('');
 
     useEffect(() => {
         loadProgramas();
@@ -19,213 +41,168 @@ export default function ProgramasPage() {
             setIsLoading(true);
             const { data } = await api.get<Programa[]>('/programas-maestros');
             setProgramas(data);
-            setError('');
         } catch (err: any) {
             console.error('Error loading programas:', err);
-            setError('Error al cargar los programas');
+            toast.error('Error al cargar los programas académicos');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const filteredProgramas = programas.filter(p => {
+        const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.codigo || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesEstado = filterEstado ? (filterEstado === 'activo' ? p.estadoInscripcion : !p.estadoInscripcion) : true;
+        const matchesTipo = filterTipo ? p.tipoId === filterTipo : true;
+        return matchesSearch && matchesEstado && matchesTipo;
+    });
+
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-[var(--text-main)]">
-                        Programas Académicos
-                    </h1>
-                    <p className="text-[var(--text-secondary)] mt-1">
-                        Gestión de programas de formación y capacitación
+        <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto min-h-screen">
+            {/* Header Premium */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 shadow-inner">
+                            <BookOpen className="w-6 h-6" />
+                        </div>
+                        <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">
+                            Programas <span className="text-primary italic">Académicos</span>
+                        </h1>
+                    </div>
+                    <p className="text-muted-foreground text-sm font-medium ml-1">
+                        Gestión centralizada de la oferta de formación y capacitación institucional.
                     </p>
                 </div>
 
                 <Can action="create" subject="Programa">
-                    <button className="btn btn-primary">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+                    <button className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0">
+                        <Plus className="w-5 h-5" />
                         Nuevo Programa
                     </button>
                 </Can>
             </div>
 
-            {/* Filtros */}
-            <div className="card">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
-                            Buscar
-                        </label>
+            {/* Filtros de Alta Jerarquía */}
+            <Card className="p-2 border-border/40 bg-card/30 backdrop-blur-md">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div className="relative md:col-span-2">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Nombre del programa..."
-                            className="input"
+                            placeholder="Buscar programa por nombre o código..."
+                            className="w-full h-12 pl-12 pr-4 rounded-xl bg-muted/30 border border-border/50 focus:border-primary transition-all outline-none text-sm font-bold"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
-                            Estado
-                        </label>
-                        <select className="input">
-                            <option value="">Todos</option>
-                            <option value="activo">Activos</option>
-                            <option value="inactivo">Inactivos</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
-                            Tipo
-                        </label>
-                        <select className="input">
-                            <option value="">Todos</option>
-                            <option value="diplomado">Diplomado</option>
-                            <option value="curso">Curso</option>
-                            <option value="taller">Taller</option>
-                        </select>
-                    </div>
+                    <select
+                        className="h-12 px-4 rounded-xl bg-muted/30 border border-border/50 focus:border-primary transition-all outline-none text-xs font-bold text-foreground cursor-pointer"
+                        value={filterEstado}
+                        onChange={(e) => setFilterEstado(e.target.value)}
+                    >
+                        <option value="">TODOS LOS ESTADOS</option>
+                        <option value="activo">ACTIVOS</option>
+                        <option value="inactivo">INACTIVOS</option>
+                    </select>
+                    <select
+                        className="h-12 px-4 rounded-xl bg-muted/30 border border-border/50 focus:border-primary transition-all outline-none text-xs font-bold text-foreground cursor-pointer"
+                        value={filterTipo}
+                        onChange={(e) => setFilterTipo(e.target.value)}
+                    >
+                        <option value="">TODOS LOS TIPOS</option>
+                        <option value="diplomado">DIPLOMADOS</option>
+                        <option value="curso">CURSOS</option>
+                        <option value="taller">TALLERES</option>
+                    </select>
                 </div>
-            </div>
+            </Card>
 
-            {/* Tabla */}
-            <div className="card">
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-[var(--text-secondary)]">Cargando programas...</p>
+            {/* Grid de Programas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <AnimatePresence mode='popLayout'>
+                    {isLoading ? (
+                        Array(8).fill(0).map((_, i) => (
+                            <Card key={i} className="h-64 animate-pulse bg-muted/20 border-border/40 rounded-[32px]" />
+                        ))
+                    ) : filteredProgramas.length === 0 ? (
+                        <div className="col-span-full py-20 text-center space-y-4 opacity-40">
+                            <div className="flex justify-center"><Search className="w-12 h-12" /></div>
+                            <p className="text-sm font-black uppercase tracking-[0.2em]">No se encontraron programas registrados</p>
                         </div>
-                    </div>
-                ) : error ? (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                        {error}
-                    </div>
-                ) : programas.length === 0 ? (
-                    <div className="text-center py-12">
-                        <svg className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <p className="text-[var(--text-secondary)] text-lg">No hay programas registrados</p>
-                        <Can action="create" subject="Programa">
-                            <button className="btn btn-primary mt-4">
-                                Crear Primer Programa
-                            </button>
-                        </Can>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Tipo</th>
-                                    <th>Modalidad</th>
-                                    <th>Carga Horaria</th>
-                                    <th>Costo</th>
-                                    <th>Estado</th>
-                                    <th className="text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {programas.map((programa) => (
-                                    <tr key={programa.id}>
-                                        <td className="font-mono text-sm">{programa.codigo || 'N/A'}</td>
-                                        <td>
-                                            <div className="font-medium text-[var(--text-main)]">
+                    ) : (
+                        filteredProgramas.map((programa) => (
+                            <motion.div
+                                key={programa.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                            >
+                                <Card className="group relative border-border/40 overflow-hidden bg-card hover:border-primary/40 transition-all p-6 rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-primary/5 flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="p-4 rounded-2xl bg-indigo-500/5 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
+                                            <Award className="w-8 h-8" />
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border/50">
+                                                {programa.codigo || 'S/C'}
+                                            </span>
+                                            <StatusBadge status={programa.estadoInscripcion ? 'ACTIVO' : 'INACTIVO'} showIcon={false} />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 flex-1">
+                                        <div className="space-y-1">
+                                            <h3 className="text-base font-black tracking-tight text-foreground uppercase group-hover:text-primary transition-colors line-clamp-2">
                                                 {programa.nombre}
-                                            </div>
-                                            {programa.nombreAbre && (
-                                                <div className="text-xs text-[var(--text-tertiary)]">
-                                                    {programa.nombreAbre}
+                                            </h3>
+                                            <span className="inline-block text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 border border-amber-500/10">
+                                                {programa.tipoId || 'Programa'}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 py-4 border-y border-border/40">
+                                            <div className="space-y-1">
+                                                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Inversión</p>
+                                                <div className="flex items-center gap-1 text-primary">
+                                                    <DollarSign className="w-3 h-3 font-bold" />
+                                                    <span className="text-[12px] font-black">{programa.costo.toLocaleString()} <span className="text-[8px] font-bold uppercase">Bs</span></span>
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <span className="badge badge-primary">
-                                                {programa.tipoId}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="badge">
-                                                {programa.modalidadId}
-                                            </span>
-                                        </td>
-                                        <td>{programa.cargaHoraria} hrs</td>
-                                        <td className="font-medium">Bs. {programa.costo.toLocaleString()}</td>
-                                        <td>
-                                            {programa.estadoInscripcion ? (
-                                                <span className="badge badge-success">Activo</span>
-                                            ) : (
-                                                <span className="badge badge-error">Inactivo</span>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Can action="read" subject="Programa">
-                                                    <button
-                                                        className="btn btn-sm btn-ghost"
-                                                        title="Ver detalles"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                    </button>
-                                                </Can>
-
-                                                <Can action="update" subject="Programa">
-                                                    <button
-                                                        className="btn btn-sm btn-ghost text-primary-600"
-                                                        title="Editar"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                    </button>
-                                                </Can>
-
-                                                <Can action="delete" subject="Programa">
-                                                    <button
-                                                        className="btn btn-sm btn-ghost text-error-500"
-                                                        title="Eliminar"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                </Can>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                            <div className="space-y-1">
+                                                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Carga Horaria</p>
+                                                <div className="flex items-center gap-1 text-indigo-500">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span className="text-[10px] font-black">{programa.cargaHoraria} <span className="text-[8px] font-bold">Hrs</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-6 flex items-center justify-end gap-2">
+                                        <Can action="read" subject="Programa">
+                                            <button className="p-2.5 rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary hover:text-white transition-all">
+                                                <Eye className="w-4 h-4" />
+                                            </button>
+                                        </Can>
+                                        <Can action="update" subject="Programa">
+                                            <button className="p-2.5 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                        </Can>
+                                        <Can action="delete" subject="Programa">
+                                            <button className="p-2.5 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </Can>
+                                    </div>
+                                </Card>
+                            </motion.div>
+                        ))
+                    )}
+                </AnimatePresence>
             </div>
-
-            {/* Paginación */}
-            {!isLoading && programas.length > 0 && (
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-[var(--text-secondary)]">
-                        Mostrando <span className="font-medium">{programas.length}</span> programas
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                        <button className="btn btn-sm btn-outline" disabled>
-                            Anterior
-                        </button>
-                        <button className="btn btn-sm btn-primary">1</button>
-                        <button className="btn btn-sm btn-outline">2</button>
-                        <button className="btn btn-sm btn-outline">3</button>
-                        <button className="btn btn-sm btn-outline">
-                            Siguiente
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

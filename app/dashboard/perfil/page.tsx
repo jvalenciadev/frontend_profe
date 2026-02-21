@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService } from '@/services/userService';
 import { Card } from '@/components/ui/Card';
+import Link from 'next/link';
+import { uploadService } from '@/services/uploadService';
 import {
     User as UserIcon,
     Mail,
@@ -18,15 +20,25 @@ import {
     Briefcase,
     Activity,
     ChevronRight,
-    Fingerprint
+    Fingerprint,
+    FileText,
+    Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useProfe } from '@/contexts/ProfeContext';
 
 export default function PerfilPage() {
     const { user, logout, updateUser } = useAuth();
+    const { config: profe } = useProfe();
+
+    const IMG = (src: string | null) => {
+        if (!src) return null;
+        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+    };
     const [isLoading, setIsLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [formData, setFormData] = useState({
         nombre: '',
         apellidos: '',
@@ -69,6 +81,31 @@ export default function PerfilPage() {
             }));
         }
     }, [user]);
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const validation = uploadService.validateFile(file);
+        if (!validation.valid) {
+            toast.error(validation.error);
+            return;
+        }
+
+        try {
+            setUploading(true);
+            const res = await uploadService.uploadFile(file, 'usuarios');
+            if (res.success) {
+                const imageUrl = res.data.path;
+                setFormData(prev => ({ ...prev, imagen: imageUrl }));
+                toast.success('Imagen cargada correctamente. No olvides guardar los cambios para sincronizar.');
+            }
+        } catch (error) {
+            toast.error('Error al subir la imagen');
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -131,20 +168,46 @@ export default function PerfilPage() {
             {/* Header Section: Premium Studio */}
             <div className="flex flex-col md:flex-row items-center gap-10 mt-10">
                 <div className="relative group">
-                    <div className="w-44 h-44 rounded-[3.5rem] bg-card border-2 border-border shadow-2xl flex items-center justify-center overflow-hidden transition-transform duration-500 group-hover:scale-[1.02]">
-                        {user.imagen ? (
-                            <img src={user.imagen} alt="Profile" className="w-full h-full object-cover" />
+                    <input
+                        type="file"
+                        id="profile-image-upload"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        disabled={uploading}
+                    />
+                    <label
+                        htmlFor="profile-image-upload"
+                        className="w-44 h-44 rounded-[3.5rem] bg-card border-2 border-border shadow-2xl flex items-center justify-center overflow-hidden transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
+                    >
+                        {formData.imagen ? (
+                            <img
+                                src={formData.imagen.startsWith('http') ? formData.imagen : `http://localhost:3000${formData.imagen}`}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                            />
                         ) : (
-                            <div className="w-full h-full bg-primary/5 flex items-center justify-center">
-                                <span className="text-5xl font-black text-primary">
-                                    {user.nombre?.charAt(0)}{user.apellidos?.charAt(0)}
-                                </span>
+                            <div className="w-full h-full bg-primary/5 flex items-center justify-center p-8">
+                                {profe?.imagen ? (
+                                    <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                ) : (
+                                    <span className="text-5xl font-black text-primary">
+                                        {user.nombre?.charAt(0)}{user.apellidos?.charAt(0)}
+                                    </span>
+                                )}
                             </div>
                         )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                             <Camera className="w-8 h-8 text-white" />
+                            <span className="text-[10px] font-black uppercase text-white tracking-widest">Cambiar Foto</span>
                         </div>
-                    </div>
+                        {uploading && (
+                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                                <span className="text-[10px] font-black uppercase text-white tracking-widest">Subiendo...</span>
+                            </div>
+                        )}
+                    </label>
                     <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-card shadow-xl flex items-center justify-center border border-border">
                         <Activity className="w-5 h-5 text-emerald-500" />
                     </div>
@@ -180,6 +243,13 @@ export default function PerfilPage() {
                 </div>
 
                 <div className="flex gap-4">
+                    <Link
+                        href="/dashboard/mi-ficha"
+                        className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-2"
+                    >
+                        <FileText className="w-5 h-5" />
+                        Mi Ficha
+                    </Link>
                     <button onClick={logout} className="h-14 px-8 rounded-2xl bg-card border border-border text-muted-foreground font-black text-[10px] uppercase tracking-widest hover:bg-destructive/10 hover:text-destructive transition-all shadow-sm">
                         Desconectar
                     </button>

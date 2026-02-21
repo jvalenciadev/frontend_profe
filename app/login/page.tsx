@@ -2,16 +2,24 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/services/authService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, User as UserIcon, Lock, AlertCircle, Building2, TrendingUp, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { useProfe } from '@/contexts/ProfeContext';
 
 export default function LoginPage() {
     const router = useRouter();
     const { login, isAuthenticated } = useAuth();
+    const { config: profe } = useProfe();
+
+    const IMG = (src: string | null) => {
+        if (!src) return null;
+        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+    };
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [email, setEmail] = useState(''); // Estado para recuperación
@@ -138,10 +146,14 @@ export default function LoginPage() {
                         <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="w-16 h-16 bg-primary rounded-[2rem] flex items-center justify-center text-white font-black text-3xl shadow-2xl shadow-primary/30 mx-auto lg:mx-0"
+                            className="w-16 h-16 bg-white dark:bg-card rounded-[2rem] flex items-center justify-center shadow-2xl shadow-primary/30 mx-auto lg:mx-0 overflow-hidden border border-border/50"
                             suppressHydrationWarning={true}
                         >
-                            P
+                            {profe?.imagen ? (
+                                <img src={IMG(profe.imagen)!} className="w-10 h-10 object-contain" alt="Logo" />
+                            ) : (
+                                <span className="text-primary font-black text-3xl">P</span>
+                            )}
                         </motion.div>
                         <div className="text-center lg:text-left" suppressHydrationWarning={true}>
                             <h3 className="text-3xl font-black tracking-tighter">
@@ -247,6 +259,13 @@ export default function LoginPage() {
                                         'Entrar al Sistema'
                                     )}
                                 </Button>
+
+                                <div className="text-center pt-2">
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                                        ¿Quieres postularte?
+                                        <Link href="/registro-profe" className="text-primary font-black ml-2 hover:underline">Registra tu perfil aquí</Link>
+                                    </p>
+                                </div>
                             </motion.form>
                         ) : (
                             <motion.form
@@ -305,7 +324,7 @@ export default function LoginPage() {
                     <div className="pt-8 text-center border-t border-border/40" suppressHydrationWarning={true}>
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
                             Seguridad de Grado Institucional <br />
-                            <span className="text-foreground">PROFE Bolivia © 2026</span>
+                            <span className="text-foreground uppercase tracking-[0.1em]">Ministerio de Educación © {new Date().getFullYear()} PROFE Bolivia</span>
                         </p>
                     </div>
                 </div>

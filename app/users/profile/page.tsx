@@ -7,7 +7,7 @@ export default function UsersProfileRedirect() {
     const router = useRouter();
 
     useEffect(() => {
-        router.push('/dashboard/perfil');
+        router.push('/dashboard/mi-ficha');
     }, [router]);
 
     return (

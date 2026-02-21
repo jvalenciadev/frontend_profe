@@ -16,12 +16,11 @@ import {
     Clock,
     Tag,
     Building2,
-    X,
-    Trophy,
-    Users,
     Activity,
-    CheckCircle2
+    CheckCircle2,
+    Save
 } from 'lucide-react';
+import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -266,9 +265,7 @@ export default function EventosPage() {
                                     <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                                     <div className="absolute top-6 left-6 flex gap-2">
-                                        <span className="px-4 py-2 rounded-2xl bg-card border border-border/50 text-primary text-[9px] font-black uppercase tracking-widest shadow-lg">
-                                            {evento.estado}
-                                        </span>
+                                        <StatusBadge status={evento.estado || 'ACTIVO'} className="bg-card/90 backdrop-blur-md" />
                                     </div>
 
                                     <div className="absolute bottom-6 left-6 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
@@ -551,7 +548,7 @@ export default function EventosPage() {
                                                 type="submit" disabled={isLoading}
                                                 className="flex-1 h-20 rounded-[2rem] bg-primary text-white text-[12px] font-black uppercase tracking-[0.4em] shadow-3xl shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
                                             >
-                                                {isLoading ? <Clock className="w-6 h-6 animate-spin" /> : <SaveIcon className="w-6 h-6" />}
+                                                {isLoading ? <Clock className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                                                 {editingEvento ? 'Guardar Cambios Agenda' : 'Publicar Nuevo Evento'}
                                             </button>
                                         </div>
@@ -594,10 +591,4 @@ export default function EventosPage() {
     );
 }
 
-function SaveIcon({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className={className}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .407.16.795.446 1.082a1.53 1.53 0 001.082.446c.231 0 .454-.035.664-.1m3.673 3.673c-.21.065-.433.1-.664.1a1.53 1.53 0 01-1.082-.446 1.53 1.53 0 01-.446-1.082c0-.231.035-.454.1-.664m-5.87 5.87c-.21.065-.433.1-.664.1a1.53 1.53 0 01-1.082-.446 1.53 1.53 0 01-.446-1.082c0-.231.035-.454.1-.664m5.87 5.87c-.21.065-.433.1-.664.1a1.53 1.53 0 01-1.082-.446 1.53 1.53 0 01-.446-1.082c0-.231.035-.454.1-.664M9 21h6a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902-.11-1.342 0l-4.423 1.106c-.5.125-.852.575-.852 1.091V18.75A2.25 2.25 0 009 21z" />
-        </svg>
-    )
-}
+

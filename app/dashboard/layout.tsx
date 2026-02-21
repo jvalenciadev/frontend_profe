@@ -11,13 +11,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Infinity as InfinityIcon } from 'lucide-react';
 import { GlobalErrorModal } from '@/components/GlobalErrorModal';
+import { ProfeProvider } from '@/contexts/ProfeContext';
 
 export default function DashboardLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, user } = useAuth();
     const { isSidebarCollapsed } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
@@ -30,15 +31,22 @@ export default function DashboardLayout({
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
             router.push('/login');
+            return;
         }
-    }, [isAuthenticated, isLoading, router]);
+
+        if (!isLoading && isAuthenticated && (user as any)?.requiresPasswordChange && pathname !== '/dashboard/reset-password') {
+            router.push('/dashboard/reset-password');
+        }
+    }, [isAuthenticated, isLoading, user, pathname, router]);
 
     if (!mounted || isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background overflow-hidden relative" suppressHydrationWarning>
                 {/* Dynamic Ambient Background */}
-                <div className="absolute inset-0 z-0">
+                {/* Dynamic Ambient Background */}
+                <div className="absolute inset-0 z-0" suppressHydrationWarning>
                     <motion.div
+                        suppressHydrationWarning
                         animate={{
                             scale: [1, 1.2, 1],
                             opacity: [0.3, 0.4, 0.3],
@@ -48,6 +56,7 @@ export default function DashboardLayout({
                         className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[120px] rounded-full"
                     />
                     <motion.div
+                        suppressHydrationWarning
                         animate={{
                             scale: [1.2, 1, 1.2],
                             opacity: [0.2, 0.3, 0.2],
@@ -59,11 +68,12 @@ export default function DashboardLayout({
                 </div>
 
                 {/* Main Content */}
-                <div className="relative z-10 flex flex-col items-center">
+                <div className="relative z-10 flex flex-col items-center" suppressHydrationWarning>
                     {/* Minimalist Liquid Loader */}
-                    <div className="relative mb-12">
+                    <div className="relative mb-12" suppressHydrationWarning>
                         {/* Outer Glow */}
                         <motion.div
+                            suppressHydrationWarning
                             animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
                             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                             className="absolute inset-0 bg-primary/20 blur-3xl rounded-full"
@@ -71,25 +81,20 @@ export default function DashboardLayout({
 
                         {/* Central Icon Container */}
                         <motion.div
+                            suppressHydrationWarning
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.8, ease: "easeOut" }}
                             className="relative w-28 h-28 bg-card border border-border/50 backdrop-blur-md rounded-[2.5rem] flex items-center justify-center shadow-2xl overflow-hidden group"
                         >
                             {/* Animated Background inside the card */}
-                            <motion.div
-                                animate={{
-                                    y: [0, -20, 0],
-                                    rotate: 360
-                                }}
-                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                                className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-primary/10 opacity-50"
-                            />
+                            <div className="absolute inset-0 bg-primary/5 opacity-50" />
 
                             <motion.div
                                 animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                 className="relative z-10"
+                                suppressHydrationWarning
                             >
                                 <InfinityIcon className="w-14 h-14 text-primary" strokeWidth={1.5} />
                             </motion.div>
@@ -99,6 +104,7 @@ export default function DashboardLayout({
                                 animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
                                 transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
                                 className="absolute inset-0 bg-primary/10 rounded-full"
+                                suppressHydrationWarning
                             />
                         </motion.div>
 
@@ -109,11 +115,13 @@ export default function DashboardLayout({
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 4 + i, repeat: Infinity, ease: "linear" }}
                                 className="absolute inset-[-20px] pointer-events-none"
+                                suppressHydrationWarning
                             >
                                 <motion.div
                                     animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.8, 0.3] }}
                                     transition={{ duration: 2, delay: i * 0.5, repeat: Infinity }}
                                     className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rounded-full blur-[1px]"
+                                    suppressHydrationWarning
                                 />
                             </motion.div>
                         ))}
@@ -125,20 +133,22 @@ export default function DashboardLayout({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
                         className="text-center space-y-6"
+                        suppressHydrationWarning
                     >
-                        <div className="space-y-2">
-                            <h3 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center justify-center gap-3">
+                        <div className="space-y-2" suppressHydrationWarning>
+                            <h3 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center justify-center gap-3" suppressHydrationWarning>
                                 <span>Programa</span>
-                                <span className="relative">
-                                    <span className="relative z-10 text-primary">PROFE</span>
+                                <span className="relative" suppressHydrationWarning>
+                                    <span className="relative z-10 text-primary" suppressHydrationWarning>PROFE</span>
                                     <motion.span
                                         animate={{ height: ['0%', '30%', '0%'] }}
                                         transition={{ duration: 3, repeat: Infinity }}
                                         className="absolute bottom-1 left-0 right-0 bg-primary/20 -z-0 rounded-full"
+                                        suppressHydrationWarning
                                     />
                                 </span>
                             </h3>
-                            <div className="flex items-center justify-center gap-2 text-muted-foreground/60">
+                            <div className="flex items-center justify-center gap-2 text-muted-foreground/60" suppressHydrationWarning>
                                 <span className="h-[1px] w-8 bg-border" />
                                 <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Plataforma de Formación</span>
                                 <span className="h-[1px] w-8 bg-border" />
@@ -146,11 +156,12 @@ export default function DashboardLayout({
                         </div>
 
                         {/* Minimal Progress Indicator */}
-                        <div className="relative w-48 h-1 bg-muted rounded-full overflow-hidden mx-auto">
+                        <div className="relative w-48 h-1 bg-muted rounded-full overflow-hidden mx-auto" suppressHydrationWarning>
                             <motion.div
                                 animate={{ x: ['-100%', '100%'] }}
                                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-primary to-transparent"
+                                className="absolute inset-y-0 w-1/2 bg-primary/40"
+                                suppressHydrationWarning
                             />
                         </div>
 
@@ -165,7 +176,7 @@ export default function DashboardLayout({
                 </div>
 
                 {/* Aesthetic Detail: Grainy Overlay */}
-                <div className="absolute inset-0 bg-repeat opacity-[0.03] pointer-events-none mix-blend-overlay" style={{ backgroundImage: "url('https://grainy-gradients.vercel.app/noise.svg')" }} />
+                <div className="absolute inset-0 bg-repeat opacity-[0.03] pointer-events-none mix-blend-overlay" style={{ backgroundImage: "url('https://grainy-gradients.vercel.app/noise.svg')" }} suppressHydrationWarning />
             </div>
         );
     }
@@ -179,11 +190,11 @@ export default function DashboardLayout({
             <div className={cn(
                 "flex-1 flex flex-col transition-all duration-500 ease-in-out",
                 "pl-0 md:pl-0", // base mobile
-                isSidebarCollapsed ? "md:pl-24" : "md:pl-80"
+                isSidebarCollapsed ? "md:pl-[100px]" : "md:pl-[320px]"
             )} suppressHydrationWarning>
                 <Header />
 
-                <main className="flex-1 px-8 py-8 max-w-[1920px] mx-auto w-full">
+                <main className="flex-1 px-8 py-8 max-w-[1920px] mx-auto w-full" suppressHydrationWarning>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}
@@ -191,16 +202,17 @@ export default function DashboardLayout({
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.4, ease: "easeOut" }}
+                            suppressHydrationWarning
                         >
                             {children}
                         </motion.div>
                     </AnimatePresence>
                 </main>
 
-                <footer className="px-10 py-8 flex items-center justify-between border-t border-border/10 text-muted-foreground/30 mt-auto">
-                    <p className="text-[10px] font-bold uppercase tracking-widest">PROFE OS v4.5.0 | Secure Infrastructure</p>
+                <footer className="px-10 py-8 flex items-center justify-between border-t border-border/10 text-muted-foreground/30 mt-auto" suppressHydrationWarning>
+                    <p className="text-[10px] font-bold uppercase tracking-widest">Ministerio de Educación © {new Date().getFullYear()} | PROFE BOLIVIA</p>
                     <div className="flex items-center gap-6">
-                        <span className="text-[9px] font-bold uppercase tracking-widest">Bolivia 2026</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest">Bolivia {new Date().getFullYear()}</span>
                     </div>
                 </footer>
 

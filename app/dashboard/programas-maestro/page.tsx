@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { StatusBadge } from '@/components/StatusBadge';
 
 export default function ProgramasMaestroPage() {
     const [programas, setProgramas] = useState<any[]>([]);
@@ -297,7 +298,7 @@ export default function ProgramasMaestroPage() {
                                     </div>
                                     <h2 className="text-xl font-black uppercase tracking-tighter text-foreground">{tipoName}</h2>
                                     <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-md">{groupProgramas.length}</span>
-                                    <div className="h-px flex-1 bg-gradient-to-r from-border/60 to-transparent"></div>
+                                    <div className="h-px flex-1 bg-border/60"></div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -316,18 +317,11 @@ export default function ProgramasMaestroPage() {
                                                 <div className="p-6 space-y-6 relative">
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary group-hover:from-primary group-hover:to-primary/90 group-hover:text-white transition-all shadow-sm">
+                                                            <div className="p-3 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
                                                                 <GraduationCap className="w-6 h-6" />
                                                             </div>
                                                             {/* Estado Badge */}
-                                                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${programa.estado === 'ACTIVO'
-                                                                ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-                                                                : programa.estado === 'INACTIVO'
-                                                                    ? 'text-amber-600 bg-amber-50 border-amber-200'
-                                                                    : 'text-rose-600 bg-rose-50 border-rose-200'
-                                                                }`}>
-                                                                {programa.estado || 'ACTIVO'}
-                                                            </span>
+                                                            <StatusBadge status={programa.estado || 'ACTIVO'} />
                                                         </div>
                                                         <div className="flex flex-col items-end gap-1">
                                                             <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-border/50">

@@ -27,6 +27,7 @@ export interface User {
     facebook?: string;
     tiktok?: string;
     cargo?: string;
+    cargoPostulacionId?: string;
     celular?: number;
     tenantId?: string;
     personaId?: string;
@@ -40,6 +41,9 @@ export interface User {
     activo?: boolean;
     estado?: string;
     sedes?: SedePivot[];
+    cargoPostulacion?: any;
+    ci?: string | number;
+    requiresPasswordChange?: boolean;
 }
 
 // Tipos de Permisos

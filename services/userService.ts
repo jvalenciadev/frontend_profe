@@ -44,5 +44,17 @@ export const userService = {
         // Despues de actualizar, obtenemos el perfil completo con permisos y roles
         // ya que el endpoint de update no devuelve las relaciones ni el ability
         return await authService.getProfile();
+    },
+
+    // Resetear contraseña
+    resetPassword: async (id: string) => {
+        const { data } = await api.post(`/users/${id}/reset-password`);
+        return data;
+    },
+
+    // Solicitar verificación de email dinámicamente
+    requestEmailVerification: async (email: string) => {
+        const { data } = await api.post('/users/request-email-verification', { email });
+        return data;
     }
 };
