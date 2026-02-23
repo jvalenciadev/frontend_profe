@@ -27,6 +27,14 @@ export const publicService = {
     async getDepartamentos(): Promise<any[]> {
         const { data } = await api.get<any[]>('/public/departamentos');
         return data;
+    },
+
+    /**
+     * Obtiene la lista de modalidades activas
+     */
+    async getModalidades(): Promise<any[]> {
+        const { data } = await api.get<any[]>('/public/modalidades');
+        return data;
     }
 };
 

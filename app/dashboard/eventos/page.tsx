@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { eventoService, type Evento } from '@/services/eventoService';
 import { departmentService } from '@/services/departmentService';
+import { programaLookupService } from '@/services/programaLookupService';
 import {
     Calendar,
     Plus,
@@ -18,20 +21,27 @@ import {
     Building2,
     Activity,
     CheckCircle2,
-    Save
+    Save,
+    Trophy,
+    Users,
+    X,
+    Settings2,
+    ExternalLink
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Modal } from '@/components/Modal';
 
 export default function EventosPage() {
     const { user, isSuperAdmin } = useAuth();
+    const router = useRouter();
     const [eventos, setEventos] = useState<Evento[]>([]);
     const [tipos, setTipos] = useState<any[]>([]);
     const [departamentos, setDepartamentos] = useState<any[]>([]);
+    const [modalidades, setModalidades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,13 +53,13 @@ export default function EventosPage() {
         codigo: '',
         banner: '',
         afiche: '',
-        modulosIds: '',
+        modalidadIds: '', // Added field
         fecha: new Date().toISOString().split('T')[0],
-        inscripcion: true,
+        inscripcionAbierta: true,
         asistencia: false,
         lugar: '',
-        totalInscrito: 0,
-        estado: 'ACTIVO',
+        totalInscritos: 0,
+        estado: 'activo',
         tipoId: '',
         tenantId: ''
     });
@@ -66,11 +76,13 @@ export default function EventosPage() {
 
     const loadMetadata = async () => {
         try {
-            const [typesData, deptsData] = await Promise.all([
+            const [typesData, deptsData, modsData] = await Promise.all([
                 eventoService.getTipos(),
-                departmentService.getAll()
+                departmentService.getAll(),
+                programaLookupService.getModalidades()
             ]);
             setTipos(typesData);
+            setModalidades(modsData);
 
             // Si es SuperAdmin ve todos, sino solo el suyo
             if (isSuperAdmin()) {
@@ -108,13 +120,13 @@ export default function EventosPage() {
                 codigo: evento.codigo || '',
                 banner: evento.banner || '',
                 afiche: evento.afiche || '',
-                modulosIds: evento.modulosIds || '',
+                modalidadIds: (evento as any).modalidadIds || '',
                 fecha: evento.fecha ? evento.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
-                inscripcion: evento.inscripcion ?? true,
+                inscripcionAbierta: (evento as any).inscripcionAbierta ?? true,
                 asistencia: evento.asistencia ?? false,
                 lugar: evento.lugar || '',
-                totalInscrito: evento.totalInscrito || 0,
-                estado: evento.estado || 'ACTIVO',
+                totalInscritos: evento.totalInscritos || 0,
+                estado: evento.estado || 'activo',
                 tipoId: evento.tipoId || '',
                 tenantId: evento.tenantId || ''
             });
@@ -132,13 +144,13 @@ export default function EventosPage() {
             codigo: '',
             banner: '',
             afiche: '',
-            modulosIds: '',
+            modalidadIds: '',
             fecha: new Date().toISOString().split('T')[0],
-            inscripcion: true,
+            inscripcionAbierta: true,
             asistencia: false,
             lugar: '',
-            totalInscrito: 0,
-            estado: 'ACTIVO',
+            totalInscritos: 0,
+            estado: 'activo',
             tipoId: tipos[0]?.id || '',
             tenantId: isSuperAdmin() ? '' : (user?.tenantId || '')
         });
@@ -150,7 +162,7 @@ export default function EventosPage() {
             const payload = {
                 ...formData,
                 fecha: new Date(formData.fecha).toISOString(),
-                totalInscrito: Number(formData.totalInscrito),
+                totalInscritos: Number(formData.totalInscritos),
                 tenantId: formData.tenantId || null
             };
 
@@ -256,7 +268,7 @@ export default function EventosPage() {
                                 {/* Banner Visual */}
                                 <div className="relative h-48 overflow-hidden bg-muted">
                                     {evento.banner ? (
-                                        <img src={evento.banner} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={evento.nombre} />
+                                        <img src={getImageUrl(evento.banner)} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={evento.nombre} />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-muted">
                                             <Calendar className="w-20 h-20" />
@@ -274,7 +286,7 @@ export default function EventosPage() {
                                                 <div className="w-8 h-8 rounded-full border border-white/50 flex items-center justify-center text-white">
                                                     <Users className="w-4 h-4" />
                                                 </div>
-                                                <span className="text-white text-[9px] font-black uppercase tracking-widest">{evento.totalInscrito} Inscritos</span>
+                                                <span className="text-white text-[9px] font-black uppercase tracking-widest">{evento.totalInscritos} Inscritos</span>
                                             </div>
                                             {(evento as any).tipo && (
                                                 <div className="flex items-center gap-3">
@@ -338,8 +350,11 @@ export default function EventosPage() {
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <button className="px-5 py-3 rounded-2xl bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all">
-                                            Ver Detalles
+                                        <button
+                                            onClick={() => router.push(`/dashboard/eventos/${evento.id}`)}
+                                            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary text-white text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">
+                                            <Settings2 className="w-3.5 h-3.5" />
+                                            Panel Operativo
                                         </button>
                                     </div>
                                 </div>
@@ -476,22 +491,27 @@ export default function EventosPage() {
                                                             onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                                                             className="w-full h-16 px-8 rounded-3xl bg-muted/30 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-black"
                                                         >
-                                                            <option value="ACTIVO">Activo / Visible</option>
-                                                            <option value="INACTIVO">Inactivo / Oculto</option>
-                                                            <option value="CANCELADO">Cancelado</option>
-                                                            <option value="FINALIZADO">Finalizado</option>
+                                                            <option value="activo">Activo / Visible</option>
+                                                            <option value="inactivo">Inactivo / Oculto</option>
+                                                            <option value="cancelado">Cancelado</option>
+                                                            <option value="finalizado">Finalizado</option>
                                                         </select>
                                                     </div>
-                                                    <div className="space-y-3">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Cupos / Afiches (IDs)</label>
-                                                        <input
-                                                            type="text"
-                                                            value={formData.modulosIds}
-                                                            onChange={(e) => setFormData({ ...formData, modulosIds: e.target.value })}
-                                                            className="w-full h-16 px-8 rounded-3xl bg-muted/30 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-black"
-                                                            placeholder="Modulos IDs (opcional)"
-                                                        />
-                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <label className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Modalidad *</label>
+                                                    <select
+                                                        value={formData.modalidadIds}
+                                                        onChange={(e) => setFormData({ ...formData, modalidadIds: e.target.value })}
+                                                        className="w-full h-16 px-8 rounded-3xl bg-muted/30 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-black"
+                                                        required
+                                                    >
+                                                        <option value="">Seleccione Modalidad</option>
+                                                        {modalidades.map(m => (
+                                                            <option key={m.id} value={m.id}>{m.nombre}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
 
                                                 <ImageUpload
@@ -511,10 +531,10 @@ export default function EventosPage() {
                                                 <div className="grid grid-cols-2 gap-6 pt-4">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setFormData({ ...formData, inscripcion: !formData.inscripcion })}
+                                                        onClick={() => setFormData({ ...formData, inscripcionAbierta: !formData.inscripcionAbierta })}
                                                         className={cn(
                                                             "h-20 rounded-3xl border-2 transition-all flex flex-col items-center justify-center gap-1",
-                                                            formData.inscripcion ? "bg-primary border-primary text-white shadow-xl shadow-primary/20" : "bg-muted/30 border-transparent text-muted-foreground"
+                                                            formData.inscripcionAbierta ? "bg-primary border-primary text-white shadow-xl shadow-primary/20" : "bg-muted/30 border-transparent text-muted-foreground"
                                                         )}
                                                     >
                                                         <CheckCircle2 className="w-6 h-6" />

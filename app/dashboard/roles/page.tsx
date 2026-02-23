@@ -68,10 +68,10 @@ export default function RolesPage() {
             setEditingRole(role);
             setFormData({
                 name: role.name,
-                permissionIds: role.permissions?.map(p => {
-                    if (p && 'permission' in p) return p.permission.id;
+                permissionIds: (role.rolePermissions || role.permissions || []).map((p: any) => {
+                    if (p && typeof p === 'object' && 'permission' in p) return (p as any).permission.id;
                     return (p as any).id;
-                }) || []
+                })
             });
         } else {
             setEditingRole(null);
@@ -217,7 +217,7 @@ export default function RolesPage() {
                                                 <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Capacidades</span>
                                             </div>
                                             <span className="px-2 py-0.5 bg-muted rounded-md text-[9px] font-black text-foreground border border-border">
-                                                {(role.permissions || []).length}
+                                                {(role.rolePermissions || role.permissions || []).length}
                                             </span>
                                         </div>
                                     </div>

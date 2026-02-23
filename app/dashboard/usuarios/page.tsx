@@ -211,15 +211,22 @@ export default function UsuariosPage() {
                 payload.password = password;
             }
 
+            // Limpieza de UUIDs vacíos para evitar errores de Prisma (Invalid UUID length)
+            const cleanPayload = { ...payload };
+            ['personaId', 'tenantId', 'cargoPostulacionId'].forEach(key => {
+                if (cleanPayload[key] === '') {
+                    delete cleanPayload[key];
+                }
+            });
+
             if (editingUser) {
                 // Para actualización (PATCH), evitamos enviar username y correo
-                // que suelen ser identificadores inmutables en este backend.
-                await userService.update(editingUser.id, payload);
+                await userService.update(editingUser.id, cleanPayload);
                 toast.success('Cambios aplicados con éxito');
             } else {
                 // Para creación (POST), el payload completo es necesario
                 const createPayload = {
-                    ...payload,
+                    ...cleanPayload,
                     username,
                     correo
                 };

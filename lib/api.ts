@@ -77,11 +77,23 @@ api.interceptors.response.use(
 
         if (isSilent) return Promise.reject(error);
 
-        // 2. Errores de Cliente (4xx) y Sistema (5xx)
+        // 2. Manejo de Sesión Expirada (401)
+        if (status === 401) {
+            Cookies.remove('token');
+            Cookies.remove('user');
+
+            // Redirigir al login solo en el cliente y si no estamos ya allí
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
+            return Promise.reject(error);
+        }
+
+        // 3. Otros Errores de Cliente (4xx) y Sistema (5xx)
         if (backendError && backendError.success === false) {
             // Si el backend mandó el formato estandarizado de error
-            // Errores graves o lógicos (Conflict, Forbidden, Auth) van al Modal
-            if ([401, 403, 409, 500, 503].includes(status)) {
+            // Errores graves o lógicos (Conflict, Forbidden) van al Modal
+            if ([403, 409, 500, 503].includes(status)) {
                 errorStore.setError(backendError);
             } else {
                 // Errores más comunes (400, 404) pueden ir como Toast para no ser tan intrusivos
@@ -89,12 +101,6 @@ api.interceptors.response.use(
                     description: backendError.message,
                     className: 'bg-rose-500 text-white'
                 });
-            }
-
-            // Manejo específico de 401 (Unauthorized)
-            if (status === 401) {
-                Cookies.remove('token');
-                Cookies.remove('user');
             }
         } else {
             // Error genérico o de red

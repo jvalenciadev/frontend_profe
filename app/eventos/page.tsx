@@ -6,7 +6,7 @@ import { Calendar, Clock, MapPin, Sparkles, ArrowRight, Bell } from 'lucide-reac
 import Link from 'next/link';
 import GenericPageTemplate from '@/components/GenericPageTemplate';
 import publicService from '@/services/publicService';
-
+import { getImageUrl } from '@/lib/utils';
 import { useSearchParams } from 'next/navigation';
 
 export default function EventosPage() {
@@ -45,39 +45,79 @@ export default function EventosPage() {
                             <div key={i} className="h-96 rounded-[4rem] bg-slate-50 dark:bg-white/5 animate-pulse" />
                         ))
                     ) : filtered.length > 0 ? (
-                        filtered.map((evt, idx) => (
-                            <motion.div
-                                key={evt.id}
-                                initial={{ opacity: 0, x: idx % 2 === 0 ? -30 : 30 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                className="group relative p-12 rounded-[4rem] bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 overflow-hidden transition-all duration-700 hover:shadow-2xl"
-                            >
-                                <div className="flex flex-col md:flex-row gap-10 items-center md:items-start text-center md:text-left">
-                                    <div className="flex-shrink-0 w-32 h-32 rounded-3xl bg-primary-600 text-white flex flex-col items-center justify-center space-y-1 shadow-2xl">
-                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Evento</span>
-                                        <Calendar className="w-8 h-8" />
+                        filtered.map((evt, idx) => {
+                            const cuestionarioActivo = evt.cuestionarios?.some((c: any) => {
+                                const now = new Date();
+                                return c.estado === 'activo' && new Date(c.fechaInicio) <= now && new Date(c.fechaFin) >= now;
+                            });
+
+                            return (
+                                <motion.div
+                                    key={evt.id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    whileInView={{ opacity: 1, scale: 1 }}
+                                    className="group relative rounded-[3rem] bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2"
+                                >
+                                    {/* Image Section */}
+                                    <div className="relative h-64 overflow-hidden">
+                                        {evt.banner ? (
+                                            <img src={getImageUrl(evt.banner)} alt={evt.nombre} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-primary-600 to-indigo-600 flex items-center justify-center">
+                                                <Calendar className="w-16 h-16 text-white/20" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+
+                                        {/* Badges on image */}
+                                        <div className="absolute top-6 left-6 flex flex-wrap gap-2">
+                                            <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black uppercase tracking-widest">
+                                                {evt.tipo?.nombre || 'Evento'}
+                                            </span>
+                                            {cuestionarioActivo && (
+                                                <span className="px-3 py-1 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                                    Evaluación Disponible
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-6 flex-1">
-                                        <div className="flex items-center justify-center md:justify-start gap-4">
-                                            <span className="px-4 py-1.5 rounded-full bg-primary-600/10 text-primary-600 text-[10px] font-black uppercase tracking-widest border border-primary-600/20">
-                                                Oficial PROFE
-                                            </span>
-                                            <div className="flex items-center gap-2 text-slate-400">
-                                                <Clock className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">Próximamente</span>
+                                    {/* Content Section */}
+                                    <div className="p-10 space-y-6">
+                                        <div className="flex items-center gap-4 text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="w-4 h-4" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                    {new Date(evt.fecha).toLocaleDateString('es-BO', { day: 'numeric', month: 'short' })}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="w-4 h-4" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[120px]">
+                                                    {evt.lugar || 'Nacional'}
+                                                </span>
                                             </div>
                                         </div>
-                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white tracking-tight leading-tight">{evt.nombre || 'Seminario de Alta Especialización'}</h3>
-                                        <p className="text-xl text-slate-500 dark:text-slate-400 font-medium">Únete a la vanguardia educativa nacional en este evento exclusivo para el magisterio.</p>
 
-                                        <button className="flex items-center gap-4 text-[11px] font-black uppercase tracking-[0.4em] text-primary-600 hover:gap-6 transition-all">
-                                            Confirmar Asistencia <ArrowRight className="w-5 h-5" />
-                                        </button>
+                                        <h3 className="text-3xl font-black text-slate-950 dark:text-white tracking-tight leading-tight group-hover:text-primary-600 transition-colors">
+                                            {evt.nombre}
+                                        </h3>
+
+                                        <p className="text-lg text-slate-500 dark:text-slate-400 font-medium line-clamp-2">
+                                            {evt.descripcion || 'Únete a la vanguardia educativa nacional en este evento exclusivo para el magisterio.'}
+                                        </p>
+
+                                        <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+                                            <Link href={`/eventos/${evt.codigo || evt.id}`}
+                                                className="flex items-center justify-between w-full text-[11px] font-black uppercase tracking-[0.3em] text-primary-600 hover:text-primary-700 transition-all">
+                                                <span>Participar Ahora</span>
+                                                <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                                            </Link>
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))
+                                </motion.div>
+                            );
+                        })
                     ) : (
                         <div className="col-span-full py-40 text-center space-y-8">
                             <div className="w-32 h-32 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto">

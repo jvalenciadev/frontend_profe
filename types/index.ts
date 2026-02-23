@@ -63,6 +63,7 @@ export interface Role {
     description?: string;
     guardName: string;
     permissions?: (Permission | PermissionPivot)[];
+    rolePermissions?: (Permission | PermissionPivot)[];
 }
 
 export interface RolePivot {

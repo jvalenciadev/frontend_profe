@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 
 interface ImageUploadProps {
     value?: string;
@@ -23,7 +23,7 @@ export function ImageUpload({
     tableName,
     label = 'Subir Imagen',
     className,
-    maxSizeMB = 5,
+    maxSizeMB = 1,
     allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     showPreview = true,
 }: ImageUploadProps) {
@@ -96,7 +96,7 @@ export function ImageUpload({
                     <div className="relative group">
                         <div className="relative w-full h-48 rounded-2xl overflow-hidden border-2 border-border bg-muted/30">
                             <img
-                                src={preview}
+                                src={getImageUrl(preview)}
                                 alt="Preview"
                                 className="w-full h-full object-cover"
                             />

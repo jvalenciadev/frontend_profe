@@ -6,7 +6,11 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
+import { useAbility } from '@/hooks/useAbility';
+
 export default function RRHHDashboard() {
+    const { can } = useAbility();
+
     const modules = [
         {
             title: 'Gestión de Cargos',
@@ -14,7 +18,8 @@ export default function RRHHDashboard() {
             icon: Briefcase,
             href: '/dashboard/rrhh/cargos',
             color: 'bg-primary/10 text-primary',
-            border: 'hover:border-primary/20'
+            border: 'hover:border-primary/20',
+            permission: { action: 'read', subject: 'Cargo' }
         },
         {
             title: 'Banco Profesional',
@@ -22,7 +27,8 @@ export default function RRHHDashboard() {
             icon: Users2,
             href: '/dashboard/rrhh/banco',
             color: 'bg-primary/10 text-primary',
-            border: 'hover:border-primary/20'
+            border: 'hover:border-primary/20',
+            permission: { action: 'read', subject: 'bp_posgrado' }
         },
         {
             title: 'Asignaciones',
@@ -32,8 +38,15 @@ export default function RRHHDashboard() {
             color: 'bg-orange-500/10 text-orange-600',
             border: 'opacity-50 cursor-not-allowed',
             soon: true
+            // Asignaciones no tiene sujeto definido en AVAILABLE_SUBJECTS aún, 
+            // pero lo dejamos visible o podrías asignarle uno genérico.
         }
     ];
+
+    const filteredModules = modules.filter(module => {
+        if (!module.permission) return true; // Asignaciones se muestra por ahora
+        return can(module.permission.action, module.permission.subject);
+    });
 
     return (
         <div className="space-y-10">
@@ -49,7 +62,7 @@ export default function RRHHDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {modules.map((module, idx) => (
+                {filteredModules.map((module, idx) => (
                     <motion.div
                         key={module.title}
                         initial={{ opacity: 0, y: 20 }}

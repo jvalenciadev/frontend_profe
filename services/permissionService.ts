@@ -26,7 +26,7 @@ export const permissionService = {
 
     // Actualizar un permiso
     update: async (id: string, permissionData: Partial<Permission>) => {
-        const { data } = await api.put<Permission>(`/permissions/${id}`, permissionData);
+        const { data } = await api.patch<Permission>(`/permissions/${id}`, permissionData);
         return data;
     },
 

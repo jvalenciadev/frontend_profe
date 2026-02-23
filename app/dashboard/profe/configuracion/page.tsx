@@ -92,6 +92,7 @@ export default function ProfeConfigPage() {
                 convocatoria: '',
                 color: '#1474a6',
                 colorSecundario: '#4f46e5',
+                mantenimiento: false,
             };
             const newData = await profeService.create(defaultData);
             setConfig(newData);
@@ -273,6 +274,33 @@ export default function ProfeConfigPage() {
                                     value={config.sobreNosotros}
                                     onChange={(e) => setConfig({ ...config, sobreNosotros: e.target.value })}
                                 />
+                            </div>
+
+                            <div className="col-span-full pt-6 border-t border-border/40">
+                                <div className="flex items-center justify-between p-6 rounded-[32px] bg-amber-500/5 border border-amber-500/10">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-black uppercase text-amber-600 flex items-center gap-2">
+                                            <Shield className="w-4 h-4" />
+                                            Modo Mantenimiento
+                                        </h4>
+                                        <p className="text-[11px] text-muted-foreground font-medium">
+                                            Si se activa, los usuarios verán una pantalla de mantenimiento y no podrán acceder a la página principal.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setConfig({ ...config, mantenimiento: !config.mantenimiento })}
+                                        className={cn(
+                                            "relative w-16 h-8 rounded-full transition-all duration-300",
+                                            config.mantenimiento ? "bg-amber-600 shadow-lg shadow-amber-600/30" : "bg-muted"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "absolute top-1 w-6 h-6 rounded-full bg-white transition-all duration-300 shadow-sm",
+                                            config.mantenimiento ? "right-1" : "left-1"
+                                        )} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -532,7 +560,7 @@ export default function ProfeConfigPage() {
                         </div>
                     )}
                 </motion.div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

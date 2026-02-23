@@ -36,6 +36,29 @@ export default function DashboardLayout({
 
         if (!isLoading && isAuthenticated && (user as any)?.requiresPasswordChange && pathname !== '/dashboard/reset-password') {
             router.push('/dashboard/reset-password');
+            return;
+        }
+
+        // --- PROTECCIÓN MANUAL DE RUTAS ---
+        if (!isLoading && isAuthenticated) {
+            const { hasRole, isSuperAdmin } = (useAuth as any).getState?.() || {}; // Esto es solo descriptivo, usaremos las variables del scope
+
+            // Si es POSTULANTE, solo puede estar en /dashboard/mi-ficha o perfil
+            const isPostulante = user?.roles?.some((r: any) =>
+                (typeof r === 'string' ? r : (r.role?.name || r.name)) === 'POSTULACION_PROFE'
+            );
+
+            const allowedRoutesForPostulante = ['/dashboard/mi-ficha', '/dashboard/reset-password', '/dashboard/perfil'];
+
+            // Si intenta entrar al /dashboard raíz, lo mandamos a su ficha
+            if (isPostulante && pathname === '/dashboard') {
+                router.push('/dashboard/mi-ficha');
+                return;
+            }
+
+            if (isPostulante && !allowedRoutesForPostulante.includes(pathname)) {
+                router.push('/dashboard/mi-ficha');
+            }
         }
     }, [isAuthenticated, isLoading, user, pathname, router]);
 

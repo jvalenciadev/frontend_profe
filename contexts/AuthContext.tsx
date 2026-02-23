@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
-import { User } from '@/types';
+import { User, Role } from '@/types';
 import { authService } from '@/services/authService';
 import { defineAbilityFromPermissions, AppAbility } from '@/lib/ability';
 
@@ -55,11 +55,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const getPermissionsFromUser = (user: User | null): any[] => {
-        if (!user || !user.permissions) return [];
-        return user.permissions.map(p => {
-            if ('permission' in p) return p.permission;
-            return p;
-        });
+        if (!user) return [];
+        const perms: any[] = [];
+        const seen = new Set<string>();
+
+        const addPerm = (p: any) => {
+            if (!p) return;
+            const perm = (p && typeof p === 'object' && 'permission' in p) ? p.permission : p;
+            if (!perm || !perm.action || !perm.subject) return;
+
+            // Generar una clave única para el permiso para evitar duplicados (útil para reglas dinámicas)
+            const key = perm.id || `${perm.action}-${perm.subject}-${JSON.stringify(perm.conditions || {})}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                perms.push(perm);
+            }
+        };
+
+        // 1. Los permisos directos (user.permissions) suelen ser las reglas de CASL devueltas por el login
+        if (user.permissions && Array.isArray(user.permissions)) {
+            user.permissions.forEach(addPerm);
+        }
+
+        // 2. Intentar extraer permisos embebidos en los roles si el backend los envió (encadenamiento)
+        if (user.roles && Array.isArray(user.roles)) {
+            user.roles.forEach(r => {
+                const role = (r && typeof r === 'object' && 'role' in r) ? (r as any).role : r;
+                if (role && typeof role === 'object') {
+                    const rolePerms = role.rolePermissions || role.permissions || [];
+                    rolePerms.forEach(addPerm);
+                }
+            });
+        }
+
+        // 3. Fallback para rol singular
+        if (user.role && typeof user.role === 'object') {
+            const role = user.role as Role;
+            const rolePerms = role.rolePermissions || role.permissions || [];
+            rolePerms.forEach(addPerm);
+        }
+
+        return perms;
     };
 
     // Cargar usuario desde cookies al montar

@@ -49,20 +49,19 @@ const menuItems: MenuItem[] = [
         title: 'Mi Ficha (Banco)',
         href: '/dashboard/mi-ficha',
         icon: UserIcon,
-        permission: { action: 'read', subject: 'BancoProfesional' }
+        permission: { action: 'read', subject: 'bp_posgrado' }
     },
     {
         title: 'Territorial',
         href: '/dashboard/territorial',
         icon: Map,
-        permission: { action: 'read', subject: 'Territorial' },
         children: [
-            { title: 'Departamentos', href: '/dashboard/territorial/departamentos' },
-            { title: 'Provincias', href: '/dashboard/territorial/provincias' },
-            { title: 'Sedes', href: '/dashboard/territorial/sedes' },
-            { title: 'Galerías', href: '/dashboard/territorial/galerias' },
-            { title: 'Distritos', href: '/dashboard/territorial/distritos' },
-            { title: 'Unidades Académicas', href: '/dashboard/territorial/unidades-academicas' },
+            { title: 'Departamentos', href: '/dashboard/territorial/departamentos', permission: { action: 'read', subject: 'Departamento' }, },
+            { title: 'Provincias', href: '/dashboard/territorial/provincias', permission: { action: 'read', subject: 'Provincia' }, },
+            { title: 'Sedes', href: '/dashboard/territorial/sedes', permission: { action: 'read', subject: 'Sede' }, },
+            { title: 'Galerías', href: '/dashboard/territorial/galerias', permission: { action: 'read', subject: 'Galeria' }, },
+            { title: 'Distritos', href: '/dashboard/territorial/distritos', permission: { action: 'read', subject: 'Distrito' }, },
+            { title: 'Unidades Académicas', href: '/dashboard/territorial/unidades-academicas', permission: { action: 'read', subject: 'UnidadEducativa' }, },
         ],
     },
     {
@@ -102,10 +101,18 @@ const menuItems: MenuItem[] = [
         title: 'Evaluaciones',
         href: '/dashboard/evaluaciones',
         icon: ClipboardCheck,
-        permission: { action: 'read', subject: 'Evaluation' },
+        // permission: { action: 'read', subject: 'EvaluacionAdmins' },
         children: [
-            { title: 'Periodos', href: '/dashboard/evaluaciones/periodos' },
-            { title: 'Hoja de Concepto', href: '/dashboard/evaluaciones/hoja-concepto' },
+            {
+                title: 'Periodos',
+                href: '/dashboard/evaluaciones/periodos',
+                permission: { action: 'read', subject: 'EvaluacionPeriodo' }
+            },
+            {
+                title: 'Hoja de Concepto',
+                href: '/dashboard/evaluaciones/hoja-concepto',
+                permission: { action: 'read', subject: 'EvaluacionPuntaje' }
+            },
         ],
     },
     {
@@ -121,18 +128,18 @@ const menuItems: MenuItem[] = [
         title: 'Gestión de Accesos',
         href: '/dashboard/accesos',
         icon: ShieldCheck,
-        permission: { action: 'read', subject: 'User' },
+
         children: [
-            { title: 'Usuarios', href: '/dashboard/usuarios' },
-            { title: 'Roles', href: '/dashboard/roles' },
-            { title: 'Permisos', href: '/dashboard/permisos' },
+            { title: 'Usuarios', href: '/dashboard/usuarios', permission: { action: 'read', subject: 'User' }, },
+            { title: 'Roles', href: '/dashboard/roles', permission: { action: 'read', subject: 'Role' }, },
+            { title: 'Permisos', href: '/dashboard/permisos', permission: { action: 'read', subject: 'Permission' }, },
         ],
     },
 ];
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { can, isSuperAdmin, logout, user } = useAbility();
+    const { can, isSuperAdmin, logout, user, hasRole } = useAbility();
     const {
         isSidebarCollapsed: isCollapsed,
         setSidebarCollapsed: setIsCollapsed,
@@ -140,6 +147,53 @@ export function Sidebar() {
         setMobileSidebarOpen: setIsMobileOpen
     } = useTheme();
     const { config: profe } = useProfe();
+
+    const isPostulante = hasRole('POSTULACION_PROFE');
+
+    const filteredMenuItems = useMemo(() => {
+        // Si es SuperAdmin, ve todo
+        if (isSuperAdmin) return menuItems;
+
+        // Si es Postulante, SOLO ve Dashboard y Mi Ficha
+        if (isPostulante) {
+            return menuItems.filter(item =>
+                item.href === '/dashboard/mi-ficha'
+            );
+        }
+
+        // Para otros roles, usamos la lógica de filtrado recursiva
+        const filterItems = (items: MenuItem[]): MenuItem[] => {
+            return items
+                .filter(item => {
+                    // Si el ítem tiene un permiso explícito, lo validamos
+                    if (item.permission) {
+                        return can(item.permission.action, item.permission.subject);
+                    }
+                    // Si no tiene permiso pero TIENE hijos, se mantiene temporalmente para filtrar sus hijos
+                    if (item.children) return true;
+                    // Si no tiene permiso ni hijos, es un ítem de nivel superior (como Dashboard) sin protección
+                    return true;
+                })
+                .map(item => ({
+                    ...item,
+                    children: item.children ? filterItems(item.children) : undefined
+                }))
+                // SEGUNDA PASADA: Limpiar padres que se quedaron vacíos después del filtro
+                .filter(item => {
+                    // Si el ítem original tenía hijos pero el filtrado los dejó en 0, lo ocultamos
+                    // A menos que sea un ítem que sea válido por sí mismo (como Mi Ficha)
+                    const originalItem = menuItems.find(m => m.title === item.title);
+                    const hadChildren = originalItem?.children && originalItem.children.length > 0;
+
+                    if (hadChildren && (!item.children || item.children.length === 0)) {
+                        return false;
+                    }
+                    return true;
+                });
+        };
+
+        return filterItems(menuItems);
+    }, [isPostulante, isSuperAdmin, can]);
 
     const [openSubmenus, setOpenSubmenus] = useState<string[]>([]);
     const [mounted, setMounted] = useState(false);
@@ -279,9 +333,7 @@ export function Sidebar() {
             {/* Scrollable Navigation Area */}
             <nav className="flex-1 py-8 px-4 space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/10 scrollbar-track-transparent hover:scrollbar-thumb-primary/20 transition-all">
                 <LayoutGroup>
-                    {menuItems.map((item) => {
-                        if (!canViewItem(item)) return null;
-
+                    {filteredMenuItems.map((item) => {
                         const active = isActive(item.href);
                         const hasChildren = item.children && item.children.length > 0;
                         const isOpen = openSubmenus.includes(item.title) || (active && !isCollapsed && !isMobileOpen && openSubmenus.length === 0);

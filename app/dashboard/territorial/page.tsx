@@ -5,7 +5,11 @@ import { Card } from '@/components/ui/Card';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
+import { useAbility } from '@/hooks/useAbility';
+
 export default function TerritorialDashboard() {
+    const { can } = useAbility();
+
     const modules = [
         {
             title: 'Departamentos',
@@ -13,7 +17,8 @@ export default function TerritorialDashboard() {
             icon: Globe,
             href: '/dashboard/territorial/departamentos',
             color: 'bg-blue-500/10 text-blue-600',
-            border: 'hover:border-blue-200'
+            border: 'hover:border-blue-200',
+            permission: { action: 'read', subject: 'Departamentos' }
         },
         {
             title: 'Provincias',
@@ -21,7 +26,8 @@ export default function TerritorialDashboard() {
             icon: Compass,
             href: '/dashboard/territorial/provincias',
             color: 'bg-orange-500/10 text-orange-600',
-            border: 'hover:border-orange-200'
+            border: 'hover:border-orange-200',
+            permission: { action: 'read', subject: 'provincia' }
         },
         {
             title: 'Sedes Académicas',
@@ -29,7 +35,8 @@ export default function TerritorialDashboard() {
             icon: Building2,
             href: '/dashboard/territorial/sedes',
             color: 'bg-emerald-500/10 text-emerald-600',
-            border: 'hover:border-emerald-200'
+            border: 'hover:border-emerald-200',
+            permission: { action: 'read', subject: 'Sede' }
         },
         {
             title: 'Galerías',
@@ -37,7 +44,8 @@ export default function TerritorialDashboard() {
             icon: Camera,
             href: '/dashboard/territorial/galerias',
             color: 'bg-cyan-500/10 text-cyan-600',
-            border: 'hover:border-cyan-200'
+            border: 'hover:border-cyan-200',
+            permission: { action: 'read', subject: 'Galeria' }
         },
         {
             title: 'Distritos',
@@ -45,7 +53,8 @@ export default function TerritorialDashboard() {
             icon: Layers,
             href: '/dashboard/territorial/distritos',
             color: 'bg-purple-500/10 text-purple-600',
-            border: 'hover:border-purple-200'
+            border: 'hover:border-purple-200',
+            permission: { action: 'read', subject: 'distrito' }
         },
         {
             title: 'Unidades Académicas',
@@ -53,9 +62,14 @@ export default function TerritorialDashboard() {
             icon: GraduationCap,
             href: '/dashboard/territorial/unidades-academicas',
             color: 'bg-rose-500/10 text-rose-600',
-            border: 'hover:border-rose-200'
+            border: 'hover:border-rose-200',
+            permission: { action: 'read', subject: 'unidad_educativa' }
         }
     ];
+
+    const filteredModules = modules.filter(module =>
+        can(module.permission.action, module.permission.subject)
+    );
 
     return (
         <div className="space-y-10">
@@ -71,7 +85,7 @@ export default function TerritorialDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {modules.map((module, idx) => (
+                {filteredModules.map((module, idx) => (
                     <motion.div
                         key={module.title}
                         initial={{ opacity: 0, y: 20 }}

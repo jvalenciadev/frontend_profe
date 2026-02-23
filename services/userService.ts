@@ -29,7 +29,7 @@ export const userService = {
 
     // Actualizar un usuario
     update: async (id: string, userData: Partial<User>) => {
-        const { data } = await api.put<User>(`/users/${id}`, userData);
+        const { data } = await api.patch<User>(`/users/${id}`, userData);
         return data;
     },
 
@@ -40,7 +40,7 @@ export const userService = {
 
     // Actualizar perfil propio
     updateProfile: async (profileData: Partial<User>) => {
-        await api.put<User>('/users/profile', profileData);
+        await api.patch<User>('/users/profile', profileData);
         // Despues de actualizar, obtenemos el perfil completo con permisos y roles
         // ya que el endpoint de update no devuelve las relaciones ni el ability
         return await authService.getProfile();

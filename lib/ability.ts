@@ -13,7 +13,7 @@ export function defineAbilityFromPermissions(permissions: Permission[], roles: s
 
     // 1. OBLIGATORIO: Bypass para Super Administrador
     // Si el usuario es superadmin, tiene acceso total 'manage' a 'all'
-    if (roles.includes('ADMINISTRADOR_SISTEMA')) {
+    if (roles.includes('ADMINISTRADOR_SISTEMA') || roles.includes('SUPER_ADMIN')) {
         can('manage', 'all'); // Usamos 'manage' para máxima autoridad en CASL
         return build();
     }

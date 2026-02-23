@@ -26,7 +26,7 @@ export const roleService = {
 
     // Actualizar un rol
     update: async (id: string, roleData: any) => {
-        const { data } = await api.put<Role>(`/roles/${id}`, roleData);
+        const { data } = await api.patch<Role>(`/roles/${id}`, roleData);
         return data;
     },
 

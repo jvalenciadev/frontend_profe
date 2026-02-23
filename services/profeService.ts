@@ -28,6 +28,7 @@ export interface Profe {
     color: string | null;
     colorSecundario: string | null;
     estado: string;
+    mantenimiento: boolean;
 }
 
 export const profeService = {

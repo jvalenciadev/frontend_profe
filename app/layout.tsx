@@ -22,6 +22,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ProfeProvider } from '@/contexts/ProfeContext';
 import ConditionalNavbar from '@/components/ConditionalNavbar';
+import MaintenanceGuard from '@/components/MaintenanceGuard';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit', display: 'swap' });
@@ -80,10 +81,12 @@ export default function RootLayout({
           <ThemeProvider>
             <AuthProvider>
               <Toaster position="top-right" richColors closeButton />
-              <Suspense fallback={null}>
-                <ConditionalNavbar />
-                {children}
-              </Suspense>
+              <MaintenanceGuard>
+                <Suspense fallback={null}>
+                  <ConditionalNavbar />
+                  {children}
+                </Suspense>
+              </MaintenanceGuard>
             </AuthProvider>
           </ThemeProvider>
         </ProfeProvider>

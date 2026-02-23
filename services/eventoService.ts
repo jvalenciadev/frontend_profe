@@ -7,12 +7,12 @@ export interface Evento {
     descripcion: string;
     banner: string;
     afiche: string;
-    modulosIds: string;
+    modalidadIds: string;
     fecha: string;
-    inscripcion: boolean;
+    inscripcionAbierta: boolean;
     asistencia?: boolean;
     lugar: string;
-    totalInscrito: number;
+    totalInscritos: number;
     estado?: string;
     tipoId: string;
     tenantId?: string | null;

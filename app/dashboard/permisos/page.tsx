@@ -29,6 +29,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
+import { AVAILABLE_SUBJECTS } from '@/lib/constants/subjects';
+
 export default function PermisosPage() {
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(true);
@@ -123,7 +125,6 @@ export default function PermisosPage() {
         p.subject.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const subjects = ['all', 'User', 'Role', 'Permission', 'Programa', 'Sede', 'AuditLog'];
     const actions = ['manage', 'read', 'create', 'update', 'delete'];
 
     const getActionColor = (action: string) => {
@@ -300,7 +301,7 @@ export default function PermisosPage() {
                                         value={formData.subject}
                                         onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                                     >
-                                        {subjects.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                                        {AVAILABLE_SUBJECTS.map(s => <option key={s.value} value={s.value}>{s.label.toUpperCase()}</option>)}
                                     </select>
                                     <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
                                 </div>
