@@ -26,17 +26,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { useProfe } from '@/contexts/ProfeContext';
 
 export default function PerfilPage() {
     const { user, logout, updateUser } = useAuth();
     const { config: profe } = useProfe();
 
-    const IMG = (src: string | null) => {
-        if (!src) return null;
-        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
-    };
+    const IMG = (src: string | null) => getImageUrl(src);
     const [isLoading, setIsLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [formData, setFormData] = useState({
@@ -182,7 +179,7 @@ export default function PerfilPage() {
                     >
                         {formData.imagen ? (
                             <img
-                                src={formData.imagen.startsWith('http') ? formData.imagen : `http://localhost:3000${formData.imagen}`}
+                                src={getImageUrl(formData.imagen)}
                                 alt="Profile"
                                 className="w-full h-full object-cover"
                             />

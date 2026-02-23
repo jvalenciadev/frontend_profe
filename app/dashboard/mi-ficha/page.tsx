@@ -12,7 +12,7 @@ import Cookies from 'js-cookie';
 import { bancoProfesionalService, BancoProfesional } from '@/services/bancoProfesionalService';
 import { evaluationService, EvaluacionAdmins } from '@/services/evaluationService';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useProfe } from '@/contexts/ProfeContext';
 import { Input } from '@/components/ui/Input';
@@ -24,10 +24,7 @@ import { FichaPDF } from '@/components/FichaPDF';
 export default function MiFichaPage() {
     const { config: profe } = useProfe();
 
-    const IMG = (src: string | null) => {
-        if (!src) return null;
-        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
-    };
+    const IMG = (src: string | null) => getImageUrl(src);
     const [ficha, setFicha] = useState<BancoProfesional | null>(null);
     const [config, setConfig] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -379,7 +376,7 @@ export default function MiFichaPage() {
                         <div className="w-24 h-24 md:w-32 md:h-32 bg-primary-600 rounded-[2.8rem] flex items-center justify-center text-white font-black text-4xl shadow-2xl overflow-hidden border-4 border-white dark:border-slate-900 group-hover:scale-105 transition-transform duration-500 relative">
                             {ficha.user?.imagen || ficha.imagen ? (
                                 <img
-                                    src={(ficha.user?.imagen || ficha.imagen || '').startsWith('http') ? (ficha.user?.imagen || ficha.imagen) : `http://localhost:3000${ficha.user?.imagen || ficha.imagen}`}
+                                    src={getImageUrl(ficha.user?.imagen || ficha.imagen)}
                                     alt="Profile"
                                     className="w-full h-full object-cover"
                                 />
@@ -859,13 +856,13 @@ export default function MiFichaPage() {
                                     {p.imagen && (
                                         <div className="mt-6 aspect-video rounded-3xl overflow-hidden border border-gray-100 dark:border-slate-800 bg-slate-50 relative group">
                                             <img
-                                                src={p.imagen.startsWith('http') ? p.imagen : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${p.imagen}`}
+                                                src={getImageUrl(p.imagen)}
                                                 alt="Diploma"
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                             />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <a
-                                                    href={p.imagen.startsWith('http') ? p.imagen : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${p.imagen}`}
+                                                    href={getImageUrl(p.imagen)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="px-4 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl"
@@ -1046,7 +1043,7 @@ export default function MiFichaPage() {
                         ) : posgradoForm.imagen ? (
                             <div className="aspect-video rounded-3xl overflow-hidden relative group border-2 border-primary/20">
                                 <img
-                                    src={posgradoForm.imagen.startsWith('http') ? posgradoForm.imagen : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${posgradoForm.imagen}`}
+                                    src={getImageUrl(posgradoForm.imagen)}
                                     className="w-full h-full object-contain bg-slate-100"
                                     alt="Diploma"
                                 />

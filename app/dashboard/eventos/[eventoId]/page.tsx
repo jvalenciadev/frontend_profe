@@ -96,8 +96,8 @@ export default function EventoOperativoPage() {
         setFormCues({
             titulo: c.titulo,
             descripcion: c.descripcion,
-            fechaInicio: c.fechaInicio?.slice(0, 16) || '',
-            fechaFin: c.fechaFin?.slice(0, 16) || '',
+            fechaInicio: c.fechaInicio ? new Date(new Date(c.fechaInicio).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : '',
+            fechaFin: c.fechaFin ? new Date(new Date(c.fechaFin).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : '',
             tiempoMaximo: c.tiempoMaximo?.toString() || '',
             puntosMaximos: c.puntosMaximos?.toString() || '',
             estado: c.estado,

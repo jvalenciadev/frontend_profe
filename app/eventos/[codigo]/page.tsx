@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar, MapPin, Clock, Users, CheckCircle2, AlertCircle,
     Download, Timer, Wifi, WifiOff, ChevronRight, ChevronLeft,
-    Trophy, Star, FileText, RefreshCw, User, Hash
+    Trophy, Star, FileText, RefreshCw, User, Hash, ArrowRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
 import publicService from '@/services/publicService';
 import Link from 'next/link';
@@ -231,22 +232,21 @@ export default function EventoPublicoPage() {
             // Pre-seleccionar el departamento del evento si existe
             if (evt.tenantId) setForm(fp => ({ ...fp, departamentoId: evt.tenantId }));
 
-            // ─── REPERAR SESIÓN GUARDADA ───
+            // ─── RECUPERAR SESIÓN GUARDADA ───
             const saved = localStorage.getItem(`cuestionario_session_${evt.id}`);
             if (saved) {
                 try {
                     const session = JSON.parse(saved);
-                    // Solo recuperar si es el mismo usuario y el tiempo no ha expirado de forma masiva
                     setPersona(session.persona);
                     setForm(session.form);
                     setStep(session.step);
                     setCuestionarioActivo(session.cuestionarioActivo);
-                    setRespuestas(session.respuestas);
-                    setPreguntaIdx(session.preguntaIdx);
+                    setRespuestas(session.respuestas || {});
+                    setPreguntaIdx(session.preguntaIdx || 0);
                     setStartTime(session.startTime);
 
                     // Si estaba en cuestionario, validar tiempo
-                    if (session.step === 'cuestionario' && session.startTime && session.cuestionarioActivo.tiempoMaximo) {
+                    if (session.step === 'cuestionario' && session.startTime && session.cuestionarioActivo?.tiempoMaximo) {
                         const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
                         const totalSecs = session.cuestionarioActivo.tiempoMaximo * 60;
                         if (elapsed >= totalSecs) {
@@ -256,6 +256,19 @@ export default function EventoPublicoPage() {
                 } catch (e) {
                     console.error("Error recuperando sesión:", e);
                 }
+            }
+
+            // ─── RECUPERAR PENDIENTES OFFLINE ───
+            const pendienteRaw = localStorage.getItem('cuestionario_pendiente');
+            if (pendienteRaw) {
+                try {
+                    const p = JSON.parse(pendienteRaw);
+                    if (p.eventoId === evt.id) {
+                        setOfflineQueue(p.data);
+                        // Si ya tenemos el resultado en el envío anterior pero no se confirmó, 
+                        // podríamos estar en un estado inconsistente. Por ahora solo lo cargamos.
+                    }
+                } catch { }
             }
         }).catch(() => {
             setError('Error al cargar la información del evento.');
@@ -298,7 +311,6 @@ export default function EventoPublicoPage() {
         let ciLimpio = form.ci;
         let compLimpio = form.complemento;
 
-        // Si el usuario escribió "1234567-1L" en el campo CI, lo separamos
         if (form.ci.includes('-')) {
             const [ci, comp] = form.ci.split('-');
             ciLimpio = ci;
@@ -308,6 +320,29 @@ export default function EventoPublicoPage() {
         setSubmitting(true);
         try {
             const result = await eventoPublicoService.buscarPersona(ciLimpio, form.fechaNacimiento);
+            const check = await eventoPublicoService.verificarInscripcion(evento!.id, ciLimpio, form.fechaNacimiento);
+
+            if (check.inscrito) {
+                setPersona(check.persona);
+                setInscripcion(check.inscripcion);
+
+                // Si el usuario venía por un cuestionario, lo dejamos pasar
+                if (cuestionarioActivo) {
+                    setStep('cuestionario');
+                    toast.success('Identidad verificada. Preparando cuestionario...');
+                } else {
+                    setStep('descargo');
+                    toast.success('Ya te encuentras registrado. Aquí tienes tu comprobante.');
+                }
+                return;
+            }
+
+            // Si intenta hacer cuestionario sin estar inscrito
+            if (cuestionarioActivo) {
+                toast.error('Debes estar inscrito para realizar esta evaluación.');
+                // No retornamos aquí para dejar que siga al flujo de inscripción abajo
+            }
+
             if (result.found) {
                 setPersona(result.persona);
                 setForm(prev => ({
@@ -323,12 +358,12 @@ export default function EventoPublicoPage() {
                     generoId: result.persona.generoId?.toString() || '1',
                 }));
             } else {
-                // Si no se encuentra, actualizamos los campos limpiados por si acaso
                 setForm(prev => ({ ...prev, ci: ciLimpio, complemento: compLimpio }));
             }
             setStep('inscripcion');
-        } catch {
-            setStep('inscripcion');
+        } catch (error) {
+            console.error("Error identificando:", error);
+            toast.error('Ocurrió un error al verificar tus datos.');
         } finally {
             setSubmitting(false);
         }
@@ -382,41 +417,57 @@ export default function EventoPublicoPage() {
         if (!evento || !cuestionarioActivo || !persona) return;
         setSubmitting(true);
 
-        const data = queuedData || {
+        const payload = queuedData || {
             ci: form.ci,
             fechaNacimiento: form.fechaNacimiento,
             respuestas: Object.entries(respuestas).map(([preguntaId, val]) => {
                 if (Array.isArray(val)) return { preguntaId, opciones: val };
-                if (typeof val === 'string' && val.startsWith('{')) { try { return JSON.parse(val); } catch { } }
                 return { preguntaId, opcionId: val, texto: val };
             }),
         };
 
         if (!online) {
-            // Guardar en localStorage para reintento
-            setOfflineQueue(data);
-            localStorage.setItem('cuestionario_pendiente', JSON.stringify({ eventoId: evento.id, cuestionarioId: cuestionarioActivo.id, data }));
-            alert('Sin conexión. Tus respuestas se guardarán y enviarán cuando tengas Internet.');
+            // Guardar en localStorage para reintento automático
+            localStorage.setItem('cuestionario_pendiente', JSON.stringify({
+                eventoId: evento.id,
+                cuestionarioId: cuestionarioActivo.id,
+                data: payload
+            }));
+            setOfflineQueue(payload);
+            setStep('resultado');
+            setResultado({
+                offline: true,
+                mensaje: 'Sin conexión. Tus respuestas se han guardado localmente y se enviarán automáticamente cuando recuperes la señal.'
+            });
             setSubmitting(false);
             return;
         }
 
         try {
-            const result = await eventoPublicoService.responderCuestionario(evento.id, cuestionarioActivo.id, data);
+            const result = await eventoPublicoService.responderCuestionario(evento.id, cuestionarioActivo.id, payload);
             setResultado(result);
             setStep('resultado');
             // Limpiar sesión al finalizar con éxito
             localStorage.removeItem(`cuestionario_session_${evento.id}`);
             localStorage.removeItem('cuestionario_pendiente');
+            setOfflineQueue(null);
         } catch (e: any) {
             console.error("Error enviando cuestionario:", e);
             if (e?.response?.status === 409) {
-                // Ya lo respondió
+                // Ya lo respondió anteriormente
                 setStep('info');
                 alert("Ya has respondido este cuestionario.");
                 localStorage.removeItem(`cuestionario_session_${evento.id}`);
+                localStorage.removeItem('cuestionario_pendiente');
             } else {
-                alert("Error al enviar el cuestionario. Por favor intenta de nuevo.");
+                // Si falla por otra cosa y estamos online, lo guardamos para reintentar luego
+                localStorage.setItem('cuestionario_pendiente', JSON.stringify({
+                    eventoId: evento.id,
+                    cuestionarioId: cuestionarioActivo.id,
+                    data: payload
+                }));
+                setOfflineQueue(payload);
+                alert("Hubo un problema al conectar con el servidor. Tus respuestas se han guardado localmente e intentaremos enviarlas de nuevo en un momento.");
             }
         } finally {
             setSubmitting(false);
@@ -483,8 +534,8 @@ export default function EventoPublicoPage() {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
 
-                {/* Back button */}
-                <button onClick={() => router.back()} className="absolute top-6 left-6 z-20 w-12 h-12 rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/40 transition-all">
+                {/* Back button - Adjusted to not overlap with main navbar */}
+                <button onClick={() => router.back()} className="absolute top-32 left-8 md:left-16 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 transition-all shadow-2xl">
                     <ChevronLeft className="w-6 h-6" />
                 </button>
 
@@ -526,7 +577,11 @@ export default function EventoPublicoPage() {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Modalidad</p>
-                                <span className="font-bold">{evento.modalidadIds}</span>
+                                <span className="font-bold">
+                                    {(evento.modalidadIds || '').split(',').map(id => {
+                                        return allModalidades.find(m => m.id === id.trim())?.nombre;
+                                    }).filter(Boolean).join(', ') || evento.modalidadIds}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -542,6 +597,68 @@ export default function EventoPublicoPage() {
                                 <h2 className="text-lg font-black uppercase text-foreground mb-3">Descripción</h2>
                                 <p className="text-muted-foreground leading-relaxed italic">{evento.descripcion}</p>
                             </div>
+
+                            {/* Questionnaires Section */}
+                            {(evento.cuestionarios?.length || 0) > 0 && (
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-black uppercase text-foreground flex items-center gap-2">
+                                        <FileText className="w-5 h-5 text-amber-500" />
+                                        Evaluaciones y Cuestionarios
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {evento.cuestionarios.map((c: any) => {
+                                            const now = new Date();
+                                            const start = new Date(c.fechaInicio);
+                                            const end = new Date(c.fechaFin);
+                                            const isActive = c.estado === 'activo' && start <= now && end >= now;
+                                            const isUpcoming = start > now;
+
+                                            return (
+                                                <div key={c.id} className={`p-6 rounded-3xl border-2 transition-all ${isActive ? 'bg-amber-500/5 border-amber-500 shadow-lg shadow-amber-500/10' : 'bg-muted/30 border-border opacity-60'}`}>
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <h3 className="font-black uppercase text-foreground">{c.titulo}</h3>
+                                                                {isActive && <span className="px-2 py-0.5 rounded-full bg-amber-500 text-[8px] font-black text-black animate-pulse">ACTIVO</span>}
+                                                            </div>
+                                                            <p className="text-sm text-muted-foreground">{c.descripcion}</p>
+                                                            <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    {start.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                <span>—</span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    Fin: {end.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {isActive ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setCuestionarioActivo(c);
+                                                                    setStep('identificacion');
+                                                                    if (!startTime) setStartTime(Date.now());
+                                                                }}
+                                                                className="h-12 px-6 rounded-xl bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                Realizar Evaluación
+                                                                <ArrowRight className="w-4 h-4" />
+                                                            </button>
+                                                        ) : (
+                                                            <div className="h-12 px-6 rounded-xl bg-muted border border-border text-muted-foreground font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                                                                {isUpcoming ? 'Próximamente' : 'Finalizado'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Afiche Principal */}
                             {evento.afiche && (
@@ -585,7 +702,7 @@ export default function EventoPublicoPage() {
                                     <button onClick={() => {
                                         setCuestionarioActivo(cuestionarioVigente);
                                         setStep('identificacion');
-                                        setStartTime(Date.now()); // Iniciar el tiempo oficial
+                                        if (!startTime) setStartTime(Date.now()); // Solo iniciar si no hay uno previo
                                     }}
                                         className="group p-8 bg-card border-2 border-amber-500 text-amber-500 rounded-3xl font-black uppercase tracking-wide hover:bg-amber-500/5 active:scale-95 transition-all flex flex-col items-start gap-4 md:col-span-2">
                                         <FileText className="w-8 h-8" />
@@ -855,19 +972,42 @@ export default function EventoPublicoPage() {
                     {/* ── STEP RESULTADO ── */}
                     {step === 'resultado' && resultado && (
                         <motion.div key="res" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
-                            <div className={`p-8 rounded-3xl text-center space-y-4 ${resultado.aprobado ? 'bg-green-500/10 border-2 border-green-500/30' : 'bg-red-500/10 border-2 border-red-500/30'}`}>
-                                <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center" style={{ background: resultado.aprobado ? '#22c55e22' : '#ef444422' }}>
-                                    {resultado.aprobado ? <Trophy className="w-10 h-10 text-green-500" /> : <AlertCircle className="w-10 h-10 text-red-500" />}
+                            {resultado.offline ? (
+                                <div className="p-8 rounded-3xl text-center space-y-4 bg-amber-500/10 border-2 border-amber-500/30">
+                                    <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center bg-amber-500/20">
+                                        <WifiOff className="w-10 h-10 text-amber-500" />
+                                    </div>
+                                    <h2 className="text-2xl font-black text-foreground">Guardado Localmente</h2>
+                                    <p className="text-sm text-muted-foreground">{resultado.mensaje}</p>
+                                    <div className="flex items-center justify-center gap-2 text-amber-500 font-bold animate-pulse">
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        <span>Esperando conexión...</span>
+                                    </div>
                                 </div>
-                                <h2 className="text-4xl font-black text-foreground">{resultado.nota}/100</h2>
-                                <p className={`text-xl font-black uppercase tracking-widest ${resultado.aprobado ? 'text-green-500' : 'text-red-500'}`}>
-                                    {resultado.aprobado ? '¡Aprobado!' : 'No aprobado'}
-                                </p>
-                                <p className="text-muted-foreground">{resultado.puntaje} de {resultado.puntajeMaximo} puntos</p>
-                            </div>
-                            <button onClick={() => setStep('descargo')} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2">
-                                <Download className="w-4 h-4" /> Descargar Comprobante
-                            </button>
+                            ) : (
+                                <div className={`p-8 rounded-3xl text-center space-y-4 ${resultado.aprobado ? 'bg-green-500/10 border-2 border-green-500/30' : 'bg-red-500/10 border-2 border-red-500/30'}`}>
+                                    <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center" style={{ background: resultado.aprobado ? '#22c55e22' : '#ef444422' }}>
+                                        {resultado.aprobado ? <Trophy className="w-10 h-10 text-green-500" /> : <AlertCircle className="w-10 h-10 text-red-500" />}
+                                    </div>
+                                    <h2 className="text-4xl font-black text-foreground">{resultado.nota}/100</h2>
+                                    <p className={`text-xl font-black uppercase tracking-widest ${resultado.aprobado ? 'text-green-500' : 'text-red-500'}`}>
+                                        {resultado.aprobado ? '¡Aprobado!' : 'No aprobado'}
+                                    </p>
+                                    <p className="text-muted-foreground">{resultado.puntaje} de {resultado.puntajeMaximo} puntos</p>
+                                </div>
+                            )}
+
+                            {!resultado.offline && (
+                                <button onClick={() => setStep('descargo')} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                                    <Download className="w-4 h-4" /> Descargar Comprobante
+                                </button>
+                            )}
+
+                            {resultado.offline && (
+                                <button onClick={() => setStep('info')} className="w-full h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all">
+                                    Volver al Inicio
+                                </button>
+                            )}
                         </motion.div>
                     )}
 
@@ -896,6 +1036,6 @@ export default function EventoPublicoPage() {
                     #descargo-print { display: block !important; }
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

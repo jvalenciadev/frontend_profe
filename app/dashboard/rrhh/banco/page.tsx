@@ -30,7 +30,7 @@ import {
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FichaPDF } from '@/components/FichaPDF';
 import { userService } from '@/services/userService';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -210,7 +210,7 @@ export default function BancoProfesionalPage() {
                                         <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 text-primary flex items-center justify-center font-black text-2xl group-hover:shadow-2xl group-hover:shadow-primary/20 transition-all shadow-inner overflow-hidden border-2 border-primary/10">
                                             {p.user?.imagen ? (
                                                 <img
-                                                    src={p.user.imagen.startsWith('http') ? p.user.imagen : `http://localhost:3000${p.user.imagen}`}
+                                                    src={getImageUrl(p.user?.imagen)}
                                                     alt="Avatar"
                                                     className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-700"
                                                 />
@@ -296,7 +296,7 @@ export default function BancoProfesionalPage() {
                             <div className="w-32 h-32 rounded-[2.5rem] bg-primary/10 text-primary flex items-center justify-center font-black text-4xl shadow-inner shrink-0 overflow-hidden border-2 border-primary/20">
                                 {selectedProf.user?.imagen ? (
                                     <img
-                                        src={selectedProf.user.imagen.startsWith('http') ? selectedProf.user.imagen : `http://localhost:3000${selectedProf.user.imagen}`}
+                                        src={getImageUrl(selectedProf.user?.imagen)}
                                         alt="Profile"
                                         className="w-full h-full object-cover"
                                     />
@@ -442,7 +442,7 @@ export default function BancoProfesionalPage() {
                         <div className="w-24 h-24 rounded-[2rem] bg-white dark:bg-slate-900 shadow-xl mb-4 flex items-center justify-center overflow-hidden border-4 border-white dark:border-slate-800 relative z-10 transition-transform hover:scale-110 duration-500">
                             {selectedProf?.user?.imagen ? (
                                 <img
-                                    src={selectedProf.user.imagen.startsWith('http') ? selectedProf.user.imagen : `http://localhost:3000${selectedProf.user.imagen}`}
+                                    src={getImageUrl(selectedProf?.user?.imagen)}
                                     alt="Avatar"
                                     className="w-full h-full object-cover"
                                 />

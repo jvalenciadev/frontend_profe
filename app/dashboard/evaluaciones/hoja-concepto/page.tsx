@@ -158,9 +158,11 @@ export default function HojaConceptoPage() {
     };
 
     const filteredUsers = usersToEvaluate.filter(u =>
-        u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.apellidos?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (u.correo || u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+        (u.id !== user?.id) && (
+            u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.apellidos?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (u.correo || u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+        )
     );
 
     const activePeriod = periods.find(p => p.id === selectedPeriod);

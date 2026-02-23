@@ -11,10 +11,10 @@ import Link from 'next/link';
 import { evaluationService } from '@/services/evaluationService';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { getImageUrl } from '@/lib/utils';
 
 /* --- Helpers --- */
-const IMG = (src: string) =>
-    src?.startsWith('http') ? src : `http://localhost:3000${src}`;
+const IMG = (src: string) => getImageUrl(src);
 
 function VerificationContent() {
     const searchParams = useSearchParams();

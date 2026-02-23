@@ -10,8 +10,15 @@ export function getImageUrl(path: string | null | undefined): string {
     if (path.startsWith('http') || path.startsWith('data:')) {
         return path;
     }
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
-    // Asegurar que no haya doble diagonal
+
+    // Usar la URL de la API configurada o localhost por defecto
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+    // Limpiar la URL base (quitar diagonal final si existe)
+    const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+
+    // Limpiar el path (asegurar que empiece con diagonal)
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${baseUrl}${cleanPath}`;
+
+    return `${cleanBaseUrl}${cleanPath}`;
 }
