@@ -4,7 +4,7 @@ import { errorStore } from './error-store';
 import { toast } from 'sonner';
 
 // Configuración de constantes de entorno
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 // IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 

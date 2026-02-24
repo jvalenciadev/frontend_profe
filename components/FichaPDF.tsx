@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { getImageUrl } from '@/lib/utils';
 
 // Registrar fuentes (opcional, si quieres usar algo distinto a las standard)
 Font.register({
@@ -143,8 +144,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
     const categoriaNombre = config?.categorias.find((c: any) => c.id === String(ficha.categoriaId))?.nombre || 'Sin categoría';
 
     const userImage = ficha.user?.imagen || ficha.imagen;
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const fullImageUrl = userImage ? (userImage.startsWith('http') ? userImage : `${API_URL}${userImage}`) : null;
+    const fullImageUrl = getImageUrl(userImage);
 
     return (
         <Document>

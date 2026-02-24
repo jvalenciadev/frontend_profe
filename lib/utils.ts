@@ -11,8 +11,8 @@ export function getImageUrl(path: string | null | undefined): string {
         return path;
     }
 
-    // Usar la URL de la API configurada o localhost por defecto
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    // Usar la URL de la API configurada
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
     // Limpiar la URL base (quitar diagonal final si existe)
     const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;

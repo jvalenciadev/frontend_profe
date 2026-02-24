@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAbility } from '@/hooks/useAbility';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getImageUrl } from '@/lib/utils';
 import {
     LayoutDashboard,
     Map,
@@ -457,14 +458,14 @@ export function Sidebar() {
                             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black text-xs overflow-hidden border border-primary/10 group-hover/user:border-primary/30 transition-all">
                                 {user?.imagen ? (
                                     <img
-                                        src={user.imagen.startsWith('http') ? user.imagen : `http://localhost:3000${user.imagen.startsWith('/') ? '' : '/'}${user.imagen}`}
+                                        src={getImageUrl(user.imagen)}
                                         className="w-full h-full object-cover group-hover/user:scale-110 transition-all"
                                         alt="Avatar"
                                     />
                                 ) : (
                                     <div className="w-full h-full p-2 flex items-center justify-center bg-white dark:bg-card">
                                         {profe?.imagen ? (
-                                            <img src={profe.imagen.startsWith('http') ? profe.imagen : `${process.env.NEXT_PUBLIC_API_URL}${profe.imagen.startsWith('/') ? '' : '/'}${profe.imagen}`} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                            <img src={getImageUrl(profe.imagen)} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                                         ) : (
                                             <span className="text-sm">{user?.nombre?.charAt(0)}</span>
                                         )}
@@ -490,14 +491,14 @@ export function Sidebar() {
                         <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/10 overflow-hidden cursor-pointer hover:border-primary/50 transition-all">
                             {user?.imagen ? (
                                 <img
-                                    src={user.imagen.startsWith('http') ? user.imagen : `http://localhost:3000${user.imagen.startsWith('/') ? '' : '/'}${user.imagen}`}
+                                    src={getImageUrl(user.imagen)}
                                     className="w-full h-full object-cover"
                                     alt="Avatar"
                                 />
                             ) : (
                                 <div className="w-full h-full p-2 flex items-center justify-center bg-white dark:bg-card text-primary font-black text-xs">
                                     {profe?.imagen ? (
-                                        <img src={profe.imagen.startsWith('http') ? profe.imagen : `${process.env.NEXT_PUBLIC_API_URL}${profe.imagen.startsWith('/') ? '' : '/'}${profe.imagen}`} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                        <img src={getImageUrl(profe.imagen)} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                                     ) : (
                                         <span className="flex items-center justify-center h-full w-full">{user?.nombre?.charAt(0)}</span>
                                     )}

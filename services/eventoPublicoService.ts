@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
 // Instancia pública sin token de autenticación pero con X-SECRET
