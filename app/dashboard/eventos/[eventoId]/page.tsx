@@ -8,16 +8,17 @@ import {
     FileText, Plus, Edit2, Trash2, ChevronLeft, ChevronRight,
     Users, CheckCircle2, Clock, Hash, Eye, Download, Search,
     ToggleLeft, ToggleRight, Copy, ExternalLink, AlertCircle,
-    BarChart3, RefreshCw, Timer, BookOpen
+    BarChart3, RefreshCw, Timer, BookOpen,
+    CircleDot, CheckSquare, Settings2, AlignLeft, Trophy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/Modal';
 
 const TIPOS_PREGUNTA = [
-    { value: 'SINGLE', label: '⚪ Selección única', desc: 'Una sola respuesta correcta' },
-    { value: 'MULTIPLE', label: '☑️ Selección múltiple', desc: 'Varias respuestas correctas' },
-    { value: 'TRUE_FALSE', label: '✅ Verdadero / Falso', desc: '2 opciones: Verdadero o Falso' },
-    { value: 'TEXTO', label: '📝 Respuesta abierta', desc: 'El participante escribe libremente' },
+    { value: 'SINGLE', label: 'Selección Única', icon: CircleDot, desc: 'Una sola respuesta correcta' },
+    { value: 'MULTIPLE', label: 'Selección Múltiple', icon: CheckSquare, desc: 'Varias respuestas permitidas' },
+    { value: 'TRUE_FALSE', label: 'Verdadero / Falso', icon: Settings2, desc: 'Alternativa binaria clásica' },
+    { value: 'TEXTO', label: 'Respuesta Abierta', icon: AlignLeft, desc: 'El participante redacta libremente' },
 ];
 
 export default function EventoOperativoPage() {
@@ -44,6 +45,10 @@ export default function EventoOperativoPage() {
     // Forms
     const [formCues, setFormCues] = useState({ titulo: '', descripcion: '', fechaInicio: '', fechaFin: '', tiempoMaximo: '', puntosMaximos: '', estado: 'activo' });
     const [formPregunta, setFormPregunta] = useState({ texto: '', tipo: 'SINGLE', puntos: 1, obligatorio: true, opciones: [{ texto: '', esCorrecta: false }, { texto: '', esCorrecta: false }] });
+
+    // Paginación inscripciones (Por la gran cantidad de datos previstos - 20k)
+    const [page, setPage] = useState(1);
+    const ITEMS_PER_PAGE = 25;
 
     useEffect(() => { loadData(); }, [eventoId]);
     useEffect(() => { if (cuestionarioActivo) loadPreguntas(cuestionarioActivo.id); }, [cuestionarioActivo]);
@@ -201,11 +206,15 @@ export default function EventoOperativoPage() {
         } catch { toast.error('Error actualizando código'); }
     };
 
-    const filteredInscripciones = inscripciones.filter(i =>
-        !search || i.persona?.nombre1?.toLowerCase().includes(search.toLowerCase()) ||
+    const filteredInscripciones = inscripciones.filter((i: any) =>
+        !search ||
+        i.persona?.nombre1?.toLowerCase().includes(search.toLowerCase()) ||
         i.persona?.apellido1?.toLowerCase().includes(search.toLowerCase()) ||
         String(i.persona?.ci || '').includes(search)
     );
+
+    const totalPages = Math.ceil(filteredInscripciones.length / ITEMS_PER_PAGE);
+    const paginatedInscripciones = filteredInscripciones.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const marcarAsistencia = async (inscripcionId: string, valor: boolean) => {
         try {
@@ -320,41 +329,83 @@ export default function EventoOperativoPage() {
             {tab === 'cuestionarios' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Lista cuestionarios */}
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-black uppercase text-muted-foreground">Cuestionarios</h3>
-                            <button onClick={openNewCues} className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-primary text-white text-xs font-black transition-all hover:opacity-90">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                            <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">
+                                Módulos Evaluativos
+                            </h3>
+                            <button onClick={openNewCues} className="flex items-center gap-1.5 h-8 px-4 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
                                 <Plus className="w-3.5 h-3.5" /> Nuevo
                             </button>
                         </div>
-                        {cuestionarios.length === 0 && <p className="text-sm text-muted-foreground">Sin cuestionarios. Crea uno.</p>}
-                        {cuestionarios.map(c => (
-                            <div key={c.id} onClick={() => setCuestionarioActivo(c)}
-                                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${cuestionarioActivo?.id === c.id ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'}`}>
-                                <div className="flex items-center justify-between">
-                                    <p className="font-black text-sm text-foreground truncate">{c.titulo}</p>
-                                    <button onClick={e => { e.stopPropagation(); openEditCues(c); }} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:text-primary">
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                                <div className="flex items-center gap-3 mt-1">
-                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${c.estado === 'activo' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                        {c.estado}
-                                    </span>
-                                    {c.tiempoMaximo && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Timer className="w-3 h-3" />{c.tiempoMaximo} min</span>}
-                                </div>
+                        {cuestionarios.length === 0 && (
+                            <div className="p-8 text-center rounded-[1.5rem] border-2 border-dashed border-border bg-muted/20">
+                                <FileText className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                                <p className="text-sm text-muted-foreground font-medium">No hay evaluaciones registradas</p>
                             </div>
-                        ))}
+                        )}
+                        <div className="space-y-3">
+                            {cuestionarios.map(c => (
+                                <div key={c.id} onClick={() => setCuestionarioActivo(c)}
+                                    className={`group relative p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all overflow-hidden ${cuestionarioActivo?.id === c.id ? 'border-primary bg-primary/5 shadow-lg shadow-primary/5' : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'}`}>
+
+                                    {/* Indicador activo lateral */}
+                                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-all ${cuestionarioActivo?.id === c.id ? 'bg-primary' : 'bg-transparent group-hover:bg-primary/30'}`} />
+
+                                    <div className="flex gap-4">
+                                        {/* Icono Principal */}
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${cuestionarioActivo?.id === c.id ? 'bg-primary text-white' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+
+                                        <div className="flex-1 space-y-2">
+                                            <div className="flex items-start justify-between">
+                                                <p className={`font-black uppercase text-sm leading-tight pr-2 ${cuestionarioActivo?.id === c.id ? 'text-primary' : 'text-foreground'}`}>
+                                                    {c.titulo}
+                                                </p>
+                                                <button onClick={e => { e.stopPropagation(); openEditCues(c); }}
+                                                    className="w-8 h-8 rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-all shrink-0">
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${c.estado === 'activo' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                                                    {c.estado === 'activo' ? 'Publicado' : 'Borrador'}
+                                                </span>
+                                                {c.tiempoMaximo && (
+                                                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-lg">
+                                                        <Timer className="w-3 h-3 text-primary/70" /> {c.tiempoMaximo} min
+                                                    </span>
+                                                )}
+                                                {c.puntosMaximos && (
+                                                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-lg">
+                                                        <Trophy className="w-3 h-3 text-amber-500" /> {c.puntosMaximos} pts
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Preguntas del cuestionario */}
                     <div className="lg:col-span-2 space-y-4">
                         {cuestionarioActivo && (
                             <>
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase text-muted-foreground">Preguntas — {cuestionarioActivo.titulo}</h3>
-                                    <button onClick={openNewPregunta} className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-primary text-white text-xs font-black transition-all hover:opacity-90">
-                                        <Plus className="w-3.5 h-3.5" /> Agregar Pregunta
+                                <div className="flex items-center justify-between pb-3 mb-2 border-b border-border">
+                                    <div>
+                                        <h3 className="text-sm font-black uppercase text-foreground">Banco de Preguntas</h3>
+                                        {preguntas.length > 0 && (
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                                                Total construidos: <span className="text-primary">{preguntas.length} Preguntas</span> • Puntaje total: <span className="text-amber-500">{preguntas.reduce((a, b) => a + (b.puntos || 1), 0)} pts</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button onClick={openNewPregunta} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
+                                        <Plus className="w-4 h-4" /> Agregar Pregunta
                                     </button>
                                 </div>
 
@@ -362,36 +413,72 @@ export default function EventoOperativoPage() {
 
                                 <AnimatePresence>
                                     {preguntas.map((p, idx) => (
-                                        <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                            className="bg-card border border-border rounded-2xl p-5 space-y-3">
-                                            <div className="flex items-start gap-3">
-                                                <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary text-xs font-black flex items-center justify-center shrink-0">{idx + 1}</span>
-                                                <div className="flex-1">
-                                                    <p className="font-bold text-foreground">{p.texto}</p>
-                                                    <div className="flex items-center gap-3 mt-1">
-                                                        <span className="text-[10px] font-black uppercase text-muted-foreground">{TIPOS_PREGUNTA.find(t => t.value === p.tipo)?.label || p.tipo}</span>
-                                                        <span className="text-[10px] text-muted-foreground">{p.puntos || 1} pt</span>
-                                                    </div>
+                                        <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                            className="group bg-card hover:bg-muted/10 border-2 border-border/60 hover:border-primary/30 rounded-[1.5rem] p-5 md:p-6 transition-all shadow-sm hover:shadow-lg relative overflow-hidden">
+
+                                            {/* Decoración lateral para destacar hover */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                            <div className="flex flex-col md:flex-row md:items-start gap-4">
+                                                {/* Número de pregunta */}
+                                                <div className="w-10 h-10 rounded-2xl bg-primary shadow-lg shadow-primary/20 text-white text-sm font-black flex items-center justify-center shrink-0">
+                                                    Q{idx + 1}
                                                 </div>
-                                                <div className="flex gap-1.5">
-                                                    <button onClick={() => openEditPregunta(p)} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:text-primary">
-                                                        <Edit2 className="w-3.5 h-3.5" />
+
+                                                <div className="flex-1 space-y-4">
+                                                    {/* Encabezado: Texto y Metadatos */}
+                                                    <div>
+                                                        <h4 className="text-base md:text-lg font-black text-foreground leading-tight">{p.texto}</h4>
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                                                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest border border-primary/20">
+                                                                {(() => {
+                                                                    const t = TIPOS_PREGUNTA.find(x => x.value === p.tipo);
+                                                                    return t ? <><t.icon className="w-3 h-3" /> {t.label}</> : p.tipo;
+                                                                })()}
+                                                            </span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black uppercase tracking-widest">
+                                                                {p.puntos || 1} {p.puntos === 1 ? 'Punto' : 'Puntos'}
+                                                            </span>
+                                                            {p.obligatorio && (
+                                                                <span className="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-black uppercase tracking-widest">
+                                                                    Obligatorio
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Opciones Renderizadas */}
+                                                    {p.opciones?.length > 0 && p.tipo !== 'TEXTO' && (
+                                                        <div className="pt-2">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                                                {p.opciones.map((o: any, oIdx: number) => (
+                                                                    <div key={o.id || oIdx}
+                                                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${o.esCorrecta ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400' : 'bg-muted/40 border-border/50 text-muted-foreground'}`}>
+                                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${o.esCorrecta ? 'bg-green-500 text-white' : 'bg-background border border-border'}`}>
+                                                                            {o.esCorrecta && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                        </div>
+                                                                        <span className="text-sm font-semibold">{o.texto}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Acciones de Pregunta */}
+                                                <div className="flex gap-2 self-start mt-4 md:mt-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openEditPregunta(p)}
+                                                        title="Editar Pregunta"
+                                                        className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all">
+                                                        <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => deletePregunta(p.id)} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:text-red-500">
-                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    <button onClick={() => deletePregunta(p.id)}
+                                                        title="Eliminar Pregunta"
+                                                        className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </div>
-                                            {p.opciones?.length > 0 && (
-                                                <div className="ml-10 grid grid-cols-2 gap-2">
-                                                    {p.opciones.map((o: any) => (
-                                                        <div key={o.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold ${o.esCorrecta ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-muted text-muted-foreground'}`}>
-                                                            {o.esCorrecta && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                                            {o.texto}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </motion.div>
                                     ))}
                                 </AnimatePresence>
@@ -407,48 +494,102 @@ export default function EventoOperativoPage() {
             {/* ── TAB INSCRIPCIONES ── */}
             {tab === 'inscripciones' && (
                 <div className="space-y-4">
-                    <div className="flex gap-3 flex-wrap">
-                        <div className="relative flex-1 min-w-48">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        <div className="relative flex-1">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input placeholder="Buscar por CI, nombre..." value={search} onChange={e => setSearch(e.target.value)}
-                                className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border outline-none text-sm font-bold focus:border-primary transition-all" />
+                            <input
+                                placeholder="Buscar participante por Carnet de Identidad (CI), Nombres o Apellidos..."
+                                value={search}
+                                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                                className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border outline-none text-sm font-bold focus:border-primary transition-all shadow-sm"
+                            />
                         </div>
-                        <button onClick={exportarCSV} className="h-12 px-5 rounded-2xl bg-card border border-border text-xs font-black text-muted-foreground hover:text-foreground flex items-center gap-2 transition-all">
-                            <Download className="w-4 h-4" /> Exportar CSV
+                        <button onClick={exportarCSV} className="h-12 px-6 rounded-2xl bg-primary/10 border border-primary/20 text-xs font-black text-primary hover:bg-primary hover:text-white flex items-center justify-center gap-2 transition-all">
+                            <Download className="w-4 h-4" /> Exportar a Excel
                         </button>
                     </div>
 
-                    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border">
-                                    <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Participante</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">CI</th>
-                                    <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground">Correo</th>
-                                    <th className="text-center p-4 text-[10px] font-black uppercase text-muted-foreground">Asistencia</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredInscripciones.length === 0 && (
-                                    <tr><td colSpan={4} className="text-center p-8 text-muted-foreground text-sm">Sin inscripciones</td></tr>
-                                )}
-                                {filteredInscripciones.map(i => (
-                                    <tr key={i.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                                        <td className="p-4 font-bold text-foreground uppercase">
-                                            {i.persona?.nombre1} {i.persona?.apellido1}
-                                        </td>
-                                        <td className="p-4 font-mono text-foreground">{String(i.persona?.ci || '')}</td>
-                                        <td className="p-4 text-muted-foreground">{i.persona?.correo}</td>
-                                        <td className="p-4 text-center">
-                                            <button onClick={() => marcarAsistencia(i.id, !i.asistencia)}
-                                                className={`inline-flex items-center gap-2 h-8 px-4 rounded-xl text-xs font-black transition-all ${i.asistencia ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
-                                                {i.asistencia ? <><CheckCircle2 className="w-3.5 h-3.5" /> Presente</> : 'Marcar'}
-                                            </button>
-                                        </td>
+                    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+
+                        {/* CONTROLES DE PAGINACIÓN SUPERIOR */}
+                        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
+                            <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
+                                Total Registrados: <span className="text-primary">{filteredInscripciones.length}</span>
+                            </span>
+
+                            {totalPages > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center disabled:opacity-50 hover:bg-muted">
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-xs font-bold px-2">Pág {page} de {totalPages}</span>
+                                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                                        className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center disabled:opacity-50 hover:bg-muted">
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-border bg-muted/10">
+                                        <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground tracking-widest whitespace-nowrap">Participante & Contacto</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground tracking-widest">Identidad (CI)</th>
+                                        <th className="text-left p-4 text-[10px] font-black uppercase text-muted-foreground tracking-widest">Evaluaciones</th>
+                                        <th className="text-center p-4 text-[10px] font-black uppercase text-muted-foreground tracking-widest">Asistencia</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {paginatedInscripciones.length === 0 && (
+                                        <tr><td colSpan={4} className="text-center p-8 text-muted-foreground text-sm font-medium">No se encontraron inscripciones con ese criterio.</td></tr>
+                                    )}
+                                    {paginatedInscripciones.map((i: any) => (
+                                        <tr key={i.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0">
+                                                        {i.persona?.nombre1?.charAt(0)}{i.persona?.apellido1?.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-foreground uppercase text-[13px] leading-tight">
+                                                            {i.persona?.nombre1} {i.persona?.apellido1}
+                                                        </p>
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                                            <span className="text-[11px] text-muted-foreground truncate max-w-[150px]" title={i.persona?.correo}>
+                                                                ✉ {i.persona?.correo || 'Sin correo'}
+                                                            </span>
+                                                            <span className="text-[11px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
+                                                                📞 {i.persona?.celular || 'Sin celular'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="font-mono text-[13px] font-black text-foreground bg-muted/30 px-3 py-1.5 rounded-lg inline-block">
+                                                    {String(i.persona?.ci || 'N/A')} {i.persona?.complemento ? `-${i.persona.complemento}` : ''}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                {/* Verificación de Evaluación Pendiente. (Sujeto al backend) */}
+                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${i.respuestas || i.evaluaciones ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                                                    {i.respuestas || i.evaluaciones ? <><CheckCircle2 className="w-3 h-3" /> Realizado</> : <><AlertCircle className="w-3 h-3" /> Pendiente</>}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <button onClick={() => marcarAsistencia(i.id, !i.asistencia)}
+                                                    className={`inline-flex items-center gap-2 h-9 px-4 rounded-[1rem] text-xs font-black transition-all ${i.asistencia ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 shadow-sm border border-green-500/20' : 'bg-card border-2 border-border text-muted-foreground hover:border-primary hover:text-primary'}`}>
+                                                    {i.asistencia ? <><CheckCircle2 className="w-4 h-4" /> Presente</> : 'Marcar Asistencia'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
@@ -548,14 +689,21 @@ export default function EventoOperativoPage() {
                         className="w-full p-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-foreground font-bold resize-none h-24 transition-all" />
 
                     {/* Tipo */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase">Tipo de pregunta</label>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-3">
+                        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2 block">
+                            Naturaleza de la Pregunta
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
                             {TIPOS_PREGUNTA.map(t => (
                                 <button key={t.value} onClick={() => changeTipoPregunta(t.value)}
-                                    className={`p-3 rounded-2xl border-2 text-left transition-all ${formPregunta.tipo === t.value ? 'border-primary bg-primary/10' : 'border-border bg-card hover:border-primary/40'}`}>
-                                    <p className="font-black text-sm text-foreground">{t.label}</p>
-                                    <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                                    className={`p-4 rounded-[1.5rem] border-2 text-left transition-all flex items-start gap-4 ${formPregunta.tipo === t.value ? 'border-primary bg-primary/5 shadow-md shadow-primary/5' : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${formPregunta.tipo === t.value ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
+                                        <t.icon className="w-5 h-5" />
+                                    </div>
+                                    <div className="space-y-1 mt-0.5">
+                                        <p className={`font-black uppercase text-[11px] tracking-wide ${formPregunta.tipo === t.value ? 'text-primary' : 'text-foreground'}`}>{t.label}</p>
+                                        <p className="text-[10px] text-muted-foreground leading-tight">{t.desc}</p>
+                                    </div>
                                 </button>
                             ))}
                         </div>
@@ -579,42 +727,67 @@ export default function EventoOperativoPage() {
 
                     {/* Opciones */}
                     {formPregunta.tipo !== 'TEXTO' && (
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-muted-foreground uppercase">Opciones</label>
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-center justify-between border-b border-border pb-2">
+                                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                                    Posibles Respuestas
+                                </label>
                                 {formPregunta.tipo !== 'TRUE_FALSE' && (
                                     <button onClick={() => setFormPregunta(p => ({ ...p, opciones: [...p.opciones, { texto: '', esCorrecta: false }] }))}
-                                        className="flex items-center gap-1 h-7 px-3 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all">
-                                        <Plus className="w-3 h-3" /> Agregar
+                                        className="flex items-center gap-1.5 h-8 px-4 rounded-[1rem] bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
+                                        <Plus className="w-3.5 h-3.5" /> Añadir Opción
                                     </button>
                                 )}
                             </div>
-                            {formPregunta.opciones.map((opt, i) => (
-                                <div key={i} className="flex items-center gap-3">
-                                    <input type={formPregunta.tipo === 'MULTIPLE' ? 'checkbox' : 'radio'}
-                                        checked={opt.esCorrecta}
-                                        onChange={() => {
-                                            const newOpts = formPregunta.opciones.map((o, j) => ({
-                                                ...o,
-                                                esCorrecta: formPregunta.tipo === 'MULTIPLE' ? (j === i ? !o.esCorrecta : o.esCorrecta) : j === i
-                                            }));
-                                            setFormPregunta(p => ({ ...p, opciones: newOpts }));
-                                        }}
-                                        name="opcion-correcta"
-                                        className="w-5 h-5 accent-green-500 cursor-pointer shrink-0" />
-                                    <input placeholder={`Opción ${i + 1}`} value={opt.texto}
-                                        onChange={e => { const o = [...formPregunta.opciones]; o[i] = { ...o[i], texto: e.target.value }; setFormPregunta(p => ({ ...p, opciones: o })); }}
-                                        disabled={formPregunta.tipo === 'TRUE_FALSE'}
-                                        className="flex-1 h-10 px-4 rounded-xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm text-foreground font-bold transition-all disabled:opacity-50" />
-                                    {formPregunta.tipo !== 'TRUE_FALSE' && formPregunta.opciones.length > 2 && (
-                                        <button onClick={() => setFormPregunta(p => ({ ...p, opciones: p.opciones.filter((_, j) => j !== i) }))}
-                                            className="w-8 h-8 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-all">
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            <p className="text-[10px] text-muted-foreground">Marca el círculo/checkbox para indicar la respuesta correcta</p>
+
+                            <div className="space-y-3">
+                                {formPregunta.opciones.map((opt, i) => {
+                                    const isCorrect = opt.esCorrecta;
+                                    return (
+                                        <div key={i} className={`flex items-center gap-3 p-3 rounded-[1.25rem] border-2 transition-all group ${isCorrect ? 'border-green-500/50 bg-green-500/5' : 'border-transparent bg-muted/40 hover:bg-muted/60'}`}>
+
+                                            {/* Selector de Correcta */}
+                                            <button
+                                                onClick={() => {
+                                                    const newOpts = formPregunta.opciones.map((o, j) => ({
+                                                        ...o,
+                                                        esCorrecta: formPregunta.tipo === 'MULTIPLE' ? (j === i ? !o.esCorrecta : o.esCorrecta) : j === i
+                                                    }));
+                                                    setFormPregunta(p => ({ ...p, opciones: newOpts }));
+                                                }}
+                                                className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isCorrect ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-background border-2 border-border text-muted-foreground hover:border-green-500/50 hover:text-green-500'}`}
+                                                title="Marcar como respuesta correcta"
+                                            >
+                                                <CheckCircle2 className={`w-5 h-5 ${isCorrect ? 'opacity-100' : 'opacity-30'}`} />
+                                            </button>
+
+                                            {/* Input de Texto */}
+                                            <input
+                                                placeholder={`Escribe la opción ${i + 1}...`}
+                                                value={opt.texto}
+                                                onChange={e => { const o = [...formPregunta.opciones]; o[i] = { ...o[i], texto: e.target.value }; setFormPregunta(p => ({ ...p, opciones: o })); }}
+                                                disabled={formPregunta.tipo === 'TRUE_FALSE'}
+                                                className={`flex-1 h-10 bg-transparent outline-none text-sm font-bold transition-all disabled:opacity-50 ${isCorrect ? 'text-green-700 dark:text-green-400 placeholder:text-green-500/50' : 'text-foreground placeholder:text-muted-foreground'}`}
+                                            />
+
+                                            {/* Botón Eliminar */}
+                                            {formPregunta.tipo !== 'TRUE_FALSE' && formPregunta.opciones.length > 2 && (
+                                                <button onClick={() => setFormPregunta(p => ({ ...p, opciones: p.opciones.filter((_, j) => j !== i) }))}
+                                                    className="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shrink-0">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center gap-2 px-1">
+                                <AlertCircle className="w-4 h-4 text-amber-500" />
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                                    Presiona el icono <CheckCircle2 className="w-3 h-3 inline pb-0.5" /> para marcar la(s) respuesta(s) correcta(s)
+                                </p>
+                            </div>
                         </div>
                     )}
 

@@ -35,6 +35,14 @@ export const publicService = {
     async getModalidades(): Promise<any[]> {
         const { data } = await api.get<any[]>('/public/modalidades');
         return data;
+    },
+
+    /**
+     * Obtiene la lista de tipos de evento
+     */
+    async getTiposEvento(): Promise<any[]> {
+        const { data } = await api.get<any[]>('/public/tipos-evento');
+        return data;
     }
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Briefcase, Users2, ArrowRight, UserPlus, Contact } from 'lucide-react';
+import { Users, Briefcase, Users2, ArrowRight, UserPlus, Contact, GraduationCap } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -22,6 +22,15 @@ export default function RRHHDashboard() {
             permission: { action: 'read', subject: 'Cargo' }
         },
         {
+            title: 'Personal Magisterio',
+            description: 'Registro y consulta del personal docente y administrativo del magisterio nacional.',
+            icon: GraduationCap,
+            href: '/dashboard/rrhh/magisterio',
+            color: 'bg-emerald-500/10 text-emerald-600',
+            border: 'hover:border-emerald-500/20',
+            permission: null
+        },
+        {
             title: 'Banco Profesional',
             description: 'Repositorio de perfiles, currículums y postulantes calificados para la institución.',
             icon: Users2,
@@ -38,10 +47,9 @@ export default function RRHHDashboard() {
             color: 'bg-orange-500/10 text-orange-600',
             border: 'opacity-50 cursor-not-allowed',
             soon: true
-            // Asignaciones no tiene sujeto definido en AVAILABLE_SUBJECTS aún, 
-            // pero lo dejamos visible o podrías asignarle uno genérico.
         }
     ];
+
 
     const filteredModules = modules.filter(module => {
         if (!module.permission) return true; // Asignaciones se muestra por ahora

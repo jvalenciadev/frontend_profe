@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar, MapPin, Clock, Users, CheckCircle2, AlertCircle,
     Download, Timer, Wifi, WifiOff, ChevronRight, ChevronLeft,
-    Trophy, Star, FileText, RefreshCw, User, Hash, ArrowRight
+    Trophy, Star, FileText, RefreshCw, User, Hash, ArrowRight,
+    QrCode, CreditCard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
@@ -83,83 +84,286 @@ function Timer_Cuestionario({ segundos, startTime, onExpire }: { segundos: numbe
     );
 }
 
-// ─── DESCARGO COMPONENT ─────────────────────────────────────────────────────
+// ─── DESCARGO COMPONENT CON QR Y BARCODE ────────────────────────────────────
 function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
-    const handlePrint = () => window.print();
+    const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+    const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
     const fecha = new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
     const hora = new Date().toLocaleTimeString('es-BO');
 
+    const tipoConfig = {
+        inscripcion: {
+            label: 'Comprobante de Inscripción',
+            icon: <CheckCircle2 className="w-7 h-7 text-blue-600 dark:text-blue-500" />,
+            bgColor: 'bg-blue-600',
+            bgLight: 'bg-blue-50 dark:bg-blue-900/20',
+            borderColor: 'border-blue-200 dark:border-blue-800',
+            textColor: 'text-blue-600 dark:text-blue-500',
+            printHex: '#2563eb',
+            printBgHex: '#eff6ff'
+        },
+        asistencia: {
+            label: 'Comprobante de Asistencia',
+            icon: <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-500" />,
+            bgColor: 'bg-emerald-600',
+            bgLight: 'bg-emerald-50 dark:bg-emerald-900/20',
+            borderColor: 'border-emerald-200 dark:border-emerald-800',
+            textColor: 'text-emerald-600 dark:text-emerald-500',
+            printHex: '#059669',
+            printBgHex: '#f0fdf4'
+        },
+        cuestionario: {
+            label: 'Certificado de Evaluación',
+            icon: <Trophy className="w-7 h-7 text-amber-600 dark:text-amber-500" />,
+            bgColor: 'bg-amber-600',
+            bgLight: 'bg-amber-50 dark:bg-amber-900/20',
+            borderColor: 'border-amber-200 dark:border-amber-800',
+            textColor: 'text-amber-600 dark:text-amber-500',
+            printHex: '#d97706',
+            printBgHex: '#fffbeb'
+        }
+    };
+
+    const config = tipoConfig[tipo as keyof typeof tipoConfig] || tipoConfig.inscripcion;
+    const tipoLabel = config.label;
+
+    const urlVerificacion = typeof window !== 'undefined'
+        ? `${window.location.origin}/eventos/${evento?.codigo || evento?.id}`
+        : '';
+
+    // Generar QR en canvas
+    useEffect(() => {
+        if (!qrCanvasRef.current || !urlVerificacion) return;
+        import('qrcode').then(QRCode => {
+            QRCode.toCanvas(qrCanvasRef.current, urlVerificacion, {
+                width: 120,
+                margin: 1,
+                color: { dark: '#000000', light: '#ffffff' }
+            });
+        });
+    }, [urlVerificacion]);
+
+    // Generar Barcode (CI) en canvas
+    useEffect(() => {
+        if (!barcodeCanvasRef.current || !persona?.ci) return;
+        import('jsbarcode').then(({ default: JsBarcode }) => {
+            JsBarcode(barcodeCanvasRef.current, String(persona.ci), {
+                format: 'CODE128',
+                width: 1.8,
+                height: 50,
+                displayValue: true,
+                fontSize: 12,
+                textMargin: 4,
+                margin: 8,
+                background: '#ffffff',
+                lineColor: '#000000',
+            });
+        });
+    }, [persona?.ci]);
+
+    const handlePrint = () => {
+        const el = document.getElementById('descargo-print');
+        if (!el) return;
+
+        // Capturar los canvas como imágenes base64 ANTES de abrir la ventana
+        const qrCanvas = qrCanvasRef.current;
+        const barcodeCanvas = barcodeCanvasRef.current;
+        const qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : '';
+        const barcodeDataUrl = barcodeCanvas ? barcodeCanvas.toDataURL('image/png') : '';
+
+        // Reemplazar los <canvas> por <img> con su dataURL
+        // (los canvas no se imprimen en ventanas nuevas)
+        const win = window.open('', '_blank', 'width=800,height=900');
+        if (!win) { window.print(); return; }
+
+        win.document.write(`
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="color-scheme" content="light">
+  <title>Comprobante PROFE - ${tipoLabel}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { font-family: 'Arial', sans-serif; background: white !important; color: #111 !important; padding: 32px; max-width: 700px; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .icon-box { width: 52px; height: 52px; background: ${config.printBgHex}; border: 1px solid ${config.printHex}33; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: ${config.printHex}; }
+    .title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: ${config.printHex}; }
+    .subtitle { font-size: 11px; color: #64748b; margin-top: 2px; text-transform: uppercase; font-weight: bold; }
+    .qr-img { width: 90px; height: 90px; border: 1px solid #e2e8f0; border-radius: 10px; }
+    .qr-label { font-size: 8px; text-align: center; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; margin-top: 4px; font-weight: 700; }
+    .participante-box { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+    .label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; }
+    .value { font-weight: 800; color: #0f172a; margin-top: 3px; font-size: 14px; }
+    .value.big { font-size: 18px; text-transform: uppercase; color: #000; }
+    .value.mono { font-family: monospace; font-size: 24px; font-weight: 900; letter-spacing: -1px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .field { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+    .aprobado { color: #16a34a; font-size: 20px; font-weight: 900; margin-top: 3px; }
+    .reprobado { color: #dc2626; font-size: 20px; font-weight: 900; margin-top: 3px;}
+    .barcode-section { border-top: 2px dashed #cbd5e1; padding-top: 20px; text-align: center; margin-top: 24px; }
+    .barcode-img { max-width: 100%; height: auto; border: 1px solid #e2e8f0; padding: 8px; border-radius: 8px; background: white; }
+    .footer { text-align: center; font-size: 10px; color: #64748b; margin-top: 16px; line-height: 1.6; }
+    .footer-highlight { font-weight: bold; color: ${config.printHex}; }
+    @media print { body { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="icon-box">✓</div>
+      <div>
+        <div class="title">${tipoLabel}</div>
+        <div class="subtitle">Sistema de Gestión Académica - PROFE</div>
+      </div>
+    </div>
+    ${qrDataUrl ? `<div><img class="qr-img" src="${qrDataUrl}" alt="QR"/><div class="qr-label">Verificar</div></div>` : ''}
+  </div>
+
+  <div class="participante-box">
+    <div class="label">Participante / Titular</div>
+    <div class="value big">${(persona?.nombre1 || '')} ${(persona?.nombre2 || '')} ${(persona?.apellido1 || '')} ${(persona?.apellido2 || '')}</div>
+  </div>
+
+  <div class="grid">
+    <div class="field"><div class="label">Cédula de Identidad</div><div class="value mono">${persona?.ci || ''}</div></div>
+    <div class="field"><div class="label">Evento</div><div class="value">${evento?.nombre || ''}</div></div>
+    <div class="field"><div class="label">Categoría de Evento</div><div class="value" style="color: ${config.printHex}; font-weight: 900;">${evento?.tipo?.nombre || 'Evento'}</div></div>
+    <div class="field"><div class="label">Fecha del evento</div><div class="value">${evento?.fecha ? new Date(evento.fecha).toLocaleDateString('es-BO') : ''}</div></div>
+    ${resultado && !resultado.offline ? `
+    <div class="field"><div class="label">Puntaje Obtenido</div><div class="value">${resultado.puntaje} / ${resultado.puntajeMaximo} pts</div></div>
+    <div class="field"><div class="label">Calificación Final</div><div class="${resultado.aprobado ? 'aprobado' : 'reprobado'}">${resultado.nota}/100 — ${resultado.aprobado ? 'APROBADO ✓' : 'NO APROBADO'}</div></div>
+    ` : ''}
+    <div class="field"><div class="label">Fecha de Emisión</div><div class="value">${fecha} · ${hora}</div></div>
+    ${inscripcionId ? `<div class="field"><div class="label">Código de Verificación</div><div class="value" style="font-size:11px;word-break:break-all; font-family: monospace;">${inscripcionId}</div></div>` : ''}
+  </div>
+
+  ${barcodeDataUrl ? `
+  <div class="barcode-section">
+    <div class="label" style="margin-bottom:12px">Identificación Única de Titular (Código de Barras)</div>
+    <img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode CI" />
+  </div>` : ''}
+
+  <div class="footer">
+    Este documento es un comprobante oficial generado automáticamente.<br/>
+    Escanea el código QR para validar la autenticidad de este documento en la plataforma <span class="footer-highlight">PROFE</span>.
+  </div>
+
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`);
+        win.document.close();
+    };
+
     return (
         <div className="space-y-6">
-            <div id="descargo-print" className="bg-card border-2 border-primary/30 rounded-3xl p-8 space-y-6 print:border-black print:bg-white">
+            <div
+                id="descargo-print"
+                className={`bg-card border-2 ${config.borderColor} rounded-3xl p-8 space-y-6 shadow-xl shadow-black/5 print:border-slate-300 print:bg-white print:rounded-none print:shadow-none transition-colors duration-500`}
+            >
                 {/* Header */}
-                <div className="flex items-center gap-4 border-b border-border pb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                        <CheckCircle2 className="w-8 h-8 text-primary" />
+                <div className="flex items-center justify-between gap-4 border-b border-border pb-6">
+                    <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-2xl ${config.bgLight} border ${config.borderColor} flex items-center justify-center`}>
+                            {config.icon}
+                        </div>
+                        <div>
+                            <h2 className={`text-xl font-black uppercase tracking-tight ${config.textColor}`}>
+                                {tipoLabel}
+                            </h2>
+                            <p className="text-xs text-muted-foreground font-black uppercase tracking-widest mt-1">PROFE — Sistema de Gestión Académica</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-black uppercase tracking-tight text-foreground">
-                            {tipo === 'inscripcion' ? 'Comprobante de Inscripción' : tipo === 'asistencia' ? 'Comprobante de Asistencia' : 'Certificado de Evaluación'}
-                        </h2>
-                        <p className="text-sm text-muted-foreground">PROFE — Sistema de Gestión Académica</p>
+                    {/* QR code */}
+                    <div className="shrink-0 text-center bg-white p-1.5 rounded-xl border border-border shadow-sm">
+                        <canvas ref={qrCanvasRef} className="w-[90px] h-[90px] rounded-xl border border-border bg-white" />
+                        <p className="text-[8px] text-muted-foreground mt-1 font-bold uppercase tracking-widest">Verificar</p>
                     </div>
                 </div>
 
-                {/* Datos */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Participante</span>
-                        <p className="font-black text-foreground uppercase">{persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}</p>
+                {/* Datos principales */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                    <div className="md:col-span-2 p-4 rounded-2xl bg-muted/30 border border-border">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Participante</span>
+                        <p className="font-black text-foreground uppercase text-lg mt-0.5">
+                            {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
+                        </p>
                     </div>
+
                     <div className="space-y-1">
                         <span className="text-[10px] font-black uppercase text-muted-foreground">C.I.</span>
-                        <p className="font-black text-foreground">{persona?.ci}</p>
+                        <p className="font-black text-foreground text-2xl font-mono">{persona?.ci}</p>
                     </div>
+
                     <div className="space-y-1">
                         <span className="text-[10px] font-black uppercase text-muted-foreground">Evento</span>
                         <p className="font-bold text-foreground">{evento?.nombre}</p>
                     </div>
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Fecha</span>
-                        <p className="font-bold text-foreground">{new Date(evento?.fecha).toLocaleDateString('es-BO')}</p>
+
+                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Comprobante</span>
+                        <p className={`font-black uppercase text-sm ${config.textColor}`}>{tipoLabel}</p>
                     </div>
+
+                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground">Fecha del evento</span>
+                        <p className="font-bold text-foreground text-sm">{new Date(evento?.fecha).toLocaleDateString('es-BO')}</p>
+                    </div>
+
                     {tipo === 'cuestionario' && resultado && (
                         <>
-                            <div className="space-y-1">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground">Puntaje Obtenido</span>
+                            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-1">
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Puntaje</span>
                                 <p className="font-black text-2xl text-primary">{resultado.puntaje} / {resultado.puntajeMaximo} pts</p>
                             </div>
-                            <div className="space-y-1">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground">Nota</span>
+                            <div className={`p-4 rounded-2xl border space-y-1 ${resultado.aprobado ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                                <span className="text-[10px] font-black uppercase text-muted-foreground">Calificación</span>
                                 <p className={`font-black text-2xl ${resultado.aprobado ? 'text-green-500' : 'text-red-500'}`}>
-                                    {resultado.nota}/100 — {resultado.aprobado ? 'APROBADO' : 'NO APROBADO'}
+                                    {resultado.nota}/100 — {resultado.aprobado ? 'APROBADO ✓' : 'NO APROBADO'}
                                 </p>
                             </div>
                         </>
                     )}
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Emitido</span>
-                        <p className="font-bold text-foreground">{fecha} {hora}</p>
+
+                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground">Emitido el</span>
+                        <p className="font-bold text-foreground text-sm">{fecha} · {hora}</p>
                     </div>
+
                     {inscripcionId && (
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-muted-foreground">Código de verificación</span>
-                            <p className="font-black text-foreground font-mono text-xs">{inscripcionId}</p>
+                            <p className="font-black text-foreground font-mono text-[11px] break-all">{inscripcionId}</p>
                         </div>
                     )}
                 </div>
 
-                <div className="border-t border-border pt-4 text-center text-xs text-muted-foreground">
-                    Este documento es un comprobante oficial generado automáticamente por el Sistema PROFE.
+                {/* Barcode del CI */}
+                {persona?.ci && (
+                    <div className="border-t border-border pt-5 flex flex-col items-center gap-2">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                            <CreditCard className="w-3 h-3" />
+                            Código de barras — Cédula de Identidad
+                        </p>
+                        <div className="bg-white rounded-xl p-2 border border-border">
+                            <canvas ref={barcodeCanvasRef} />
+                        </div>
+                    </div>
+                )}
+
+                <div className="border-t border-border pt-4 text-center text-[11px] text-muted-foreground leading-relaxed">
+                    Este documento es un comprobante oficial generado automáticamente por el Sistema PROFE Bolivia.
+                    Escanea el código QR para verificar el evento en línea.
                 </div>
             </div>
 
             <button
                 onClick={handlePrint}
-                className="w-full h-14 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 transition-all"
+                className={`w-full h-14 rounded-2xl ${config.bgColor} text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-black/10`}
             >
                 <Download className="w-4 h-4" />
-                Descargar / Imprimir Comprobante
+                Imprimir / Guardar PDF
             </button>
         </div>
     );
@@ -212,6 +416,42 @@ export default function EventoPublicoPage() {
         modalidadId: '',
         codigoAsistencia: ''
     });
+
+    // ─── RESET COMPLETO PARA NUEVA PERSONA ───────────────────────────────────
+    const handleReset = (eventoId?: string) => {
+        setStep('info');
+        setPersona(null);
+        setInscripcion(null);
+        setResultado(null);
+        setCuestionarioActivo(null);
+        setRespuestas({});
+        setPreguntaIdx(0);
+        setTimerExpired(false);
+        setStartTime(null);
+        setOfflineQueue(null);
+        setForm({
+            ci: '',
+            fechaNacimiento: '',
+            nombre1: '',
+            nombre2: '',
+            apellido1: '',
+            apellido2: '',
+            correo: '',
+            celular: '',
+            expedido: 'LP',
+            complemento: '',
+            generoId: '1',
+            departamentoId: '',
+            modalidadId: '',
+            codigoAsistencia: ''
+        });
+        // Limpiar sesiones guardadas en localStorage
+        const id = eventoId || evento?.id;
+        if (id) {
+            localStorage.removeItem(`cuestionario_session_${id}`);
+        }
+        localStorage.removeItem('cuestionario_pendiente');
+    };
 
     // Cargar datos iniciales
     useEffect(() => {
@@ -454,11 +694,9 @@ export default function EventoPublicoPage() {
         } catch (e: any) {
             console.error("Error enviando cuestionario:", e);
             if (e?.response?.status === 409) {
-                // Ya lo respondió anteriormente
-                setStep('info');
-                alert("Ya has respondido este cuestionario.");
-                localStorage.removeItem(`cuestionario_session_${evento.id}`);
-                localStorage.removeItem('cuestionario_pendiente');
+                // Ya lo respondió anteriormente — reset para nueva persona
+                handleReset();
+                toast.error('Ya has respondido este cuestionario con esta persona.');
             } else {
                 // Si falla por otra cosa y estamos online, lo guardamos para reintentar luego
                 localStorage.setItem('cuestionario_pendiente', JSON.stringify({
@@ -520,7 +758,7 @@ export default function EventoPublicoPage() {
             </AnimatePresence>
 
             {/* Banner header */}
-            <div className="relative h-[25rem] md:h-[35rem] overflow-hidden bg-black">
+            <div className="relative h-[25rem] md:h-[35rem] overflow-hidden bg-slate-950 mt-24 md:mt-32 rounded-3xl mx-4 md:mx-8 mb-8 shadow-2xl">
                 {evento.banner ? (
                     <>
                         {/* Background blurry layer for filling space */}
@@ -532,18 +770,19 @@ export default function EventoPublicoPage() {
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary via-primary/80 to-indigo-600" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+                {/* Overlay oscuro GARANTIZADO en la parte inferior para leer letras blancas */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
                 {/* Back button - Adjusted to not overlap with main navbar */}
-                <button onClick={() => router.back()} className="absolute top-32 left-8 md:left-16 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 transition-all shadow-2xl">
+                <button onClick={() => router.back()} className="absolute top-6 left-6 md:top-8 md:left-8 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/80 hover:scale-105 transition-all shadow-2xl">
                     <ChevronLeft className="w-6 h-6" />
                 </button>
 
-                <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12">
-                    <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
+                <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 z-20">
+                    <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
                         {evento.tipo?.nombre || 'Evento'}
                     </span>
-                    <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white mt-4 uppercase leading-[0.9]">
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter text-white mt-4 uppercase leading-[0.9] drop-shadow-2xl">
                         {evento.nombre}
                     </h1>
                 </div>
@@ -601,8 +840,10 @@ export default function EventoPublicoPage() {
                             {/* Questionnaires Section */}
                             {(evento.cuestionarios?.length || 0) > 0 && (
                                 <div className="space-y-4">
-                                    <h2 className="text-lg font-black uppercase text-foreground flex items-center gap-2">
-                                        <FileText className="w-5 h-5 text-amber-500" />
+                                    <h2 className="text-lg font-black uppercase text-foreground flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <FileText className="w-4 h-4 text-primary" />
+                                        </div>
                                         Evaluaciones y Cuestionarios
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4">
@@ -614,23 +855,23 @@ export default function EventoPublicoPage() {
                                             const isUpcoming = start > now;
 
                                             return (
-                                                <div key={c.id} className={`p-6 rounded-3xl border-2 transition-all ${isActive ? 'bg-amber-500/5 border-amber-500 shadow-lg shadow-amber-500/10' : 'bg-muted/30 border-border opacity-60'}`}>
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <h3 className="font-black uppercase text-foreground">{c.titulo}</h3>
-                                                                {isActive && <span className="px-2 py-0.5 rounded-full bg-amber-500 text-[8px] font-black text-black animate-pulse">ACTIVO</span>}
+                                                <div key={c.id} className={`p-6 rounded-[2rem] border transition-all ${isActive ? 'bg-card border-primary/30 shadow-xl shadow-primary/5 hover:border-primary/50' : 'bg-muted/10 border-border opacity-70'}`}>
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <h3 className="font-black uppercase text-foreground tracking-tight text-lg">{c.titulo}</h3>
+                                                                {isActive && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">Vigente</span>}
                                                             </div>
-                                                            <p className="text-sm text-muted-foreground">{c.descripcion}</p>
-                                                            <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
-                                                                <span className="flex items-center gap-1">
-                                                                    <Calendar className="w-3 h-3" />
+                                                            <p className="text-sm text-muted-foreground leading-relaxed">{c.descripcion}</p>
+                                                            <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground tracking-widest uppercase">
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <Calendar className="w-3.5 h-3.5 text-primary/60" />
                                                                     {start.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
-                                                                <span>—</span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <Clock className="w-3 h-3" />
-                                                                    Fin: {end.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                                <span className="text-border">|</span>
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <Clock className="w-3.5 h-3.5 text-primary/60" />
+                                                                    Cierre: {end.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -642,13 +883,13 @@ export default function EventoPublicoPage() {
                                                                     setStep('identificacion');
                                                                     if (!startTime) setStartTime(Date.now());
                                                                 }}
-                                                                className="h-12 px-6 rounded-xl bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
+                                                                className="shrink-0 h-12 px-8 rounded-2xl bg-primary text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-105 hover:bg-primary-600 transition-all flex items-center justify-center gap-3"
                                                             >
-                                                                Realizar Evaluación
+                                                                Participar
                                                                 <ArrowRight className="w-4 h-4" />
                                                             </button>
                                                         ) : (
-                                                            <div className="h-12 px-6 rounded-xl bg-muted border border-border text-muted-foreground font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                                                            <div className="shrink-0 h-12 px-8 rounded-2xl bg-muted border border-border text-muted-foreground font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2">
                                                                 {isUpcoming ? 'Próximamente' : 'Finalizado'}
                                                             </div>
                                                         )}
@@ -674,28 +915,31 @@ export default function EventoPublicoPage() {
                                 </div>
                             )}
 
-                            {/* Opciones disponibles */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {evento.inscripcionAbierta && (
                                     <button onClick={() => setStep('identificacion')}
-                                        className="group p-8 bg-primary text-white rounded-3xl font-black uppercase tracking-wide hover:opacity-90 active:scale-95 transition-all flex flex-col items-start gap-4">
-                                        <Users className="w-8 h-8" />
-                                        <div className="text-left">
-                                            <div className="text-lg">Inscribirse</div>
-                                            <div className="text-xs opacity-60 font-medium normal-case">Regístrate en este evento</div>
+                                        className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                            <Users className="w-6 h-6" />
                                         </div>
-                                        <ChevronRight className="w-5 h-5 self-end group-hover:translate-x-1 transition-transform" />
+                                        <div className="text-left text-foreground">
+                                            <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Inscripción Oficial</div>
+                                            <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Garantiza tu participación en esta actividad académica.</div>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                     </button>
                                 )}
                                 {evento.asistencia && (
                                     <button onClick={() => setStep('asistencia')}
-                                        className="group p-8 bg-card border-2 border-primary text-primary rounded-3xl font-black uppercase tracking-wide hover:bg-primary/5 active:scale-95 transition-all flex flex-col items-start gap-4">
-                                        <CheckCircle2 className="w-8 h-8" />
-                                        <div className="text-left">
-                                            <div className="text-lg">Registrar Asistencia</div>
-                                            <div className="text-xs opacity-60 font-medium normal-case">Ingresa tu código de asistencia</div>
+                                        className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                            <CheckCircle2 className="w-6 h-6" />
                                         </div>
-                                        <ChevronRight className="w-5 h-5 self-end group-hover:translate-x-1 transition-transform" />
+                                        <div className="text-left text-foreground">
+                                            <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Registro de Asistencia</div>
+                                            <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Valida y confirma tu asistencia mediante código oficial.</div>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                     </button>
                                 )}
                                 {cuestionarioVigente && (
@@ -704,13 +948,17 @@ export default function EventoPublicoPage() {
                                         setStep('identificacion');
                                         if (!startTime) setStartTime(Date.now()); // Solo iniciar si no hay uno previo
                                     }}
-                                        className="group p-8 bg-card border-2 border-amber-500 text-amber-500 rounded-3xl font-black uppercase tracking-wide hover:bg-amber-500/5 active:scale-95 transition-all flex flex-col items-start gap-4 md:col-span-2">
-                                        <FileText className="w-8 h-8" />
-                                        <div className="text-left">
-                                            <div className="text-lg">Realizar Cuestionario</div>
-                                            <div className="text-xs opacity-60 font-medium normal-case">{cuestionarioVigente.titulo} — {cuestionarioVigente.tiempoMaximo ? `${cuestionarioVigente.tiempoMaximo} min` : 'Sin límite de tiempo'}</div>
+                                        className="group p-8 bg-primary rounded-3xl border border-primary/50 text-white font-black uppercase tracking-wide hover:bg-primary-600 transition-all flex flex-col items-start gap-5 shadow-xl shadow-primary/20 md:col-span-2">
+                                        <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white backdrop-blur-md">
+                                            <Trophy className="w-6 h-6" />
                                         </div>
-                                        <ChevronRight className="w-5 h-5 self-end group-hover:translate-x-1 transition-transform" />
+                                        <div className="text-left">
+                                            <div className="text-2xl tracking-tight">Realizar Evaluación</div>
+                                            <div className="text-xs font-semibold normal-case mt-1 opacity-90 tracking-normal text-white/90">
+                                                {cuestionarioVigente.titulo} • {cuestionarioVigente.tiempoMaximo ? `${cuestionarioVigente.tiempoMaximo} MINUTOS` : 'SIN LÍMITE DE TIEMPO'}
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 self-end opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                     </button>
                                 )}
                             </div>
@@ -1003,11 +1251,9 @@ export default function EventoPublicoPage() {
                                 </button>
                             )}
 
-                            {resultado.offline && (
-                                <button onClick={() => setStep('info')} className="w-full h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all">
-                                    Volver al Inicio
-                                </button>
-                            )}
+                            <button onClick={() => handleReset()} className="w-full h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all">
+                                Registrar otra persona
+                            </button>
                         </motion.div>
                     )}
 
@@ -1021,21 +1267,27 @@ export default function EventoPublicoPage() {
                                 resultado={resultado}
                                 inscripcionId={inscripcion?.id}
                             />
-                            <button onClick={() => setStep('info')} className="w-full mt-4 h-12 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all">
-                                Volver al evento
-                            </button>
+                            <div className="flex gap-3 mt-4">
+                                <button
+                                    onClick={() => handleReset()}
+                                    className="flex-1 h-12 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all"
+                                >
+                                    Registrar otra persona
+                                </button>
+                                <button
+                                    onClick={() => router.back()}
+                                    className="h-12 px-6 rounded-2xl bg-primary/10 text-primary font-black text-xs uppercase hover:bg-primary/20 transition-all"
+                                >
+                                    Salir
+                                </button>
+                            </div>
                         </motion.div>
                     )}
 
                 </AnimatePresence>
             </div>
 
-            <style jsx global>{`
-                @media print {
-                    body > *:not(#descargo-print) { display: none; }
-                    #descargo-print { display: block !important; }
-                }
-            `}</style>
+
         </div >
     );
 }

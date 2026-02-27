@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, Lock, IdCard, Calendar, Briefcase, Building2,
     ArrowRight, CheckCircle, AlertCircle, Loader2, ArrowLeft, Upload,
-    Sparkles, ShieldCheck, GraduationCap, MapPin, Phone, Hash
+    Sparkles, ShieldCheck, GraduationCap, MapPin, Phone, Hash, Eye
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +21,7 @@ export default function RegistroProfePage() {
     const { config: profe } = useProfe();
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
-    const [config, setConfig] = useState<{ cargos: any[], departamentos: any[] }>({ cargos: [], departamentos: [] });
+    const [config, setConfig] = useState<{ cargos: any[], departamentos: any[], categorias: any[] }>({ cargos: [], departamentos: [], categorias: [] });
     const [isEmailVerified, setIsEmailVerified] = useState(false);
     const [isSendingVerification, setIsSendingVerification] = useState(false);
     const [countdown, setCountdown] = useState(0);
@@ -44,19 +44,28 @@ export default function RegistroProfePage() {
         tenantId: '',
         celular: '',
         imagen: '',
-        verificationCode: ''
+        verificationCode: '',
+        rda: '',
+        rdaPdf: '',
+        categoriaId: '',
+        esMaestro: false,
+        idiomas: '',
+        resumenProfesional: '',
+        habilidades: ''
     });
 
     useEffect(() => {
         async function loadConfig() {
             try {
-                const [cargosResp, deptsResp] = await Promise.all([
+                const [cargosResp, deptsResp, catsResp] = await Promise.all([
                     api.get('/public/banco-profesional/config/cargos'),
-                    api.get('/public/departamentos')
+                    api.get('/public/departamentos'),
+                    api.get('/public/banco-profesional/config/categorias')
                 ]);
                 setConfig({
                     cargos: Array.isArray(cargosResp.data) ? cargosResp.data : (cargosResp.data?.data || []),
-                    departamentos: Array.isArray(deptsResp.data) ? deptsResp.data : (deptsResp.data?.data || [])
+                    departamentos: Array.isArray(deptsResp.data) ? deptsResp.data : (deptsResp.data?.data || []),
+                    categorias: Array.isArray(catsResp.data) ? catsResp.data : (catsResp.data?.data || [])
                 });
             } catch (error) {
                 console.error('Error loading config:', error);
@@ -84,7 +93,7 @@ export default function RegistroProfePage() {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const { data } = await api.post('/upload/banco_profesional', formData, {
+            const { data } = await api.post('/public/banco-profesional/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             const url = data.data?.path || data.path;
@@ -134,7 +143,7 @@ export default function RegistroProfePage() {
                 tenantId: form.tenantId === '' ? null : form.tenantId,
                 per_ci: form.ci,
                 bp_ci: form.ci,
-                esMaestro: false,
+                esMaestro: form.esMaestro,
             };
 
             await api.post('/public/banco-profesional/registrar', submitData);
@@ -395,6 +404,139 @@ export default function RegistroProfePage() {
                                                     {config.cargos.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                                                 </select>
                                                 <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                                            </div>
+                                        </div>
+
+                                        <div className="p-8 rounded-[2.5rem] bg-muted/20 border border-border/50 space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <h4 className="text-xs font-black uppercase tracking-widest text-foreground">¿Eres Personal Magisterio?</h4>
+                                                    <p className="text-[10px] text-muted-foreground font-medium italic">Marca esta opción si posees un registro RDA activo.</p>
+                                                </div>
+                                                <input
+                                                    type="checkbox"
+                                                    name="esMaestro"
+                                                    checked={form.esMaestro}
+                                                    onChange={(e) => setForm({ ...form, esMaestro: e.target.checked })}
+                                                    className="w-6 h-6 rounded-lg accent-primary cursor-pointer shadow-sm"
+                                                />
+                                            </div>
+
+                                            <AnimatePresence>
+                                                {form.esMaestro && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="space-y-6 pt-4 border-t border-border/40"
+                                                    >
+                                                        <div className="space-y-2">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número RDA</label>
+                                                            <div className="relative group">
+                                                                <Hash className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                                                                <Input
+                                                                    type="number"
+                                                                    name="rda"
+                                                                    value={form.rda}
+                                                                    onChange={handleChange}
+                                                                    placeholder="Tu registro oficial"
+                                                                    className="pl-14 h-14 rounded-2xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 outline-none"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Certificado RDA (PDF)</label>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex-1 h-14 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center px-5 border border-transparent overflow-hidden">
+                                                                    {form.rdaPdf ? (
+                                                                        <div className="flex items-center justify-between w-full">
+                                                                            <span className="text-[10px] font-bold text-primary truncate uppercase">Certificado Cargado</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const url = IMG(form.rdaPdf);
+                                                                                    if (url) window.open(url, '_blank');
+                                                                                }}
+                                                                                className="p-2 hover:bg-primary/10 rounded-xl transition-colors text-primary"
+                                                                                title="Ver PDF"
+                                                                            >
+                                                                                <Eye className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase italic">Sin archivo</span>
+                                                                    )}
+                                                                </div>
+                                                                <label className="shrink-0 h-12 w-12 bg-primary text-white rounded-2xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-lg shadow-primary/20">
+                                                                    <Upload className="w-5 h-5" />
+                                                                    <input type="file" accept=".pdf" className="hidden" onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            setIsLoading(true);
+                                                                            const formData = new FormData();
+                                                                            formData.append('file', file);
+                                                                            try {
+                                                                                const { data } = await api.post('/public/banco-profesional/upload', formData, {
+                                                                                    headers: { 'Content-Type': 'multipart/form-data' }
+                                                                                });
+                                                                                const url = data.data?.path || data.path;
+                                                                                const cleanUrl = url.includes('/uploads/') ? '/uploads/' + url.split('/uploads/')[1] : url;
+                                                                                setForm({ ...form, rdaPdf: cleanUrl });
+                                                                                toast.success('RDA cargado correctamente');
+                                                                            } catch (error) {
+                                                                                toast.error('Error al subir PDF');
+                                                                            } finally {
+                                                                                setIsLoading(false);
+                                                                            }
+                                                                        }
+                                                                    }} />
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label>
+                                                            <div className="relative group">
+                                                                <select
+                                                                    name="categoriaId"
+                                                                    value={form.categoriaId}
+                                                                    onChange={handleChange}
+                                                                    className="w-full h-14 rounded-2xl bg-slate-50 dark:bg-white/5 border-transparent px-5 text-sm font-bold focus:bg-white dark:focus:bg-white/10 outline-none appearance-none"
+                                                                >
+                                                                    <option value="">Selecciona tu categoría</option>
+                                                                    {config.categorias.map((c: any) => (
+                                                                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            <div className="space-y-6 pt-6 border-t border-border/40">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Idiomas (Ej: Quechua, Inglés...)</label>
+                                                    <Input
+                                                        name="idiomas"
+                                                        value={form.idiomas}
+                                                        onChange={handleChange}
+                                                        placeholder="Idiomas que dominas"
+                                                        className="h-14 rounded-2xl bg-slate-50 dark:bg-white/5 border-transparent px-5"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perfil/Resumen Profesional</label>
+                                                    <textarea
+                                                        name="resumenProfesional"
+                                                        value={form.resumenProfesional}
+                                                        onChange={(e) => setForm({ ...form, resumenProfesional: e.target.value })}
+                                                        placeholder="Describe brevemente tu formación y experiencia..."
+                                                        className="w-full h-32 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-white/10 outline-none font-bold text-xs resize-none"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 

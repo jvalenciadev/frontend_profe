@@ -7,25 +7,13 @@ import { roleService } from '@/services/roleService';
 import { Role } from '@/types';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
+import { useProfe } from '@/contexts/ProfeContext';
 import {
-    Users2,
-    Plus,
-    Search,
-    UserCircle,
-    FileText,
-    Download,
-    CheckCircle2,
-    XCircle,
-    Loader2,
-    Mail,
-    Phone,
-    GraduationCap,
-    Clock,
-    UserCheck,
-    Briefcase,
-    Save,
-    FileDown,
-    Eye
+    Search, Filter, Plus, MoreVertical, Eye, FileText,
+    Download, Trash2, CheckCircle2, XCircle, UserCircle,
+    Loader2, Briefcase, GraduationCap, Award, Book,
+    Mail, MapPin, Calendar, Heart, Globe, FileDown, IdCard,
+    IdCardIcon, AlertCircle, ChevronRight, Save, Users2, UserCheck, Phone, Clock
 } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FichaPDF } from '@/components/FichaPDF';
@@ -36,6 +24,7 @@ import { toast } from 'sonner';
 import { StatusBadge } from '@/components/StatusBadge';
 
 export default function BancoProfesionalPage() {
+    const { config: profeConfig } = useProfe();
     const [professionals, setProfessionals] = useState<BancoProfesional[]>([]);
     const [cargos, setCargos] = useState<Cargo[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
@@ -51,6 +40,11 @@ export default function BancoProfesionalPage() {
         status: 'activo'
     });
     const [searchTerm, setSearchTerm] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         loadData();
@@ -358,6 +352,83 @@ export default function BancoProfesionalPage() {
                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Resumen Profesional</p>
                                         <p className="text-xs font-medium text-muted-foreground leading-relaxed">{selectedProf.resumenProfesional || 'Sin descripción disponible.'}</p>
                                     </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Idiomas</p>
+                                            <p className="text-xs font-bold">{selectedProf.idiomas || '---'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Habilidades</p>
+                                            <p className="text-xs font-bold">{selectedProf.habilidades || '---'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Documentos y Experiencia */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-border/20">
+                            <div className="space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                                    <FileText className="w-4 h-4" /> Documentos Adjuntos
+                                </h4>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {selectedProf.hojaDeVidaPdf && (
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/50 group/doc">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                    <FileText className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Hoja de Vida (CV)</p>
+                                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Formato PDF</p>
+                                                </div>
+                                            </div>
+                                            <a
+                                                href={getImageUrl(selectedProf.hojaDeVidaPdf)}
+                                                target="_blank"
+                                                className="p-2.5 rounded-xl bg-white dark:bg-card text-muted-foreground hover:text-primary hover:shadow-lg transition-all"
+                                                title="Ver PDF"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </a>
+                                        </div>
+                                    )}
+                                    {selectedProf.rdaPdf && (
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border/50 group/doc">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                                                    <FileText className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Certificado RDA</p>
+                                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Formato PDF</p>
+                                                </div>
+                                            </div>
+                                            <a
+                                                href={getImageUrl(selectedProf.rdaPdf)}
+                                                target="_blank"
+                                                className="p-2.5 rounded-xl bg-white dark:bg-card text-muted-foreground hover:text-emerald-600 hover:shadow-lg transition-all"
+                                                title="Ver PDF"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </a>
+                                        </div>
+                                    )}
+                                    {!selectedProf.hojaDeVidaPdf && !selectedProf.rdaPdf && (
+                                        <p className="text-[10px] font-bold text-muted-foreground italic">No se han subido documentos PDF.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                                    <Briefcase className="w-4 h-4" /> Experiencia Laboral
+                                </h4>
+                                <div className="p-5 rounded-2xl bg-muted/30 border border-border/50 min-h-[100px]">
+                                    <p className="text-xs font-medium text-muted-foreground leading-relaxed italic whitespace-pre-wrap">
+                                        {selectedProf.experienciaLaboral || 'No se detalló experiencia laboral.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -410,9 +481,9 @@ export default function BancoProfesionalPage() {
                             <button onClick={() => setIsDetailModalOpen(false)} className="px-6 text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">
                                 Cerrar
                             </button>
-                            {config && (
+                            {isMounted && config && selectedProf && (
                                 <PDFDownloadLink
-                                    document={<FichaPDF ficha={selectedProf} config={config} />}
+                                    document={<FichaPDF ficha={selectedProf} config={config} profe={profeConfig} />}
                                     fileName={`Ficha_${selectedProf.nombre}_${selectedProf.apellidos}.pdf`}
                                     className="h-12 px-8 rounded-xl bg-primary text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center gap-2"
                                 >

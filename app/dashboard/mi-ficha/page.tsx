@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useProfe } from '@/contexts/ProfeContext';
 import {
     User, GraduationCap, Book, FileText, Plus, Trash2,
     Save, Loader2, Calendar, IdCard, Briefcase, Award, Upload,
-    ArrowRight, CheckCircle, AlertCircle, UserCircle, Info, FileDown, LogOut, Edit2, Mail, ClipboardSignature, Download, Hash
+    Mail, MailCheck, Hash, CheckCircle, Globe, MapPin, Phone,
+    Heart, ChevronRight, FileDown, Edit2, ClipboardSignature, Lock,
+    Eye, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
@@ -14,24 +17,37 @@ import { evaluationService, EvaluacionAdmins } from '@/services/evaluationServic
 import { toast } from 'sonner';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { useProfe } from '@/contexts/ProfeContext';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/Modal';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FichaPDF } from '@/components/FichaPDF';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMemo } from 'react';
 
 export default function MiFichaPage() {
-    const { config: profe } = useProfe();
-
+    const { user, updateProfile } = useAuth();
+    const { config: profeConfig } = useProfe();
     const IMG = (src: string | null) => getImageUrl(src);
-    const [ficha, setFicha] = useState<BancoProfesional | null>(null);
+    const [ficha, setFicha] = useState<BancoProfesional>({
+        id: '',
+        licUniversitaria: '',
+        licMescp: '',
+        esMaestro: false,
+        tieneProduccion: false,
+        categoriaId: '',
+        cargoId: '',
+        nombre: '',
+        apellidos: '',
+        ci: '',
+        estado: 'pendiente'
+    });
     const [config, setConfig] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [evaluations, setEvaluations] = useState<EvaluacionAdmins[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'personal' | 'posgrados' | 'produccion' | 'evaluaciones'>('personal');
+    const [activeTab, setActiveTab] = useState<'personal' | 'posgrados' | 'produccion' | 'evaluaciones' | 'cuenta'>('personal');
     const [isEmailVerified, setIsEmailVerified] = useState(false);
     const [originalEmail, setOriginalEmail] = useState('');
     const [isSendingVerification, setIsSendingVerification] = useState(false);
@@ -42,12 +58,29 @@ export default function MiFichaPage() {
     // Modals
     const [showPosgradoModal, setShowPosgradoModal] = useState(false);
     const [showProduccionModal, setShowProduccionModal] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // Memoize PDF to avoid expensive re-renders while typing
+    const memoizedFichaPDF = useMemo(() => {
+        if (!ficha || !config || !profeConfig) return null;
+        return <FichaPDF ficha={ficha} config={config} profe={profeConfig} />;
+    }, [ficha.id, ficha.hojaDeVidaPdf, ficha.rdaPdf, config, profeConfig]);
 
     const [posgradoForm, setPosgradoForm] = useState({ tipoPosgradoId: '', titulo: '', fecha: '', imagen: '' });
     const [produccionForm, setProduccionForm] = useState({ titulo: '', anioPublicacion: new Date().getFullYear() });
 
     const [editingPosgradoId, setEditingPosgradoId] = useState<string | null>(null);
     const [editingProduccionId, setEditingProduccionId] = useState<string | null>(null);
+
+    const [passwordForm, setPasswordForm] = useState({
+        newPassword: '',
+        confirmPassword: ''
+    });
 
     const handleFileUpload = async (file: File, tableName: string) => {
         const formData = new FormData();
@@ -65,7 +98,7 @@ export default function MiFichaPage() {
         }
     };
 
-    const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'posgrado' | 'cv' | 'avatar') => {
+    const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'posgrado' | 'cv' | 'avatar' | 'rda') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -78,11 +111,14 @@ export default function MiFichaPage() {
                 setPosgradoForm({ ...posgradoForm, imagen: cleanUrl });
                 toast.success('Diploma cargado en el formulario');
             } else if (type === 'avatar') {
-                setFicha(ficha ? { ...ficha, user: ficha.user ? { ...ficha.user, imagen: cleanUrl } : undefined, imagen: cleanUrl } : null);
+                setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, imagen: cleanUrl } : undefined, imagen: cleanUrl } as any);
                 toast.success('Foto de perfil actualizada (Recuerda Guardar)');
-            } else {
-                setFicha(ficha ? { ...ficha, hojaDeVidaPdf: cleanUrl } : null);
+            } else if (type === 'cv') {
+                setFicha({ ...ficha, hojaDeVidaPdf: cleanUrl } as any);
                 toast.success('Hoja de Vida cargada (Recuerda Guardar Cambios)');
+            } else if (type === 'rda') {
+                setFicha({ ...ficha, rdaPdf: cleanUrl } as any);
+                toast.success('Certificado RDA cargado (Recuerda Guardar Cambios)');
             }
         }
         setUploading(false);
@@ -171,13 +207,19 @@ export default function MiFichaPage() {
                 ci: ficha.user?.ci || ficha.ci,
                 correo: ficha.user?.correo || ficha.correo,
                 fechaNac: ficha.user?.fechaNacimiento || ficha.fechaNacimiento,
-                verificationCode: verificationCode // Enviar código si el correo cambió
+                rda: ficha.user?.rda || ficha.rda,
+                rdaPdf: ficha.rdaPdf,
+                verificationCode: verificationCode, // Enviar código si el correo cambió
+                password: passwordForm.newPassword || undefined,
+                idiomas: ficha.idiomas,
+                experienciaLaboral: ficha.experienciaLaboral
             });
             toast.success('Datos actualizados correctamente');
             setOriginalEmail(currentEmail);
             setIsEmailVerified(false);
             setShowVerificationInput(false);
             setVerificationCode('');
+            setPasswordForm({ newPassword: '', confirmPassword: '' });
         } catch (error) {
             toast.error('Error al actualizar datos');
         } finally {
@@ -434,13 +476,28 @@ export default function MiFichaPage() {
                     </div>
 
                     <div className="shrink-0 flex self-center md:self-start">
-                        <PDFDownloadLink
-                            document={<FichaPDF ficha={ficha} config={config} />}
-                            fileName={`Ficha_${ficha.user?.ci}.pdf`}
-                            className="bg-primary text-white px-8 h-14 rounded-[1.8rem] text-xs font-black uppercase tracking-widest flex items-center gap-3 hover:bg-primary-700 hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all shadow-xl shadow-primary/20"
-                        >
-                            {({ loading }) => (loading ? 'Generando CV...' : <><FileDown className="w-5 h-5" /> Descargar Ficha PDF</>)}
-                        </PDFDownloadLink>
+                        {!isGeneratingPDF ? (
+                            <button
+                                onClick={() => setIsGeneratingPDF(true)}
+                                className="bg-primary text-white px-8 h-14 rounded-[1.8rem] text-xs font-black uppercase tracking-widest flex items-center gap-3 hover:bg-primary-700 hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                            >
+                                <FileDown className="w-5 h-5" /> Preparar Ficha PDF
+                            </button>
+                        ) : isMounted && memoizedFichaPDF && (
+                            <PDFDownloadLink
+                                document={memoizedFichaPDF}
+                                fileName={`Ficha_${ficha.user?.ci}.pdf`}
+                                className="bg-emerald-600 text-white px-8 h-14 rounded-[1.8rem] text-xs font-black uppercase tracking-widest flex items-center gap-3 hover:bg-emerald-700 hover:shadow-2xl hover:shadow-emerald/40 active:scale-95 transition-all shadow-xl shadow-emerald/20 animate-in zoom-in duration-300"
+                            >
+                                {({ loading }) => (
+                                    loading ? (
+                                        <><Loader2 className="w-5 h-5 animate-spin" /> Generando...</>
+                                    ) : (
+                                        <><CheckCircle className="w-5 h-5" /> Descargar PDF Ahora</>
+                                    )
+                                )}
+                            </PDFDownloadLink>
+                        )}
                     </div>
                 </div>
             </div>
@@ -452,7 +509,8 @@ export default function MiFichaPage() {
                         { id: 'personal', label: 'Datos Personales', icon: User, count: null },
                         { id: 'posgrados', label: 'Formación Superior', icon: GraduationCap, count: ficha.postgrados?.length },
                         { id: 'produccion', label: 'Producción Intelectual', icon: Book, count: ficha.produccionIntelectual?.length },
-                        { id: 'evaluaciones', label: 'Evaluaciones', icon: ClipboardSignature, count: evaluations.length }
+                        { id: 'evaluaciones', label: 'Evaluaciones', icon: ClipboardSignature, count: evaluations.length },
+                        { id: 'cuenta', label: 'Cuenta y Seguridad', icon: Lock, count: null }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -693,6 +751,40 @@ export default function MiFichaPage() {
                                                         className="h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
                                                     />
                                                 </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Idiomas</label>
+                                                        <Input
+                                                            value={ficha.idiomas || ''}
+                                                            onChange={(e) => setFicha({ ...ficha, idiomas: e.target.value })}
+                                                            placeholder="Ej: Español, Quechua, Inglés..."
+                                                            className="h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">LinkedIn URL</label>
+                                                        <div className="relative">
+                                                            <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                            <Input
+                                                                value={ficha.linkedinUrl || ''}
+                                                                onChange={(e) => setFicha({ ...ficha, linkedinUrl: e.target.value })}
+                                                                placeholder="linkedin.com/in/perfil"
+                                                                className="pl-11 h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Experiencia Laboral Relevante</label>
+                                                    <textarea
+                                                        value={ficha.experienciaLaboral || ''}
+                                                        onChange={(e) => setFicha({ ...ficha, experienciaLaboral: e.target.value })}
+                                                        placeholder="Describe tus cargos anteriores más importantes..."
+                                                        className="w-full h-32 p-6 rounded-[2rem] bg-muted/30 border-2 border-transparent focus:border-primary/20 focus:bg-background transition-all resize-none text-sm font-medium leading-relaxed"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -728,15 +820,26 @@ export default function MiFichaPage() {
 
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Hoja de Vida (PDF)</label>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex-1 h-12 bg-background border border-border/40 rounded-xl flex items-center px-4 overflow-hidden">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`flex-1 h-12 rounded-xl flex items-center px-4 border ${ficha.hojaDeVidaPdf ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-dashed border-border/50'}`}>
                                                                 {ficha.hojaDeVidaPdf ? (
-                                                                    <a href={ficha.hojaDeVidaPdf} target="_blank" className="text-[10px] font-bold text-primary truncate uppercase hover:underline">Ver Documento</a>
+                                                                    <div className="flex items-center justify-between w-full">
+                                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                                            <FileText className="w-4 h-4 text-primary shrink-0" />
+                                                                            <span className="text-[10px] font-bold text-primary truncate uppercase">CV_CARGADO.pdf</span>
+                                                                        </div>
+                                                                        <a href={IMG(ficha.hojaDeVidaPdf)} target="_blank" className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary" title="Previsualizar">
+                                                                            <Eye className="w-4 h-4" />
+                                                                        </a>
+                                                                    </div>
                                                                 ) : (
-                                                                    <span className="text-[10px] font-bold text-orange-500 uppercase">Sin Cargar</span>
+                                                                    <div className="flex items-center gap-2 text-muted-foreground/60">
+                                                                        <FileText className="w-4 h-4" />
+                                                                        <span className="text-[10px] font-bold uppercase italic">Sin archivo</span>
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                            <label className="shrink-0 h-11 w-11 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-lg shadow-primary/20">
+                                                            <label className="shrink-0 h-12 w-12 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                                                                 <Upload className="w-4 h-4" />
                                                                 <input type="file" accept=".pdf" className="hidden" onChange={(e) => onFileChange(e, 'cv')} />
                                                             </label>
@@ -767,19 +870,63 @@ export default function MiFichaPage() {
                                                                 initial={{ opacity: 0, height: 0 }}
                                                                 animate={{ opacity: 1, height: 'auto' }}
                                                                 exit={{ opacity: 0, height: 0 }}
-                                                                className="space-y-2 pt-2"
+                                                                className="space-y-4 pt-2"
                                                             >
-                                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Categoría</label>
-                                                                <select
-                                                                    value={ficha.categoriaId || ''}
-                                                                    onChange={(e) => setFicha({ ...ficha, categoriaId: e.target.value })}
-                                                                    className="w-full h-10 rounded-lg bg-muted/20 border-transparent text-xs font-bold px-3 outline-none"
-                                                                >
-                                                                    <option value="">Selecciona categoría</option>
-                                                                    {config.categorias.map((c: any) => (
-                                                                        <option key={c.id} value={c.id}>{c.nombre}</option>
-                                                                    ))}
-                                                                </select>
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Número RDA</label>
+                                                                    <div className="relative">
+                                                                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                                                                        <Input
+                                                                            type="number"
+                                                                            value={ficha.user?.rda || ficha.rda || ''}
+                                                                            onChange={(e) => setFicha({ ...ficha, rda: e.target.value })}
+                                                                            placeholder="Registro Docente"
+                                                                            className="pl-9 h-10 rounded-lg bg-muted/20 border-transparent text-xs font-bold"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Certificado RDA (PDF)</label>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`flex-1 h-10 rounded-lg flex items-center px-3 border ${ficha.rdaPdf ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-muted/30 border-dashed border-border/50'}`}>
+                                                                            {ficha.rdaPdf ? (
+                                                                                <div className="flex items-center justify-between w-full">
+                                                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                                                        <FileText className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                                                        <span className="text-[9px] font-bold text-emerald-600 truncate uppercase">RDA_CARGADO.pdf</span>
+                                                                                    </div>
+                                                                                    <a href={IMG(ficha.rdaPdf)} target="_blank" className="p-1.5 hover:bg-emerald-500/10 rounded-lg transition-colors text-emerald-600" title="Previsualizar">
+                                                                                        <Eye className="w-3.5 h-3.5" />
+                                                                                    </a>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center gap-2 text-muted-foreground/50">
+                                                                                    <FileText className="w-3.5 h-3.5" />
+                                                                                    <span className="text-[9px] font-bold uppercase italic">Sin archivo</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <label className="shrink-0 h-10 w-10 bg-emerald-500 text-white rounded-lg flex items-center justify-center cursor-pointer hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
+                                                                            <Upload className="w-3.5 h-3.5" />
+                                                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => onFileChange(e, 'rda')} />
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Categoría</label>
+                                                                    <select
+                                                                        value={ficha.categoriaId || ''}
+                                                                        onChange={(e) => setFicha({ ...ficha, categoriaId: e.target.value })}
+                                                                        className="w-full h-10 rounded-lg bg-muted/20 border-transparent text-xs font-bold px-3 outline-none"
+                                                                    >
+                                                                        <option value="">Selecciona categoría</option>
+                                                                        {config.categorias.map((c: any) => (
+                                                                            <option key={c.id} value={c.id}>{c.nombre}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
                                                             </motion.div>
                                                         )}
                                                     </AnimatePresence>
@@ -974,7 +1121,7 @@ export default function MiFichaPage() {
                                                 variant="outline"
                                                 className="w-full h-11 rounded-xl bg-background border-emerald-500/20 text-emerald-600 hover:bg-emerald-500 hover:text-white font-black text-[10px] uppercase transition-all"
                                             >
-                                                <Download className="w-4 h-4 mr-2" /> Descargar PDF
+                                                <FileDown className="w-4 h-4 mr-2" /> Descargar PDF
                                             </Button>
                                         </div>
                                     </Card>
@@ -995,6 +1142,109 @@ export default function MiFichaPage() {
                                 </div>
                             </Card>
                         )}
+                    </motion.div>
+                )}
+
+                {activeTab === 'cuenta' && ficha && (
+                    <motion.div
+                        key="cuenta"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="space-y-8"
+                    >
+                        <Card className="p-10 border-border/40 shadow-2xl bg-card rounded-[3rem]">
+                            <div className="flex items-center gap-4 mb-10 pb-6 border-b border-border">
+                                <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+                                    <ShieldCheck className="w-6 h-6" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h2 className="text-md font-black uppercase tracking-tighter text-foreground leading-none">Seguridad y Cuenta</h2>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Gestiona tus credenciales de acceso</p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={(e) => { e.preventDefault(); handleUpdatePersonal(e); }} className="space-y-10">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-12 gap-x-12">
+                                    <div className="space-y-6">
+                                        <h3 className="text-[11px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                            <Edit2 className="w-4 h-4" /> Datos de Identidad
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nombres</label>
+                                                <Input
+                                                    value={ficha.user?.nombre || ficha.nombre || ''}
+                                                    onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, nombre: e.target.value } : undefined, nombre: e.target.value })}
+                                                    className="h-11 rounded-xl bg-muted/30 border-transparent focus:bg-background"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Apellidos</label>
+                                                <Input
+                                                    value={ficha.user?.apellidos || ficha.apellidos || ''}
+                                                    onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, apellidos: e.target.value } : undefined, apellidos: e.target.value })}
+                                                    className="h-11 rounded-xl bg-muted/30 border-transparent focus:bg-background"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Correo Electrónico (No modificable)</label>
+                                                <div className="relative">
+                                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                                                    <Input
+                                                        value={ficha.user?.correo || ficha.correo || ''}
+                                                        disabled
+                                                        className="pl-11 h-11 rounded-xl bg-muted/50 border-border text-muted-foreground cursor-not-allowed italic font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <h3 className="text-[11px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                            <Lock className="w-4 h-4" /> Actualizar Contraseña
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nueva Contraseña</label>
+                                                <Input
+                                                    type="password"
+                                                    value={passwordForm.newPassword}
+                                                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                                    placeholder="Dejar en blanco para no cambiar"
+                                                    className="h-11 rounded-xl bg-muted/30 border-transparent focus:bg-background"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Confirmar Nueva Contraseña</label>
+                                                <Input
+                                                    type="password"
+                                                    value={passwordForm.confirmPassword}
+                                                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                                    placeholder="Repite la contraseña"
+                                                    className="h-11 rounded-xl bg-muted/30 border-transparent focus:bg-background"
+                                                />
+                                            </div>
+                                            {passwordForm.newPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
+                                                <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest animate-pulse">Las contraseñas no coinciden</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-8 border-t border-border flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="h-14 px-10 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center gap-3"
+                                    >
+                                        {submitting ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
+                                        Actualizar Seguridad y Cuenta
+                                    </Button>
+                                </div>
+                            </form>
+                        </Card>
                     </motion.div>
                 )}
             </AnimatePresence>

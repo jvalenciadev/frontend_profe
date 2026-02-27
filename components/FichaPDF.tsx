@@ -131,60 +131,237 @@ const styles = StyleSheet.create({
     footerText: {
         fontSize: 8,
         color: '#94a3b8'
+    },
+    // Nuevos estilos para un diseño más profesional
+    headerContainer: {
+        flexDirection: 'column',
+        marginBottom: 20,
+    },
+    topBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingBottom: 20,
+        marginBottom: 10,
+    },
+    logoGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 20
+    },
+    cvTitleContainer: {
+        alignItems: 'flex-end',
+        justifyContent: 'center'
+    },
+    cvTitle: {
+        fontSize: 26,
+        fontWeight: 'extrabold',
+        color: '#1e3a8a',
+        textTransform: 'uppercase',
+        letterSpacing: 1
+    },
+    cvSubtitle: {
+        fontSize: 7,
+        color: '#64748b',
+        fontWeight: 'bold',
+        marginTop: 2,
+        letterSpacing: 2,
+        textTransform: 'uppercase'
+    },
+    brandingBar: {
+        backgroundColor: '#1e3a8a',
+        height: 45,
+        borderRadius: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+    },
+    brandingBarText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+        letterSpacing: 0.5
+    },
+    brandingBarSub: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 7,
+        textTransform: 'uppercase'
+    },
+    personalHeader: {
+        flexDirection: 'row',
+        marginTop: 30,
+        marginBottom: 30,
+        paddingHorizontal: 10,
+        gap: 25,
+        alignItems: 'center'
+    },
+    profilePhoto: {
+        width: 100,
+        height: 100,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        backgroundColor: '#f8fafc',
+        overflow: 'hidden'
+    },
+    profileInfo: {
+        flex: 1,
+        justifyContent: 'center'
+    },
+    userName: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        marginBottom: 4
+    },
+    userRoleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 15
+    },
+    userRole: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#1e3a8a',
+        backgroundColor: '#eff6ff',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
+        textTransform: 'uppercase'
+    },
+    userCategory: {
+        fontSize: 10,
+        color: '#64748b',
+        fontWeight: 'medium'
+    },
+    metaGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 20
+    },
+    metaItem: {
+        flexDirection: 'column',
+        gap: 2
+    },
+    metaLabel: {
+        fontSize: 7,
+        color: '#94a3b8',
+        textTransform: 'uppercase',
+        fontWeight: 'bold'
+    },
+    metaValue: {
+        fontSize: 9,
+        fontWeight: 'bold',
+        color: '#334155'
     }
 });
 
 interface FichaPDFProps {
     ficha: any;
     config: any;
+    profe?: any;
 }
 
-export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
+export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
     const cargoNombre = ficha.cargoPostulacion?.nombre || config?.cargos.find((c: any) => c.id === (ficha.cargoPostulacionId || ficha.cargoId))?.nombre || 'Cargo no definido';
     const categoriaNombre = config?.categorias.find((c: any) => c.id === String(ficha.categoriaId))?.nombre || 'Sin categoría';
 
     const userImage = ficha.user?.imagen || ficha.imagen;
     const fullImageUrl = getImageUrl(userImage);
 
+    // Logos institucionales - Soportando ambos formatos de nombre por seguridad
+    const logoProfeUrl = (profe?.imagen || profe?.profe_imagen) ? getImageUrl(profe?.imagen || profe?.profe_imagen) : null;
+    const logoMineduUrl = (profe?.logoPrincipal || profe?.profe_logo_principal) ? getImageUrl(profe?.logoPrincipal || profe?.profe_logo_principal) : null;
+
+    // El generador de PDF no soporta SVG, detectamos para evitar errores
+    const isProfeSvg = logoProfeUrl?.toLowerCase().endsWith('.svg');
+    const isMineduSvg = logoMineduUrl?.toLowerCase().endsWith('.svg');
+
+    // Color Institucional Dinámico
+    const instColor = profe?.color || '#1e3a8a';
+
     return (
         <Document>
             <Page size="LETTER" style={styles.page}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={styles.logo}>
-                            <Text>P</Text>
+                {/* ENCABEZADO TÉCNICO PROFESIONAL */}
+                <View style={styles.headerContainer}>
+                    <View style={styles.topBar}>
+                        {/* Logos con espaciado controlado */}
+                        <View style={styles.logoGroup}>
+                            {!isMineduSvg && logoMineduUrl && (
+                                <Image
+                                    src={logoMineduUrl}
+                                    style={{ width: 160, height: 60, objectFit: 'contain' }}
+                                />
+                            )}
                         </View>
-                        <View>
-                            <Text style={{ fontSize: 12, fontStyle: 'italic', fontWeight: 'bold', color: '#1e3a8a' }}>PROGRAMA PROFE</Text>
-                            <Text style={{ fontSize: 7, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Ministerio de Educación</Text>
+
+                        {/* Título CV - Fixed hyphenation issue */}
+                        <View style={styles.cvTitleContainer}>
+                            <Text style={[styles.cvTitle, { color: instColor }]}>
+                                CURRICULUM VITAE
+                            </Text>
+                            <Text style={styles.cvSubtitle}>
+                                SISTEMA DE GESTIÓN PROFESIONAL DIGITAL
+                            </Text>
                         </View>
                     </View>
-                    <View style={{ textAlign: 'right' }}>
-                        <Text style={{ fontSize: 8, color: '#94a3b8' }}>FICHA PROFESIONAL INTEGRADA</Text>
-                        <Text style={{ fontSize: 7, color: '#cbd5e1' }}>SISTEMA NACIONAL DE GESTIÓN EDUCATIVA</Text>
+                    {/* Barra Institucional Dinámica (Premium) */}
+                    <View style={[styles.brandingBar, { backgroundColor: instColor }]}>
+                        <View>
+                            <Text style={styles.brandingBarText}>
+                                {profe?.nombre || 'PROGRAMA DE FORMACIÓN ESPECIALIZADA'}
+                            </Text>
+                            <Text style={styles.brandingBarSub}>
+                                MINISTERIO DE EDUCACIÓN
+                            </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ color: '#FFFFFF', fontSize: 6, fontWeight: 'bold' }}>ESTADO PLURINACIONAL DE BOLIVIA</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 5, marginTop: 1, letterSpacing: 0.5 }}>ID-DOC: {ficha.id.substring(0, 8).toUpperCase()}</Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.photo}>
+                {/* Perfil Personal de Alto Impacto */}
+                <View style={styles.personalHeader}>
+                    <View style={styles.profilePhoto}>
                         {fullImageUrl ? (
                             <Image src={fullImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                            <Text style={{ textAlign: 'center', marginTop: 35, fontSize: 32, color: '#cbd5e1', fontWeight: 'bold' }}>
-                                {ficha.user?.nombre?.charAt(0)}
-                            </Text>
+                            <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 40, color: '#e2e8f0', fontWeight: 'bold' }}>{ficha.nombre?.charAt(0)}</Text>
+                            </View>
                         )}
                     </View>
-                    <View style={styles.headerText}>
-                        <Text style={styles.name}>
-                            {ficha.user?.nombre || ficha.nombre} {ficha.user?.apellidos || ficha.apellidos}
-                        </Text>
-                        <Text style={styles.title}>{cargoNombre}</Text>
-                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                            <Text style={{ fontSize: 9, color: '#94a3b8' }}>CI: {ficha.user?.ci}</Text>
-                            <Text style={{ fontSize: 9, color: '#94a3b8' }}>•</Text>
-                            <Text style={{ fontSize: 9, color: '#94a3b8' }}>Estado: {ficha.estado?.toUpperCase() || 'ACTIVO'}</Text>
+
+                    <View style={styles.profileInfo}>
+                        <Text style={styles.userName}>{ficha.nombre} {ficha.apellidos}</Text>
+                        <View style={styles.userRoleContainer}>
+                            <Text style={[styles.userRole, { color: instColor }]}>{cargoNombre}</Text>
+                            <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#cbd5e1' }} />
+                            <Text style={styles.userCategory}>{categoriaNombre}</Text>
+                        </View>
+
+                        <View style={styles.metaGrid}>
+                            <View style={styles.metaItem}>
+                                <Text style={styles.metaLabel}>Cédula de Identidad</Text>
+                                <Text style={styles.metaValue}>{ficha.user?.ci || ficha.ci}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Text style={styles.metaLabel}>Departamento</Text>
+                                <Text style={styles.metaValue}>{(ficha.user?.departamento || 'No definido').toUpperCase()}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Text style={styles.metaLabel}>Estado Ficha</Text>
+                                <Text style={styles.metaValue}>{(ficha.estado || 'ACTIVO').toUpperCase()}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Text style={styles.metaLabel}>Fecha Emisión</Text>
+                                <Text style={styles.metaValue}>{new Date().toLocaleDateString()}</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -192,7 +369,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
                 {/* Resumen */}
                 {ficha.resumenProfesional && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Perfil Profesional</Text>
+                        <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Perfil Profesional</Text>
                         <Text style={{ fontSize: 10, lineHeight: 1.5, color: '#334155', textAlign: 'justify' }}>
                             {ficha.resumenProfesional}
                         </Text>
@@ -201,7 +378,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
 
                 {/* Datos Personales */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Información Personal</Text>
+                    <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Información Personal</Text>
                     <View style={styles.row}>
                         <Text style={styles.label}>Correo:</Text>
                         <Text style={styles.value}>{ficha.user?.correo}</Text>
@@ -227,14 +404,28 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
                         <Text style={styles.value}>{ficha.linkedinUrl || 'No disponible'}</Text>
                     </View>
                     <View style={styles.row}>
+                        <Text style={styles.label}>Idiomas:</Text>
+                        <Text style={styles.value}>{ficha.idiomas || '---'}</Text>
+                    </View>
+                    <View style={styles.row}>
                         <Text style={styles.label}>Magisterio:</Text>
                         <Text style={styles.value}>{ficha.esMaestro ? `Sí - Categoría: ${categoriaNombre}` : 'No'}</Text>
                     </View>
                 </View>
 
+                {/* Experiencia Laboral */}
+                {ficha.experienciaLaboral && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Experiencia Laboral Relevante</Text>
+                        <Text style={{ fontSize: 10, lineHeight: 1.5, color: '#334155', textAlign: 'justify' }}>
+                            {ficha.experienciaLaboral}
+                        </Text>
+                    </View>
+                )}
+
                 {/* Formación Base */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Formación Académica</Text>
+                    <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Formación Académica</Text>
                     <View style={styles.row}>
                         <Text style={styles.label}>Lic. Universitaria:</Text>
                         <Text style={styles.value}>{ficha.licUniversitaria || '---'}</Text>
@@ -248,9 +439,9 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
                 {/* Postgrados */}
                 {ficha.postgrados && ficha.postgrados.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Postgrados y Especializaciones</Text>
+                        <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Postgrados y Especializaciones</Text>
                         {ficha.postgrados.map((p: any, i: number) => (
-                            <View key={i} style={styles.posgradoItem}>
+                            <View key={i} style={[styles.posgradoItem, { borderLeftColor: instColor }]}>
                                 <Text style={styles.posgradoTitle}>{p.titulo}</Text>
                                 <Text style={styles.posgradoSubtitle}>
                                     {p.tipoPosgrado?.nombre} • {new Date(p.fecha).toLocaleDateString()}
@@ -263,7 +454,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
                 {/* Producción Intelectual */}
                 {ficha.produccionIntelectual && ficha.produccionIntelectual.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Producción Intelectual</Text>
+                        <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Producción Intelectual</Text>
                         {ficha.produccionIntelectual.map((p: any, i: number) => (
                             <View key={i} style={{ marginBottom: 5 }}>
                                 <Text style={{ fontSize: 10, color: '#334155' }}>
@@ -277,7 +468,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config }) => {
                 {/* Habilidades */}
                 {ficha.habilidades && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Habilidades</Text>
+                        <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Habilidades</Text>
                         <View style={styles.skillsContainer}>
                             {ficha.habilidades.split(',').map((skill: string, i: number) => (
                                 <View key={i} style={styles.pill}>

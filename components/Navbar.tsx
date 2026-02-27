@@ -15,6 +15,7 @@ export default function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [data, setData] = useState<any>(null);
     const [departamentos, setDepartamentos] = useState<any[]>([]);
+    const [tiposEvento, setTiposEvento] = useState<any[]>([]);
     const tenant = searchParams?.get('tenant');
 
     useEffect(() => {
@@ -26,6 +27,7 @@ export default function Navbar() {
         }).catch(() => { });
 
         publicService.getDepartamentos().then(setDepartamentos).catch(() => { });
+        publicService.getTiposEvento().then(setTiposEvento).catch(() => { });
 
         return () => window.removeEventListener('scroll', handleScroll);
     }, [tenant]);
@@ -53,10 +55,10 @@ export default function Navbar() {
         {
             label: 'Eventos',
             path: '/eventos',
-            submenu: [
-                { label: 'Conversatorios', path: '/eventos?tipo=conversatorios' },
-                { label: 'Webinars', path: '/eventos?tipo=webinars' },
-            ]
+            submenu: tiposEvento.map(t => ({
+                label: t.nombre,
+                path: `/eventos?tipo=${t.nombre}`
+            }))
         },
         {
             label: 'Multimedia',

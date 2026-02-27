@@ -48,7 +48,7 @@ export default function DashboardLayout({
                 (typeof r === 'string' ? r : (r.role?.name || r.name)) === 'POSTULACION_PROFE'
             );
 
-            const allowedRoutesForPostulante = ['/dashboard/mi-ficha', '/dashboard/reset-password', '/dashboard/perfil'];
+            const allowedRoutesForPostulante = ['/dashboard/mi-ficha', '/dashboard/reset-password'];
 
             // Si intenta entrar al /dashboard raíz, lo mandamos a su ficha
             if (isPostulante && pathname === '/dashboard') {
@@ -111,7 +111,7 @@ export default function DashboardLayout({
                             className="relative w-28 h-28 bg-card border border-border/50 backdrop-blur-md rounded-[2.5rem] flex items-center justify-center shadow-2xl overflow-hidden group"
                         >
                             {/* Animated Background inside the card */}
-                            <div className="absolute inset-0 bg-primary/5 opacity-50" />
+                            <div className="absolute inset-0 bg-primary/5 opacity-50" suppressHydrationWarning />
 
                             <motion.div
                                 animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}

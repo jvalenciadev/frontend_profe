@@ -29,6 +29,8 @@ export interface BancoProfesional {
     imagen?: string;
     postgrados?: any[];
     produccionIntelectual?: any[];
+    rda?: string | number | null;
+    rdaPdf?: string | null;
     user?: {
         id: string;
         nombre: string;
@@ -36,6 +38,7 @@ export interface BancoProfesional {
         correo: string;
         username: string;
         ci: string;
+        rda?: string | number | null;
         fechaNacimiento: string;
         celular?: string | number;
         direccion?: string;
