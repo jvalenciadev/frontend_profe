@@ -7,7 +7,11 @@ import {
     Save, Loader2, Calendar, IdCard, Briefcase, Award, Upload,
     Mail, MailCheck, Hash, CheckCircle, Globe, MapPin, Phone,
     Heart, ChevronRight, FileDown, Edit2, ClipboardSignature, Lock,
-    Eye, ShieldCheck
+    Eye, ShieldCheck,
+    UserCircle,
+    AlertCircle,
+    LogOut,
+    Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
@@ -26,7 +30,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 
 export default function MiFichaPage() {
-    const { user, updateProfile } = useAuth();
+    const { updateUser } = useAuth();
+
     const { config: profeConfig } = useProfe();
     const IMG = (src: string | null) => getImageUrl(src);
     const [ficha, setFicha] = useState<BancoProfesional>({
@@ -40,7 +45,8 @@ export default function MiFichaPage() {
         nombre: '',
         apellidos: '',
         ci: '',
-        estado: 'pendiente'
+        estado: 'pendiente',
+        hojaDeVidaPdf: null
     });
     const [config, setConfig] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -370,8 +376,8 @@ export default function MiFichaPage() {
         return (
             <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-8 max-w-2xl mx-auto">
                 <div className="w-32 h-32 bg-white dark:bg-card rounded-[3rem] flex items-center justify-center border-4 border-dashed border-primary/20 p-8 overflow-hidden">
-                    {profe?.imagen ? (
-                        <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                    {profeConfig?.imagen ? (
+                        <img src={IMG(profeConfig.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                     ) : (
                         <UserCircle className="w-16 h-16 text-primary" />
                     )}
@@ -424,8 +430,8 @@ export default function MiFichaPage() {
                                 />
                             ) : (
                                 <div className="w-full h-full p-8 flex items-center justify-center bg-white dark:bg-card">
-                                    {profe?.imagen ? (
-                                        <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                    {profeConfig?.imagen ? (
+                                        <img src={IMG(profeConfig.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                                     ) : (
                                         <UserCircle className="w-16 h-16 opacity-50" />
                                     )}
