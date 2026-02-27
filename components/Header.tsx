@@ -101,7 +101,7 @@ export function Header() {
                     ) : (
                         <div className="w-full h-full p-2.5 flex items-center justify-center bg-white dark:bg-card">
                             {profe?.imagen ? (
-                                <img src={IMG(profe.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                <img src={IMG(profe.imagen) || undefined} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                             ) : (
                                 <span>{user?.nombre?.charAt(0) || 'U'}</span>
                             )}

@@ -150,7 +150,7 @@ export default function LoginPage() {
                             suppressHydrationWarning={true}
                         >
                             {profe?.imagen ? (
-                                <img src={IMG(profe.imagen)!} className="w-10 h-10 object-contain" alt="Logo" />
+                                <img src={IMG(profe.imagen) || undefined} className="w-10 h-10 object-contain" alt="Logo" />
                             ) : (
                                 <span className="text-primary font-black text-3xl">P</span>
                             )}
