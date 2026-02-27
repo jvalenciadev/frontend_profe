@@ -117,19 +117,20 @@ export default function LandingPage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
             className="fixed inset-0 z-[1000] flex items-center justify-center bg-white dark:bg-[#020617]"
+            suppressHydrationWarning
           >
-            <div className="absolute inset-0 z-0 overflow-hidden">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-primary-500/[0.08] rounded-full blur-[180px] animate-pulse" />
+            <div className="absolute inset-0 z-0 overflow-hidden" suppressHydrationWarning>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-primary-500/[0.08] rounded-full blur-[180px] animate-pulse" suppressHydrationWarning />
             </div>
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 flex flex-col items-center">
-              <div className="w-40 h-40 bg-white dark:bg-primary-600 rounded-[3.5rem] p-10 shadow-2xl border border-primary-500/10 flex items-center justify-center">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 flex flex-col items-center" suppressHydrationWarning>
+              <div className="w-40 h-40 bg-white dark:bg-primary-600 rounded-[3.5rem] p-10 shadow-2xl border border-primary-500/10 flex items-center justify-center" suppressHydrationWarning>
                 {institution.imagen ? (
                   <img src={IMG(institution.imagen)} className="w-full h-full object-contain" alt="Logo" />
                 ) : (
                   <span className="text-7xl font-black text-primary-600">P</span>
                 )}
               </div>
-              <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} className="mt-10 text-[10px] font-black uppercase tracking-[1em] text-primary-600 ml-[1em]">
+              <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} className="mt-10 text-[10px] font-black uppercase tracking-[1em] text-primary-600 ml-[1em]" suppressHydrationWarning>
                 Sincronizando
               </motion.div>
             </motion.div>
