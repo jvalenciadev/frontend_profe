@@ -288,7 +288,7 @@ export function Sidebar() {
                         >
                             {profe?.imagen ? (
                                 <img
-                                    src={profe.imagen.startsWith('http') ? profe.imagen : `${process.env.NEXT_PUBLIC_API_URL}${profe.imagen.startsWith('/') ? '' : '/'}${profe.imagen}`}
+                                    src={(profe.imagen && profe.imagen.startsWith('http')) ? profe.imagen : `${process.env.NEXT_PUBLIC_API_URL}${profe.imagen?.startsWith('/') ? '' : '/'}${profe.imagen}`}
                                     alt="Logo"
                                     className="w-full h-full object-contain p-1.5"
                                 />

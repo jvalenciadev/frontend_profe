@@ -178,7 +178,7 @@ export default function RegistroProfePage() {
                     <Link href="/" className="inline-block">
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden p-2.5">
                             {profe?.imagen ? (
-                                <img src={IMG(profe.imagen)!} className="w-full h-full object-contain" alt="Logo" />
+                                <img src={IMG(profe.imagen) || undefined} className="w-full h-full object-contain" alt="Logo" />
                             ) : (
                                 <span className="text-slate-950 font-black text-2xl">P</span>
                             )}
