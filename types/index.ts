@@ -44,6 +44,15 @@ export interface User {
     cargoPostulacion?: any;
     ci?: string | number;
     requiresPasswordChange?: boolean;
+    linkedinUrl?: string;
+    hojaDeVidaPdf?: string;
+    rdaPdf?: string;
+    resumenProfesional?: string;
+    experienciaLaboral?: string;
+    habilidades?: string;
+    idiomas?: string;
+    licUniversitaria?: string;
+    licMescp?: string;
 }
 
 // Tipos de Permisos

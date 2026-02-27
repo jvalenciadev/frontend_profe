@@ -14,6 +14,7 @@ import { Can } from '@/components/Can';
 import {
     Users,
     Search,
+    Eye,
     Filter,
     RefreshCw,
     Edit2,
@@ -38,9 +39,16 @@ import {
     ShieldCheck,
     Activity,
     LayoutGrid,
-    List as ListIcon
+    List as ListIcon,
+    GraduationCap,
+    Briefcase,
+    Award,
+    Globe,
+    Book,
+    FileText,
+    Download
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,6 +80,7 @@ export default function UsuariosPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [viewingUser, setViewingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState({
         username: '',
         nombre: '',
@@ -128,6 +137,16 @@ export default function UsuariosPage() {
             toast.error('Error al sincronizar datos');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleViewUser = async (user: User) => {
+        try {
+            const fullUser = await userService.getById(user.id);
+            setViewingUser(fullUser);
+        } catch (error) {
+            console.error('Error fetching full user:', error);
+            setViewingUser(user); // Fallback to partial data
         }
     };
 
@@ -604,14 +623,22 @@ export default function UsuariosPage() {
                                                     />
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => handleOpenModal(u)}
-                                                            className="p-2.5 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                                                            onClick={() => handleViewUser(u)}
+                                                            className="p-2.5 rounded-xl bg-blue-500/5 text-blue-500 hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                                                            title="Ver Perfil Completo"
                                                         >
-                                                            <Edit2 className="w-4 h-4" />
+                                                            <Eye className="w-4 h-4" />
                                                         </button>
                                                         <Can action="update" subject="User">
+                                                            <button
+                                                                onClick={() => handleOpenModal(u)}
+                                                                className="p-2.5 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                                                                title="Editar Operador"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
                                                             <button
                                                                 onClick={() => handleResetPassword(u.id, u.nombre)}
                                                                 title="Resetear Contraseña"
@@ -624,6 +651,7 @@ export default function UsuariosPage() {
                                                             <button
                                                                 onClick={() => setIsDeleting(u.id)}
                                                                 className="p-2.5 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                                                title="Remover Acceso"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
@@ -714,15 +742,24 @@ export default function UsuariosPage() {
 
                                 <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
                                     <button
-                                        onClick={() => handleOpenModal(u)}
-                                        className="p-2 rounded-xl bg-white shadow-xl border border-border text-primary hover:bg-primary hover:text-white transition-all"
+                                        onClick={() => handleViewUser(u)}
+                                        className="p-2 rounded-xl bg-white shadow-xl border border-border text-blue-500 hover:bg-blue-500 hover:text-white transition-all"
+                                        title="Ver Información"
                                     >
-                                        <Edit2 className="w-4 h-4" />
+                                        <Eye className="w-4 h-4" />
                                     </button>
                                     <Can action="update" subject="User">
                                         <button
+                                            onClick={() => handleOpenModal(u)}
+                                            className="p-2 rounded-xl bg-white shadow-xl border border-border text-primary hover:bg-primary hover:text-white transition-all"
+                                            title="Editar"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
                                             onClick={() => handleResetPassword(u.id, u.nombre)}
                                             className="p-2 rounded-xl bg-white shadow-xl border border-border text-amber-500 hover:bg-amber-500 hover:text-white transition-all"
+                                            title="Resetear Clave"
                                         >
                                             <RefreshCw className="w-4 h-4" />
                                         </button>
@@ -731,6 +768,7 @@ export default function UsuariosPage() {
                                         <button
                                             onClick={() => setIsDeleting(u.id)}
                                             className="p-2 rounded-xl bg-white shadow-xl border border-border text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                                            title="Eliminar"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -1178,6 +1216,300 @@ export default function UsuariosPage() {
                     </div>
                 </div>
             </Modal >
+
+            {/* Modal de Vista de Información (Solo Lectura - Version Profesional Bank) */}
+            <Modal
+                isOpen={!!viewingUser}
+                onClose={() => setViewingUser(null)}
+                title="Expediente Profesional de Operador"
+                size="full"
+            >
+                {viewingUser && (
+                    <div className="space-y-10 max-h-[85vh] overflow-y-auto px-6 pb-20 scrollbar-hide">
+                        {/* Cabecera de Perfil Premium */}
+                        <div className="flex flex-col md:flex-row gap-10 items-start md:items-center p-10 rounded-[40px] bg-gradient-to-br from-primary/[0.04] via-transparent to-primary/[0.08] border border-primary/10 relative overflow-hidden shadow-2xl shadow-primary/5">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+
+                            <div className="w-40 h-40 rounded-[48px] bg-white border-8 border-white shadow-2xl overflow-hidden relative group shrink-0 ring-1 ring-primary/10">
+                                {viewingUser.imagen ? (
+                                    <img src={getImageUrl(viewingUser.imagen)} className="w-full h-full object-cover" alt={viewingUser.nombre} />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-primary/5 text-primary text-5xl font-black italic">
+                                        {viewingUser.nombre?.charAt(0)}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-6 relative z-10 flex-1">
+                                <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 shadow-sm backdrop-blur-md">
+                                            {viewingUser.estado || (viewingUser.activo ? 'OPERATIVO' : 'BLOQUEADO')}
+                                        </span>
+                                        <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 shadow-sm backdrop-blur-md">
+                                            ID: {viewingUser.id.substring(0, 8).toUpperCase()}
+                                        </span>
+                                        {viewingUser.ci && (
+                                            <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 shadow-sm backdrop-blur-md">
+                                                CI: {viewingUser.ci}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h2 className="text-5xl font-black tracking-tighter text-foreground uppercase leading-tight max-w-4xl">
+                                        {viewingUser.nombre} {viewingUser.apellidos}
+                                    </h2>
+                                    <div className="flex flex-wrap gap-6 items-center pt-2">
+                                        <div className="flex items-center gap-2 text-muted-foreground font-bold lowercase italic text-lg">
+                                            <Mail className="w-5 h-5 text-primary/60" />
+                                            {viewingUser.correo}
+                                        </div>
+                                        {viewingUser.linkedinUrl && (
+                                            <a href={viewingUser.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[11px] hover:underline underline-offset-4">
+                                                <Globe className="w-4 h-4" />
+                                                LinkedIn Profile
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="hidden lg:flex flex-col gap-3 shrink-0">
+                                {viewingUser.hojaDeVidaPdf && (
+                                    <a href={getImageUrl(viewingUser.hojaDeVidaPdf)} target="_blank" className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all">
+                                        <Download className="w-4 h-4" />
+                                        Expediente CV
+                                    </a>
+                                )}
+                                {viewingUser.rdaPdf && (
+                                    <a href={getImageUrl(viewingUser.rdaPdf)} target="_blank" className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-card border border-border text-foreground font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-muted transition-all">
+                                        <FileText className="w-4 h-4" />
+                                        Certificado RDA
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Grid de Contenido de Mi Ficha */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+
+                            {/* Columna Izquierda (Info Institucional y Enlace) */}
+                            <div className="lg:col-span-4 space-y-8">
+                                {/* Matriz de Privilegios */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <ShieldCheck className="w-4 h-4 text-primary" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground">Autoridad de Sistema</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 p-6 bg-card border border-border rounded-[32px] shadow-sm">
+                                        {viewingUser.roles?.map((r, idx) => {
+                                            const name = typeof r === 'string' ? roles.find(role => role.id === r)?.name : ('role' in r ? r.role.name : (r as any).name);
+                                            return (
+                                                <span key={idx} className="px-4 py-2 rounded-xl bg-primary shadow-lg shadow-primary/10 text-white text-[9px] font-black uppercase tracking-widest">
+                                                    {name}
+                                                </span>
+                                            );
+                                        }) || <span className="text-[9px] font-bold text-muted-foreground italic uppercase">Sin Roles Asignados</span>}
+                                    </div>
+                                </div>
+
+                                {/* Posición en Organigrama */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <Building2 className="w-4 h-4 text-primary" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground">Asignación Estructural</h4>
+                                    </div>
+                                    <div className="space-y-4 p-8 bg-muted/30 border border-border/50 rounded-[32px]">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Cargo Designado</p>
+                                            <p className="text-xl font-black text-foreground uppercase tracking-tighter">
+                                                {(viewingUser as any).cargoPostulacion?.nombre || viewingUser.cargo || 'Operador General'}
+                                            </p>
+                                        </div>
+                                        <div className="h-[1px] bg-border/40" />
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Región Operativa</p>
+                                            <p className="text-[13px] font-black text-foreground uppercase italic">{viewingUser.tenant?.nombre || 'Sede Central'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Sedes de Campo</p>
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {viewingUser.sedes?.map((s: any, idx: number) => (
+                                                    <span key={idx} className="px-3 py-1.5 rounded-lg bg-white border border-border text-[9px] font-bold uppercase text-muted-foreground">
+                                                        {s.sede?.nombre || s.nombre}
+                                                    </span>
+                                                )) || <span className="text-[9px] font-medium text-muted-foreground/40 italic">Global</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info Personal Secundaria */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <UserIcon className="w-4 h-4 text-primary" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground">Biometría y Enlace</h4>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 p-8 bg-card border border-border rounded-[32px] shadow-sm">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Género</p>
+                                            <p className="text-[12px] font-bold text-foreground">{viewingUser.genero || '---'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Celular</p>
+                                            <p className="text-[12px] font-bold text-foreground">{viewingUser.celular || '---'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Estado Civil</p>
+                                            <p className="text-[12px] font-bold text-foreground">{viewingUser.estadoCivil || '---'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Nacimiento</p>
+                                            <p className="text-[12px] font-bold text-foreground">
+                                                {viewingUser.fechaNacimiento ? new Date(viewingUser.fechaNacimiento).toLocaleDateString() : '---'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha (Expediente Profesional - El Corazón de Mi Ficha) */}
+                            <div className="lg:col-span-8 space-y-10">
+
+                                {/* Resumen Profesional */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <FileText className="w-5 h-5 text-primary" />
+                                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Resumen de Trayectoria</h4>
+                                    </div>
+                                    <Card className="p-8 border-border bg-card shadow-sm rounded-[32px]">
+                                        <p className="text-[15px] leading-relaxed text-muted-foreground font-medium italic">
+                                            {viewingUser.resumenProfesional || "El operador no ha redactado su resumen profesional en la plataforma."}
+                                        </p>
+                                    </Card>
+                                </div>
+
+                                {/* Formación Académica */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <GraduationCap className="w-5 h-5 text-primary" />
+                                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Nivel de Titulación</h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Card className="p-6 border-primary/10 bg-primary/[0.02] rounded-[24px]">
+                                            <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Licenciatura Universitaria</p>
+                                            <p className="text-[13px] font-black text-foreground">{viewingUser.licUniversitaria || "No declarada"}</p>
+                                        </Card>
+                                        <Card className="p-6 border-primary/10 bg-primary/[0.02] rounded-[24px]">
+                                            <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Licenciatura MESCP</p>
+                                            <p className="text-[13px] font-black text-foreground">{viewingUser.licMescp || "No declarada"}</p>
+                                        </Card>
+                                    </div>
+                                </div>
+
+                                {/* Experiencia y Habilidades */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3 ml-2">
+                                            <Briefcase className="w-4 h-4 text-primary" />
+                                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground">Experiencia Crítica</h4>
+                                        </div>
+                                        <Card className="p-6 border-border bg-muted/10 rounded-[28px] h-full">
+                                            <p className="text-[13px] leading-relaxed text-muted-foreground font-medium whitespace-pre-line">
+                                                {viewingUser.experienciaLaboral || "Cronograma de experiencia no disponible."}
+                                            </p>
+                                        </Card>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3 ml-2">
+                                            <Zap className="w-4 h-4 text-primary" />
+                                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground">Competencias Técnicas</h4>
+                                        </div>
+                                        <Card className="p-6 border-border bg-muted/10 rounded-[28px] h-full space-y-4">
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Habilidades</p>
+                                                <p className="text-[12px] font-bold text-foreground">{viewingUser.habilidades || "---"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Idiomas</p>
+                                                <p className="text-[12px] font-bold text-foreground">{viewingUser.idiomas || "---"}</p>
+                                            </div>
+                                        </Card>
+                                    </div>
+                                </div>
+
+                                {/* Posgrados (Acordeón de títulos) */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <Award className="w-5 h-5 text-primary" />
+                                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Especializaciones y Posgrados</h4>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {(viewingUser as any).bp_posgrado && (viewingUser as any).bp_posgrado.length > 0 ? (
+                                            (viewingUser as any).bp_posgrado.map((p: any, idx: number) => (
+                                                <div key={idx} className="flex items-center justify-between p-5 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all group overflow-hidden relative">
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary transform -translate-x-full group-hover:translate-x-0 transition-transform" />
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="p-3 rounded-xl bg-primary/5 text-primary group-hover:scale-110 transition-transform">
+                                                            <GraduationCap className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[9px] font-black text-primary uppercase tracking-widest">{(p.bp_tipo_posgrado?.btp_nombre || 'Especialización').toUpperCase()}</p>
+                                                            <h5 className="text-[13px] font-black text-foreground uppercase">{p.bpg_titulo}</h5>
+                                                            <p className="text-[10px] font-bold text-muted-foreground italic">Expedido: {new Date(p.bpg_fecha).toLocaleDateString()}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-10 rounded-[32px] border border-dashed border-border flex flex-col items-center justify-center text-center space-y-2">
+                                                <Award className="w-10 h-10 text-muted-foreground/20" />
+                                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sin posgrados registrados</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Producción Intelectual */}
+                                <div className="space-y-4 pb-10">
+                                    <div className="flex items-center gap-3 ml-2">
+                                        <Book className="w-5 h-5 text-primary" />
+                                        <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Producción Intelectual</h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {(viewingUser as any).bp_produccion_intelectual && (viewingUser as any).bp_produccion_intelectual.length > 0 ? (
+                                            (viewingUser as any).bp_produccion_intelectual.map((prod: any, idx: number) => (
+                                                <Card key={idx} className="p-5 border-border bg-card rounded-2xl flex items-center gap-4">
+                                                    <div className="p-3 rounded-xl bg-indigo-500/5 text-indigo-500">
+                                                        <FileText className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="text-[12px] font-black text-foreground uppercase truncate w-64">{prod.bpi_titulo}</h5>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">Año: {prod.bpi_anio_publicacion}</p>
+                                                    </div>
+                                                </Card>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-2 p-10 rounded-[32px] border border-dashed border-border flex flex-col items-center justify-center text-center space-y-2">
+                                                <Book className="w-10 h-10 text-muted-foreground/20" />
+                                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sin publicaciones declaradas</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <div className="p-10 pt-0 flex justify-end">
+                    <button
+                        onClick={() => setViewingUser(null)}
+                        className="h-16 px-16 rounded-2xl bg-muted text-muted-foreground font-black text-[12px] uppercase tracking-widest hover:text-foreground transition-all active:scale-95 shadow-xl hover:shadow-2xl"
+                    >
+                        Cerrar Expediente
+                    </button>
+                </div>
+            </Modal>
         </div >
     );
 }
