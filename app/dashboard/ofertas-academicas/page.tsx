@@ -6,6 +6,7 @@ import { programaMaestroService } from '@/services/programaMaestroService';
 import { sedeService } from '@/services/sedeService';
 import { programaLookupService } from '@/services/programaLookupService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     GraduationCap,
@@ -42,7 +43,7 @@ import {
     Target,
     Zap
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -50,6 +51,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { asignacionService } from '@/services/asignacionService';
 import { userService } from '@/services/userService';
 import { StatusBadge } from '@/components/StatusBadge';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 export default function OfertasAcademicasPage() {
     const { user } = useAuth();
@@ -121,6 +123,21 @@ export default function OfertasAcademicasPage() {
         moduloId: '',
         turnoId: '',
         facilitadorId: '',
+    });
+
+    const [confirmAction, setConfirmAction] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        loading: boolean;
+        variant?: 'danger' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => { },
+        loading: false
     });
 
     useEffect(() => {
@@ -348,9 +365,9 @@ export default function OfertasAcademicasPage() {
                 modalidadId: fullMaster.modalidadId || '',
                 duracionId: fullMaster.duracionId || '',
                 costo: fullMaster.costo || 0,
-                horario: fullMaster.horario || '',
                 banner: fullMaster.banner || '',
                 afiche: fullMaster.afiche || '',
+                horario: fullMaster.horario || '',
                 fechaIniIns: today,
                 fechaFinIns: nextMonth,
                 fechaIniClase: inTwoMonths,
@@ -410,13 +427,26 @@ export default function OfertasAcademicasPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro de dar de baja esta oferta académica?')) return;
-        try {
-            await programaVersionService.delete(id);
-            loadData();
-        } catch (error) {
-            console.error('Error deleting:', error);
-        }
+        setConfirmAction({
+            isOpen: true,
+            title: 'Dar de Baja Oferta',
+            description: '¿Seguro que desea dar de baja esta oferta académica? Esta acción la ocultará del catálogo vigente.',
+            loading: false,
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    setConfirmAction(prev => ({ ...prev, loading: true }));
+                    await programaVersionService.delete(id);
+                    toast.success('Oferta dada de baja');
+                    loadData();
+                    setConfirmAction(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    toast.error('Error al dar de baja');
+                } finally {
+                    setConfirmAction(prev => ({ ...prev, loading: false }));
+                }
+            }
+        });
     };
 
     const handleOpenFacilitadores = async (oferta: any) => {
@@ -484,21 +514,30 @@ export default function OfertasAcademicasPage() {
         }
 
         const isMassive = payloads.length > 1;
-        const confirmMsg = isMassive
-            ? `Se realizarán ${payloads.length} asignaciones. ¿Continuar?`
-            : null;
 
-        if (isMassive && !confirm(confirmMsg!)) return;
+        if (isMassive) {
+            setConfirmAction({
+                isOpen: true,
+                title: 'Asignación Masiva',
+                description: `Se realizarán ${payloads.length} asignaciones automáticamente. ¿Deseas continuar con el proceso masivo?`,
+                loading: false,
+                variant: 'warning',
+                onConfirm: async () => {
+                    await executeAsignaciones(payloads, true);
+                    setConfirmAction(prev => ({ ...prev, isOpen: false }));
+                }
+            });
+        } else {
+            await executeAsignaciones(payloads, false);
+        }
+    };
 
+    const executeAsignaciones = async (payloads: any[], isMassive: boolean) => {
         try {
             setIsLoading(true);
-
             if (!isMassive) {
-                // Para asignaciones individuales, confiamos en el interceptor global 
-                // para mostrar el éxito o el Modal de error detallado (ej: Conflict 409)
                 await asignacionService.create(payloads[0]);
             } else {
-                // Para asignaciones masivas, usamos modo silencioso para evitar "spam" de modales
                 let successCount = 0;
                 let failCount = 0;
 
@@ -514,16 +553,14 @@ export default function OfertasAcademicasPage() {
                 if (successCount > 0) {
                     toast.success(`Proceso masivo finalizado: ${successCount} exitosas${failCount > 0 ? `, ${failCount} fallidas` : ''}`);
                 } else if (failCount > 0) {
-                    toast.error('Todas las asignaciones masivas fallaron. Verifique si los horarios ya están ocupados.');
+                    toast.error('Todas las asignaciones masivas fallaron.');
                 }
             }
 
-            // Refresh
             const data = await asignacionService.getByPrograma(targetOferta.id);
             setAsignaciones(data);
             setNewAsignacion({ moduloId: '', turnoId: '', facilitadorId: '' });
-        } catch (error: any) {
-            // Ya manejado por el interceptor global para casos individuales (Modal/Toast)
+        } catch (error) {
             console.error('Error en proceso de asignación:', error);
         } finally {
             setIsLoading(false);
@@ -531,15 +568,26 @@ export default function OfertasAcademicasPage() {
     };
 
     const handleDeleteAsignacion = async (id: string) => {
-        if (!confirm('¿Eliminar esta asignación?')) return;
-        try {
-            await asignacionService.delete(id);
-            // El éxito ya es notificado por el interceptor global
-            const data = await asignacionService.getByPrograma(targetOferta.id);
-            setAsignaciones(data);
-        } catch (error) {
-            toast.error('Error al eliminar');
-        }
+        setConfirmAction({
+            isOpen: true,
+            title: 'Eliminar Asignación',
+            description: '¿Seguro que desea eliminar esta asignación de facilitador? El módulo quedará sin docente asignado.',
+            loading: false,
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    setConfirmAction(prev => ({ ...prev, loading: true }));
+                    await asignacionService.delete(id);
+                    const data = await asignacionService.getByPrograma(targetOferta.id);
+                    setAsignaciones(data);
+                    setConfirmAction(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    toast.error('Error al eliminar');
+                } finally {
+                    setConfirmAction(prev => ({ ...prev, loading: false }));
+                }
+            }
+        });
     };
 
     const [selectedTipoMaster, setSelectedTipoMaster] = useState('');
@@ -799,7 +847,7 @@ export default function OfertasAcademicasPage() {
                                             <Card key={o.id} className="group relative border-border/40 overflow-hidden bg-card hover:border-primary/30 transition-all p-0 shadow-sm hover:shadow-lg">
                                                 <div className="relative h-36 overflow-hidden bg-muted/30">
                                                     {o.banner ? (
-                                                        <img src={o.banner} alt={o.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                                        <img src={getImageUrl(o.banner)} alt={o.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                                                     ) : (
                                                         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground/30">
                                                             <ImageIcon className="w-8 h-8" />
@@ -1143,11 +1191,12 @@ export default function OfertasAcademicasPage() {
                                         <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Convocatoria (Gestión)</label>
                                         <input
                                             type="text"
-                                            className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground shadow-sm"
+                                            className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground shadow-sm disabled:opacity-70 disabled:bg-muted/50"
                                             value={formData.convocatoria}
                                             onChange={(e) => setFormData({ ...formData, convocatoria: e.target.value })}
                                             placeholder="Ej: I-2024"
                                             required
+                                            disabled={!!selectedMaster}
                                         />
                                     </div>
                                 </div>
@@ -1210,6 +1259,31 @@ export default function OfertasAcademicasPage() {
                                             value={formData.cargaHoraria}
                                             onChange={(e) => setFormData({ ...formData, cargaHoraria: parseInt(e.target.value) })}
                                             disabled={!!selectedMaster}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <ImageIcon className="w-3 h-3 text-primary" />
+                                            Banner Informativo
+                                        </label>
+                                        <ImageUpload
+                                            value={formData.banner}
+                                            onChange={(url) => setFormData({ ...formData, banner: url })}
+                                            tableName="ofertas"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <ImageIcon className="w-3 h-3 text-primary" />
+                                            Afiche Publicitario
+                                        </label>
+                                        <ImageUpload
+                                            value={formData.afiche}
+                                            onChange={(url) => setFormData({ ...formData, afiche: url })}
+                                            tableName="ofertas"
                                         />
                                     </div>
                                 </div>
@@ -1904,6 +1978,16 @@ export default function OfertasAcademicasPage() {
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmAction.isOpen}
+                onClose={() => setConfirmAction({ ...confirmAction, isOpen: false })}
+                onConfirm={confirmAction.onConfirm}
+                title={confirmAction.title}
+                description={confirmAction.description}
+                loading={confirmAction.loading}
+                variant={confirmAction.variant as any}
+            />
         </div>
     );
 }

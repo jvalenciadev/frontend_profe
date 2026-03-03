@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { programaMaestroService } from '@/services/programaMaestroService';
 import { programaLookupService } from '@/services/programaLookupService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     GraduationCap,
@@ -21,13 +22,15 @@ import {
     CheckCircle2,
     Clock,
     Award,
-    Box
+    Box,
+    Image as ImageIcon
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 export default function ProgramasMaestroPage() {
     const [programas, setProgramas] = useState<any[]>([]);
@@ -36,6 +39,17 @@ export default function ProgramasMaestroPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPrograma, setEditingPrograma] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        itemName?: string;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -48,6 +62,8 @@ export default function ProgramasMaestroPage() {
         modalidadId: '',
         duracionId: '',
         estado: 'ACTIVO',
+        banner: '',
+        afiche: '',
         modulos: [] as any[]
     });
 
@@ -99,6 +115,8 @@ export default function ProgramasMaestroPage() {
                 modalidadId: programa.modalidadId || '',
                 duracionId: programa.duracionId || '',
                 estado: programa.estado || 'ACTIVO',
+                banner: programa.banner || '',
+                afiche: programa.afiche || '',
                 modulos: programa.modulos || []
             });
         } else {
@@ -114,6 +132,8 @@ export default function ProgramasMaestroPage() {
                 modalidadId: '',
                 duracionId: '',
                 estado: 'ACTIVO',
+                banner: '',
+                afiche: '',
                 modulos: []
             });
         }
@@ -167,15 +187,27 @@ export default function ProgramasMaestroPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro de eliminar este Maestro Académico?')) return;
+    const handleDelete = async (programa: any) => {
+        setConfirmDelete({
+            isOpen: true,
+            itemId: programa.id,
+            itemName: programa.nombre,
+            loading: false
+        });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.itemId) return;
         try {
-            await programaMaestroService.delete(id);
+            setConfirmDelete(prev => ({ ...prev, loading: true }));
+            await programaMaestroService.delete(confirmDelete.itemId);
             toast.success('Eliminado');
             loadData();
+            setConfirmDelete(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
-            console.error('Error deleting:', error);
             toast.error('Error al eliminar');
+        } finally {
+            setConfirmDelete(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -385,7 +417,7 @@ export default function ProgramasMaestroPage() {
                                                                 <Edit2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDelete(programa.id)}
+                                                                onClick={() => handleDelete(programa)}
                                                                 className="p-2 rounded-lg bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm group/btn"
                                                             >
                                                                 <Trash2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
@@ -490,8 +522,11 @@ export default function ProgramasMaestroPage() {
                                 <input
                                     type="number"
                                     className="w-full h-12 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground shadow-sm"
-                                    value={formData.cargaHoraria}
-                                    onChange={(e) => setFormData({ ...formData, cargaHoraria: parseInt(e.target.value) })}
+                                    value={formData.cargaHoraria || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({ ...formData, cargaHoraria: val === '' ? 0 : parseInt(val) });
+                                    }}
                                 />
                             </div>
                             <div className="md:col-span-2 space-y-1.5">
@@ -520,9 +555,33 @@ export default function ProgramasMaestroPage() {
                                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contenido Académico / Objetivo</label>
                                 <textarea
                                     className="w-full min-h-[100px] p-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground shadow-sm resize-none"
-                                    value={formData.contenido}
                                     onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
                                     placeholder="Describa el contenido o propósito del programa..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-2xl bg-muted/30 border border-border/50">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                    <ImageIcon className="w-3 h-3 text-primary" />
+                                    Banner del Programa
+                                </label>
+                                <ImageUpload
+                                    value={formData.banner}
+                                    onChange={(url) => setFormData({ ...formData, banner: url })}
+                                    tableName="programa"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                    <ImageIcon className="w-3 h-3 text-primary" />
+                                    Afiche Publicitario
+                                </label>
+                                <ImageUpload
+                                    value={formData.afiche}
+                                    onChange={(url) => setFormData({ ...formData, afiche: url })}
+                                    tableName="programa"
                                 />
                             </div>
                         </div>
@@ -597,8 +656,11 @@ export default function ProgramasMaestroPage() {
                                             <input
                                                 type="number"
                                                 className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
-                                                value={modulo.notaMinima}
-                                                onChange={(e) => updateModulo(index, 'notaMinima', parseInt(e.target.value))}
+                                                value={modulo.notaMinima || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    updateModulo(index, 'notaMinima', val === '' ? 0 : parseInt(val));
+                                                }}
                                             />
                                             <div className="space-y-1">
                                                 <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Estado</label>
@@ -642,6 +704,15 @@ export default function ProgramasMaestroPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDeleteAction}
+                title="Eliminar Programa Maestro"
+                description={`¿Está seguro de eliminar el programa maestro "${confirmDelete.itemName}"? Esta acción no se puede deshacer y afectará a la malla curricular base.`}
+                loading={confirmDelete.loading}
+            />
         </div >
     );
 }

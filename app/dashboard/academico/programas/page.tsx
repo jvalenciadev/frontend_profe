@@ -17,8 +17,8 @@ import {
     Award
 } from 'lucide-react';
 import { Can } from '@/components/Can';
-import api from '@/lib/api';
-import { Programa } from '@/types';
+import { useProgramas } from '@/features/programa/application/useProgramas';
+import { Programa } from '@/features/programa/domain/Programa';
 import { Card } from '@/components/ui/Card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -26,35 +26,21 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ProgramasPage() {
-    const [programas, setProgramas] = useState<Programa[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { items: programas, loading: isLoading, loadItems: loadProgramas } = useProgramas();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterEstado, setFilterEstado] = useState('');
     const [filterTipo, setFilterTipo] = useState('');
 
     useEffect(() => {
         loadProgramas();
-    }, []);
+    }, [loadProgramas]);
 
-    const loadProgramas = async () => {
-        try {
-            setIsLoading(true);
-            const { data } = await api.get<Programa[]>('/programas-maestros');
-            setProgramas(data);
-        } catch (err: any) {
-            console.error('Error loading programas:', err);
-            toast.error('Error al cargar los programas académicos');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    // Generic search logic kept local for UI filtering
     const filteredProgramas = programas.filter(p => {
         const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (p.codigo || '').toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesEstado = filterEstado ? (filterEstado === 'activo' ? p.estadoInscripcion : !p.estadoInscripcion) : true;
-        const matchesTipo = filterTipo ? p.tipoId === filterTipo : true;
-        return matchesSearch && matchesEstado && matchesTipo;
+        const matchesEstado = filterEstado ? (filterEstado === 'activo' ? p.estado === 'activo' : p.estado !== 'activo') : true;
+        return matchesSearch && matchesEstado;
     });
 
     return (
@@ -148,7 +134,7 @@ export default function ProgramasPage() {
                                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border/50">
                                                 {programa.codigo || 'S/C'}
                                             </span>
-                                            <StatusBadge status={programa.estadoInscripcion ? 'ACTIVO' : 'INACTIVO'} showIcon={false} />
+                                            <StatusBadge status={programa.estado === 'activo' ? 'ACTIVO' : 'INACTIVO'} showIcon={false} />
                                         </div>
                                     </div>
 
@@ -167,7 +153,7 @@ export default function ProgramasPage() {
                                                 <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Inversión</p>
                                                 <div className="flex items-center gap-1 text-primary">
                                                     <DollarSign className="w-3 h-3 font-bold" />
-                                                    <span className="text-[12px] font-black">{programa.costo.toLocaleString()} <span className="text-[8px] font-bold uppercase">Bs</span></span>
+                                                    <span className="text-[12px] font-black">{(programa.costo || 0).toLocaleString()} <span className="text-[8px] font-bold uppercase">Bs</span></span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">

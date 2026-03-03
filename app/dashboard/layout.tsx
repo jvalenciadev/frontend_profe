@@ -217,7 +217,7 @@ export default function DashboardLayout({
             )} suppressHydrationWarning>
                 <Header />
 
-                <main className="flex-1 px-8 py-8 max-w-[1920px] mx-auto w-full" suppressHydrationWarning>
+                <main className="flex-1 px-3 py-4 md:px-8 md:py-8 max-w-[1920px] mx-auto w-full" suppressHydrationWarning>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={pathname}

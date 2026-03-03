@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { inscripcionService } from '@/services/inscripcionService';
-import { programaVersionService } from '@/services/programaVersionService';
+import { useInscripcions } from '@/features/inscripcion/application/useInscripcions';
+import { useOfertas } from '@/features/oferta/application/useOfertas';
 import { sedeService } from '@/services/sedeService';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
@@ -28,19 +28,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function InscripcionesPage() {
-    const [inscripciones, setInscripciones] = useState<any[]>([]);
-    const [ofertas, setOfertas] = useState<any[]>([]);
+    const { items: inscripciones, loading: inscripcionesLoading, loadItems: loadInscripciones, createItem: createInscripcion, updateItem: updateInscripcion, deleteItem: deleteInscripcion } = useInscripcions();
+    const { items: ofertas, loading: ofertasLoading, loadItems: loadOfertas } = useOfertas();
     const [sedes, setSedes] = useState<any[]>([]);
-    const [estados, setEstados] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingInscripcion, setEditingInscripcion] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
         personaId: '',
-        programaId: '', // ProgramaDos ID
+        programaId: '', // ProgramaDos ID (Oferta)
         sedeId: '',
         turnoId: '',
         estadoInscripcionId: '',
@@ -56,24 +54,11 @@ export default function InscripcionesPage() {
     }, []);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const [data, ofertasData, sedesData, estadosData] = await Promise.all([
-                inscripcionService.getAll(),
-                programaVersionService.getAll(),
-                sedeService.getAll(),
-                inscripcionService.getEstados()
-            ]);
-            setInscripciones(data);
-            setOfertas(ofertasData);
-            setSedes(sedesData);
-            setEstados(estadosData);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Error al sincronizar registros de inscripción');
-        } finally {
-            setLoading(false);
-        }
+        await Promise.all([
+            loadInscripciones(),
+            loadOfertas(),
+            sedeService.getAll().then(setSedes)
+        ]);
     };
 
     const handleOpenModal = (inscripcion: any = null) => {
@@ -98,7 +83,7 @@ export default function InscripcionesPage() {
                 programaId: '',
                 sedeId: '',
                 turnoId: '',
-                estadoInscripcionId: estados[0]?.id || '',
+                estadoInscripcionId: '',
                 observacion: '',
                 licenciatura: '',
                 unidadEducativa: '',
@@ -111,34 +96,17 @@ export default function InscripcionesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
         try {
-            setIsLoading(true);
             if (editingInscripcion) {
-                await inscripcionService.update(editingInscripcion.id, formData);
-                toast.success('Registro de inscripción actualizado');
+                const success = await updateInscripcion(editingInscripcion.id, formData);
+                if (success) setIsModalOpen(false);
             } else {
-                await inscripcionService.create(formData);
-                toast.success('Nueva inscripción registrada correctamente');
+                const success = await createInscripcion(formData);
+                if (success) setIsModalOpen(false);
             }
-            setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            console.error('Error saving:', error);
-            toast.error('Error al procesar el registro');
         } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro de anular esta inscripción?')) return;
-        try {
-            await inscripcionService.delete(id);
-            toast.success('Registro anulado');
-            loadData();
-        } catch (error) {
-            console.error('Error deleting:', error);
-            toast.error('Error al anular el registro');
+            setIsSubmitting(false);
         }
     };
 
@@ -146,6 +114,8 @@ export default function InscripcionesPage() {
         i.personaId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         i.programa?.nombre?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const loading = inscripcionesLoading || ofertasLoading;
 
     return (
         <div className="space-y-8 pb-20">
@@ -223,7 +193,7 @@ export default function InscripcionesPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filtered.map((ins) => (
+                                filtered.map((ins: any) => (
                                     <tr key={ins.id} className="group hover:bg-muted/30 transition-all">
                                         <td className="p-5">
                                             <div className="flex items-center gap-3">
@@ -252,11 +222,11 @@ export default function InscripcionesPage() {
                                         <td className="p-5">
                                             <span className={cn(
                                                 "text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border",
-                                                ins.estadoInscripcion?.nombre?.includes('INSCRITO')
+                                                ins.estadoInscripcion?.includes('INSCRITO') || ins.estado === 'activo'
                                                     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                                                     : "bg-amber-500/10 text-amber-600 border-amber-500/20"
                                             )}>
-                                                {ins.estadoInscripcion?.nombre}
+                                                {ins.estadoInscripcion || ins.estado}
                                             </span>
                                         </td>
                                         <td className="p-5 text-right">
@@ -268,7 +238,7 @@ export default function InscripcionesPage() {
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(ins.id)}
+                                                    onClick={() => deleteInscripcion(ins.id)}
                                                     className="p-2 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -340,11 +310,18 @@ export default function InscripcionesPage() {
                                 <select
                                     className="w-full h-12 px-4 rounded-xl bg-card border border-border focus:border-primary outline-none text-xs font-bold"
                                     value={formData.programaId}
-                                    onChange={(e) => setFormData({ ...formData, programaId: e.target.value })}
+                                    onChange={(e) => {
+                                        const selectedOferta = ofertas.find(o => o.id === e.target.value);
+                                        setFormData({
+                                            ...formData,
+                                            programaId: e.target.value,
+                                            turnoId: selectedOferta?.turnos?.[0]?.id || ''
+                                        });
+                                    }}
                                     required
                                 >
                                     <option value="">Seleccionar Oferta</option>
-                                    {ofertas.map(o => <option key={o.id} value={o.id}>{o.nombre} ({o.codigo})</option>)}
+                                    {ofertas.map((o: any) => <option key={o.id} value={o.id}>{o.nombre} ({o.codigo})</option>)}
                                 </select>
                             </div>
 
@@ -362,15 +339,19 @@ export default function InscripcionesPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado de Matrícula</label>
+                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Turno Seleccionado</label>
                                 <select
                                     className="w-full h-12 px-4 rounded-xl bg-card border border-border focus:border-primary outline-none text-xs font-bold"
-                                    value={formData.estadoInscripcionId}
-                                    onChange={(e) => setFormData({ ...formData, estadoInscripcionId: e.target.value })}
+                                    value={formData.turnoId}
+                                    onChange={(e) => setFormData({ ...formData, turnoId: e.target.value })}
                                     required
                                 >
-                                    <option value="">Seleccionar Estado</option>
-                                    {estados.map(est => <option key={est.id} value={est.id}>{est.nombre}</option>)}
+                                    <option value="">Seleccionar Turno</option>
+                                    {ofertas.find((o: any) => o.id === formData.programaId)?.turnos?.map((t: any) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.turnoIds || 'Turno'} (Cupo: {t.cupo - t.cupoPre})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -396,10 +377,10 @@ export default function InscripcionesPage() {
                         </button>
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isSubmitting}
                             className="h-12 px-10 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
                         >
-                            {isLoading ? 'Procesando...' : (
+                            {isSubmitting ? 'Procesando...' : (
                                 <>
                                     <ClipboardCheck className="w-4 h-4" />
                                     {editingInscripcion ? 'Actualizar Registro' : 'Confirmar Inscripción'}
@@ -412,4 +393,3 @@ export default function InscripcionesPage() {
         </div>
     );
 }
-

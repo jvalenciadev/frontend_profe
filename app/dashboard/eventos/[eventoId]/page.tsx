@@ -9,10 +9,12 @@ import {
     Users, CheckCircle2, Clock, Hash, Eye, Download, Search,
     ToggleLeft, ToggleRight, Copy, ExternalLink, AlertCircle,
     BarChart3, RefreshCw, Timer, BookOpen,
-    CircleDot, CheckSquare, Settings2, AlignLeft, Trophy
+    CircleDot, CheckSquare, Settings2, AlignLeft, Trophy,
+    Mail, Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const TIPOS_PREGUNTA = [
     { value: 'SINGLE', label: 'Selección Única', icon: CircleDot, desc: 'Una sola respuesta correcta' },
@@ -41,6 +43,16 @@ export default function EventoOperativoPage() {
     const [editingCues, setEditingCues] = useState<any>(null);
     const [editingPregunta, setEditingPregunta] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
+
+    const [confirmDeletePregunta, setConfirmDeletePregunta] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
 
     // Forms
     const [formCues, setFormCues] = useState({ titulo: '', descripcion: '', fechaInicio: '', fechaFin: '', tiempoMaximo: '', puntosMaximos: '', estado: 'activo' });
@@ -175,13 +187,27 @@ export default function EventoOperativoPage() {
         finally { setSubmitting(false); }
     };
 
-    const deletePregunta = async (id: string) => {
-        if (!confirm('¿Eliminar pregunta?')) return;
+    const deletePregunta = (id: string) => {
+        setConfirmDeletePregunta({
+            isOpen: true,
+            itemId: id,
+            loading: false
+        });
+    };
+
+    const confirmDeletePreguntaAction = async () => {
+        if (!confirmDeletePregunta.itemId) return;
         try {
-            await api.delete(`/evento-preguntas/${id}`);
+            setConfirmDeletePregunta(prev => ({ ...prev, loading: true }));
+            await api.delete(`/evento-preguntas/${confirmDeletePregunta.itemId}`);
             toast.success('Pregunta eliminada');
             loadPreguntas(cuestionarioActivo.id);
-        } catch { toast.error('Error eliminando pregunta'); }
+            setConfirmDeletePregunta(prev => ({ ...prev, isOpen: false }));
+        } catch {
+            toast.error('Error eliminando pregunta');
+        } finally {
+            setConfirmDeletePregunta(prev => ({ ...prev, loading: false }));
+        }
     };
 
     // Cambiar tipo de pregunta
@@ -558,11 +584,11 @@ export default function EventoOperativoPage() {
                                                             {i.persona?.nombre1} {i.persona?.apellido1}
                                                         </p>
                                                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                                            <span className="text-[11px] text-muted-foreground truncate max-w-[150px]" title={i.persona?.correo}>
-                                                                ✉ {i.persona?.correo || 'Sin correo'}
+                                                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate max-w-[150px]" title={i.persona?.correo}>
+                                                                <Mail className="w-3 h-3 text-primary/60" /> {i.persona?.correo || 'Sin correo'}
                                                             </span>
-                                                            <span className="text-[11px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
-                                                                📞 {i.persona?.celular || 'Sin celular'}
+                                                            <span className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
+                                                                <Phone className="w-3 h-3 text-primary/60" /> {i.persona?.celular || 'Sin celular'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -800,6 +826,15 @@ export default function EventoOperativoPage() {
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDeletePregunta.isOpen}
+                onClose={() => setConfirmDeletePregunta({ ...confirmDeletePregunta, isOpen: false })}
+                onConfirm={confirmDeletePreguntaAction}
+                title="Eliminar Pregunta"
+                description="¿Estás seguro de eliminar esta pregunta? Esta acción no se puede deshacer y los participantes no podrán visualizarla."
+                loading={confirmDeletePregunta.loading}
+            />
         </div>
     );
 }

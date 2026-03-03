@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { departmentService } from '@/services/departmentService';
+import { useDepartamentos } from '@/features/departamento/application/useDepartamentos';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import {
@@ -20,8 +20,7 @@ import { toast } from 'sonner';
 import { Can } from '@/components/Can';
 
 export default function DepartamentosPage() {
-    const [departments, setDepartments] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { items: departments, loading: departmentsLoading, loadItems, createItem, updateItem, deleteItem } = useDepartamentos();
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modal State
@@ -34,20 +33,11 @@ export default function DepartamentosPage() {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadItems();
+    }, [loadItems]);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const data = await departmentService.getAll();
-            setDepartments(data);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Fallo en la sincronización de departamentos');
-        } finally {
-            setLoading(false);
-        }
+        await loadItems();
     };
 
     const handleOpenModal = (dept: any = null) => {
@@ -69,32 +59,18 @@ export default function DepartamentosPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            if (editingDepartment) {
-                await departmentService.update(editingDepartment.id, formData);
-                toast.success('Departamento actualizado correctamente');
-            } else {
-                await departmentService.create(formData);
-                toast.success('Nuevo departamento registrado');
-            }
+        const success = editingDepartment
+            ? await updateItem(editingDepartment.id, formData)
+            : await createItem(formData);
+
+        if (success) {
             setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            console.error('Error saving department:', error);
-            toast.error('Error en la persistencia de datos');
         }
     };
 
     const handleDelete = async (id: string) => {
-        try {
-            await departmentService.delete(id);
-            toast.success('Departamento removido');
-            setIsDeleting(null);
-            loadData();
-        } catch (error) {
-            console.error('Error deleting department:', error);
-            toast.error('Error en la remoción técnica');
-        }
+        await deleteItem(id);
+        setIsDeleting(null);
     };
 
     const filteredDepartments = departments.filter(d =>
@@ -142,7 +118,7 @@ export default function DepartamentosPage() {
             </div>
 
             {/* Grid Display */}
-            {loading && departments.length === 0 ? (
+            {departmentsLoading && departments.length === 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {Array(4).fill(0).map((_, i) => (
                         <div key={i} className="h-44 rounded-3xl bg-card border border-border animate-pulse" />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { programaMaestroService } from '@/services/programaMaestroService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     LayoutGrid,
@@ -33,6 +34,17 @@ export default function ProgramaProPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPrograma, setEditingPrograma] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        itemName?: string;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -131,15 +143,27 @@ export default function ProgramaProPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Está seguro de eliminar este programa y todos sus módulos?')) return;
+    const handleDelete = async (programa: any) => {
+        setConfirmDelete({
+            isOpen: true,
+            itemId: programa.id,
+            itemName: programa.nombre,
+            loading: false
+        });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.itemId) return;
         try {
-            await programaMaestroService.delete(id);
+            setConfirmDelete(prev => ({ ...prev, loading: true }));
+            await programaMaestroService.delete(confirmDelete.itemId);
             toast.success('Programa eliminado');
             loadData();
+            setConfirmDelete(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
-            console.error('Error deleting:', error);
-            toast.error('Error al eliminar');
+            toast.error('No se pudo eliminar el programa');
+        } finally {
+            setConfirmDelete(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -228,7 +252,7 @@ export default function ProgramaProPage() {
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(p.id)}
+                                        onClick={() => handleDelete(p)}
                                         className="p-2 rounded-lg bg-rose-500/5 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -410,6 +434,15 @@ export default function ProgramaProPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDeleteAction}
+                title="Eliminar Programa Pro"
+                description={`¿Está completamente seguro de eliminar "${confirmDelete.itemName}"? Esta acción borrará permanentemente el programa y todos sus módulos asociados.`}
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

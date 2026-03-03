@@ -75,21 +75,24 @@ export default function RootLayout({
   ].join(' ');
 
   return (
-    <html lang="es" className={fontVariables} suppressHydrationWarning={true}>
-      <body className="antialiased" suppressHydrationWarning={true}>
-        <ProfeProvider>
-          <ThemeProvider>
-            <AuthProvider>
-              <Toaster position="top-right" richColors closeButton />
-              <MaintenanceGuard>
-                <Suspense fallback={null}>
-                  <ConditionalNavbar />
-                  {children}
-                </Suspense>
-              </MaintenanceGuard>
-            </AuthProvider>
-          </ThemeProvider>
-        </ProfeProvider>
+    <html lang="es" className={fontVariables} suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
+        {/* suppressHydrationWarning en este div previene el error bis_skin_checked de extensiones del navegador */}
+        <div id="root-wrapper" suppressHydrationWarning>
+          <ProfeProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <Toaster position="top-right" richColors closeButton />
+                <MaintenanceGuard>
+                  <Suspense fallback={null}>
+                    <ConditionalNavbar />
+                    {children}
+                  </Suspense>
+                </MaintenanceGuard>
+              </AuthProvider>
+            </ThemeProvider>
+          </ProfeProvider>
+        </div>
       </body>
     </html>
   );

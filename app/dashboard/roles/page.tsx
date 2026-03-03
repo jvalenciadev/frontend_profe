@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { roleService } from '@/services/roleService';
-import { permissionService } from '@/services/permissionService';
-import { Role, Permission } from '@/types';
+import { useRoles } from '@/features/role/application/useRoles';
+import { usePermissions } from '@/features/permission/application/usePermissions';
+import { Role } from '@/features/role/domain/Role';
+import { Permission } from '@/features/permission/domain/Permission';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import { Can } from '@/components/Can';
@@ -28,9 +29,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function RolesPage() {
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { items: roles, loading: rolesLoading, loadItems: loadRoles, createItem, updateItem, deleteItem } = useRoles();
+    const { items: allPermissions, loadItems: loadPermissions } = usePermissions();
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modal State
@@ -43,24 +43,12 @@ export default function RolesPage() {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadRoles();
+        loadPermissions();
+    }, [loadRoles, loadPermissions]);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const [rolesData, permsData] = await Promise.all([
-                roleService.getAll(),
-                permissionService.getAll()
-            ]);
-            setRoles(rolesData);
-            setAllPermissions(permsData);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Fallo en la sincronización de permisos');
-        } finally {
-            setLoading(false);
-        }
+        await Promise.all([loadRoles(), loadPermissions()]);
     };
 
     const handleOpenModal = (role: Role | null = null) => {
@@ -85,38 +73,24 @@ export default function RolesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            const payload = {
-                name: formData.name,
-                guardName: 'api',
-                permissions: formData.permissionIds
-            };
+        const payload = {
+            name: formData.name,
+            guardName: 'api',
+            permissions: formData.permissionIds
+        };
 
-            if (editingRole) {
-                await roleService.update(editingRole.id, payload);
-                toast.success('Perfil de seguridad actualizado');
-            } else {
-                await roleService.create(payload);
-                toast.success('Nueva identidad de rol registrada');
-            }
+        const success = editingRole
+            ? await updateItem(editingRole.id, payload)
+            : await createItem(payload);
+
+        if (success) {
             setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            console.error('Error saving role:', error);
-            toast.error('Error en la persistencia de datos');
         }
     };
 
     const handleDelete = async (id: string) => {
-        try {
-            await roleService.delete(id);
-            toast.success('Vínculo removido');
-            setIsDeleting(null);
-            loadData();
-        } catch (error) {
-            console.error('Error deleting role:', error);
-            toast.error('Restricción: usuarios activos dependientes');
-        }
+        await deleteItem(id);
+        setIsDeleting(null);
     };
 
     const filteredRoles = roles.filter(r =>
@@ -157,7 +131,7 @@ export default function RolesPage() {
             </div>
 
             {/* Compact Grid Display */}
-            {loading && roles.length === 0 ? (
+            {rolesLoading && roles.length === 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {Array(4).fill(0).map((_, i) => (
                         <div key={i} className="h-44 rounded-3xl bg-card border border-border animate-pulse" />

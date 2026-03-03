@@ -34,8 +34,10 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Timeout preventivo para redes inestables
-        config.timeout = 15000;
+        // Timeout preventivo para redes inestables (sólo si no se definió uno específico)
+        if (!config.timeout) {
+            config.timeout = 30000; // Aumento el default a 30s
+        }
 
         return config;
     },

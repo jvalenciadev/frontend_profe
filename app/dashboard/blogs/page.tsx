@@ -9,7 +9,7 @@ import { departmentService } from '@/services/departmentService';
 import { Search, Plus, Filter, MoreHorizontal, Calendar, Clock, MapPin, CheckCircle2, ChevronRight, AlertCircle, FileText, Trash2, Edit, X, RefreshCw, BarChart3, Newspaper, Image as ImageIcon, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Modal } from '@/components/Modal';
 
@@ -21,26 +21,26 @@ export default function BlogsPage() {
     const getBlogImage = (imagenes: any): string => {
         if (!imagenes) return '';
 
+        let path = '';
         try {
-            if (Array.isArray(imagenes) && imagenes.length > 0) return imagenes[0];
-
-            if (typeof imagenes === 'string') {
+            if (Array.isArray(imagenes) && imagenes.length > 0) path = imagenes[0];
+            else if (typeof imagenes === 'string') {
                 if (imagenes.trim().startsWith('[')) {
                     const parsed = JSON.parse(imagenes);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+                    if (Array.isArray(parsed) && parsed.length > 0) path = parsed[0];
+                } else {
+                    path = imagenes;
                 }
-                return imagenes;
-            }
-
-            if (typeof imagenes === 'object') {
+            } else if (typeof imagenes === 'object') {
                 const values = Object.values(imagenes);
-                if (values.length > 0) return values[0] as string;
+                if (values.length > 0) path = values[0] as string;
             }
         } catch (e) {
             console.error('Error parsing image:', e);
-            return typeof imagenes === 'string' ? imagenes : '';
+            path = typeof imagenes === 'string' ? imagenes : '';
         }
-        return '';
+
+        return path ? getImageUrl(path) : '';
     };
 
     const [departamentos, setDepartamentos] = useState<any[]>([]);

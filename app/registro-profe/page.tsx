@@ -26,6 +26,11 @@ export default function RegistroProfePage() {
     const [isSendingVerification, setIsSendingVerification] = useState(false);
     const [countdown, setCountdown] = useState(0);
     const [showVerificationInput, setShowVerificationInput] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const IMG = (src: string | null) => {
         if (!src) return null;
@@ -177,7 +182,7 @@ export default function RegistroProfePage() {
                 <div className="relative z-10 space-y-12">
                     <Link href="/" className="inline-block">
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden p-2.5">
-                            {profe?.imagen ? (
+                            {isMounted && profe?.imagen ? (
                                 <img src={IMG(profe.imagen) || undefined} className="w-full h-full object-contain" alt="Logo" />
                             ) : (
                                 <span className="text-slate-950 font-black text-2xl">P</span>
@@ -213,7 +218,7 @@ export default function RegistroProfePage() {
                 </div>
 
                 <div className="relative z-10 text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                    Ministerio de Educación © {new Date().getFullYear()} PROFE Bolivia
+                    Ministerio de Educación © {isMounted ? new Date().getFullYear() : '2026'} PROFE Bolivia
                 </div>
             </div>
 

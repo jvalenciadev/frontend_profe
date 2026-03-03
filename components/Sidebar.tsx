@@ -29,7 +29,8 @@ import {
     Bell,
     ClipboardCheck,
     Settings,
-    Star
+    Star,
+    Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -135,6 +136,12 @@ const menuItems: MenuItem[] = [
             { title: 'Roles', href: '/dashboard/roles', permission: { action: 'read', subject: 'Role' }, },
             { title: 'Permisos', href: '/dashboard/permisos', permission: { action: 'read', subject: 'Permission' }, },
         ],
+    },
+    {
+        title: 'Mapeo Institucional',
+        href: '/dashboard/map-personas',
+        icon: Database,
+        permission: { action: 'manage', subject: 'all' },
     },
 ];
 

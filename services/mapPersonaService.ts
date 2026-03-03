@@ -1,110 +1,162 @@
 import api from '@/lib/api';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface MapCatalogo {
     id: string;
     nombre: string;
     estado: string;
-    createdAt?: string;
-    updatedAt?: string;
 }
 
 export interface MapPersona {
     id: string;
     ci: string;
     complemento?: string;
-    nombre1?: string;
+    nombre1: string;
     nombre2?: string;
-    apellido1?: string;
+    apellido1: string;
     apellido2?: string;
-    fechaNacimiento: string;
+    rda?: number;
     celular: number;
     correo: string;
-    enFuncion: boolean;
-    libretaMilitar: boolean;
     estado: string;
-    genId: string;
-    areaId: string;
-    espId: string;
-    catId: string;
-    carId: string;
-    subId: string;
-    nivId: string;
-    // relaciones incluidas
     cargo?: MapCatalogo;
     categoria?: MapCatalogo;
-    especialidad?: MapCatalogo;
-    subsistema?: MapCatalogo;
     nivel?: MapCatalogo;
+    subsistema?: MapCatalogo;
+    especialidad?: MapCatalogo;
+    genero?: MapCatalogo;
+    area?: MapCatalogo;
+    fechaNacimiento?: string;
+    enFuncion: boolean;
+    libretaMilitar: boolean;
 }
 
-export interface MapPersonaListResponse {
-    data: MapPersona[];
+export interface MapStats {
     total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    recientes: number;
+    kpis: {
+        operativos: number;
+        noOperativos: number;
+        libretaMilitar: number;
+        noLibretaMilitar: number;
+        conRda: number;
+        sinRda: number;
+        coberturaCorreo: number;
+        digitalizacion: number;
+    };
+    cargos: { name: string; value: number }[];
+    especialidades: { name: string; value: number }[];
+    categorias: { name: string; value: number }[];
+    generos: { name: string; value: number }[];
+    areas: { name: string; value: number }[];
+    subsistemas: { name: string; value: number }[];
+    niveles: { name: string; value: number }[];
 }
 
-export interface MapPersonaFilters {
-    search?: string;
-    carId?: string;
-    catId?: string;
-    espId?: string;
-    subId?: string;
-    nivId?: string;
-    estado?: string;
-    page?: number;
-    limit?: number;
+export interface ImportJobStatus {
+    jobId: string;
+    total: number;
+    current: number;
+    success: number;
+    updated: number;
+    errors: {
+        row: number;
+        ci: string;
+        nombre?: string;
+        error: string;
+    }[];
+    status: 'processing' | 'completed' | 'failed' | 'cancelled';
 }
-
-// ─── Services ─────────────────────────────────────────────────────────────────
 
 export const mapPersonaService = {
-    getAll: async (filters: MapPersonaFilters = {}): Promise<MapPersonaListResponse> => {
-        const params = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined && value !== '' && value !== null) {
-                params.append(key, String(value));
-            }
+    getAll: async (params: any = {}) => {
+        const response = await api.get('/map-personas', {
+            params,
+            timeout: 60000
         });
-        const response = await api.get<MapPersonaListResponse>(`/map-personas?${params.toString()}`);
         return response.data;
     },
+
+    getStats: async (): Promise<MapStats> => {
+        const response = await api.get('/map-personas/stats', {
+            timeout: 60000
+        });
+        return response.data;
+    },
+
+    startImport: async (file: File, jobId: string) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('jobId', jobId);
+
+        const response = await api.post('/map-personas/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 300000,
+        });
+        return response.data;
+    },
+
+    getImportStatus: async (jobId: string): Promise<ImportJobStatus> => {
+        const response = await api.get(`/map-personas/import/status/${jobId}`);
+        return response.data;
+    },
+
+    cancelImport: async (jobId: string) => {
+        const response = await api.post(`/map-personas/import/cancel/${jobId}`);
+        return response.data;
+    },
+
+    delete: async (id: string) => {
+        await api.delete(`/map-personas/${id}`);
+    }
 };
 
 export const mapCargoService = {
-    getAll: async (): Promise<MapCatalogo[]> => {
-        const response = await api.get<MapCatalogo[]>('/map-cargos');
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/cargos');
         return response.data;
-    },
+    }
 };
 
 export const mapCategoriaService = {
-    getAll: async (): Promise<MapCatalogo[]> => {
-        const response = await api.get<MapCatalogo[]>('/map-categorias');
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/categorias');
         return response.data;
-    },
-};
-
-export const mapEspecialidadService = {
-    getAll: async (): Promise<MapCatalogo[]> => {
-        const response = await api.get<MapCatalogo[]>('/map-especialidades');
-        return response.data;
-    },
+    }
 };
 
 export const mapNivelService = {
-    getAll: async (): Promise<MapCatalogo[]> => {
-        const response = await api.get<MapCatalogo[]>('/map-niveles');
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/niveles');
         return response.data;
-    },
+    }
 };
 
 export const mapSubsistemaService = {
-    getAll: async (): Promise<MapCatalogo[]> => {
-        const response = await api.get<MapCatalogo[]>('/map-subsistemas');
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/subsistemas');
         return response.data;
-    },
+    }
 };
+
+export const mapEspecialidadService = {
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/especialidades');
+        return response.data;
+    }
+};
+
+export const mapGeneroService = {
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/generos');
+        return response.data;
+    }
+};
+
+export const mapAreaService = {
+    getAll: async () => {
+        const response = await api.get<MapCatalogo[]>('/map-personas/catalogs/areas');
+        return response.data;
+    }
+};
+
+export default mapPersonaService;

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { sedeService } from '@/services/sedeService';
-import { departmentService } from '@/services/departmentService';
+import { useSedes } from '@/features/sede/application/useSedes';
+import { useDepartamentos } from '@/features/departamento/application/useDepartamentos';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import {
@@ -23,11 +23,12 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Can } from '@/components/Can';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { getImageUrl } from '@/lib/utils';
 
 export default function SedesPage() {
-    const [sedes, setSedes] = useState<any[]>([]);
-    const [departments, setDepartments] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { items: sedes, loading: sedesLoading, loadItems: loadSedes, createItem, updateItem, deleteItem } = useSedes();
+    const { items: departments, loadItems: loadDepartments } = useDepartamentos();
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modal State
@@ -62,24 +63,12 @@ export default function SedesPage() {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadDepartments();
+        loadSedes();
+    }, [loadDepartments, loadSedes]);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const [sedesData, deptsData] = await Promise.all([
-                sedeService.getAll(),
-                departmentService.getAll()
-            ]);
-            setSedes(sedesData);
-            setDepartments(deptsData);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Fallo en la sincronización de sedes');
-        } finally {
-            setLoading(false);
-        }
+        await Promise.all([loadSedes(), loadDepartments()]);
     };
 
     const handleOpenModal = (sede: any = null) => {
@@ -139,37 +128,23 @@ export default function SedesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            if (editingSede) {
-                await sedeService.update(editingSede.id, formData);
-                toast.success('Sede actualizada correctamente');
-            } else {
-                await sedeService.create(formData);
-                toast.success('Nueva sede vinculada');
-            }
+        const success = editingSede
+            ? await updateItem(editingSede.id, formData)
+            : await createItem(formData);
+
+        if (success) {
             setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            console.error('Error saving sede:', error);
-            toast.error('Error en el protocolo de guardado');
         }
     };
 
     const handleDelete = async (id: string) => {
-        try {
-            await sedeService.delete(id);
-            toast.success('Sede desafiliada');
-            setIsDeleting(null);
-            loadData();
-        } catch (error) {
-            console.error('Error deleting sede:', error);
-            toast.error('Error en el proceso de baja');
-        }
+        await deleteItem(id);
+        setIsDeleting(null);
     };
 
     const filteredSedes = sedes.filter(s =>
-        s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.nombre ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.ubicacion ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -213,7 +188,7 @@ export default function SedesPage() {
 
             {/* List Display */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {loading && sedes.length === 0 ? (
+                {sedesLoading && sedes.length === 0 ? (
                     Array(4).fill(0).map((_, i) => (
                         <div key={i} className="h-48 rounded-3xl bg-card border border-border animate-pulse" />
                     ))
@@ -229,8 +204,16 @@ export default function SedesPage() {
                             >
                                 <Card className="group overflow-hidden border-border/40 bg-card hover:border-primary/40 transition-all duration-300 shadow-xl shadow-black/[0.02]">
                                     <div className="flex flex-col md:flex-row h-full">
-                                        <div className="w-full md:w-48 bg-muted relative overflow-hidden flex items-center justify-center p-8 border-r border-border/40">
-                                            <Building className="w-16 h-16 text-primary/20 transition-transform group-hover:scale-110 group-hover:text-primary/30" />
+                                        <div className="w-full md:w-48 bg-muted relative overflow-hidden flex items-center justify-center border-r border-border/40">
+                                            {sede.imagen ? (
+                                                <img
+                                                    src={getImageUrl(sede.imagen)}
+                                                    alt={sede.nombre}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                />
+                                            ) : (
+                                                <Building className="w-16 h-16 text-primary/20 transition-transform group-hover:scale-110 group-hover:text-primary/30" />
+                                            )}
                                             {sede.departamento && (
                                                 <div className="absolute top-4 left-4">
                                                     <span className="px-2 py-0.5 bg-primary/10 text-primary text-[8px] font-black uppercase tracking-tighter rounded-md border border-primary/20">
@@ -401,14 +384,12 @@ export default function SedesPage() {
                         </div>
 
                         {/* Imagen de Sede */}
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">URL Imagen de Sede</label>
-                            <input
-                                type="text"
-                                className="w-full h-14 px-6 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-sm font-bold text-foreground"
-                                placeholder="https://ejemplo.com/sede.jpg"
+                        <div className="md:col-span-2">
+                            <ImageUpload
+                                label="Imagen de Sede"
                                 value={formData.imagen}
-                                onChange={(e) => setFormData({ ...formData, imagen: e.target.value })}
+                                onChange={(url) => setFormData({ ...formData, imagen: url })}
+                                tableName="sede"
                             />
                         </div>
 
@@ -502,14 +483,12 @@ export default function SedesPage() {
                                 onChange={(e) => setFormData({ ...formData, cargoResp1: e.target.value })}
                             />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">URL Imagen</label>
-                            <input
-                                type="text"
-                                className="w-full h-14 px-6 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-sm font-medium text-foreground"
-                                placeholder="https://ejemplo.com/responsable1.jpg"
+                        <div className="md:col-span-2">
+                            <ImageUpload
+                                label="Imagen del Responsable"
                                 value={formData.imagenResp1}
-                                onChange={(e) => setFormData({ ...formData, imagenResp1: e.target.value })}
+                                onChange={(url) => setFormData({ ...formData, imagenResp1: url })}
+                                tableName="sede"
                             />
                         </div>
 
@@ -537,14 +516,12 @@ export default function SedesPage() {
                                 onChange={(e) => setFormData({ ...formData, cargoResp2: e.target.value })}
                             />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">URL Imagen</label>
-                            <input
-                                type="text"
-                                className="w-full h-14 px-6 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-sm font-medium text-foreground"
-                                placeholder="https://ejemplo.com/responsable2.jpg"
+                        <div className="md:col-span-2">
+                            <ImageUpload
+                                label="Imagen del Responsable Secundario"
                                 value={formData.imagenResp2}
-                                onChange={(e) => setFormData({ ...formData, imagenResp2: e.target.value })}
+                                onChange={(url) => setFormData({ ...formData, imagenResp2: url })}
+                                tableName="sede"
                             />
                         </div>
                     </div>

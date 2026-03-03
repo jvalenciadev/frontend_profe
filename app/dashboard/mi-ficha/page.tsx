@@ -16,14 +16,16 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 import Cookies from 'js-cookie';
-import { bancoProfesionalService, BancoProfesional } from '@/services/bancoProfesionalService';
-import { evaluationService, EvaluacionAdmins } from '@/services/evaluationService';
 import { toast } from 'sonner';
+import { useMyProfile } from '@/features/bancoProfesional/application/useMyProfile';
+import { bancoProfesionalService } from '@/services/bancoProfesionalService';
+import { evaluationService } from '@/services/evaluationService';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FichaPDF } from '@/components/FichaPDF';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,25 +36,25 @@ export default function MiFichaPage() {
 
     const { config: profeConfig } = useProfe();
     const IMG = (src: string | null) => getImageUrl(src);
-    const [ficha, setFicha] = useState<BancoProfesional>({
-        id: '',
-        licUniversitaria: '',
-        licMescp: '',
-        esMaestro: false,
-        tieneProduccion: false,
-        categoriaId: '',
-        cargoId: '',
-        nombre: '',
-        apellidos: '',
-        ci: '',
-        estado: 'pendiente',
-        hojaDeVidaPdf: null
-    });
+    const { profile, loading: profileLoading, loadProfile: loadData, updateProfile } = useMyProfile();
+    const [ficha, setFicha] = useState<any>(null);
     const [config, setConfig] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [evaluations, setEvaluations] = useState<EvaluacionAdmins[]>([]);
-    const [submitting, setSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true); // Internal loading for other things
     const [uploading, setUploading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [evaluations, setEvaluations] = useState<any[]>([]);
+
+    useEffect(() => {
+        setLoading(profileLoading);
+    }, [profileLoading]);
+
+    useEffect(() => {
+        if (profile) {
+            setFicha(profile);
+            setOriginalEmail(profile.user?.correo || (profile as any).correo || '');
+        }
+    }, [profile]);
+
     const [activeTab, setActiveTab] = useState<'personal' | 'posgrados' | 'produccion' | 'evaluaciones' | 'cuenta'>('personal');
     const [isEmailVerified, setIsEmailVerified] = useState(false);
     const [originalEmail, setOriginalEmail] = useState('');
@@ -75,7 +77,7 @@ export default function MiFichaPage() {
     const memoizedFichaPDF = useMemo(() => {
         if (!ficha || !config || !profeConfig) return null;
         return <FichaPDF ficha={ficha} config={config} profe={profeConfig} />;
-    }, [ficha.id, ficha.hojaDeVidaPdf, ficha.rdaPdf, config, profeConfig]);
+    }, [ficha?.id, ficha?.hojaDeVidaPdf, ficha?.rdaPdf, config, profeConfig]);
 
     const [posgradoForm, setPosgradoForm] = useState({ tipoPosgradoId: '', titulo: '', fecha: '', imagen: '' });
     const [produccionForm, setProduccionForm] = useState({ titulo: '', anioPublicacion: new Date().getFullYear() });
@@ -86,6 +88,21 @@ export default function MiFichaPage() {
     const [passwordForm, setPasswordForm] = useState({
         newPassword: '',
         confirmPassword: ''
+    });
+
+    // Confirmation Modals State
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => { },
+        loading: false
     });
 
     const handleFileUpload = async (file: File, tableName: string) => {
@@ -141,25 +158,22 @@ export default function MiFichaPage() {
         }
     }, [countdown]);
 
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            const [fichaRes, configRes, evalsRes] = await Promise.all([
-                bancoProfesionalService.getMiFicha(),
-                bancoProfesionalService.getConfig(),
-                evaluationService.getMyEvaluations()
-            ]);
-            setFicha(fichaRes);
-            setOriginalEmail(fichaRes.user?.correo || fichaRes.correo || '');
-            setConfig(configRes);
-            setEvaluations(evalsRes);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Error al cargar tu ficha');
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const [configRes, evalsRes] = await Promise.all([
+                    bancoProfesionalService.getConfig(),
+                    evaluationService.getMyEvaluations()
+                ]);
+                setConfig(configRes);
+                setEvaluations(evalsRes);
+            } catch (err) {
+                toast.error('Error al cargar configuración');
+            }
+        };
+        loadData();
+        fetchConfig();
+    }, [loadData]);
 
     const handleRequestVerification = async () => {
         const email = ficha?.user?.correo || (ficha as any)?.correo;
@@ -210,10 +224,10 @@ export default function MiFichaPage() {
                 imagen: ficha.user?.imagen || ficha.imagen,
                 nombre: ficha.user?.nombre || ficha.nombre,
                 apellidos: ficha.user?.apellidos || ficha.apellidos,
-                ci: ficha.user?.ci || ficha.ci,
+                ci: ficha.user?.ci || ficha.ci ? Number(ficha.user?.ci || ficha.ci) : undefined,
                 correo: ficha.user?.correo || ficha.correo,
                 fechaNac: ficha.user?.fechaNacimiento || ficha.fechaNacimiento,
-                rda: ficha.user?.rda || ficha.rda,
+                rda: ficha.user?.rda || ficha.rda ? Number(ficha.user?.rda || ficha.rda) : undefined,
                 rdaPdf: ficha.rdaPdf,
                 verificationCode: verificationCode, // Enviar código si el correo cambió
                 password: passwordForm.newPassword || undefined,
@@ -226,8 +240,11 @@ export default function MiFichaPage() {
             setShowVerificationInput(false);
             setVerificationCode('');
             setPasswordForm({ newPassword: '', confirmPassword: '' });
-        } catch (error) {
-            toast.error('Error al actualizar datos');
+            await loadData();
+        } catch (error: any) {
+            console.error('Update error:', error);
+            const msg = error.response?.data?.message;
+            toast.error(Array.isArray(msg) ? msg[0] : (msg || 'Error al actualizar datos'));
         } finally {
             setSubmitting(false);
         }
@@ -289,15 +306,26 @@ export default function MiFichaPage() {
         setShowPosgradoModal(true);
     };
 
-    const handleDeletePosgrado = async (id: string) => {
-        if (!confirm('¿Estás seguro de eliminar este registro?')) return;
-        try {
-            await bancoProfesionalService.removePosgrado(id);
-            toast.success('Registro eliminado');
-            loadData();
-        } catch (error) {
-            toast.error('Error al eliminar');
-        }
+    const handleDeletePosgrado = (id: string) => {
+        setConfirmDelete({
+            isOpen: true,
+            title: 'Eliminar Formación',
+            description: '¿Estás seguro de eliminar este registro de postgrado? Esta acción no se puede deshacer.',
+            loading: false,
+            onConfirm: async () => {
+                try {
+                    setConfirmDelete(prev => ({ ...prev, loading: true }));
+                    await bancoProfesionalService.removePosgrado(id);
+                    toast.success('Registro eliminado');
+                    loadData();
+                    setConfirmDelete(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    toast.error('Error al eliminar');
+                } finally {
+                    setConfirmDelete(prev => ({ ...prev, loading: false }));
+                }
+            }
+        });
     };
 
     const handleAddProduccion = async (e: React.FormEvent) => {
@@ -338,15 +366,26 @@ export default function MiFichaPage() {
         setShowProduccionModal(true);
     };
 
-    const handleDeleteProduccion = async (id: string) => {
-        if (!confirm('¿Estás seguro?')) return;
-        try {
-            await bancoProfesionalService.removeProduccion(id);
-            toast.success('Eliminado');
-            loadData();
-        } catch (error) {
-            toast.error('Error');
-        }
+    const handleDeleteProduccion = (id: string) => {
+        setConfirmDelete({
+            isOpen: true,
+            title: 'Eliminar Producción',
+            description: '¿Estás seguro de eliminar este registro de producción intelectual? Esta acción no se puede deshacer.',
+            loading: false,
+            onConfirm: async () => {
+                try {
+                    setConfirmDelete(prev => ({ ...prev, loading: true }));
+                    await bancoProfesionalService.removeProduccion(id);
+                    toast.success('Eliminado');
+                    loadData();
+                    setConfirmDelete(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    toast.error('Error');
+                } finally {
+                    setConfirmDelete(prev => ({ ...prev, loading: false }));
+                }
+            }
+        });
     };
 
     if (loading) {
@@ -376,7 +415,7 @@ export default function MiFichaPage() {
         return (
             <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-8 max-w-2xl mx-auto">
                 <div className="w-32 h-32 bg-white dark:bg-card rounded-[3rem] flex items-center justify-center border-4 border-dashed border-primary/20 p-8 overflow-hidden">
-                    {profeConfig?.imagen ? (
+                    {isMounted && profeConfig?.imagen ? (
                         <img src={IMG(profeConfig.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                     ) : (
                         <UserCircle className="w-16 h-16 text-primary" />
@@ -430,7 +469,7 @@ export default function MiFichaPage() {
                                 />
                             ) : (
                                 <div className="w-full h-full p-8 flex items-center justify-center bg-white dark:bg-card">
-                                    {profeConfig?.imagen ? (
+                                    {isMounted && profeConfig?.imagen ? (
                                         <img src={IMG(profeConfig.imagen)!} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
                                     ) : (
                                         <UserCircle className="w-16 h-16 opacity-50" />
@@ -978,7 +1017,7 @@ export default function MiFichaPage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {ficha.postgrados?.length ? ficha.postgrados.map((p: any) => (
+                            {ficha.postgrados?.length ? [...ficha.postgrados].sort((a: any, b: any) => (a.tipoPosgrado?.orden || 0) - (b.tipoPosgrado?.orden || 0)).map((p: any) => (
                                 <Card key={p.id} className="p-8 rounded-[3rem] border-border/40 shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 group relative overflow-hidden bg-gradient-to-br from-background to-muted/20">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors"></div>
                                     <div className="flex justify-between items-start relative z-10">
@@ -999,8 +1038,28 @@ export default function MiFichaPage() {
                                                 <Edit2 className="w-5 h-5" />
                                             </button>
                                             <button
-                                                onClick={() => handleDeletePosgrado(p.id)}
-                                                className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white"
+                                                onClick={() => {
+                                                    setConfirmDelete({
+                                                        isOpen: true,
+                                                        title: 'Eliminar Grado Académico',
+                                                        description: '¿Estás completamente seguro de eliminar este registro? Esta acción es irreversible.',
+                                                        loading: false,
+                                                        onConfirm: async () => {
+                                                            try {
+                                                                setConfirmDelete(prev => ({ ...prev, loading: true }));
+                                                                await bancoProfesionalService.removePosgrado(p.id);
+                                                                toast.success('Grado eliminado');
+                                                                loadData();
+                                                                setConfirmDelete(prev => ({ ...prev, isOpen: false }));
+                                                            } catch (err) {
+                                                                toast.error('Error al eliminar');
+                                                            } finally {
+                                                                setConfirmDelete(prev => ({ ...prev, loading: false }));
+                                                            }
+                                                        }
+                                                    });
+                                                }}
+                                                className="p-3 bg-red-100 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white"
                                             >
                                                 <Trash2 className="w-5 h-5" />
                                             </button>
@@ -1359,6 +1418,15 @@ export default function MiFichaPage() {
                     <Button type="submit" className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-primary hover:opacity-90 shadow-primary/20">Finalizar Registro</Button>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDelete.onConfirm}
+                title={confirmDelete.title}
+                description={confirmDelete.description}
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

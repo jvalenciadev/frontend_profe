@@ -6,6 +6,7 @@ import { cargoService, Cargo } from '@/services/cargoService';
 import { roleService } from '@/services/roleService';
 import { Role } from '@/types';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import { useProfe } from '@/contexts/ProfeContext';
 import {
@@ -42,6 +43,16 @@ export default function BancoProfesionalPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isMounted, setIsMounted] = useState(false);
 
+    const [confirmBaja, setConfirmBaja] = useState<{
+        isOpen: boolean;
+        prof: BancoProfesional | null;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        prof: null,
+        loading: false
+    });
+
     useEffect(() => {
         setIsMounted(true);
     }, []);
@@ -61,7 +72,7 @@ export default function BancoProfesionalPage() {
             ]);
             setProfessionals(profData);
             setCargos(cargoData);
-            setRoles(roleData.filter((r: any) => r.name !== 'POSTULACION_PROFE'));
+            setRoles(roleData); // No filtrar aquí, RRHH necesita ver todos los roles (Bajas, Postulación, etc.)
             setConfig(configData);
         } catch (error) {
             toast.error('Error al cargar datos');
@@ -123,24 +134,46 @@ export default function BancoProfesionalPage() {
         setIsApprovalModalOpen(true);
     };
 
-    const handleDarDeBaja = async (p: BancoProfesional) => {
-        const bajaRole = roles.find(r => r.name === 'BAJAS' || r.name === 'BAJA');
-        if (!bajaRole) {
-            toast.error('No se encontró el rol de BAJAS en el sistema');
+    const handleDarDeBaja = (p: BancoProfesional) => {
+        setConfirmBaja({
+            isOpen: true,
+            prof: p,
+            loading: false
+        });
+    };
+
+    const confirmBajaAction = async () => {
+        const p = confirmBaja.prof;
+        if (!p) return;
+
+        // Intentar mantener el rol actual o asignar el rol de bajas temporalmente
+        let currentRoleId = (p as any).roles?.[0]?.roleId || (p as any).roleId;
+
+        if (!currentRoleId) {
+            // Si el profesional (ej. nuevo postulante PENDIENTE) no tiene rol aún, asignamos uno temporal
+            // para que no falle la validación, total se pondrá en 'inactivo' igual.
+            currentRoleId = roles.find(r => r.name === 'BAJAS' || r.name === 'PARTICIPANTE')?.id;
+        }
+
+        if (!currentRoleId && roles.length > 0) {
+            currentRoleId = roles[0].id;
+        }
+
+        if (!currentRoleId) {
+            toast.error('No se pudo determinar un rol para actualizar.');
             return;
         }
 
-        if (!confirm(`¿Está seguro de dar de BAJA a ${p.nombre}?`)) return;
-
         try {
-            setLoading(true);
-            await bancoProfesionalService.aprobar(p.id, bajaRole.id, (p as any).tenantId, 'inactivo');
+            setConfirmBaja(prev => ({ ...prev, loading: true }));
+            await bancoProfesionalService.aprobar(p.id, currentRoleId, (p as any).tenantId, 'inactivo');
             toast.success('Personal dado de baja');
+            setConfirmBaja(prev => ({ ...prev, isOpen: false }));
             loadData();
         } catch (error) {
             toast.error('Error al dar de baja');
         } finally {
-            setLoading(false);
+            setConfirmBaja(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -151,7 +184,11 @@ export default function BancoProfesionalPage() {
         (p.user?.correo || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const getCargoName = (id: string) => cargos.find(c => c.id === id)?.nombre || 'Sin Cargo';
+    const getCargoName = (p: BancoProfesional) => {
+        if (p.cargoPostulacion?.nombre) return p.cargoPostulacion.nombre;
+        const id = p.cargoPostulacionId || p.cargoId;
+        return cargos.find(c => c.id === id)?.nombre || 'Sin Cargo';
+    };
 
     return (
         <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto min-h-screen">
@@ -223,8 +260,8 @@ export default function BancoProfesionalPage() {
 
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 text-[11px] font-black text-primary uppercase tracking-tighter">
-                                                <Briefcase className="w-3 h-3 text-primary" />
-                                                {getCargoName(p.cargoId)}
+                                                <Briefcase className="w-3 h-3 text-primary shrink-0" />
+                                                <span className="line-clamp-2">{getCargoName(p)}</span>
                                             </div>
                                             <div className="flex items-center gap-2 text-xs font-bold text-foreground/80">
                                                 <GraduationCap className="w-3 h-3 text-primary" />
@@ -246,19 +283,12 @@ export default function BancoProfesionalPage() {
                                         >
                                             <Eye className="w-4 h-4" /> Perfil
                                         </button>
-                                        {p.estado?.toLowerCase() === 'pendiente' ? (
+                                        {p.estado?.toLowerCase() === 'pendiente' && (
                                             <button
                                                 onClick={() => openApprovalModal(p)}
                                                 className="h-10 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
                                             >
                                                 <UserCheck className="w-4 h-4" /> Categorizar
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => openApprovalModal(p)}
-                                                className="h-10 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-                                            >
-                                                <Save className="w-4 h-4" /> Estado/Rol
                                             </button>
                                         )}
                                         {p.estado?.toLowerCase() === 'activo' && (
@@ -267,6 +297,14 @@ export default function BancoProfesionalPage() {
                                                 className="col-span-2 h-10 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
                                             >
                                                 <XCircle className="w-4 h-4" /> Dar de Baja
+                                            </button>
+                                        )}
+                                        {p.estado?.toLowerCase() === 'pendiente' && (
+                                            <button
+                                                onClick={() => handleDarDeBaja(p)}
+                                                className="col-span-2 h-10 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                                            >
+                                                <XCircle className="w-4 h-4" /> Rechazar Postulante
                                             </button>
                                         )}
                                     </div>
@@ -295,13 +333,13 @@ export default function BancoProfesionalPage() {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    selectedProf.nombre.charAt(0)
+                                    selectedProf.nombre?.charAt(0) || 'P'
                                 )}
                             </div>
                             <div className="flex-1 space-y-4">
-                                <div>
-                                    <h3 className="text-3xl font-black uppercase tracking-tighter leading-none">{selectedProf.nombre} {selectedProf.apellidos}</h3>
-                                    <p className="text-xs font-bold text-muted-foreground uppercase mt-2 tracking-widest">CI: {selectedProf.ci} • {selectedProf.estado}</p>
+                                <div className="w-full min-w-0 pr-4">
+                                    <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none break-words hyphens-auto">{selectedProf.nombre} {selectedProf.apellidos}</h3>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase mt-2 tracking-widest break-words">CI: {selectedProf.ci} • {selectedProf.estado}</p>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50">
@@ -324,7 +362,7 @@ export default function BancoProfesionalPage() {
                                 <div className="space-y-4">
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Cargo Postulado</p>
-                                        <p className="text-sm font-bold uppercase">{getCargoName(selectedProf.cargoId)}</p>
+                                        <p className="text-sm font-bold uppercase break-words">{getCargoName(selectedProf)}</p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Licenciatura</p>
@@ -340,8 +378,8 @@ export default function BancoProfesionalPage() {
                             </div>
 
                             <div className="space-y-6">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
-                                    <FileText className="w-4 h-4" /> Resumen y Contacto
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2 break-words">
+                                    <FileText className="w-4 h-4 shrink-0" /> Resumen y Contacto
                                 </h4>
                                 <div className="space-y-4">
                                     <div className="space-y-1">
@@ -350,7 +388,7 @@ export default function BancoProfesionalPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Resumen Profesional</p>
-                                        <p className="text-xs font-medium text-muted-foreground leading-relaxed">{selectedProf.resumenProfesional || 'Sin descripción disponible.'}</p>
+                                        <p className="text-xs font-medium text-muted-foreground leading-relaxed break-words max-h-40 overflow-y-auto pr-2 custom-scrollbar">{selectedProf.resumenProfesional || 'Sin descripción disponible.'}</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
@@ -425,8 +463,8 @@ export default function BancoProfesionalPage() {
                                 <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
                                     <Briefcase className="w-4 h-4" /> Experiencia Laboral
                                 </h4>
-                                <div className="p-5 rounded-2xl bg-muted/30 border border-border/50 min-h-[100px]">
-                                    <p className="text-xs font-medium text-muted-foreground leading-relaxed italic whitespace-pre-wrap">
+                                <div className="p-5 rounded-2xl bg-muted/30 border border-border/50 min-h-[100px] overflow-hidden">
+                                    <p className="text-xs font-medium text-muted-foreground leading-relaxed italic whitespace-pre-wrap break-words">
                                         {selectedProf.experienciaLaboral || 'No se detalló experiencia laboral.'}
                                     </p>
                                 </div>
@@ -440,12 +478,12 @@ export default function BancoProfesionalPage() {
                                     <GraduationCap className="w-4 h-4" /> Formación Superior
                                 </h4>
                                 <div className="space-y-3">
-                                    {selectedProf.postgrados && selectedProf.postgrados.length > 0 ? (
+                                    {selectedProf.postgrados && Array.isArray(selectedProf.postgrados) && selectedProf.postgrados.length > 0 ? (
                                         selectedProf.postgrados.map((p: any) => (
                                             <div key={p.id} className="p-4 rounded-[1.5rem] bg-muted/40 border border-border/50">
                                                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">{p.tipoPosgrado?.nombre}</p>
                                                 <p className="text-[11px] font-black uppercase leading-tight">{p.titulo}</p>
-                                                <p className="text-[8px] text-muted-foreground font-bold mt-2 uppercase tracking-widest">{new Date(p.fecha).toLocaleDateString()}</p>
+                                                <p className="text-[8px] text-muted-foreground font-bold mt-2 uppercase tracking-widest">{p.fecha ? new Date(p.fecha).toLocaleDateString() : '---'}</p>
                                             </div>
                                         ))
                                     ) : (
@@ -461,7 +499,7 @@ export default function BancoProfesionalPage() {
                                     <FileText className="w-4 h-4" /> Producción Intelectual
                                 </h4>
                                 <div className="space-y-3">
-                                    {selectedProf.produccionIntelectual && selectedProf.produccionIntelectual.length > 0 ? (
+                                    {selectedProf.produccionIntelectual && Array.isArray(selectedProf.produccionIntelectual) && selectedProf.produccionIntelectual.length > 0 ? (
                                         selectedProf.produccionIntelectual.map((p: any) => (
                                             <div key={p.id} className="p-4 rounded-[1.5rem] bg-muted/40 border border-border/50">
                                                 <p className="text-[11px] font-black uppercase leading-tight">{p.titulo}</p>
@@ -523,17 +561,17 @@ export default function BancoProfesionalPage() {
                                 </div>
                             )}
                         </div>
-                        <div className="relative z-10">
-                            <h4 className="text-lg font-black uppercase tracking-tight leading-none mb-1">{selectedProf?.nombre} {selectedProf?.apellidos}</h4>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-3 py-1 rounded-full inline-block">
-                                Postulante a: {getCargoName(selectedProf?.cargoId || '')}
+                        <div className="relative z-10 px-2 sm:px-4 w-full text-center">
+                            <h4 className="text-lg font-black uppercase tracking-tight leading-none mb-1 break-words">{selectedProf?.nombre} {selectedProf?.apellidos}</h4>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-3 py-1 rounded-full inline-block break-words max-w-full">
+                                Postulante a: {selectedProf ? getCargoName(selectedProf) : ''}
                             </p>
                         </div>
                     </div>
 
                     <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5 hidden">
                                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado</label>
                                 <select
                                     required
@@ -548,8 +586,8 @@ export default function BancoProfesionalPage() {
                                     <option value="eliminado">ELIMINADO</option>
                                 </select>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Rol</label>
+                            <div className="space-y-1.5 md:col-span-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Rol a Asignar</label>
                                 <select
                                     required
                                     className="w-full h-12 px-4 rounded-xl bg-muted/30 border border-border focus:border-primary transition-all text-sm font-bold"
@@ -588,6 +626,15 @@ export default function BancoProfesionalPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmBaja.isOpen}
+                onClose={() => setConfirmBaja({ ...confirmBaja, isOpen: false })}
+                onConfirm={confirmBajaAction}
+                title="Confirmar Baja de Personal"
+                description={`¿Está completamente seguro de dar de BAJA a ${confirmBaja.prof?.nombre} ${confirmBaja.prof?.apellidos}? Esta acción restringirá su acceso al sistema.`}
+                loading={confirmBaja.loading}
+            />
         </div>
     );
 }

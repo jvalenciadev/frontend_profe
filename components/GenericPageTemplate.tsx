@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ArrowRight, Sparkles, ChevronLeft, Landmark } from 'lucide-react';
 import { useProfe } from '@/contexts/ProfeContext';
+import { getImageUrl } from '@/lib/utils';
+
 
 interface GenericPageProps {
     title: string;
@@ -18,10 +20,10 @@ export default function GenericPage({ title, description, icon: Icon, children }
     const { effectiveTheme } = useTheme();
     const { config } = useProfe();
 
-    const IMG = (src: string | null) => {
-        if (!src) return null;
-        return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+    const IMG = (src: string | null | undefined) => {
+        return getImageUrl(src);
     };
+
 
     return (
         <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-1000 selection:bg-primary-600 selection:text-white overflow-hidden">

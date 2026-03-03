@@ -10,6 +10,7 @@ import {
     programaInscripcionEstadoService
 } from '@/services/programaConfigService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     Layers,
@@ -80,6 +81,17 @@ export default function ConfigAcademicaPage() {
     const [editingItem, setEditingItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({ estado: 'ACTIVO' });
 
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        itemName?: string;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
+
     useEffect(() => {
         loadData();
     }, [activeTab]);
@@ -143,14 +155,27 @@ export default function ConfigAcademicaPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Estás seguro de eliminar este registro?')) return;
+    const handleDelete = async (item: any) => {
+        setConfirmDelete({
+            isOpen: true,
+            itemId: item.id,
+            itemName: item.nombre,
+            loading: false
+        });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.itemId) return;
         try {
-            await activeTab.service.delete(id);
+            setConfirmDelete(prev => ({ ...prev, loading: true }));
+            await activeTab.service.delete(confirmDelete.itemId);
             toast.success('Registro eliminado');
             loadData();
+            setConfirmDelete(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
             toast.error('No se pudo eliminar el registro');
+        } finally {
+            setConfirmDelete(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -285,7 +310,7 @@ export default function ConfigAcademicaPage() {
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item.id)}
+                                                    onClick={() => handleDelete(item)}
                                                     className="p-2 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -351,6 +376,15 @@ export default function ConfigAcademicaPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDeleteAction}
+                title={`Eliminar ${activeTab.label.slice(0, -1)}`}
+                description={`¿Estás seguro de eliminar "${confirmDelete.itemName}"? Esta acción no se puede deshacer.`}
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

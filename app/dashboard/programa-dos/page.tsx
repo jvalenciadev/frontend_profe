@@ -7,6 +7,7 @@ import { programaVersionService } from '@/services/programaVersionService';
 import { sedeService } from '@/services/sedeService';
 import { programaLookupService } from '@/services/programaLookupService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     GraduationCap,
@@ -43,6 +44,17 @@ export default function ProgramaDosPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPrograma, setEditingPrograma] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        itemName?: string;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
 
     const [formData, setFormData] = useState({
         programaId: '',
@@ -189,15 +201,27 @@ export default function ProgramaDosPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Seguro de eliminar este registro operativo?')) return;
+    const handleDelete = (programa: any) => {
+        setConfirmDelete({
+            isOpen: true,
+            itemId: programa.id,
+            itemName: programa.nombre,
+            loading: false
+        });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.itemId) return;
         try {
-            await programaDosService.delete(id);
+            setConfirmDelete(prev => ({ ...prev, loading: true }));
+            await programaDosService.delete(confirmDelete.itemId);
             toast.success('Registro operativo eliminado');
             loadData();
+            setConfirmDelete(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
-            console.error('Error deleting:', error);
-            toast.error('Error al eliminar');
+            toast.error('No se pudo eliminar el registro operativo');
+        } finally {
+            setConfirmDelete(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -313,7 +337,7 @@ export default function ProgramaDosPage() {
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(p.id)}
+                                                    onClick={() => handleDelete(p)}
                                                     className="p-2.5 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -518,6 +542,15 @@ export default function ProgramaDosPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDeleteAction}
+                title="Eliminar Programa P2"
+                description={`¿Está seguro de eliminar el registro operativo de "${confirmDelete.itemName}"? Esta acción no se puede deshacer y afectará a las inscripciones activas.`}
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

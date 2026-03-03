@@ -17,8 +17,13 @@ export function getImageUrl(path: string | null | undefined): string {
     // Limpiar la URL base (quitar diagonal final si existe)
     const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
 
-    // Limpiar el path (asegurar que empiece con diagonal)
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    // Asegurar que el path sea relativo a uploads si no lo es ya
+    let cleanPath = path;
+    if (!cleanPath.startsWith('/uploads/') && !cleanPath.startsWith('uploads/')) {
+        cleanPath = cleanPath.startsWith('/') ? `/uploads${cleanPath}` : `/uploads/${cleanPath}`;
+    } else {
+        cleanPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+    }
 
     return `${cleanBaseUrl}${cleanPath}`;
 }

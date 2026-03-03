@@ -21,6 +21,7 @@ export default function RRHHDashboard() {
             border: 'hover:border-primary/20',
             permission: { action: 'read', subject: 'Cargo' }
         },
+
         {
             title: 'Personal Magisterio',
             description: 'Registro y consulta del personal docente y administrativo del magisterio nacional.',

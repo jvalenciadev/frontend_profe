@@ -14,7 +14,7 @@ export const programaLookupService = {
         return Array.isArray(data) ? data : (data?.data || []);
     },
     getDepartamentos: async () => {
-        const { data } = await api.get<any>('/departments');
+        const { data } = await api.get<any>('/departamentos');
         return Array.isArray(data) ? data : (data?.data || []);
     },
     getVersiones: async () => {

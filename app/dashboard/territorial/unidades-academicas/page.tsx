@@ -63,9 +63,9 @@ export default function UnidadesAcademicasPage() {
         if (unidad) {
             setEditingUnidad(unidad);
             setFormData({
-                nombre: unidad.nombre,
-                codigoSie: unidad.codigoSie || 0,
-                distritoId: unidad.distritoId,
+                nombre: unidad.nombre || '',
+                codigoSie: unidad.codigoSie || unidad.codigo || 0,
+                distritoId: unidad.distritoId || '',
             });
         } else {
             setEditingUnidad(null);
@@ -81,18 +81,23 @@ export default function UnidadesAcademicasPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const payload = {
+                nombre: formData.nombre,
+                codigo: Number(formData.codigoSie),
+                distritoId: formData.distritoId || null,
+            };
             if (editingUnidad) {
-                await unidadAcademicaService.update(editingUnidad.id, formData);
+                await unidadAcademicaService.update(editingUnidad.id, payload);
                 toast.success('Unidad académica actualizada');
             } else {
-                await unidadAcademicaService.create(formData);
+                await unidadAcademicaService.create(payload);
                 toast.success('Nueva unidad académica vinculada');
             }
             setIsModalOpen(false);
             loadData();
         } catch (error) {
             console.error('Error saving unidad:', error);
-            toast.error('Error en el protocolo de guardado');
+            toast.error('Error al guardar');
         }
     };
 
@@ -176,9 +181,9 @@ export default function UnidadesAcademicasPage() {
                                 <tr key={unidad.id} className="group hover:bg-primary/[0.02] transition-colors">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all border border-primary/20 font-black text-xs shadow-sm">
-                                                {unidad.codigoSie || '---'}
-                                            </div>
+                                            <span className="px-3 py-1.5 rounded-xl bg-primary/5 text-primary border border-primary/20 font-black text-xs font-mono group-hover:bg-primary group-hover:text-white transition-all">
+                                                {unidad.codigoSie || unidad.codigo || '---'}
+                                            </span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
@@ -191,12 +196,17 @@ export default function UnidadesAcademicasPage() {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
-                                        {unidad.distrito && (
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="w-3.5 h-3.5 text-primary/60" />
-                                                <span className="text-[10px] font-black uppercase text-foreground truncate w-40 block">{unidad.distrito.nombre}</span>
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            const dist = unidad.distrito || distritos.find((d: any) => d.id === unidad.distritoId);
+                                            return dist ? (
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary/60" />
+                                                    <span className="text-[10px] font-black uppercase text-foreground truncate max-w-[160px] block">{dist.nombre}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] text-muted-foreground italic">Sin distrito</span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <span className="px-3 py-1 bg-muted rounded-full text-[9px] font-black uppercase tracking-tighter border border-border">

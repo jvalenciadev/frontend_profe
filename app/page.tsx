@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import publicService, { LandingPageData } from '@/services/publicService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getImageUrl } from '@/lib/utils';
+
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface Programa {
@@ -36,9 +38,9 @@ interface ExtendedLandingPageData extends LandingPageData {
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1541339907198-e08759df9a73?auto=format&fit=crop&q=80';
 
 const IMG = (src: string) => {
-  if (!src) return FALLBACK_IMG;
-  return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+  return getImageUrl(src) || FALLBACK_IMG;
 };
+
 
 export default function LandingPage() {
   const { effectiveTheme, setPrimaryColor, setCustomHex } = useTheme();

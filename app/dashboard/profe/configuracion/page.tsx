@@ -3,12 +3,14 @@
 import { Shield, Settings, Info, Share2, MapPin, Save, Loader2, Image as ImageIcon, Globe, Facebook, Youtube, Palette, Hash } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { useState, useEffect } from 'react';
-import { profeService, Profe } from '@/services/profeService';
+import { ProfeApi } from '@/features/profe/infrastructure/ProfeApi';
+import { Profe } from '@/features/profe/domain/Profe';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { useProfe } from '@/contexts/ProfeContext';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 export default function ProfeConfigPage() {
     const { refreshConfig } = useProfe();
@@ -24,15 +26,23 @@ export default function ProfeConfigPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const data = await profeService.get();
-            if (data) {
-                // El backend puede devolver un objeto o un array de un solo elemento
-                const configData = Array.isArray(data) ? data[0] : data;
-                if (configData && configData.id) {
-                    setConfig(configData);
+            const responseData: any = await ProfeApi.get();
+            if (responseData) {
+                // 1. Si es un array directo
+                if (Array.isArray(responseData) && responseData.length > 0) {
+                    setConfig(responseData[0]);
+                }
+                // 2. Si es una respuesta paginada { data: [...], total: n }
+                else if (responseData.data && Array.isArray(responseData.data) && responseData.data.length > 0) {
+                    setConfig(responseData.data[0]);
+                }
+                // 3. Si es el objeto directo con id
+                else if (responseData.id) {
+                    setConfig(responseData);
                 }
             }
         } catch (error) {
+            console.error('ProfeConfig Load Error:', error);
             toast.error('Error al cargar la configuración institucional');
         } finally {
             setLoading(false);
@@ -44,7 +54,7 @@ export default function ProfeConfigPage() {
         if (!config) return;
         try {
             setSaving(true);
-            await profeService.update(config.id, config);
+            await ProfeApi.update(config.id, config);
             await refreshConfig();
             toast.success('Configuración actualizada correctamente');
         } catch (error) {
@@ -63,7 +73,7 @@ export default function ProfeConfigPage() {
             const result = await uploadService.uploadFile(file, 'profe');
             const newConfig = { ...config, [field]: result.data.path };
             setConfig(newConfig);
-            await profeService.update(config.id, newConfig);
+            await ProfeApi.update(config.id, newConfig);
             await refreshConfig();
             toast.success('Imagen cargada y guardada');
         } catch (error) {
@@ -94,7 +104,7 @@ export default function ProfeConfigPage() {
                 colorSecundario: '#4f46e5',
                 mantenimiento: false,
             };
-            const newData = await profeService.create(defaultData);
+            const newData = await ProfeApi.create(defaultData);
             setConfig(newData);
             await refreshConfig();
             toast.success('Configuración inicializada correctamente');
@@ -156,7 +166,8 @@ export default function ProfeConfigPage() {
         { id: 'vision', label: 'Misión y Visión', icon: Shield },
         { id: 'social', label: 'Contacto y Redes', icon: Share2 },
         { id: 'media', label: 'Identidad Visual', icon: ImageIcon },
-        { id: 'legal', label: 'Convocatoria y Legal', icon: Globe },
+        { id: 'legal', label: 'Información y Legal', icon: Globe },
+
     ];
 
     return (
@@ -398,86 +409,49 @@ export default function ProfeConfigPage() {
                     )}
 
                     {activeTab === 'media' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-black uppercase">Banner Institucional</h4>
-                                <div className="relative aspect-video rounded-3xl overflow-hidden border-2 border-dashed border-border group bg-muted/20">
-                                    {config.banner ? (
-                                        <img src={config.banner.startsWith('http') ? config.banner : `${process.env.NEXT_PUBLIC_API_URL}${config.banner}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                                            <ImageIcon className="w-12 h-12 text-muted-foreground opacity-20" />
-                                            <p className="text-[10px] font-black uppercase opacity-20">Sin Banner</p>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="px-6 py-3 bg-white text-black font-black text-[10px] uppercase rounded-xl cursor-pointer hover:scale-105 active:scale-95 transition-all">
-                                            Cambiar Banner
-                                            <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'banner')} />
-                                        </label>
-                                    </div>
+                        <div className="space-y-12">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-black uppercase">Banner Institucional</h4>
+                                    <ImageUpload
+                                        value={config.banner || ''}
+                                        onChange={(url) => setConfig({ ...config, banner: url })}
+                                        tableName="profe"
+                                        label="Banner Principal"
+                                    />
+                                </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-black uppercase text-primary">Logo Principal (Ministerio/Dependencia)</h4>
+                                    <ImageUpload
+                                        value={config.logoPrincipal || ''}
+                                        onChange={(url) => setConfig({ ...config, logoPrincipal: url })}
+                                        tableName="profe"
+                                        label="Logo Dependencia"
+                                    />
+                                </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-black uppercase text-primary">Logo del Programa (PROFE)</h4>
+                                    <ImageUpload
+                                        value={config.imagen || ''}
+                                        onChange={(url) => setConfig({ ...config, imagen: url })}
+                                        tableName="profe"
+                                        label="Logo PROFE"
+                                    />
+                                </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-black uppercase flex items-center gap-2">
+                                        Afiche Promocional
+                                        <span className="text-[9px] font-medium text-muted-foreground normal-case">(Se muestra en la Landing)</span>
+                                    </h4>
+                                    <ImageUpload
+                                        value={config.afiche || ''}
+                                        onChange={(url) => setConfig({ ...config, afiche: url })}
+                                        tableName="profe"
+                                        label="Afiche Landing"
+                                    />
                                 </div>
                             </div>
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-black uppercase text-primary">Logo Principal (Ministerio/Dependencia)</h4>
-                                <div className="relative h-48 w-full md:w-64 mx-auto rounded-3xl overflow-hidden border-2 border-dashed border-border group bg-white shadow-inner">
-                                    {config.logoPrincipal ? (
-                                        <img src={config.logoPrincipal.startsWith('http') ? config.logoPrincipal : `${process.env.NEXT_PUBLIC_API_URL}${config.logoPrincipal}`} className="w-full h-full object-contain p-4 transition-transform group-hover:scale-105 duration-500" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                                            <img src="/logo-principal.png" className="w-20 opacity-40 grayscale" alt="Logo Ministerio" />
-                                            <p className="text-[10px] font-black uppercase opacity-20">Logo Dependencia</p>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="p-2 bg-white text-black font-black text-[10px] uppercase rounded-xl cursor-pointer">
-                                            Subir Logo Dependencia
-                                            <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'logoPrincipal')} />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-black uppercase text-primary">Logo del Programa (PROFE)</h4>
-                                <div className="relative h-48 w-full md:w-64 mx-auto rounded-3xl overflow-hidden border-2 border-dashed border-border group bg-white shadow-inner">
-                                    {config.imagen ? (
-                                        <img src={config.imagen.startsWith('http') ? config.imagen : `${process.env.NEXT_PUBLIC_API_URL}${config.imagen}`} className="w-full h-full object-contain p-4 transition-transform group-hover:scale-105 duration-500" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                                            <img src="/logo.svg" className="w-16 h-16 opacity-50" alt="Default Logo" />
-                                            <p className="text-[10px] font-black uppercase opacity-20">Logo PROFE</p>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="p-2 bg-white text-black font-black text-[10px] uppercase rounded-xl cursor-pointer">
-                                            Subir Logo PROFE
-                                            <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'imagen')} />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-black uppercase flex items-center gap-2">
-                                    Afiche Promocional
-                                    <span className="text-[9px] font-medium text-muted-foreground normal-case">(Se muestra en la Landing)</span>
-                                </h4>
-                                <div className="relative aspect-[3/4] max-w-[300px] mx-auto rounded-3xl overflow-hidden border-2 border-dashed border-border group bg-muted/20">
-                                    {config.afiche ? (
-                                        <img src={config.afiche.startsWith('http') ? config.afiche : `${process.env.NEXT_PUBLIC_API_URL}${config.afiche}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                                            <ImageIcon className="w-12 h-12 text-muted-foreground opacity-20" />
-                                            <p className="text-[10px] font-black uppercase opacity-20">Sin Afiche</p>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="px-6 py-3 bg-white text-black font-black text-[10px] uppercase rounded-xl cursor-pointer">
-                                            Subir Afiche
-                                            <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'afiche')} />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
+
                             <div className="col-span-full space-y-8 pt-10 border-t border-border/40">
                                 <h4 className="text-sm font-black uppercase flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -544,7 +518,8 @@ export default function ProfeConfigPage() {
                     {activeTab === 'legal' && (
                         <div className="space-y-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">URL de Convocatoria Vigente</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">URL de Información/Documento Vigente</label>
+
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -553,14 +528,15 @@ export default function ProfeConfigPage() {
                                         value={config.convocatoria}
                                         onChange={(e) => setConfig({ ...config, convocatoria: e.target.value })}
                                     />
-                                    < Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 </div>
                                 <p className="text-[10px] text-muted-foreground italic ml-1">Enlace directo al documento PDF de la convocatoria actual.</p>
                             </div>
                         </div>
                     )}
                 </motion.div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }
+

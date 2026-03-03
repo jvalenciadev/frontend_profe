@@ -18,6 +18,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Can } from '@/components/Can';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { getImageUrl } from '@/lib/utils';
 
 export default function GaleriasPage() {
     const [galerias, setGalerias] = useState<any[]>([]);
@@ -172,7 +174,7 @@ export default function GaleriasPage() {
                                     <div className="relative aspect-video bg-muted overflow-hidden">
                                         {gal.imagen ? (
                                             <img
-                                                src={gal.imagen}
+                                                src={getImageUrl(gal.imagen)}
                                                 alt={gal.titulo}
                                                 className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
                                             />
@@ -260,14 +262,11 @@ export default function GaleriasPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">URL de la Imagen</label>
-                            <input
-                                type="text"
-                                className="w-full h-14 px-6 rounded-2xl bg-card border border-border focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none text-sm font-bold text-foreground"
-                                placeholder="https://ejemplo.com/foto.jpg"
+                            <ImageUpload
+                                label="Fotografía del Recurso"
                                 value={formData.imagen}
-                                onChange={(e) => setFormData({ ...formData, imagen: e.target.value })}
-                                required
+                                onChange={(url) => setFormData({ ...formData, imagen: url })}
+                                tableName="galeria"
                             />
                         </div>
                         <div className="space-y-2">

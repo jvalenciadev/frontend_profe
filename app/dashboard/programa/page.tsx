@@ -5,6 +5,7 @@ import { programaVersionService } from '@/services/programaVersionService';
 import { programaMaestroService } from '@/services/programaMaestroService';
 import { sedeService } from '@/services/sedeService';
 import { Modal } from '@/components/Modal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
 import {
     GraduationCap,
@@ -39,6 +40,17 @@ export default function ProgramaPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProgDos, setEditingProgDos] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [confirmDelete, setConfirmDelete] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+        itemName?: string;
+        loading: boolean;
+    }>({
+        isOpen: false,
+        itemId: null,
+        loading: false
+    });
 
     const [formData, setFormData] = useState({
         programaId: '', // ID del Programa Pro (Master)
@@ -158,15 +170,27 @@ export default function ProgramaPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('¿Eliminar esta versión del programa?')) return;
+    const handleDelete = (programa: any) => {
+        setConfirmDelete({
+            isOpen: true,
+            itemId: programa.id,
+            itemName: programa.nombre,
+            loading: false
+        });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.itemId) return;
         try {
-            await programaVersionService.delete(id);
-            toast.success('Programa eliminado');
+            setConfirmDelete(prev => ({ ...prev, loading: true }));
+            await programaVersionService.delete(confirmDelete.itemId);
+            toast.success('Versión de programa eliminada');
             loadData();
+            setConfirmDelete(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
-            console.error('Error deleting:', error);
-            toast.error('Error al eliminar');
+            toast.error('No se pudo eliminar la versión');
+        } finally {
+            setConfirmDelete(prev => ({ ...prev, loading: false }));
         }
     };
 
@@ -277,7 +301,7 @@ export default function ProgramaPage() {
                                         <Edit2 className="w-3 h-3" />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(p.id)}
+                                        onClick={() => handleDelete(p)}
                                         className="p-1.5 rounded-lg bg-rose-500/5 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm"
                                     >
                                         <Trash2 className="w-3 h-3" />
@@ -479,6 +503,15 @@ export default function ProgramaPage() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ ...confirmDelete, isOpen: false })}
+                onConfirm={confirmDeleteAction}
+                title="Eliminar Versión de Programa"
+                description={`¿Está seguro de eliminar la versión operativa de "${confirmDelete.itemName}"? Esta acción borrará todas las configuraciones de convocatoria y costos para esta sede.`}
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  reactStrictMode: false, // Suppress hydration warnings from browser extensions
+  // reactStrictMode: false evita el doble render en dev que exacerba los errores de hidratación
+  reactStrictMode: false,
   images: {
     domains: ['localhost'],
     remotePatterns: [
@@ -17,6 +18,12 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // Ignorar atributos desconocidos inyectados por extensiones del navegador
+  // (como bis_skin_checked de Bitdefender/AVG/etc.)
+  compiler: {
+    // Elimina console.error en producción para evitar que el warning se muestre
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
 };
 

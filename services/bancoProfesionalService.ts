@@ -61,12 +61,12 @@ export const bancoProfesionalService = {
     },
 
     getMiFicha: async () => {
-        const response = await api.get<BancoProfesional>('/banco-profesional/mi-ficha');
+        const response = await api.get<BancoProfesional>('/banco-profesional/me');
         return response.data;
     },
 
     updateMiFicha: async (data: any) => {
-        const response = await api.patch<BancoProfesional>('/banco-profesional/mi-ficha', data);
+        const response = await api.put<BancoProfesional>('/banco-profesional/me', data);
         return response.data;
     },
 
@@ -87,7 +87,7 @@ export const bancoProfesionalService = {
     },
 
     updatePosgrado: async (posgradoId: string, data: any) => {
-        const response = await api.patch(`/banco-profesional/posgrados/${posgradoId}`, data);
+        const response = await api.put(`/banco-profesional/posgrados/${posgradoId}`, data);
         return response.data;
     },
 
@@ -107,7 +107,7 @@ export const bancoProfesionalService = {
     },
 
     updateProduccion: async (produccionId: string, data: any) => {
-        const response = await api.patch(`/banco-profesional/produccion/${produccionId}`, data);
+        const response = await api.put(`/banco-profesional/produccion/${produccionId}`, data);
         return response.data;
     },
 

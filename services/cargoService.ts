@@ -8,8 +8,10 @@ export interface Cargo {
 
 export const cargoService = {
     getAll: async () => {
-        const response = await api.get<Cargo[]>('/cargos');
-        return response.data;
+        // Adaptamos la respuesta del backend Clean Architecture que devuelve { data: [] } 
+        // para que funcione con los modulos legacy que esperan un Array.
+        const response = await api.get<any>('/cargos');
+        return Array.isArray(response.data.data) ? response.data.data : response.data;
     },
 
     getById: async (id: string) => {

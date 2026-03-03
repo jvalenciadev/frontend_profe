@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { evaluationService, EvaluationPeriod } from '@/services/evaluationService';
+import { useEvaluacionPeriodos } from '@/features/evaluacionPeriodo/application/useEvaluacionPeriodos';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import {
@@ -24,8 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function PeriodosEvaluacionPage() {
-    const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { items: periods, loading: periodsLoading, loadItems, createItem, updateItem } = useEvaluacionPeriodos();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -41,44 +40,25 @@ export default function PeriodosEvaluacionPage() {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadItems();
+    }, [loadItems]);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const data = await evaluationService.getPeriods();
-            setPeriods(data);
-        } catch (error) {
-            console.error('Error loading periods:', error);
-            toast.error('Error al cargar los periodos de evaluación');
-        } finally {
-            setLoading(false);
-        }
+        await loadItems();
     };
 
     const handleCreatePeriod = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            setLoading(true);
-            await evaluationService.createPeriod(formData);
-            toast.success('Periodo de evaluación creado correctamente');
+        const success = await createItem(formData);
+        if (success) {
             setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            toast.error('Error al crear el periodo');
-        } finally {
-            setLoading(false);
         }
     };
 
     const handleTogglePeriod = async (id: string, currentActive: boolean) => {
-        try {
-            await evaluationService.togglePeriod(id, !currentActive);
+        const success = await updateItem(id, { activo: !currentActive });
+        if (success) {
             toast.success(`Periodo ${!currentActive ? 'activado' : 'desactivado'}`);
-            loadData();
-        } catch (error) {
-            toast.error('No se pudo cambiar el estado del periodo');
         }
     };
 
@@ -150,7 +130,7 @@ export default function PeriodosEvaluacionPage() {
             {/* Content Area */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <AnimatePresence mode='popLayout'>
-                    {loading && periods.length === 0 ? (
+                    {periodsLoading && periods.length === 0 ? (
                         Array(4).fill(0).map((_, i) => (
                             <Card key={i} className="h-64 animate-pulse bg-muted/20 rounded-[32px] border-border/40" />
                         ))
@@ -198,7 +178,7 @@ export default function PeriodosEvaluacionPage() {
                                                 {period.criterios?.length || 0} Criterios
                                             </span>
                                             <span className="text-[10px] bg-muted px-2 py-1 rounded-lg font-bold text-muted-foreground">
-                                                Max: {period.criterios?.reduce((acc, c) => acc + (c.puntajeMaximo || 0), 0)} pts
+                                                Max: {period.criterios?.reduce((acc: number, c: any) => acc + (c.puntajeMaximo || 0), 0)} pts
                                             </span>
                                         </div>
 
@@ -329,10 +309,10 @@ export default function PeriodosEvaluacionPage() {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={periodsLoading}
                             className="h-12 px-10 rounded-xl bg-primary text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
                         >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {periodsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             Crear Periodo
                         </button>
                     </div>

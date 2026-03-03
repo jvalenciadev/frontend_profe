@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { distritoService } from '@/services/distritoService';
-import { departmentService } from '@/services/departmentService';
+import { useDistritos } from '@/features/distrito/application/useDistritos';
+import { useDepartamentos } from '@/features/departamento/application/useDepartamentos';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import {
@@ -23,9 +23,8 @@ import { toast } from 'sonner';
 import { Can } from '@/components/Can';
 
 export default function DistritosPage() {
-    const [distritos, setDistritos] = useState<any[]>([]);
-    const [departments, setDepartments] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { items: distritos, loading: distritosLoading, loadItems: loadDistritos, createItem, updateItem, deleteItem } = useDistritos();
+    const { items: departments, loadItems: loadDepartments } = useDepartamentos();
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modal State
@@ -39,24 +38,12 @@ export default function DistritosPage() {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadDistritos();
+        loadDepartments();
+    }, [loadDistritos, loadDepartments]);
 
     const loadData = async () => {
-        try {
-            setLoading(true);
-            const [distData, deptsData] = await Promise.all([
-                distritoService.getAll(),
-                departmentService.getAll()
-            ]);
-            setDistritos(distData);
-            setDepartments(deptsData);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            toast.error('Error de enlace con el servicio de distritos');
-        } finally {
-            setLoading(false);
-        }
+        await Promise.all([loadDistritos(), loadDepartments()]);
     };
 
     const handleOpenModal = (dist: any = null) => {
@@ -80,32 +67,18 @@ export default function DistritosPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            if (editingDistrito) {
-                await distritoService.update(editingDistrito.id, formData);
-                toast.success('Distrito actualizado en el nodo');
-            } else {
-                await distritoService.create(formData);
-                toast.success('Nuevo distrito federado');
-            }
+        const success = editingDistrito
+            ? await updateItem(editingDistrito.id, formData)
+            : await createItem(formData);
+
+        if (success) {
             setIsModalOpen(false);
-            loadData();
-        } catch (error) {
-            console.error('Error saving distrito:', error);
-            toast.error('Fallo en la sincronización del distrito');
         }
     };
 
     const handleDelete = async (id: string) => {
-        try {
-            await distritoService.delete(id);
-            toast.success('Distrito removido del esquema');
-            setIsDeleting(null);
-            loadData();
-        } catch (error) {
-            console.error('Error deleting distrito:', error);
-            toast.error('Error en la baja del registro');
-        }
+        await deleteItem(id);
+        setIsDeleting(null);
     };
 
     const filteredDistritos = distritos.filter(d =>
@@ -166,7 +139,7 @@ export default function DistritosPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/40">
-                            {loading && distritos.length === 0 ? (
+                            {distritosLoading && distritos.length === 0 ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
                                         <td colSpan={5} className="px-8 py-6 cursor-wait opacity-50"><div className="h-8 bg-muted rounded-xl w-full" /></td>

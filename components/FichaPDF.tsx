@@ -265,8 +265,8 @@ interface FichaPDFProps {
 }
 
 export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
-    const cargoNombre = ficha.cargoPostulacion?.nombre || config?.cargos.find((c: any) => c.id === (ficha.cargoPostulacionId || ficha.cargoId))?.nombre || 'Cargo no definido';
-    const categoriaNombre = config?.categorias.find((c: any) => c.id === String(ficha.categoriaId))?.nombre || 'Sin categoría';
+    const cargoNombre = ficha.cargoPostulacion?.nombre || config?.cargos?.find((c: any) => c.id === (ficha.cargoPostulacionId || ficha.cargoId))?.nombre || 'Cargo no definido';
+    const categoriaNombre = config?.categorias?.find((c: any) => c.id === String(ficha.categoriaId))?.nombre || 'Sin categoría';
 
     const userImage = ficha.user?.imagen || ficha.imagen;
     const fullImageUrl = getImageUrl(userImage);
@@ -319,8 +319,9 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
                             </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ color: '#FFFFFF', fontSize: 6, fontWeight: 'bold' }}>ESTADO PLURINACIONAL DE BOLIVIA</Text>
-                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 5, marginTop: 1, letterSpacing: 0.5 }}>ID-DOC: {ficha.id.substring(0, 8).toUpperCase()}</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 5, marginTop: 1, letterSpacing: 0.5 }}>
+                                ID-DOC: {ficha?.id ? ficha.id.substring(0, 8).toUpperCase() : 'N/A'}
+                            </Text>
                         </View>
                     </View>
                 </View>
@@ -440,14 +441,16 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
                 {ficha.postgrados && ficha.postgrados.length > 0 && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: instColor, borderBottomColor: instColor + '40' }]}>Postgrados y Especializaciones</Text>
-                        {ficha.postgrados.map((p: any, i: number) => (
-                            <View key={i} style={[styles.posgradoItem, { borderLeftColor: instColor }]}>
-                                <Text style={styles.posgradoTitle}>{p.titulo}</Text>
-                                <Text style={styles.posgradoSubtitle}>
-                                    {p.tipoPosgrado?.nombre} • {new Date(p.fecha).toLocaleDateString()}
-                                </Text>
-                            </View>
-                        ))}
+                        {[...ficha.postgrados]
+                            .sort((a: any, b: any) => (a.tipoPosgrado?.orden || 0) - (b.tipoPosgrado?.orden || 0))
+                            .map((p: any, i: number) => (
+                                <View key={i} style={[styles.posgradoItem, { borderLeftColor: instColor }]}>
+                                    <Text style={styles.posgradoTitle}>{p.titulo}</Text>
+                                    <Text style={styles.posgradoSubtitle}>
+                                        {p.tipoPosgrado?.nombre} • {new Date(p.fecha).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                            ))}
                     </View>
                 )}
 

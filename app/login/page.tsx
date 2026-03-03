@@ -22,11 +22,18 @@ export default function LoginPage() {
     };
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState(''); // Para reset
     const [email, setEmail] = useState(''); // Estado para recuperación
-    const [view, setView] = useState<'login' | 'forgot'>('login'); // Control de vista
+    const [token, setToken] = useState(''); // El código de 6 dígitos
+    const [view, setView] = useState<'login' | 'forgot' | 'reset'>('login'); // Control de vista
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -59,10 +66,41 @@ export default function LoginPage() {
         setIsLoading(true);
         try {
             await authService.forgotPassword(email);
-            setSuccess('Si el correo existe en nuestros registros, recibirás las instrucciones de recuperación.');
+            setSuccess('Se ha enviado un código de 6 dígitos a su correo institucional.');
+            setView('reset');
         } catch (err: any) {
             // Por seguridad, a veces es mejor no decir si falló por email no encontrado, pero aquí mostraremos error genérico o del backend
             setError(err.response?.data?.message || 'Error al procesar la solicitud.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResetSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSuccess(null);
+
+        if (password !== confirmPassword) {
+            setError('Las contraseñas no coinciden');
+            return;
+        }
+
+        if (token.length < 6) {
+            setError('El código debe ser de 6 dígitos');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await authService.resetPassword(token, password);
+            setSuccess('Contraseña actualizada correctamente. Ya puede iniciar sesión.');
+            setView('login');
+            setPassword('');
+            setConfirmPassword('');
+            setToken('');
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Código inválido o expirado.');
         } finally {
             setIsLoading(false);
         }
@@ -149,7 +187,7 @@ export default function LoginPage() {
                             className="w-16 h-16 bg-white dark:bg-card rounded-[2rem] flex items-center justify-center shadow-2xl shadow-primary/30 mx-auto lg:mx-0 overflow-hidden border border-border/50"
                             suppressHydrationWarning={true}
                         >
-                            {profe?.imagen ? (
+                            {mounted && profe?.imagen ? (
                                 <img src={IMG(profe.imagen) || undefined} className="w-10 h-10 object-contain" alt="Logo" />
                             ) : (
                                 <span className="text-primary font-black text-3xl">P</span>
@@ -157,12 +195,14 @@ export default function LoginPage() {
                         </motion.div>
                         <div className="text-center lg:text-left" suppressHydrationWarning={true}>
                             <h3 className="text-3xl font-black tracking-tighter">
-                                {view === 'login' ? 'Acceso Institucional' : 'Recuperar Acceso'}
+                                {view === 'login' ? 'Acceso Institucional' : view === 'forgot' ? 'Recuperar Acceso' : 'Verificar Código'}
                             </h3>
                             <p className="text-muted-foreground font-medium text-sm">
                                 {view === 'login'
                                     ? 'Bienvenido al sistema nacional de gestión.'
-                                    : 'Ingresa tu correo institucional para restablecer tu contraseña.'}
+                                    : view === 'forgot'
+                                        ? 'Ingresa tu correo institucional para recibir un código de recuperación.'
+                                        : 'Ingresa el código de 6 dígitos enviado a tu correo y tu nueva contraseña.'}
                             </p>
                         </div>
                     </div>
@@ -260,14 +300,14 @@ export default function LoginPage() {
                                     )}
                                 </Button>
 
-                                <div className="text-center pt-2">
+                                <div className="text-center pt-2" suppressHydrationWarning>
                                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
                                         ¿Quieres postularte?
                                         <Link href="/registro-profe" className="text-primary font-black ml-2 hover:underline">Registra tu perfil aquí</Link>
                                     </p>
                                 </div>
                             </motion.form>
-                        ) : (
+                        ) : view === 'forgot' ? (
                             <motion.form
                                 key="forgot-form"
                                 initial={{ opacity: 0, x: 20 }}
@@ -296,7 +336,7 @@ export default function LoginPage() {
 
                                 <Button
                                     type="submit"
-                                    disabled={isLoading || !!success}
+                                    disabled={isLoading}
                                     className="w-full h-14 text-base font-black uppercase tracking-widest shadow-2xl shadow-primary/20 rounded-2xl active:scale-[0.98] transition-all"
                                 >
                                     {isLoading ? (
@@ -305,7 +345,7 @@ export default function LoginPage() {
                                             Enviando...
                                         </div>
                                     ) : (
-                                        'Enviar Instrucciones'
+                                        'Enviar Código'
                                     )}
                                 </Button>
 
@@ -318,13 +358,94 @@ export default function LoginPage() {
                                     Volver al Acceso
                                 </button>
                             </motion.form>
+                        ) : (
+                            <motion.form
+                                key="reset-form"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                onSubmit={handleResetSubmit}
+                                className="space-y-6"
+                                suppressHydrationWarning={true}
+                            >
+                                <div className="space-y-4" suppressHydrationWarning={true}>
+                                    <div className="space-y-2" suppressHydrationWarning={true}>
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Código de 6 dígitos</label>
+                                        <div className="relative group" suppressHydrationWarning={true}>
+                                            <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                                            <Input
+                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all font-black tracking-[1em] text-center"
+                                                placeholder="000000"
+                                                maxLength={6}
+                                                value={token}
+                                                onChange={(e) => setToken(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2" suppressHydrationWarning={true}>
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nueva Contraseña</label>
+                                        <div className="relative group" suppressHydrationWarning={true}>
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                                            <Input
+                                                type="password"
+                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
+                                                placeholder="••••••••••••"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2" suppressHydrationWarning={true}>
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Confirmar Contraseña</label>
+                                        <div className="relative group" suppressHydrationWarning={true}>
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                                            <Input
+                                                type="password"
+                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
+                                                placeholder="••••••••••••"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full h-14 text-base font-black uppercase tracking-widest shadow-2xl shadow-primary/20 rounded-2xl active:scale-[0.98] transition-all"
+                                >
+                                    {isLoading ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Verificando...
+                                        </div>
+                                    ) : (
+                                        'Actualizar Contraseña'
+                                    )}
+                                </Button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setView('forgot'); setError(null); setSuccess(null); }}
+                                    className="w-full flex items-center justify-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary transition-colors py-2"
+                                >
+                                    <ArrowLeft className="w-3 h-3" />
+                                    No recibí el código
+                                </button>
+                            </motion.form>
                         )}
                     </AnimatePresence>
 
                     <div className="pt-8 text-center border-t border-border/40" suppressHydrationWarning={true}>
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]" suppressHydrationWarning>
                             Seguridad de Grado Institucional <br />
-                            <span className="text-foreground uppercase tracking-[0.1em]">Ministerio de Educación © {new Date().getFullYear()} PROFE Bolivia</span>
+                            <span className="text-foreground uppercase tracking-[0.1em]">Ministerio de Educación © {mounted ? new Date().getFullYear() : '2026'} PROFE Bolivia</span>
                         </p>
                     </div>
                 </div>

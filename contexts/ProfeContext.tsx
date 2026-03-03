@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { profeService, Profe } from '@/services/profeService';
+import { ProfeApi } from '@/features/profe/infrastructure/ProfeApi';
+import { Profe } from '@/features/profe/domain/Profe';
 
 interface ProfeContextType {
     config: Profe | null;
@@ -17,10 +18,24 @@ export function ProfeProvider({ children }: { children: ReactNode }) {
 
     const refreshConfig = async () => {
         try {
-            const data = await profeService.get();
-            if (data) {
-                const configData = Array.isArray(data) ? data[0] : data;
-                setConfig(configData);
+            const responseData: any = await ProfeApi.get();
+            if (responseData) {
+                // 1. Array directo
+                if (Array.isArray(responseData) && responseData.length > 0) {
+                    setConfig(responseData[0]);
+                }
+                // 2. Respuesta paginada
+                else if (responseData.data && Array.isArray(responseData.data) && responseData.data.length > 0) {
+                    setConfig(responseData.data[0]);
+                }
+                // 3. Objeto directo
+                else if (responseData.id) {
+                    setConfig(responseData);
+                } else {
+                    setConfig(null);
+                }
+            } else {
+                setConfig(null);
             }
         } catch (error) {
             console.error('Error fetching profe config:', error);

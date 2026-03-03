@@ -31,6 +31,11 @@ export function ImageUpload({
     const [preview, setPreview] = useState<string | null>(value || null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Sync preview with incoming value (important for resets or master switches)
+    React.useEffect(() => {
+        setPreview(value || null);
+    }, [value]);
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;

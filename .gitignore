@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Archivos de subida (Por si NextJS o algun script guarda aquí las cosas)
+/public/uploads
+/public/tmp
+*.pdf
+*.zip
+*.rar

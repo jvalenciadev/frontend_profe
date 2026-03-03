@@ -18,7 +18,8 @@ import {
     ExternalLink,
     TrendingUp,
     ShieldCheck,
-    Infinity as InfinityIcon
+    Infinity as InfinityIcon,
+    Database
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { motion } from 'framer-motion';
@@ -167,6 +168,27 @@ export default function DashboardPage() {
                 <div className="lg:col-span-4 space-y-6">
                     <h3 className="text-xl font-black tracking-tight uppercase px-2">Accesos Directos</h3>
                     <div className="flex flex-col gap-3">
+
+
+                        <Can action="read" subject="MapPersona">
+                            <Link href="/dashboard/map-personas">
+                                <Card className="p-6 bg-indigo-600 hover:bg-indigo-700 border-indigo-400 group rounded-2xl transition-all duration-500 shadow-lg shadow-indigo-500/20">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4 text-white group-hover:text-white">
+                                            <div className="p-3 bg-white/20 rounded-xl shadow-inner border border-white/10 group-hover:rotate-6 transition-all">
+                                                <Database className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-sm uppercase tracking-widest">Mapeo Institucional</p>
+                                                <p className="text-[9px] opacity-60 font-bold uppercase tracking-widest">Migración y Catálogos</p>
+                                            </div>
+                                        </div>
+                                        <ArrowUpRight className="w-5 h-5 text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
+                                    </div>
+                                </Card>
+                            </Link>
+                        </Can>
+
                         <Can action="read" subject="User">
                             <Link href="/dashboard/usuarios">
                                 <Card className="p-6 bg-primary/5 hover:bg-primary border-primary/20 group rounded-2xl transition-all duration-500 shadow-lg shadow-primary/5">
