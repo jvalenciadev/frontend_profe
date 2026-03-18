@@ -17,8 +17,9 @@ import {
 import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, getImageUrl } from '@/lib/utils';
+import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 // ─── Paleta de colores por tipo de evento ────────────────────────────────────
 const TIPO_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -60,8 +61,9 @@ export default function EventosPage() {
     const [formData, setFormData] = useState({
         nombre: '', descripcion: '', codigo: '', banner: '', afiche: '',
         modalidadIds: '', fecha: new Date().toISOString().split('T')[0],
-        inscripcionAbierta: true, asistencia: false, lugar: '',
-        totalInscritos: 0, estado: 'activo', tipoId: '', tenantId: ''
+        inscripcionAbierta: true, asistencia: false, lugar: '', urlVideo: '',
+        totalInscritos: 0, estado: 'activo', tipoId: '', tenantId: '',
+        camposExtras: [] as any[]
     });
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [isConfirmingSave, setIsConfirmingSave] = useState(false);
@@ -113,18 +115,24 @@ export default function EventosPage() {
                 fecha: evento.fecha ? evento.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
                 inscripcionAbierta: (evento as any).inscripcionAbierta ?? true,
                 asistencia: evento.asistencia ?? false, lugar: evento.lugar || '',
+                urlVideo: (evento as any).urlVideo || '',
                 totalInscritos: evento.totalInscritos || 0, estado: evento.estado || 'activo',
-                tipoId: evento.tipoId || '', tenantId: evento.tenantId || ''
+                tipoId: evento.tipoId || '', tenantId: evento.tenantId || '',
+                camposExtras: ((evento as any).camposExtras || []).map((f: any) => ({
+                    ...f,
+                    opciones: Array.isArray(f.opciones) ? f.opciones.join(', ') : (typeof f.opciones === 'string' ? f.opciones : '')
+                }))
             });
         } else {
             setEditingEvento(null);
             setFormData({
                 nombre: '', descripcion: '', codigo: '', banner: '', afiche: '',
                 modalidadIds: '', fecha: new Date().toISOString().split('T')[0],
-                inscripcionAbierta: true, asistencia: false, lugar: '',
+                inscripcionAbierta: true, asistencia: false, lugar: '', urlVideo: '',
                 totalInscritos: 0, estado: 'activo',
                 tipoId: tipos[0]?.id || '',
-                tenantId: isSuperAdmin() ? '' : (user?.tenantId || '')
+                tenantId: isSuperAdmin() ? '' : (user?.tenantId || ''),
+                camposExtras: []
             });
         }
         setActiveStep(0);
@@ -138,8 +146,22 @@ export default function EventosPage() {
                 ...formData,
                 fecha: new Date(formData.fecha).toISOString(),
                 totalInscritos: Number(formData.totalInscritos),
-                tenantId: formData.tenantId || null
+                tenantId: formData.tenantId || null,
+                camposExtras: formData.camposExtras.map(f => ({
+                    ...f,
+                    opciones: typeof f.opciones === 'string'
+                        ? f.opciones.split(',')
+                            .map((o: string) => o.trim().replace(/^["']|["']$/g, ''))
+                            .filter((o: string) => o !== '')
+                        : f.opciones
+                }))
             };
+            // Limpiar campos que no deben ir en el update/create
+            delete (payload as any).createdBy;
+            delete (payload as any).updatedBy;
+            delete (payload as any).deletedBy;
+            delete (payload as any).createdAt;
+            delete (payload as any).updatedAt;
             if (editingEvento) {
                 await eventoService.update(editingEvento.id, payload);
                 toast.success('Evento actualizado exitosamente');
@@ -185,11 +207,11 @@ export default function EventosPage() {
     const stats = {
         total: eventos.length,
         activos: eventos.filter(e => e.estado === 'activo').length,
-        inscritos: eventos.reduce((acc, e) => acc + (e.totalInscritos || 0), 0),
-        conAsistencia: eventos.filter(e => e.asistencia).length,
+        inscritos: eventos.reduce((acc, e) => acc + (e.inscritos || 0), 0),
+        asistidos: eventos.reduce((acc, e) => acc + (e.asistidos || 0), 0),
     };
 
-    const FORM_STEPS = ['Información', 'Configuración', 'Imágenes'];
+    const FORM_STEPS = ['Información', 'Configuración', 'Campos Registro', 'Imágenes'];
 
     // ── RENDER ──────────────────────────────────────────────────────────────
     return (
@@ -231,7 +253,7 @@ export default function EventosPage() {
                         { label: 'Total Eventos', val: stats.total, icon: Calendar, color: 'bg-primary/10 text-primary border-primary/20' },
                         { label: 'Activos', val: stats.activos, icon: Zap, color: 'bg-green-500/10 text-green-400 border-green-500/20' },
                         { label: 'Participantes', val: stats.inscritos, icon: Users, color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-                        { label: 'Con Asistencia', val: stats.conAsistencia, icon: CheckCircle2, color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+                        { label: 'Asistentes', val: stats.asistidos, icon: CheckCircle2, color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
                     ].map(s => (
                         <motion.div
                             key={s.label}
@@ -316,7 +338,9 @@ export default function EventosPage() {
                                     <th className="text-left px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Fecha</th>
                                     <th className="text-left px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Lugar</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Inscritos</th>
+                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Asistidos</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Estado</th>
+                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Modalidad</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Inscripción</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Acciones</th>
                                 </tr>
@@ -337,12 +361,16 @@ export default function EventosPage() {
                                                 {/* Evento */}
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-muted shrink-0">
-                                                            {evento.banner ? (
-                                                                <img src={getImageUrl(evento.banner)} className="w-full h-full object-cover" alt="" />
+                                                        <div className="w-10 h-14 rounded-lg overflow-hidden bg-muted shrink-0 border border-border/50">
+                                                            {evento.afiche || evento.banner ? (
+                                                                <img
+                                                                    src={getImageUrl(evento.afiche || evento.banner)}
+                                                                    className="w-full h-full object-cover"
+                                                                    alt=""
+                                                                />
                                                             ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                                                    <Calendar className="w-4 h-4" />
+                                                                <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">
+                                                                    <Tag className="w-4 h-4" />
                                                                 </div>
                                                             )}
                                                         </div>
@@ -381,12 +409,30 @@ export default function EventosPage() {
                                                 <td className="px-4 py-4 text-center">
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-500/10 text-blue-400 text-sm font-black border border-blue-500/20">
                                                         <Users className="w-3.5 h-3.5" />
-                                                        {evento.totalInscritos || 0}
+                                                        {evento.inscritos ?? 0}
+                                                    </span>
+                                                </td>
+                                                {/* Asistidos */}
+                                                <td className="px-4 py-4 text-center">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-green-500/10 text-green-400 text-sm font-black border border-green-500/20">
+                                                        <Activity className="w-3.5 h-3.5" />
+                                                        {evento.asistidos ?? 0}
                                                     </span>
                                                 </td>
                                                 {/* Estado */}
                                                 <td className="px-4 py-4 text-center">
                                                     <StatusBadge status={evento.estado || 'activo'} />
+                                                </td>
+                                                {/* Modalidad */}
+                                                <td className="px-4 py-4 text-center">
+                                                    {modalidades.find(m => m.id === evento.modalidadIds)?.nombre ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-500/10 text-orange-500 text-[10px] font-black border border-orange-500/20 uppercase tracking-tighter">
+                                                            <Globe className="w-3 h-3" />
+                                                            {modalidades.find(m => m.id === evento.modalidadIds)?.nombre}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-[10px]">—</span>
+                                                    )}
                                                 </td>
                                                 {/* Inscripción */}
                                                 <td className="px-4 py-4 text-center">
@@ -454,12 +500,16 @@ export default function EventosPage() {
                                 >
                                     <Card className="group overflow-hidden bg-card border border-border/50 rounded-3xl h-full flex flex-col shadow-sm hover:shadow-lg hover:border-primary/20 transition-all">
                                         {/* Banner */}
-                                        <div className="relative h-40 overflow-hidden bg-muted">
-                                            {evento.banner ? (
-                                                <img src={getImageUrl(evento.banner)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={evento.nombre} />
+                                        <div className="relative h-48 overflow-hidden bg-muted">
+                                            {evento.banner || evento.afiche ? (
+                                                <img
+                                                    src={getImageUrl(evento.banner || evento.afiche)}
+                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                    alt={evento.nombre}
+                                                />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <Calendar className="w-12 h-12 text-muted-foreground/30" />
+                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-border/30">
+                                                    <Trophy className="w-12 h-12 text-muted-foreground/20" />
                                                 </div>
                                             )}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -479,7 +529,7 @@ export default function EventosPage() {
                                         <div className="p-5 flex-1 flex flex-col gap-3">
                                             <div>
                                                 <h3 className="font-black text-foreground text-base leading-tight uppercase">{evento.nombre}</h3>
-                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{evento.descripcion}</p>
+                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{evento.descripcion ? stripHtml(evento.descripcion) : ''}</p>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -493,8 +543,24 @@ export default function EventosPage() {
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-blue-400">
                                                     <Users className="w-3.5 h-3.5" />
-                                                    <span>{evento.totalInscritos || 0} inscritos</span>
+                                                    <span>{evento.inscritos ?? 0} inscritos</span>
                                                 </div>
+                                                <div className="flex items-center gap-1.5 text-green-400">
+                                                    <Activity className="w-3.5 h-3.5" />
+                                                    <span>{evento.asistidos ?? 0} asistidos</span>
+                                                </div>
+                                                {evento.codigo && (
+                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                        <Tag className="w-3.5 h-3.5" />
+                                                        <span className="font-mono">{evento.codigo}</span>
+                                                    </div>
+                                                )}
+                                                {modalidades.find(m => m.id === evento.modalidadIds)?.nombre && (
+                                                    <div className="flex items-center gap-1.5 text-orange-500">
+                                                        <Globe className="w-3.5 h-3.5" />
+                                                        <span>{modalidades.find(m => m.id === evento.modalidadIds)?.nombre}</span>
+                                                    </div>
+                                                )}
                                                 {(evento as any).tenant && (
                                                     <div className="flex items-center gap-1.5 text-muted-foreground">
                                                         <Building2 className="w-3.5 h-3.5" />
@@ -553,10 +619,10 @@ export default function EventosPage() {
                                         </div>
                                         <div>
                                             <h2 className="text-xl font-black uppercase tracking-tight">
-                                                {editingEvento ? 'Editar Evento' : 'Nuevo Evento'}
+                                                {editingEvento ? `Editando: ${editingEvento.nombre}` : 'Nuevo Evento Académico'}
                                             </h2>
                                             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
-                                                Plataforma Académica PROFE
+                                                {editingEvento ? 'Actualice los datos del registro' : 'Complete el formulario para crear'}
                                             </p>
                                         </div>
                                     </div>
@@ -604,13 +670,11 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="md:col-span-2 space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Descripción</label>
-                                                        <textarea
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Descripción del Evento</label>
+                                                        <RichTextEditor
                                                             value={formData.descripcion}
-                                                            onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
-                                                            rows={3}
-                                                            className="w-full px-5 py-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm text-muted-foreground resize-none"
-                                                            placeholder="Objetivos y alcance del evento..."
+                                                            placeholder="Describe los objetivos y alcance del evento..."
+                                                            onChange={val => setFormData({ ...formData, descripcion: val })}
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
@@ -654,6 +718,18 @@ export default function EventosPage() {
                                                             <option value="cancelado">Cancelado</option>
                                                             <option value="finalizado">Finalizado</option>
                                                         </select>
+                                                    </div>
+                                                    <div className="md:col-span-2 space-y-2">
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                            <span className="inline-block w-3 h-3 rounded-sm bg-red-500" /> Video YouTube (Evento Virtual / Transmisión)
+                                                        </label>
+                                                        <input
+                                                            type="text" value={formData.urlVideo}
+                                                            onChange={e => setFormData({ ...formData, urlVideo: e.target.value })}
+                                                            className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-bold font-mono"
+                                                            placeholder="https://youtu.be/xxxx o ID del video"
+                                                        />
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest pl-1">Opcional — se mostrará embebido en la página pública del evento.</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -736,7 +812,132 @@ export default function EventosPage() {
                                         )}
 
                                         {activeStep === 2 && (
-                                            <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                                            <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h3 className="text-sm font-black uppercase tracking-tight text-foreground">Campos de Registro Personalizados</h3>
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Información adicional para solicitar al participante</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newFields = [...formData.camposExtras, { label: '', tipo: 'TEXTO', esObligatorio: false, orden: formData.camposExtras.length }];
+                                                            setFormData({ ...formData, camposExtras: newFields });
+                                                        }}
+                                                        className="h-9 px-4 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center gap-2"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" /> Agregar Campo
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    {formData.camposExtras.map((f, i) => (
+                                                        <div key={i} className="p-5 rounded-3xl bg-muted/30 border border-border/50 space-y-4 relative">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newFields = formData.camposExtras.filter((_, idx) => idx !== i);
+                                                                    setFormData({ ...formData, camposExtras: newFields });
+                                                                }}
+                                                                className="absolute top-4 right-4 text-muted-foreground hover:text-red-500 transition-colors"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-1.5 text-left">
+                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Etiqueta / Pregunta</label>
+                                                                    <input
+                                                                        type="text" value={f.label}
+                                                                        onChange={e => {
+                                                                            const newFields = [...formData.camposExtras];
+                                                                            newFields[i].label = e.target.value;
+                                                                            setFormData({ ...formData, camposExtras: newFields });
+                                                                        }}
+                                                                        className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-bold"
+                                                                        placeholder="Ej: ¿Tiene experiencia previa?"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5 text-left">
+                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tipo de Respuesta</label>
+                                                                    <select
+                                                                        value={f.tipo}
+                                                                        onChange={e => {
+                                                                            const newFields = [...formData.camposExtras];
+                                                                            newFields[i].tipo = e.target.value;
+                                                                            setFormData({ ...formData, camposExtras: newFields });
+                                                                        }}
+                                                                        className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-bold"
+                                                                    >
+                                                                        <option value="TEXTO">Respuesta Abierta (Texto)</option>
+                                                                        <option value="BOOLEAN">Si / No (Boolean)</option>
+                                                                        <option value="SINGLE_SELECT">Selección Única</option>
+                                                                        <option value="MULTIPLE_SELECT">Selección Múltiple</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-6">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`req-${i}`}
+                                                                            checked={f.esObligatorio}
+                                                                            onChange={e => {
+                                                                                const newFields = [...formData.camposExtras];
+                                                                                newFields[i].esObligatorio = e.target.checked;
+                                                                                setFormData({ ...formData, camposExtras: newFields });
+                                                                            }}
+                                                                            className="w-4 h-4 rounded text-primary focus:ring-primary"
+                                                                        />
+                                                                        <label htmlFor={`req-${i}`} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Obligatorio</label>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Orden:</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={f.orden}
+                                                                            onChange={e => {
+                                                                                const newFields = [...formData.camposExtras];
+                                                                                newFields[i].orden = parseInt(e.target.value);
+                                                                                setFormData({ ...formData, camposExtras: newFields });
+                                                                            }}
+                                                                            className="w-12 h-8 text-center bg-card border border-border rounded-lg text-xs font-black"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {(f.tipo === 'SINGLE_SELECT' || f.tipo === 'MULTIPLE_SELECT') && (
+                                                                <div className="space-y-2 text-left pt-2 border-t border-border/30">
+                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Opciones (separadas por coma)</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={typeof f.opciones === 'string' ? f.opciones : (Array.isArray(f.opciones) ? f.opciones.join(', ') : '')}
+                                                                        onChange={e => {
+                                                                            const newFields = [...formData.camposExtras];
+                                                                            newFields[i].opciones = e.target.value;
+                                                                            setFormData({ ...formData, camposExtras: newFields });
+                                                                        }}
+                                                                        className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-medium"
+                                                                        placeholder="Opción 1, Opción 2, Opción 3"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {formData.camposExtras.length === 0 && (
+                                                    <div className="py-12 border-2 border-dashed border-border/50 rounded-3xl flex flex-col items-center justify-center text-muted-foreground/40">
+                                                        <Settings2 className="w-10 h-10 mb-2 opacity-20" />
+                                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">No hay campos personalizados</p>
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        )}
+
+                                        {activeStep === 3 && (
+                                            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                                                 <ImageUpload
                                                     value={formData.banner}
                                                     onChange={url => setFormData({ ...formData, banner: url })}
@@ -754,39 +955,44 @@ export default function EventosPage() {
                                     </AnimatePresence>
                                 </div>
 
-                                {/* Footer */}
+                                {/* Footer del Modal */}
                                 <div className="px-8 py-5 border-t border-border/40 bg-muted/20 flex items-center justify-between flex-none">
                                     <div className="flex gap-2">
                                         {activeStep > 0 && (
                                             <button
+                                                type="button"
                                                 onClick={() => setActiveStep(s => s - 1)}
                                                 className="h-11 px-5 rounded-2xl bg-muted text-muted-foreground text-sm font-black hover:text-foreground transition-all"
                                             >
-                                                ← Anterior
+                                                Anterior
                                             </button>
                                         )}
                                         <button
+                                            type="button"
                                             onClick={() => setIsModalOpen(false)}
                                             className="h-11 px-5 rounded-2xl border border-border text-sm font-black text-muted-foreground hover:text-foreground transition-all"
                                         >
                                             Cancelar
                                         </button>
                                     </div>
+
                                     {activeStep < FORM_STEPS.length - 1 ? (
                                         <button
+                                            type="button"
                                             onClick={() => setActiveStep(s => s + 1)}
-                                            className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all"
+                                            className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all font-mono"
                                         >
-                                            Siguiente →
+                                            SIGUIENTE
                                         </button>
                                     ) : (
                                         <button
+                                            type="button"
                                             onClick={() => setIsConfirmingSave(true)}
                                             disabled={isLoading || !formData.nombre}
                                             className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
                                         >
                                             {isLoading ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                            {editingEvento ? 'Guardar Cambios' : 'Crear Evento'}
+                                            {editingEvento ? 'GUARDAR' : 'CREAR'}
                                         </button>
                                     )}
                                 </div>
@@ -805,8 +1011,8 @@ export default function EventosPage() {
                 description="Esta acción eliminará permanentemente el evento y toda la información asociada."
                 confirmText="Sí, eliminar"
                 cancelText="Cancelar"
-                type="danger"
-                isLoading={isLoading}
+                variant="danger"
+                loading={isLoading}
             />
             <ConfirmModal
                 isOpen={isConfirmingSave}
@@ -818,8 +1024,8 @@ export default function EventosPage() {
                     : 'Se publicará el nuevo evento en el cronograma institucional.'}
                 confirmText={editingEvento ? 'Confirmar' : 'Crear Evento'}
                 cancelText="Seguir editando"
-                type="info"
-                isLoading={isLoading}
+                variant="info"
+                loading={isLoading}
             />
         </div>
     );

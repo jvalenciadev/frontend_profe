@@ -23,12 +23,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+    children: ReactNode;
+    namespace?: string;
+}
+
+export function AuthProvider({ children, namespace }: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [ability, setAbility] = useState<AppAbility>(defineAbilityFromPermissions([], []));
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+
+    const tokenKey = namespace === 'aula' ? 'aula_token' : 'token';
+    const userKey = namespace === 'aula' ? 'aula_user' : 'user';
 
     const getRolesFromUser = (user: User | null): string[] => {
         if (!user) return [];
@@ -101,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Cargar usuario desde cookies al montar
     useEffect(() => {
         const loadUser = async () => {
-            const savedToken = Cookies.get('token');
-            const savedUser = Cookies.get('user');
+            const savedToken = Cookies.get(tokenKey);
+            const savedUser = Cookies.get(userKey);
 
             if (savedToken && savedUser) {
                 try {
@@ -119,16 +127,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         getRolesFromUser(parsedUser)
                     ));
                 } catch (error) {
-                    console.error('Error parsing user from cookies:', error);
-                    Cookies.remove('token');
-                    Cookies.remove('user');
+                    console.error(`Error parsing user from cookies (${userKey}):`, error);
+                    Cookies.remove(tokenKey);
+                    Cookies.remove(userKey);
                 }
             }
             setIsLoading(false);
         };
 
         loadUser();
-    }, []);
+    }, [tokenKey, userKey]);
 
     const login = (newToken: string, newUser: User) => {
         // Asegurar tenantId
@@ -144,8 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ));
 
         // Guardar en cookies (7 días)
-        Cookies.set('token', newToken, { expires: 7 });
-        Cookies.set('user', JSON.stringify(newUser), { expires: 7 });
+        Cookies.set(tokenKey, newToken, { expires: 7 });
+        Cookies.set(userKey, JSON.stringify(newUser), { expires: 7 });
     };
 
     const logout = () => {
@@ -153,10 +161,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setAbility(defineAbilityFromPermissions([], []));
 
-        Cookies.remove('token');
-        Cookies.remove('user');
+        Cookies.remove(tokenKey);
+        Cookies.remove(userKey);
 
-        router.push('/login');
+        if (namespace === 'aula') {
+            router.push('/aula/login');
+        } else {
+            router.push('/login');
+        }
     };
 
     const updateUser = (newUser: User) => {
@@ -165,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             getPermissionsFromUser(newUser),
             getRolesFromUser(newUser)
         ));
-        Cookies.set('user', JSON.stringify(newUser), { expires: 7 });
+        Cookies.set(userKey, JSON.stringify(newUser), { expires: 7 });
     };
 
     const isSuperAdmin = (): boolean => {

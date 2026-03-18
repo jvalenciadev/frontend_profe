@@ -105,7 +105,7 @@ export default function ProgramaProPage() {
             ...formData,
             modulos: [
                 ...formData.modulos,
-                { nombre: '', codigo: '', descripcion: '', notaMinima: 69 }
+                { nombre: '', codigo: '', descripcion: '' }
             ]
         });
     };
@@ -382,22 +382,13 @@ export default function ProgramaProPage() {
                                                 onChange={(e) => updateModulo(idx, 'codigo', e.target.value)}
                                             />
                                         </div>
-                                        <div className="md:col-span-3 space-y-1.5">
+                                        <div className="md:col-span-4 space-y-1.5">
                                             <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1">Descripción Técnica</label>
                                             <input
                                                 type="text"
                                                 className="w-full h-10 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground"
                                                 value={mod.descripcion}
                                                 onChange={(e) => updateModulo(idx, 'descripcion', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nota Min.</label>
-                                            <input
-                                                type="number"
-                                                className="w-full h-10 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground text-center"
-                                                value={mod.notaMinima}
-                                                onChange={(e) => updateModulo(idx, 'notaMinima', parseInt(e.target.value))}
                                             />
                                         </div>
                                     </div>

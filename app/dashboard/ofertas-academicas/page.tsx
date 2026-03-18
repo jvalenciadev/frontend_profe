@@ -30,6 +30,9 @@ import {
     Rocket,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
+    ArrowRight,
+    Mail,
     BookOpen,
     LayoutGrid,
     PlusCircle,
@@ -52,6 +55,7 @@ import { asignacionService } from '@/services/asignacionService';
 import { userService } from '@/services/userService';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { InscritosModal } from '@/components/academico/InscritosModal';
 
 export default function OfertasAcademicasPage() {
     const { user } = useAuth();
@@ -122,6 +126,7 @@ export default function OfertasAcademicasPage() {
     const [newAsignacion, setNewAsignacion] = useState({
         moduloId: '',
         turnoId: '',
+        selectedSlots: [] as string[], // Format: "moduloId:turnoId"
         facilitadorId: '',
     });
 
@@ -139,6 +144,10 @@ export default function OfertasAcademicasPage() {
         onConfirm: () => { },
         loading: false
     });
+
+    // Inscriptions State
+    const [isInscritosModalOpen, setIsInscritosModalOpen] = useState(false);
+    const [targetInscritosOferta, setTargetInscritosOferta] = useState<any>(null);
 
     useEffect(() => {
         loadData();
@@ -236,7 +245,7 @@ export default function OfertasAcademicasPage() {
             ...formData,
             modulos: [
                 ...formData.modulos,
-                { nombre: '', codigo: '', descripcion: '', notaMinima: 69, fechaInicio: '', fechaFin: '', estado: 'activo' }
+                { nombre: '', codigo: '', descripcion: '', orden: formData.modulos.length + 1, fechaInicio: '', fechaFin: '', estado: 'activo' }
             ]
         });
     };
@@ -273,6 +282,22 @@ export default function OfertasAcademicasPage() {
         const newTurnos = [...formData.turnos];
         newTurnos[index] = { ...newTurnos[index], [field]: value };
         setFormData({ ...formData, turnos: newTurnos });
+    };
+
+    const toggleSlot = (moduloId: string, turnoId: string) => {
+        const slotKey = `${moduloId}:${turnoId}`;
+        setNewAsignacion(prev => {
+            const isSelected = prev.selectedSlots.includes(slotKey);
+            return {
+                ...prev,
+                selectedSlots: isSelected
+                    ? prev.selectedSlots.filter(s => s !== slotKey)
+                    : [...prev.selectedSlots, slotKey],
+                // Clear single selection if we are using multiple
+                moduloId: '',
+                turnoId: ''
+            };
+        });
     };
 
     const handleEdit = (oferta: any) => {
@@ -315,14 +340,13 @@ export default function OfertasAcademicasPage() {
                 nombre: m.nombre,
                 codigo: m.codigo,
                 descripcion: m.descripcion,
-                notaMinima: m.notaMinima || 69,
                 estado: m.estado || 'activo',
                 fechaInicio: formatDate(m.fechaInicio),
                 fechaFin: formatDate(m.fechaFin)
             })) || [],
             turnos: oferta.turnos?.map((t: any) => ({
                 id: t.id,
-                turnoIds: t.turnoIds,
+                turnoIds: t.turnoIds || t.turnoId,
                 cupo: t.cupo || 0,
                 cupoPre: t.cupoPre || 0,
                 estado: t.estado || 'activo'
@@ -372,13 +396,13 @@ export default function OfertasAcademicasPage() {
                 fechaFinIns: nextMonth,
                 fechaIniClase: inTwoMonths,
                 modulos: fullMaster.modulos
-                    ?.filter((m: any) => m.estado !== 'INACTIVO' && m.estado !== 'ELIMINADO')
+                    ?.filter((m: any) => m.estado !== 'INACTIVO' && m.estado !== 'ELIMINADO' && !m.esGlobal)
                     .map((m: any) => ({
                         moduloId: m.id,
                         nombre: m.nombre,
                         codigo: m.codigo,
                         descripcion: m.descripcion,
-                        notaMinima: m.notaMinima || 69,
+                        orden: m.orden,
                         estado: m.estado || 'activo',
                         fechaInicio: inTwoMonths, // Default startup date
                         fechaFin: inTwoMonths     // Default end date
@@ -451,7 +475,7 @@ export default function OfertasAcademicasPage() {
 
     const handleOpenFacilitadores = async (oferta: any) => {
         setTargetOferta(oferta);
-        setNewAsignacion({ moduloId: '', turnoId: '', facilitadorId: '' });
+        setNewAsignacion({ moduloId: '', turnoId: '', selectedSlots: [], facilitadorId: '' });
         setFacilitadorSearch('');
         setIsFacilitadoresModalOpen(true);
         try {
@@ -473,7 +497,36 @@ export default function OfertasAcademicasPage() {
             return;
         }
 
-        if (!newAsignacion.moduloId || !newAsignacion.turnoId) {
+        const payloads: any[] = [];
+        const existingToReplace: any[] = [];
+
+        // Determine targets based on selection mode
+        let targets: { moduloId: string, turnoId: string }[] = [];
+
+        if (newAsignacion.selectedSlots.length > 0) {
+            // New Multi-selection mode
+            targets = newAsignacion.selectedSlots.map(s => {
+                const [mId, tId] = s.split(':');
+                return { moduloId: mId, turnoId: tId };
+            });
+        } else if (newAsignacion.moduloId && newAsignacion.turnoId) {
+            // Legacy / Standard selection mode
+            const targetModulos = newAsignacion.moduloId === 'all'
+                ? targetOferta?.modulos
+                : targetOferta?.modulos?.filter((m: any) => m.id === newAsignacion.moduloId);
+
+            const targetTurnos = newAsignacion.turnoId === 'all'
+                ? targetOferta?.turnos
+                : targetOferta?.turnos?.filter((t: any) => t.id === newAsignacion.turnoId);
+
+            targetModulos.forEach((m: any) => {
+                targetTurnos.forEach((t: any) => {
+                    targets.push({ moduloId: m.id, turnoId: t.id });
+                });
+            });
+        }
+
+        if (targets.length === 0) {
             toast('¿Dónde y Cuándo?', {
                 description: 'Falta definir el Módulo y el Turno para completar esta asignación.',
                 icon: <Clock className="w-5 h-5 text-primary animate-spin-slow" />,
@@ -483,52 +536,111 @@ export default function OfertasAcademicasPage() {
             return;
         }
 
-        const payloads: any[] = [];
-        const targetModulos = newAsignacion.moduloId === 'all'
-            ? targetOferta.modulos
-            : targetOferta.modulos.filter((m: any) => m.id === newAsignacion.moduloId);
+        targets.forEach(({ moduloId, turnoId }) => {
+            // Buscar si es un módulo maestro (Global) o un modulo dos
+            const isMasterModule = targetOferta?.programa?.modulos?.find((m: any) => m.id === moduloId && m.esGlobal);
+            const existing = asignaciones.find(as => 
+                (isMasterModule ? as.moduloMaestroId === moduloId : as.moduloId === moduloId) && 
+                as.turnoId === turnoId
+            );
+            
+            const payload = {
+                programaId: targetOferta?.id,
+                moduloId: isMasterModule ? null : moduloId,
+                moduloMaestroId: isMasterModule ? moduloId : null,
+                turnoId,
+                facilitadorId: newAsignacion.facilitadorId
+            };
 
-        const targetTurnos = newAsignacion.turnoId === 'all'
-            ? targetOferta.turnos
-            : targetOferta.turnos.filter((t: any) => t.id === newAsignacion.turnoId);
-
-        targetModulos.forEach((m: any) => {
-            targetTurnos.forEach((t: any) => {
-                payloads.push({
-                    programaId: targetOferta.id,
-                    moduloId: m.id,
-                    turnoId: t.id,
-                    facilitadorId: newAsignacion.facilitadorId
-                });
-            });
+            if (existing) {
+                existingToReplace.push({ ...payload, id: existing.id });
+            } else {
+                payloads.push(payload);
+            }
         });
 
-        if (payloads.length === 0) {
-            toast('Ruta sin Destino', {
-                description: 'No se encontraron combinaciones de módulos o turnos válidos para esta asignación.',
-                icon: <LayoutGrid className="w-5 h-5 text-destructive" />,
-                className: "rounded-2xl border-destructive/20 bg-destructive/5 backdrop-blur-sm",
-                duration: 4000
+        if (payloads.length === 0 && existingToReplace.length === 0) {
+            toast.error('No hay combinaciones válidas seleccionadas.');
+            return;
+        }
+
+        // Si es una asignación individual y ya existe alguien, preguntar si reemplazar
+        if (newAsignacion.moduloId !== 'all' && newAsignacion.turnoId !== 'all' && existingToReplace.length > 0) {
+            const currentAsig = existingToReplace[0];
+            const currentFac = asignaciones.find(a => a.id === currentAsig.id)?.facilitador;
+
+            setConfirmAction({
+                isOpen: true,
+                title: 'Reemplazar Facilitador',
+                description: `Este espacio ya está asignado a ${currentFac?.nombre || 'otro docente'}. ¿Deseas reemplazarlo con el nuevo facilitador seleccionado?`,
+                loading: false,
+                variant: 'warning',
+                onConfirm: async () => {
+                    try {
+                        setIsLoading(true);
+                        await asignacionService.update(currentAsig.id, { facilitadorId: newAsignacion.facilitadorId });
+                        if (targetOferta?.id) {
+                            const data = await asignacionService.getByPrograma(targetOferta.id);
+                            setAsignaciones(data);
+                        }
+                        setNewAsignacion({ moduloId: '', turnoId: '', selectedSlots: [], facilitadorId: '' });
+                        toast.success('Facilitador actualizado correctamente');
+                    } catch (error) {
+                        toast.error('Error al actualizar la asignación');
+                    } finally {
+                        setIsLoading(false);
+                        setConfirmAction(prev => ({ ...prev, isOpen: false }));
+                    }
+                }
             });
             return;
         }
 
-        const isMassive = payloads.length > 1;
+        // Para asignaciones masivas
+        if (payloads.length > 0 || existingToReplace.length > 0) {
+            const isMassive = (payloads.length + existingToReplace.length) > 1;
 
-        if (isMassive) {
-            setConfirmAction({
-                isOpen: true,
-                title: 'Asignación Masiva',
-                description: `Se realizarán ${payloads.length} asignaciones automáticamente. ¿Deseas continuar con el proceso masivo?`,
-                loading: false,
-                variant: 'warning',
-                onConfirm: async () => {
-                    await executeAsignaciones(payloads, true);
-                    setConfirmAction(prev => ({ ...prev, isOpen: false }));
-                }
-            });
-        } else {
-            await executeAsignaciones(payloads, false);
+            if (isMassive) {
+                const hasExisting = existingToReplace.length > 0;
+                setConfirmAction({
+                    isOpen: true,
+                    title: hasExisting ? 'Reasignación Masiva' : 'Asignación Masiva',
+                    description: hasExisting
+                        ? `Se detectaron ${existingToReplace.length} espacios ya asignados. ¿Deseas REASIGNARLOS a todos con el nuevo facilitador o solo registrar en los que están vacíos?`
+                        : `Se realizarán ${payloads.length} asignaciones nuevas. ¿Confirmar el proceso masivo?`,
+                    loading: false,
+                    variant: 'warning',
+                    onConfirm: async () => {
+                        // Si el usuario confirma REASIGNAR (en caso de error masivo)
+                        // Ejecutamos ambos: crear nuevos y actualizar existentes
+                        try {
+                            setIsLoading(true);
+                            // Crear nuevos
+                            for (const p of payloads) {
+                                await asignacionService.create(p, { _silent: true });
+                            }
+                            // Actualizar existentes (Arreglar errores)
+                            for (const r of existingToReplace) {
+                                await asignacionService.update(r.id, { facilitadorId: newAsignacion.facilitadorId });
+                            }
+
+                            if (targetOferta?.id) {
+                                const data = await asignacionService.getByPrograma(targetOferta.id);
+                                setAsignaciones(data);
+                            }
+                            setNewAsignacion({ moduloId: '', turnoId: '', selectedSlots: [], facilitadorId: '' });
+                            toast.success(`Se procesaron ${payloads.length + existingToReplace.length} espacios correctamente.`);
+                        } catch (error) {
+                            toast.error('Ocurrió un error en el proceso masivo');
+                        } finally {
+                            setIsLoading(false);
+                            setConfirmAction(prev => ({ ...prev, isOpen: false }));
+                        }
+                    }
+                });
+            } else if (payloads.length === 1) {
+                await executeAsignaciones(payloads, false);
+            }
         }
     };
 
@@ -557,9 +669,11 @@ export default function OfertasAcademicasPage() {
                 }
             }
 
-            const data = await asignacionService.getByPrograma(targetOferta.id);
-            setAsignaciones(data);
-            setNewAsignacion({ moduloId: '', turnoId: '', facilitadorId: '' });
+            if (targetOferta?.id) {
+                const data = await asignacionService.getByPrograma(targetOferta.id);
+                setAsignaciones(data);
+            }
+            setNewAsignacion({ moduloId: '', turnoId: '', selectedSlots: [], facilitadorId: '' });
         } catch (error) {
             console.error('Error en proceso de asignación:', error);
         } finally {
@@ -578,8 +692,10 @@ export default function OfertasAcademicasPage() {
                 try {
                     setConfirmAction(prev => ({ ...prev, loading: true }));
                     await asignacionService.delete(id);
-                    const data = await asignacionService.getByPrograma(targetOferta.id);
-                    setAsignaciones(data);
+                    if (targetOferta?.id) {
+                        const data = await asignacionService.getByPrograma(targetOferta.id);
+                        setAsignaciones(data);
+                    }
                     setConfirmAction(prev => ({ ...prev, isOpen: false }));
                 } catch (error) {
                     toast.error('Error al eliminar');
@@ -916,11 +1032,11 @@ export default function OfertasAcademicasPage() {
                                                             {o.turnos && o.turnos.length > 0 ? (
                                                                 o.turnos.map((t: any) => {
                                                                     // Encontrar el nombre del turno desde turnosMaster si es posible
-                                                                    const masterT = turnosMaster.find(mt => mt.id === t.turnoIds);
+                                                                    const masterT = turnosMaster.find(mt => mt.id === (t.turnoIds || t.turnoId));
                                                                     return (
                                                                         <div key={t.id} className="flex flex-col px-2 py-1 rounded-lg bg-primary/5 border border-primary/10 min-w-[70px]">
                                                                             <span className="text-[8px] font-black text-primary uppercase truncate">
-                                                                                {masterT?.nombre || 'T. Especial'}
+                                                                                {masterT?.nombre || (t.turnoConfig?.nombre) || 'T. Especial'}
                                                                             </span>
                                                                             <div className="flex items-center justify-between mt-0.5">
                                                                                 <span className="text-[9px] font-black text-foreground">
@@ -944,6 +1060,16 @@ export default function OfertasAcademicasPage() {
                                                             <Award className="w-4 h-4" />
                                                             {o.modulos?.length || 0} Módulos
                                                         </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                setTargetInscritosOferta(o);
+                                                                setIsInscritosModalOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[8px] font-black uppercase hover:shadow-lg hover:shadow-primary/20 transition-all shadow-sm"
+                                                        >
+                                                            <UserPlus className="w-3 h-3" />
+                                                            Inscritos
+                                                        </button>
                                                         <button
                                                             onClick={() => handleOpenFacilitadores(o)}
                                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[8px] font-black uppercase hover:bg-primary hover:text-white transition-all shadow-sm"
@@ -1435,16 +1561,6 @@ export default function OfertasAcademicasPage() {
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Nota Mínima</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold disabled:opacity-70 disabled:bg-muted/30"
-                                                        value={modulo.notaMinima}
-                                                        onChange={(e) => updateModulo(index, 'notaMinima', parseInt(e.target.value))}
-                                                        disabled={!!selectedMaster}
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
                                                     <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Estado</label>
                                                     <select
                                                         className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
@@ -1510,7 +1626,9 @@ export default function OfertasAcademicasPage() {
                                                     >
                                                         <option value="">Seleccionar Turno</option>
                                                         {turnosMaster.map(tm => (
-                                                            <option key={tm.id} value={tm.id}>{tm.nombre}</option>
+                                                            <option key={tm.id} value={tm.id}>
+                                                                {tm.nombre?.toUpperCase()} {tm.descripcion ? `- ${tm.descripcion}` : ''}
+                                                            </option>
                                                         ))}
                                                     </select>
                                                 </div>
@@ -1568,243 +1686,298 @@ export default function OfertasAcademicasPage() {
                 size="2xl"
             >
                 <div className="space-y-8 max-h-[75vh] overflow-y-auto px-2 pr-4 custom-scrollbar">
-                    {/* New Assignment Form */}
-                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <UserPlus className="w-5 h-5 text-primary" />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                        {/* Matrix Column - Mobile Scrollable */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                                        <LayoutGrid className="w-4 h-4 text-indigo-500" />
+                                    </div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-foreground">Matriz de Cobertura</h4>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const allSlots: string[] = [];
+                                        for (const m of targetOferta.modulos) {
+                                            for (const t of targetOferta.turnos) {
+                                                allSlots.push(`${m.id}:${t.id}`);
+                                            }
+                                        }
+                                        setNewAsignacion(prev => ({ ...prev, selectedSlots: allSlots, moduloId: '', turnoId: '' }));
+                                    }}
+                                    className="text-[9px] font-black uppercase text-primary hover:underline"
+                                >
+                                    Fijar Todo
+                                </button>
                             </div>
-                            <div>
-                                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground">Nueva Asignación</h4>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase">Vincular docente a módulo y turno</p>
+
+                            <div className="rounded-2xl border border-border/50 bg-card/50 overflow-hidden">
+                                <div className="overflow-x-auto custom-scrollbar">
+                                    <table className="w-full border-collapse min-w-[500px]">
+                                        <thead>
+                                            <tr className="bg-muted/30 border-b border-border/40">
+                                                <th className="p-2 w-24"></th>
+                                                {targetOferta?.turnos?.map((t: any) => {
+                                                    const masterT = turnosMaster.find((x: any) => x.id === (t.turnoIds || t.turnoId));
+                                                    return (
+                                                        <th key={t.id} className="p-2 border-r border-border/10 last:border-r-0">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const columnSlots = (targetOferta?.modulos || []).map((m: any) => `${m.id}:${t.id}`);
+                                                                    setNewAsignacion(prev => ({
+                                                                        ...prev,
+                                                                        selectedSlots: Array.from(new Set([...prev.selectedSlots, ...columnSlots])),
+                                                                        moduloId: '',
+                                                                        turnoId: ''
+                                                                    }));
+                                                                }}
+                                                                className="flex flex-col items-center gap-1 group/th"
+                                                                title={`Seleccionar todos los módulos para el turno ${masterT?.nombre || 'Especial'}`}
+                                                            >
+                                                                <span className="text-[8px] font-black uppercase text-muted-foreground group-hover/th:text-primary transition-colors">
+                                                                    {masterT?.nombre || (t.turnoConfig?.nombre) || 'S/T'}
+                                                                </span>
+                                                                <ChevronDown className="w-2.5 h-2.5 text-muted-foreground/30 group-hover/th:text-primary animate-bounce-subtle" />
+                                                            </button>
+                                                        </th>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {/* SECCIÓN MÓDULOS GLOBALES (MÓDULO 0) */}
+                                            {targetOferta?.programa?.modulos?.filter((m: any) => m.esGlobal).map((gm: any) => (
+                                                <tr key={gm.id} className="border-b border-indigo-500/20 bg-indigo-500/[0.03]">
+                                                    <td className="p-2 border-r border-border/10 bg-indigo-500/5">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[10px] font-black">M0</div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] font-black text-indigo-700 uppercase leading-none">{gm.nombre}</span>
+                                                                <span className="text-[7px] font-bold text-indigo-400 uppercase tracking-tighter mt-0.5">Módulo Global</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    {targetOferta?.turnos?.map((t: any) => {
+                                                        const asig = asignaciones.find((a: any) => a.moduloMaestroId === gm.id && a.turnoId === t.id);
+                                                        const isSelected = newAsignacion.selectedSlots.includes(`${gm.id}:${t.id}`);
+
+                                                        return (
+                                                            <td key={t.id} className="p-1 border-r last:border-r-0 border-border/10 relative">
+                                                                <button
+                                                                    onClick={() => toggleSlot(gm.id, t.id)}
+                                                                    className={cn(
+                                                                        "w-full h-10 rounded-xl flex flex-col items-center justify-center gap-1 transition-all border-2",
+                                                                        isSelected
+                                                                            ? "bg-indigo-600 border-indigo-600 text-white shadow-md scale-[0.98]"
+                                                                            : asig
+                                                                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700"
+                                                                                : "bg-indigo-500/5 border-dashed border-indigo-200 hover:border-indigo-400"
+                                                                    )}
+                                                                >
+                                                                    {asig && !isSelected ? (
+                                                                        <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-emerald-500/20 shadow-sm">
+                                                                            {asig.facilitador?.imagen ? <img src={asig.facilitador.imagen} className="w-full h-full object-cover" /> : <UserCircle className="w-full h-full p-0.5" />}
+                                                                        </div>
+                                                                    ) : isSelected ? <BadgeCheck className="w-4 h-4 text-white" /> : <PlusCircle className="w-3.5 h-3.5 text-indigo-200" />}
+                                                                </button>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+
+                                            {/* SECCIÓN MÓDULOS REGULARES */}
+                                            {(targetOferta?.modulos || []).sort((a: any, b: any) => (a.orden || 0) - (b.orden || 0)).map((m: any) => {
+                                                const rowIsSelected = newAsignacion.moduloId === m.id && newAsignacion.turnoId === 'all';
+                                                return (
+                                                    <tr key={m.id} className="border-b border-border/10 last:border-b-0">
+                                                        <td className="p-2 border-r border-border/10">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const rowSlots = (targetOferta?.turnos || []).map((t: any) => `${m.id}:${t.id}`);
+                                                                    setNewAsignacion(prev => ({
+                                                                        ...prev,
+                                                                        selectedSlots: Array.from(new Set([...prev.selectedSlots, ...rowSlots])),
+                                                                        moduloId: '',
+                                                                        turnoId: ''
+                                                                    }));
+                                                                }}
+                                                                className="flex items-center gap-2 group/tr w-full text-left"
+                                                                title={`Seleccionar todos los turnos para el módulo: ${m.nombre}`}
+                                                            >
+                                                                <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/30 group-hover/tr:text-primary transition-transform group-hover/tr:translate-x-0.5" />
+                                                                <span className="text-[8px] font-black uppercase text-foreground group-hover/tr:text-primary transition-colors truncate max-w-[90px]">
+                                                                    {m.nombre}
+                                                                </span>
+                                                            </button>
+                                                        </td>
+                                                        {targetOferta?.turnos?.map((t: any) => {
+                                                            const asig = asignaciones.find((a: any) => a.moduloId === m.id && a.turnoId === t.id);
+                                                            const isLegacySelected = (newAsignacion.moduloId === m.id || newAsignacion.moduloId === 'all') &&
+                                                                (newAsignacion.turnoId === t.id || newAsignacion.turnoId === 'all');
+                                                            const isMultiSelected = newAsignacion.selectedSlots.includes(`${m.id}:${t.id}`);
+                                                            const isSelected = isLegacySelected || isMultiSelected;
+
+                                                            return (
+                                                                 <td key={t.id} className="p-1 border-r last:border-r-0 border-border/10 relative">
+                                                                     <button
+                                                                         onClick={() => toggleSlot(m.id, t.id)}
+                                                                         title={asig ? `Módulo asignado a ${asig.facilitador?.nombre}` : 'Espacio disponible'}
+                                                                         className={cn(
+                                                                             "w-full h-10 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center border-2",
+                                                                             isSelected
+                                                                                 ? "bg-primary border-primary text-white shadow-md shadow-primary/10 scale-[0.98]"
+                                                                                 : asig
+                                                                                     ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10"
+                                                                                     : "bg-background border-dashed border-border/60 hover:border-primary/40 text-muted-foreground hover:bg-primary/5"
+                                                                         )}
+                                                                     >
+                                                                         {asig && !isSelected ? (
+                                                                             <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-emerald-500/20 shadow-sm">
+                                                                                 {asig.facilitador?.imagen ? (
+                                                                                     <img src={asig.facilitador.imagen} className="w-full h-full object-cover" />
+                                                                                 ) : <UserCircle className="w-full h-full p-0.5" />}
+                                                                             </div>
+                                                                         ) : isSelected ? (
+                                                                             <div className="flex flex-col items-center">
+                                                                                 <BadgeCheck className="w-4 h-4 text-white animate-in zoom-in" />
+                                                                             </div>
+                                                                         ) : (
+                                                                             <PlusCircle className={cn("w-3.5 h-3.5", "text-muted-foreground/20 group-hover/tr:text-primary/30")} />
+                                                                         )}
+                                                                     </button>
+                                                                 </td>
+                                                             );
+                                                         })}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-6 border-b border-border/50">
-                            <div className="space-y-6">
-                                {/* Módulos Visual Selector */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between px-1">
-                                        <div className="flex items-center gap-2">
-                                            <Box className="w-3.5 h-3.5 text-primary" />
-                                            <label className="text-[9px] font-black text-foreground uppercase tracking-[0.2em]">Seleccionar Módulos</label>
+                        {/* Action Column */}
+                        <div className="space-y-4">
+                            <div className="p-5 rounded-3xl bg-muted/20 border border-border/50 space-y-5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-primary/10 rounded-lg">
+                                            <UserPlus className="w-3.5 h-3.5 text-primary" />
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewAsignacion({ ...newAsignacion, moduloId: newAsignacion.moduloId === 'all' ? '' : 'all' })}
-                                            className={cn(
-                                                "text-[8px] font-black uppercase px-3 py-1 rounded-lg border transition-all",
-                                                newAsignacion.moduloId === 'all'
-                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
-                                                    : "text-muted-foreground border-border hover:border-primary hover:bg-primary/5 shadow-sm"
-                                            )}
-                                        >
-                                            Seleccionar Todos
-                                        </button>
+                                        <h4 className="text-[9px] font-black uppercase tracking-widest text-foreground">Asignar Personal</h4>
                                     </div>
-
-                                    <div className="grid grid-cols-1 gap-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {targetOferta?.modulos?.map((m: any) => {
-                                            const isSelected = newAsignacion.moduloId === m.id || newAsignacion.moduloId === 'all';
-                                            return (
-                                                <button
-                                                    key={m.id}
-                                                    type="button"
-                                                    disabled={newAsignacion.moduloId === 'all'}
-                                                    onClick={() => setNewAsignacion({ ...newAsignacion, moduloId: m.id })}
-                                                    className={cn(
-                                                        "flex items-center gap-3 p-3 rounded-xl border text-left transition-all group/m",
-                                                        isSelected
-                                                            ? "bg-primary/5 border-primary text-primary shadow-sm"
-                                                            : "bg-card border-border hover:border-primary/50 text-muted-foreground",
-                                                        newAsignacion.moduloId === 'all' && "opacity-60 cursor-not-allowed border-primary/20"
-                                                    )}
-                                                >
-                                                    <div className={cn(
-                                                        "w-6 h-6 rounded-lg flex items-center justify-center border transition-colors",
-                                                        isSelected ? "bg-primary border-primary text-white" : "bg-muted border-border group-hover/m:border-primary/30"
-                                                    )}>
-                                                        {isSelected ? <CheckCircle2 className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-[10px] font-black uppercase truncate leading-none mb-1">{m.nombre}</p>
-                                                        <p className="text-[7px] font-bold uppercase opacity-60">Código: {m.codigo}</p>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
+                                    <div className="px-2 py-1 rounded bg-card border border-border text-[8px] font-black text-primary uppercase">
+                                        {(() => {
+                                            if (newAsignacion.selectedSlots.length > 0) return `${newAsignacion.selectedSlots.length} Cupos`;
+                                            const mCount = newAsignacion.moduloId === 'all' ? targetOferta?.modulos?.length : (newAsignacion.moduloId ? 1 : 0);
+                                            const tCount = newAsignacion.turnoId === 'all' ? targetOferta?.turnos?.length : (newAsignacion.turnoId ? 1 : 0);
+                                            return `${mCount * tCount} Cupos`;
+                                        })()}
                                     </div>
                                 </div>
 
-                                {/* Turnos Visual Selector */}
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between px-1">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-3.5 h-3.5 text-primary" />
-                                            <label className="text-[9px] font-black text-foreground uppercase tracking-[0.2em]">Seleccionar Turnos</label>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewAsignacion({ ...newAsignacion, turnoId: newAsignacion.turnoId === 'all' ? '' : 'all' })}
-                                            className={cn(
-                                                "text-[8px] font-black uppercase px-3 py-1 rounded-lg border transition-all",
-                                                newAsignacion.turnoId === 'all'
-                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
-                                                    : "text-muted-foreground border-border hover:border-primary hover:bg-primary/5 shadow-sm"
-                                            )}
-                                        >
-                                            Seleccionar Todos
-                                        </button>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        {targetOferta?.turnos?.map((t: any) => {
-                                            const mt = turnosMaster.find(x => x.id === t.turnoIds);
-                                            const isSelected = newAsignacion.turnoId === t.id || newAsignacion.turnoId === 'all';
-                                            return (
-                                                <button
-                                                    key={t.id}
-                                                    type="button"
-                                                    disabled={newAsignacion.turnoId === 'all'}
-                                                    onClick={() => setNewAsignacion({ ...newAsignacion, turnoId: t.id })}
-                                                    className={cn(
-                                                        "px-4 py-2.5 rounded-xl border flex items-center gap-2 transition-all",
-                                                        isSelected
-                                                            ? "bg-primary/5 border-primary text-primary shadow-sm"
-                                                            : "bg-card border-border hover:border-primary/50 text-muted-foreground",
-                                                        newAsignacion.turnoId === 'all' && "opacity-60 cursor-not-allowed border-primary/20"
-                                                    )}
-                                                >
-                                                    <span className="text-[10px] font-black uppercase tracking-tight">{mt?.nombre || 'ESP'}</span>
-                                                    {isSelected && <CheckCircle2 className="w-3 h-3 animate-in zoom-in" />}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="space-y-2 relative">
-                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">Buscador Inteligente de Facilitadores</label>
-                                    <div className="relative group/search">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within/search:text-primary transition-colors" />
+                                    <div className="relative group">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                         <input
                                             type="text"
-                                            placeholder="Escriba nombre, apellidos o especialidad..."
-                                            className="w-full h-12 pl-12 pr-4 rounded-2xl bg-card border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none text-[12px] font-bold transition-all shadow-sm"
+                                            placeholder="Buscar Facilitador..."
+                                            className="w-full h-10 pl-11 pr-4 rounded-xl bg-card border border-border focus:border-primary outline-none text-[11px] font-bold transition-all shadow-sm"
                                             value={facilitadorSearch}
                                             onChange={(e) => setFacilitadorSearch(e.target.value)}
                                         />
 
-                                        {/* Floating Search Results */}
                                         {facilitadorSearch && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 z-[100] bg-card border border-border rounded-2xl shadow-2xl shadow-primary/20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                                <div className="p-2 bg-muted/30 border-b border-border flex items-center justify-between">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground opacity-60 ml-2">Resultados encontrados: {facilitadores.length}</span>
-                                                    <button onClick={() => setFacilitadorSearch('')} className="p-1 hover:bg-rose-500/10 rounded-lg text-rose-500 transition-colors">
-                                                        <XCircle className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                                <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1.5 grid grid-cols-1 gap-1">
+                                            <div className="absolute top-full left-0 right-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                                                <div className="max-h-[200px] overflow-y-auto p-1 grid grid-cols-1 gap-1">
                                                     {facilitadores.length === 0 ? (
-                                                        <div className="p-10 text-center opacity-30">
-                                                            <Users2 className="w-8 h-8 mx-auto mb-2" />
-                                                            <p className="text-[10px] font-black uppercase tracking-widest">Sin coincidencias</p>
-                                                        </div>
+                                                        <div className="py-6 text-center opacity-30 text-[9px] font-black uppercase">Sin resultados</div>
                                                     ) : (
-                                                        facilitadores.map(f => {
-                                                            const isSelected = newAsignacion.facilitadorId === f.id;
-                                                            return (
-                                                                <button
-                                                                    key={f.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setNewAsignacion({ ...newAsignacion, facilitadorId: f.id });
-                                                                        setFacilitadorSearch('');
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex items-center gap-4 p-3 rounded-xl transition-all text-left group/item",
-                                                                        isSelected
-                                                                            ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.01]"
-                                                                            : "hover:bg-primary/5 text-foreground hover:text-primary"
-                                                                    )}
-                                                                >
-                                                                    <div className={cn(
-                                                                        "w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors overflow-hidden border-2",
-                                                                        isSelected ? "border-white/40 bg-white/20" : "border-primary/20 bg-primary/5"
-                                                                    )}>
-                                                                        {f.imagen ? (
-                                                                            <img src={f.imagen} alt={f.nombre} className="w-full h-full object-cover" />
-                                                                        ) : (
-                                                                            <UserCircle className="w-5 h-5 text-inherit" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-[11px] font-black uppercase truncate leading-none mb-1">{f.nombre} {f.apellidos}</p>
-                                                                        <p className={cn(
-                                                                            "text-[8px] font-bold uppercase truncate opacity-70",
-                                                                            isSelected ? "text-white" : "text-muted-foreground"
-                                                                        )}>
-                                                                            {f.cargo || 'Docente'} • {f.correo}
-                                                                        </p>
-                                                                    </div>
-                                                                    {isSelected ? (
-                                                                        <CheckCircle2 className="w-5 h-5 text-white animate-in zoom-in" />
-                                                                    ) : (
-                                                                        <Plus className="w-4 h-4 opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })
+                                                        facilitadores.map(f => (
+                                                            <button
+                                                                key={f.id}
+                                                                onClick={() => {
+                                                                    setNewAsignacion({ ...newAsignacion, facilitadorId: f.id });
+                                                                    setFacilitadorSearch('');
+                                                                }}
+                                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary/5 text-left transition-all"
+                                                            >
+                                                                <div className="w-7 h-7 rounded bg-primary/5 flex items-center justify-center border border-primary/5 overflow-hidden shrink-0">
+                                                                    {f.imagen ? <img src={f.imagen} className="w-full h-full object-cover" /> : <UserCircle className="w-4 h-4 text-primary" />}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[9px] font-black uppercase tracking-tight truncate">{f.nombre} {f.apellidos}</p>
+                                                                    <p className="text-[7px] font-bold text-muted-foreground opacity-60 truncate">{f.correo}</p>
+                                                                </div>
+                                                            </button>
+                                                        ))
                                                     )}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
+
+                                    {newAsignacion.facilitadorId && (
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-primary text-white animate-in zoom-in duration-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 bg-white/10 shrink-0">
+                                                    {(() => {
+                                                        const f = facilitadores.find((x: any) => x.id === newAsignacion.facilitadorId);
+                                                        return f?.imagen ? <img src={f.imagen} className="w-full h-full object-cover" /> : <UserCircle className="w-5 h-5 m-auto" />;
+                                                    })()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black uppercase truncate">
+                                                        {(() => {
+                                                            const f = facilitadores.find((x: any) => x.id === newAsignacion.facilitadorId);
+                                                            return f ? `${f.nombre} ${f.apellidos}` : '...';
+                                                        })()}
+                                                    </p>
+                                                    <p className="text-[7px] font-bold opacity-60 uppercase">Docente Seleccionado</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setNewAsignacion({ ...newAsignacion, facilitadorId: '' })} className="p-1 hover:bg-white/10 rounded">
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleCreateAsignacion}
+                                        disabled={isLoading || !newAsignacion.facilitadorId}
+                                        className={cn(
+                                            "w-full h-11 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                                            !newAsignacion.facilitadorId
+                                                ? "bg-muted text-muted-foreground opacity-50"
+                                                : "bg-primary text-white hover:shadow-lg hover:shadow-primary/20 active:scale-95"
+                                        )}
+                                    >
+                                        <Save className="w-3.5 h-3.5" />
+                                        Confirmar Asignación
+                                    </button>
                                 </div>
-
-                                {/* Selected Facilitator Card/Badge */}
-                                {newAsignacion.facilitadorId && (
-                                    <div className="relative p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center gap-4 animate-in zoom-in duration-300">
-                                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/30 flex items-center justify-center bg-primary/10">
-                                            {(() => {
-                                                const f = facilitadores.find(x => x.id === newAsignacion.facilitadorId);
-                                                return f?.imagen ? (
-                                                    <img src={f.imagen} className="w-full h-full object-cover" />
-                                                ) : <UserCircle className="w-7 h-7 text-primary" />;
-                                            })()}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mb-1">Docente Seleccionado</p>
-                                            <h5 className="text-[13px] font-black uppercase tracking-tight text-foreground">
-                                                {(() => {
-                                                    const f = facilitadores.find(x => x.id === newAsignacion.facilitadorId);
-                                                    return f ? `${f.nombre} ${f.apellidos}` : 'Seleccionado';
-                                                })()}
-                                            </h5>
-                                        </div>
-                                        <button
-                                            onClick={() => setNewAsignacion({ ...newAsignacion, facilitadorId: '' })}
-                                            className="p-2 rounded-xl bg-card border border-border text-muted-foreground hover:text-destructive transition-colors shadow-sm"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
                             </div>
-                        </div>
 
-                        <button
-                            onClick={handleCreateAsignacion}
-                            disabled={isLoading}
-                            className="w-full h-11 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                        >
-                            <Save className="w-4 h-4" />
-                            {newAsignacion.moduloId === 'all' || newAsignacion.turnoId === 'all'
-                                ? 'Confirmar Asignación Masiva'
-                                : 'Confirmar Asignación Individual'}
-                        </button>
+                            {/* Global Statistics Compact */}
+                            {targetOferta && (
+                                <div className="p-4 rounded-2xl bg-card border border-border flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full border-2 border-primary/20 flex items-center justify-center relative">
+                                        <span className="text-[9px] font-black text-primary">
+                                            {Math.round((asignaciones.length / (targetOferta.modulos.length * targetOferta.turnos.length || 1)) * 100)}%
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Cobertura Académica</p>
+                                        <p className="text-[10px] font-black text-foreground uppercase">
+                                            {asignaciones.length} de {targetOferta.modulos.length * targetOferta.turnos.length} Puestos
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Academic Coverage Radar - Mini Institutional Version */}
@@ -1874,7 +2047,7 @@ export default function OfertasAcademicasPage() {
                     {(() => {
                         const pending = [];
                         if (targetOferta?.modulos && targetOferta?.turnos) {
-                            for (const m of targetOferta.modulos) {
+                            for (const m of [...targetOferta.modulos].sort((a: any, b: any) => (a.orden || 0) - (b.orden || 0))) {
                                 for (const t of targetOferta.turnos) {
                                     const isAssigned = asignaciones.some(as => as.moduloId === m.id && as.turnoId === t.id);
                                     if (!isAssigned) pending.push({ modulo: m, turno: t });
@@ -1898,7 +2071,7 @@ export default function OfertasAcademicasPage() {
                                                 <div className="min-w-0">
                                                     <p className="text-[9px] font-black uppercase truncate text-foreground">{p.modulo.nombre}</p>
                                                     <p className="text-[8px] font-bold uppercase truncate text-muted-foreground italic">
-                                                        Turno: {turnosMaster.find(x => x.id === p.turno.turnoIds)?.nombre || 'S/T'}
+                                                        Turno: {p.turno.turnoConfig?.nombre || turnosMaster.find(x => x.id === (p.turno.turnoId || p.turno.turnoIds))?.nombre || 'S/T'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1941,36 +2114,69 @@ export default function OfertasAcademicasPage() {
                                     <p className="text-[10px] font-black uppercase tracking-widest">No hay facilitadores vinculados aún</p>
                                 </div>
                             ) : (
-                                asignaciones.map((as: any) => (
-                                    <div key={as.id} className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
-                                                {as.facilitador?.imagen ? (
-                                                    <img src={as.facilitador.imagen} alt={as.facilitador.nombre} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <UserCircle className="w-6 h-6" />
-                                                )}
+                                Object.entries(
+                                    asignaciones.reduce((acc: any, curr: any) => {
+                                        const turn = curr.turno?.turnoConfig || turnosMaster.find(x => x.id === (curr.turno?.turnoId || curr.turno?.turnoIds));
+                                        const turnName = turn?.nombre || 'S/T';
+                                        if (!acc[turnName]) acc[turnName] = [];
+                                        acc[turnName].push(curr);
+                                        return acc;
+                                    }, {})
+                                ).map(([turnName, items]: [string, any]) => (
+                                    <div key={turnName} className="space-y-3 mb-6 last:mb-0 animate-in fade-in slide-in-from-left-2 transition-all">
+                                        <div className="flex items-center gap-3 px-1">
+                                            <div className="h-px flex-1 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent" />
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-3 h-3 text-primary animate-pulse" />
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">{turnName}</span>
                                             </div>
-                                            <div>
-                                                <h5 className="text-[11px] font-black uppercase tracking-tight text-foreground">
-                                                    {as.facilitador?.nombre} {as.facilitador?.apellidos}
-                                                </h5>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="text-[8px] font-bold text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
-                                                        MOD: {as.modulo?.nombre}
-                                                    </span>
-                                                    <span className="text-[8px] font-bold text-primary uppercase px-1.5 py-0.5 rounded bg-primary/5">
-                                                        TURNO: {as.turno?.turnoIds ? (turnosMaster.find(x => x.id === as.turno.turnoIds)?.nombre) : 'ESP'}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                            <div className="h-px flex-1 bg-gradient-to-l from-primary/20 via-primary/5 to-transparent" />
                                         </div>
-                                        <button
-                                            onClick={() => handleDeleteAsignacion(as.id)}
-                                            className="p-2.5 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {items.sort((a: any, b: any) => (a.modulo?.nombre || '').localeCompare(b.modulo?.nombre || '')).map((as: any) => (
+                                                <div key={as.id} className="group relative flex items-center justify-between p-3 rounded-2xl bg-muted/20 border border-border/40 hover:bg-card hover:border-primary/30 transition-all duration-300">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/5">
+                                                            {as.facilitador?.imagen ? (
+                                                                <img src={as.facilitador.imagen} alt={as.facilitador.nombre} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <UserCircle className="w-5 h-5" />
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-0.5">
+                                                            <h5 className="text-[11px] font-black uppercase text-foreground leading-tight">
+                                                                {as.facilitador?.nombre} {as.facilitador?.apellidos}
+                                                            </h5>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Box className="w-2.5 h-2.5 text-muted-foreground" />
+                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
+                                                                    {as.modulo?.nombre || 'Módulo'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <button
+                                                            onClick={() => {
+                                                                setNewAsignacion({ ...newAsignacion, moduloId: as.moduloId, turnoId: as.turnoId });
+                                                                toast.info('Reasignando', { description: as.modulo?.nombre });
+                                                            }}
+                                                            className="p-2 rounded-lg hover:bg-primary hover:text-white transition-colors text-muted-foreground"
+                                                        >
+                                                            <RefreshCw className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteAsignacion(as.id)}
+                                                            className="p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors text-rose-500"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))
                             )}
@@ -1987,6 +2193,12 @@ export default function OfertasAcademicasPage() {
                 description={confirmAction.description}
                 loading={confirmAction.loading}
                 variant={confirmAction.variant as any}
+            />
+
+            <InscritosModal
+                isOpen={isInscritosModalOpen}
+                onClose={() => setIsInscritosModalOpen(false)}
+                oferta={targetInscritosOferta}
             />
         </div>
     );

@@ -5,124 +5,103 @@ import { toast } from 'sonner';
 
 // Configuración de constantes de entorno
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const VIEWS_API_URL = process.env.NEXT_PUBLIC_VIEWS_API_URL || 'http://localhost:3005';
 // IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
-// Crear instancia de Axios con configuraciones base obligatorias
+/**
+ * API PRINCIPAL (Backend Administrativo / Dashboard)
+ * Requiere sesión (JWT) y X-SECRET
+ */
 export const api = axios.create({
     baseURL: API_URL,
     headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'X-SECRET': API_SECRET
     },
 });
 
-// Interceptor de Request: Configuración de Seguridad Central
+/**
+ * API DE VISTAS PÚBLICAS (Página Principal, Inscripciones)
+ * No requiere sesión, sólo X-SECRET
+ */
+export const viewsApi = axios.create({
+    baseURL: VIEWS_API_URL,
+    headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-SECRET': API_SECRET
+    },
+});
+
+// Interceptor de Request para API Principal (incluye Token)
 api.interceptors.request.use(
     (config) => {
-        // Garantizar integridad de headers
-        const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
-
-        // Inyección de Secret (X-SECRET)
-        if (config.headers) {
-            config.headers['X-SECRET'] = secret;
-        }
-
-        // Token de Sesión
         const token = Cookies.get('token');
         if (token && config.headers && !config.headers.Authorization) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-
-        // Timeout preventivo para redes inestables (sólo si no se definió uno específico)
-        if (!config.timeout) {
-            config.timeout = 30000; // Aumento el default a 30s
-        }
-
+        if (!config.timeout) config.timeout = 30000;
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Interceptor de Response: Manejar éxitos y errores globales
-api.interceptors.response.use(
-    (response) => {
-        const isSilent = (response.config as any)._silent;
-        if (isSilent) return response;
+// Manejo Global de Errores para ambas APIs
+const handleResponseSuccess = (response: any) => {
+    const isSilent = (response.config as any)._silent;
+    if (isSilent) return response;
 
-        // 1. Mensajes "Normales" (Éxito)
-        const method = response.config?.method?.toUpperCase();
-
-        // Solo mostrar éxito para mutaciones (evitar inundar con GETs)
-        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '')) {
-            if (response.status === 201) {
-                toast.success('¡Registro creado correctamente!', {
-                    description: 'La operación se completó con éxito (201 Created).',
-                    className: 'bg-emerald-500 text-white'
-                });
-            } else if (response.status === 204 || (response.status === 200 && method !== 'GET')) {
-                toast.success('¡Operación exitosa!', {
-                    description: 'Cambios guardados correctamente (Success).',
-                    className: 'bg-emerald-600 text-white'
-                });
-            }
+    const method = response.config?.method?.toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '')) {
+        if (response.status === 201) {
+            toast.success('¡Registro exitoso!', { className: 'bg-emerald-500 text-white' });
+        } else if (response.status === 200 && method !== 'GET') {
+            toast.success('¡Operación exitosa!', { className: 'bg-emerald-600 text-white' });
         }
+    }
+    return response;
+};
 
-        return response;
-    },
-    (error) => {
-        const isSilent = (error.config as any)._silent;
-        const backendError = error.response?.data;
-        const status = error.response?.status;
+const handleResponseError = (error: any) => {
+    const isSilent = (error.config as any)._silent;
+    const backendError = error.response?.data;
+    const status = error.response?.status;
 
-        if (isSilent) return Promise.reject(error);
+    if (isSilent) return Promise.reject(error);
 
-        // 2. Manejo de Sesión Expirada (401)
-        if (status === 401) {
-            Cookies.remove('token');
-            Cookies.remove('user');
-
-            // Redirigir al login solo en el cliente y si no estamos ya allí
-            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
-            }
-            return Promise.reject(error);
+    if (status === 401) {
+        Cookies.remove('token');
+        Cookies.remove('user');
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
         }
+    }
 
-        // 3. Otros Errores de Cliente (4xx) y Sistema (5xx)
-        if (backendError && backendError.success === false) {
-            // Si el backend mandó el formato estandarizado de error
-            // Errores graves o lógicos (Conflict, Forbidden) van al Modal
-            if ([403, 409, 500, 503].includes(status)) {
-                errorStore.setError(backendError);
-            } else {
-                // Errores más comunes (400, 404) pueden ir como Toast para no ser tan intrusivos
-                toast.error(`Error ${status}: ${backendError.title || 'Solicitud incorrecta'}`, {
-                    description: backendError.message,
-                    className: 'bg-rose-500 text-white'
-                });
-            }
+    if (backendError && backendError.success === false) {
+        if ([403, 409, 500, 503].includes(status)) {
+            errorStore.setError(backendError);
         } else {
-            // Error genérico o de red
-            const genericMsg = status === 503
-                ? 'Servidor en mantenimiento o sobrecargado (503).'
-                : (error.message || 'Error de conexión con el servidor');
-
-            errorStore.setError({
-                success: false,
-                statusCode: status || 500,
-                timestamp: new Date().toISOString(),
-                path: error.config?.url || 'unknown',
-                method: error.config?.method || 'unknown',
-                message: genericMsg,
-                errorCode: 'SERVER_OR_NETWORK_ERROR'
+            toast.error(`Error ${status}: ${backendError.title || 'Error'}`, {
+                description: backendError.message,
+                className: 'bg-rose-500 text-white'
             });
         }
-
-        return Promise.reject(error);
+    } else {
+        errorStore.setError({
+            success: false,
+            statusCode: status || 500,
+            timestamp: new Date().toISOString(),
+            path: error.config?.url || 'unknown',
+            method: error.config?.method || 'unknown',
+            message: error.message || 'Error de conexión',
+            errorCode: 'SERVER_OR_NETWORK_ERROR'
+        });
     }
-);
+
+    return Promise.reject(error);
+};
+
+api.interceptors.response.use(handleResponseSuccess, handleResponseError);
+viewsApi.interceptors.response.use(handleResponseSuccess, handleResponseError);
 
 export default api;

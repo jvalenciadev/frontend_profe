@@ -157,7 +157,6 @@ export interface Modulo {
     codigo?: string;
     nombre: string;
     descripcion: string;
-    notaMinima: number;
     fechaInicio: string;
     fechaFin: string;
     programaId: string;

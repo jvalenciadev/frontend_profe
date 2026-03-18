@@ -8,7 +8,7 @@ import { authService } from '@/services/authService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, User as UserIcon, Lock, AlertCircle, Building2, TrendingUp, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, AlertCircle, Building2, TrendingUp, Mail, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { useProfe } from '@/contexts/ProfeContext';
 
 export default function LoginPage() {
@@ -29,6 +29,7 @@ export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -108,71 +109,56 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex bg-background selection:bg-primary selection:text-white" suppressHydrationWarning={true}>
-            {/* Left Panel - High Performance Visual */}
-            <div className="hidden lg:flex lg:w-3/5 bg-primary relative overflow-hidden items-center justify-center p-24" suppressHydrationWarning={true}>
-                {/* Dynamic Background */}
+            {/* Left Panel - High Performance Institutional Visual */}
+            <div className="hidden lg:flex lg:w-3/5 bg-slate-950 relative overflow-hidden items-center justify-center p-32" suppressHydrationWarning={true}>
+                {/* Dynamic Background & National Seal */}
                 <div className="absolute inset-0 pointer-events-none" suppressHydrationWarning={true}>
+                    <div className="absolute top-0 left-0 w-full h-3 flex">
+                        <div className="flex-1 bg-[#E12C21]" />
+                        <div className="flex-1 bg-[#F9E11E]" />
+                        <div className="flex-1 bg-[#009246]" />
+                    </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.minedu.gob.bo/templates/images/escudo.png')] bg-no-repeat bg-center opacity-[0.05] scale-150" />
                     <motion.div
                         animate={{
                             scale: [1, 1.2, 1],
-                            opacity: [0.3, 0.4, 0.3],
-                        }}
-                        transition={{ duration: 10, repeat: Infinity }}
-                        className="absolute -top-[20%] -right-[20%] w-[100%] h-[100%] bg-white/10 rounded-full blur-[120px]"
-                        suppressHydrationWarning={true}
-                    />
-                    <motion.div
-                        animate={{
-                            scale: [1, 1.1, 1],
-                            opacity: [0.1, 0.2, 0.1],
+                            opacity: [0.1, 0.15, 0.1],
                         }}
                         transition={{ duration: 15, repeat: Infinity }}
-                        className="absolute -bottom-[20%] -left-[20%] w-[80%] h-[80%] bg-black/20 rounded-full blur-[100px]"
+                        className="absolute -top-[10%] -right-[10%] w-[80%] h-[80%] bg-primary-600 rounded-full blur-[150px]"
                         suppressHydrationWarning={true}
                     />
                 </div>
 
-                <div className="relative z-10 w-full max-w-2xl space-y-12" suppressHydrationWarning={true}>
+                <div className="relative z-10 w-full max-w-2xl space-y-16" suppressHydrationWarning={true}>
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
+                        className="space-y-10"
                         suppressHydrationWarning={true}
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em]" suppressHydrationWarning={true}>
-                            <TrendingUp className="w-3 h-3" />
-                            Estado Plurinacional de Bolivia
+                        <div className="inline-flex items-center gap-4 px-8 py-3 rounded-full bg-white/10 backdrop-blur-2xl border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.5em]" suppressHydrationWarning={true}>
+                            <ShieldCheck className="w-4 h-4 text-primary-600" /> Acceso de Grado Gubernamental
                         </div>
 
-                        <h1 className="text-7xl font-black text-white tracking-tighter leading-[0.9]" suppressHydrationWarning={true}>
-                            PROFE <br />
-                            <span className="text-white/40">v4.0 Final</span>
+                        <h1 className="text-8xl font-black text-white tracking-tighter leading-[0.8] uppercase" suppressHydrationWarning={true}>
+                            Sistema <br />
+                            <span className="text-primary-600">Nacional.</span>
                         </h1>
 
-                        <p className="text-2xl text-primary-foreground/80 font-medium leading-relaxed max-w-xl" suppressHydrationWarning={true}>
-                            Arquitectura de gestión académica líder para la formación especializada.
-                            Soberanía tecnológica en cada proceso.
+                        <p className="text-2xl text-white/50 font-medium leading-relaxed max-w-xl border-l-[3px] border-primary-600 pl-8 py-2" suppressHydrationWarning={true}>
+                            Plataforma centralizada para la gestión de la formación especializada.
                         </p>
                     </motion.div>
 
-                    {/* Stats Bar */}
-                    <div className="flex gap-12 pt-6" suppressHydrationWarning={true}>
-                        <div className="space-y-1" suppressHydrationWarning={true}>
-                            <p className="text-4xl font-black text-white">99.8%</p>
-                            <p className="text-[10px] uppercase tracking-widest font-black text-primary-foreground/50">Eficiencia Operativa</p>
-                        </div>
-                        <div className="w-px h-12 bg-white/10" suppressHydrationWarning={true} />
-                        <div className="space-y-1" suppressHydrationWarning={true}>
-                            <p className="text-4xl font-black text-white">AES-256</p>
-                            <p className="text-[10px] uppercase tracking-widest font-black text-primary-foreground/50">Cifrado de Datos</p>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* Branding Footer */}
-                <div className="absolute bottom-12 left-24 flex items-center gap-4 text-white/40 grayscale opacity-60" suppressHydrationWarning={true}>
-                    <Building2 className="w-5 h-5" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ministerio de Educación</span>
+                <div className="absolute bottom-16 left-32 flex items-center gap-6" suppressHydrationWarning={true}>
+                    <img src="/logo-principal.png" alt="Minedu" className="h-10 w-auto opacity-40 grayscale brightness-[10]" />
+                    <div className="w-px h-8 bg-white/10" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Estado Plurinacional de Bolivia</span>
                 </div>
             </div>
 
@@ -274,13 +260,20 @@ export default function LoginPage() {
                                         <div className="relative group" suppressHydrationWarning={true}>
                                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
                                             <Input
-                                                type="password"
-                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
+                                                type={showPassword ? "text" : "password"}
+                                                className="pl-12 pr-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
                                                 placeholder="••••••••••••"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 required
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-primary transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -302,7 +295,7 @@ export default function LoginPage() {
 
                                 <div className="text-center pt-2" suppressHydrationWarning>
                                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
-                                        ¿Quieres postularte?
+                                        ¿Quieres ser parte del Programa - PROFE?
                                         <Link href="/registro-profe" className="text-primary font-black ml-2 hover:underline">Registra tu perfil aquí</Link>
                                     </p>
                                 </div>
@@ -389,13 +382,20 @@ export default function LoginPage() {
                                         <div className="relative group" suppressHydrationWarning={true}>
                                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
                                             <Input
-                                                type="password"
-                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
+                                                type={showPassword ? "text" : "password"}
+                                                className="pl-12 pr-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
                                                 placeholder="••••••••••••"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 required
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-primary transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
                                         </div>
                                     </div>
 
@@ -404,13 +404,20 @@ export default function LoginPage() {
                                         <div className="relative group" suppressHydrationWarning={true}>
                                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
                                             <Input
-                                                type="password"
-                                                className="pl-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
+                                                type={showPassword ? "text" : "password"}
+                                                className="pl-12 pr-12 h-14 bg-accent/20 border-transparent focus:bg-background focus:ring-primary/5 focus:border-primary/30 rounded-2xl transition-all"
                                                 placeholder="••••••••••••"
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                                 required
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-primary transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

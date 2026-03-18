@@ -21,7 +21,8 @@ export default function ConditionalNavbar() {
         '/dashboard',
         '/login',
         '/register',
-        '/registro-profe'
+        '/registro-profe',
+        '/aula'
     ];
 
     const shouldHide = routesToHide.some(route => pathname?.startsWith(route));

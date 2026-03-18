@@ -306,27 +306,6 @@ export default function MiFichaPage() {
         setShowPosgradoModal(true);
     };
 
-    const handleDeletePosgrado = (id: string) => {
-        setConfirmDelete({
-            isOpen: true,
-            title: 'Eliminar Formación',
-            description: '¿Estás seguro de eliminar este registro de postgrado? Esta acción no se puede deshacer.',
-            loading: false,
-            onConfirm: async () => {
-                try {
-                    setConfirmDelete(prev => ({ ...prev, loading: true }));
-                    await bancoProfesionalService.removePosgrado(id);
-                    toast.success('Registro eliminado');
-                    loadData();
-                    setConfirmDelete(prev => ({ ...prev, isOpen: false }));
-                } catch (error) {
-                    toast.error('Error al eliminar');
-                } finally {
-                    setConfirmDelete(prev => ({ ...prev, loading: false }));
-                }
-            }
-        });
-    };
 
     const handleAddProduccion = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -758,7 +737,6 @@ export default function MiFichaPage() {
                                                             <option value="">Seleccionar</option>
                                                             <option value="MASCULINO">MASCULINO</option>
                                                             <option value="FEMENINO">FEMENINO</option>
-                                                            <option value="OTRO">OTRO</option>
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">

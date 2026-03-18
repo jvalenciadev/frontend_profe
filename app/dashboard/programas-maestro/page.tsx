@@ -6,31 +6,15 @@ import { programaLookupService } from '@/services/programaLookupService';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Card } from '@/components/ui/Card';
-import {
-    GraduationCap,
-    Plus,
-    Search,
-    Edit2,
-    Trash2,
-    LayoutGrid,
-    BookOpen,
-    Save,
-    PlusCircle,
-    XCircle,
-    FileText,
-    Activity,
-    CheckCircle2,
-    Clock,
-    Award,
-    Box,
-    Image as ImageIcon
-} from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, GraduationCap, Clock, FileText, BadgeDollarSign, PlusCircle, LayoutGrid, Box, XCircle, ImageIcon, Activity, MapPin, CheckCircle2, BookOpen, Users, Award } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { userService } from '@/services/userService';
+
 
 export default function ProgramasMaestroPage() {
     const [programas, setProgramas] = useState<any[]>([]);
@@ -62,6 +46,7 @@ export default function ProgramasMaestroPage() {
         modalidadId: '',
         duracionId: '',
         estado: 'ACTIVO',
+        costo: 0,
         banner: '',
         afiche: '',
         modulos: [] as any[]
@@ -71,6 +56,8 @@ export default function ProgramasMaestroPage() {
     const [modalidades, setModalidades] = useState<any[]>([]);
     const [duraciones, setDuraciones] = useState<any[]>([]);
     const [departamentos, setDepartamentos] = useState<any[]>([]);
+    const [facilitadores, setFacilitadores] = useState<any[]>([]);
+    const [userSearch, setUserSearch] = useState('');
 
     useEffect(() => {
         loadData();
@@ -79,18 +66,25 @@ export default function ProgramasMaestroPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [data, tiposData, modalidadesData, duracionesData, departamentosData] = await Promise.all([
+            const [data, tiposData, modalidadesData, duracionesData, departamentosData, usersData] = await Promise.all([
                 programaMaestroService.getAll(),
                 programaLookupService.getTipos(),
                 programaLookupService.getModalidades(),
                 programaLookupService.getDuraciones(),
-                programaLookupService.getDepartamentos()
+                programaLookupService.getDepartamentos(),
+                userService.getAll()
             ]);
             setProgramas(data);
             setTipos(tiposData);
             setModalidades(modalidadesData);
             setDuraciones(duracionesData);
             setDepartamentos(departamentosData);
+            setFacilitadores(usersData.filter((u: any) =>
+                u.roles?.some((r: any) => {
+                    const roleName = (r.role?.nombre || r.role?.name || '').toUpperCase();
+                    return roleName;
+                })
+            ));
         } catch (error) {
             console.error('Error loading data:', error);
             toast.error('Error al sincronizar datos del Maestro');
@@ -106,7 +100,7 @@ export default function ProgramasMaestroPage() {
             setEditingPrograma(programa);
             setFormData({
                 nombre: programa.nombre || '',
-                nombreAbre: programa.nombreAbre || '',
+                nombreAbre: programa.nombreAbreviado || programa.nombreAbre || '',
                 codigo: programa.codigo || '',
                 contenido: programa.contenido || '',
                 cargaHoraria: programa.cargaHoraria || 0,
@@ -115,6 +109,7 @@ export default function ProgramasMaestroPage() {
                 modalidadId: programa.modalidadId || '',
                 duracionId: programa.duracionId || '',
                 estado: programa.estado || 'ACTIVO',
+                costo: programa.costo || 0,
                 banner: programa.banner || '',
                 afiche: programa.afiche || '',
                 modulos: programa.modulos || []
@@ -132,6 +127,7 @@ export default function ProgramasMaestroPage() {
                 modalidadId: '',
                 duracionId: '',
                 estado: 'ACTIVO',
+                costo: 0,
                 banner: '',
                 afiche: '',
                 modulos: []
@@ -141,11 +137,22 @@ export default function ProgramasMaestroPage() {
     };
 
     const addModulo = () => {
+        const nextOrden = formData.modulos.length > 0
+            ? Math.max(...formData.modulos.map(m => m.orden || 0)) + 1
+            : 1;
+
         setFormData({
             ...formData,
             modulos: [
                 ...formData.modulos,
-                { nombre: '', codigo: '', descripcion: '', notaMinima: 69, estado: 'ACTIVO' }
+                {
+                    nombre: '',
+                    codigo: '',
+                    descripcion: '',
+                    estado: 'ACTIVO',
+                    esGlobal: false,
+                    orden: nextOrden
+                }
             ]
         });
     };
@@ -381,6 +388,10 @@ export default function ProgramasMaestroPage() {
                                                                 <Award className="w-3.5 h-3.5" />
                                                                 {programa.modulos?.length || 0} Módulos
                                                             </div>
+                                                            <div className="flex items-center gap-1.5 text-orange-600 font-bold text-[10px] uppercase bg-orange-50 px-2 py-1 rounded-md border border-orange-100">
+                                                                <span className="text-[9px]">$</span>
+                                                                {programa.costo || 0} Bs.
+                                                            </div>
                                                         </div>
 
                                                         {programa.departamento ? (
@@ -529,6 +540,22 @@ export default function ProgramasMaestroPage() {
                                     }}
                                 />
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Inversión / Costo (Bs.)</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs font-mono">Bs.</span>
+                                    <input
+                                        type="number"
+                                        className="w-full h-12 pl-12 pr-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[13px] font-black text-foreground shadow-sm"
+                                        value={formData.costo}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData({ ...formData, costo: val === '' ? 0 : parseInt(val) });
+                                        }}
+                                        placeholder="0 (Gratis)"
+                                    />
+                                </div>
+                            </div>
                             <div className="md:col-span-2 space-y-1.5">
                                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Convocatoria</label>
                                 <input
@@ -555,6 +582,7 @@ export default function ProgramasMaestroPage() {
                                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contenido Académico / Objetivo</label>
                                 <textarea
                                     className="w-full min-h-[100px] p-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground shadow-sm resize-none"
+                                    value={formData.contenido}
                                     onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
                                     placeholder="Describa el contenido o propósito del programa..."
                                 />
@@ -569,7 +597,7 @@ export default function ProgramasMaestroPage() {
                                 </label>
                                 <ImageUpload
                                     value={formData.banner}
-                                    onChange={(url) => setFormData({ ...formData, banner: url })}
+                                    onChange={(url: string) => setFormData({ ...formData, banner: url })}
                                     tableName="programa"
                                 />
                             </div>
@@ -580,7 +608,7 @@ export default function ProgramasMaestroPage() {
                                 </label>
                                 <ImageUpload
                                     value={formData.afiche}
-                                    onChange={(url) => setFormData({ ...formData, afiche: url })}
+                                    onChange={(url: string) => setFormData({ ...formData, afiche: url })}
                                     tableName="programa"
                                 />
                             </div>
@@ -623,57 +651,216 @@ export default function ProgramasMaestroPage() {
                                         <XCircle className="w-4 h-4" />
                                     </button>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div className="md:col-span-2 space-y-1">
-                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Nombre del Módulo</label>
+                                    {/* Cabecera del Módulo con Indicador Global */}
+                                    <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn(
+                                                "w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs",
+                                                modulo.esGlobal ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-primary/10 text-primary"
+                                            )}>
+                                                {modulo.orden || index + 1}
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
+                                                {modulo.nombre || 'Nuevo Módulo'}
+                                            </span>
+                                            {modulo.esGlobal && (
+                                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-tighter border border-emerald-200 animate-pulse">
+                                                    Módulo Maestro Global
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nombre del Módulo</label>
                                             <input
                                                 type="text"
-                                                className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
+                                                className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[12px] font-bold text-foreground"
                                                 value={modulo.nombre}
                                                 onChange={(e) => updateModulo(index, 'nombre', e.target.value)}
+                                                placeholder="Ej: Módulo 1: Fundamentos"
                                             />
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Código</label>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Código</label>
                                             <input
                                                 type="text"
-                                                className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
+                                                className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[12px] font-bold text-foreground"
                                                 value={modulo.codigo}
                                                 onChange={(e) => updateModulo(index, 'codigo', e.target.value)}
+                                                placeholder="MOD-01"
                                             />
                                         </div>
-                                        <div className="md:col-span-2 space-y-1">
-                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Descripción</label>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Orden Aparición</label>
+                                            <input
+                                                type="number"
+                                                className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[12px] font-bold text-foreground"
+                                                value={modulo.orden}
+                                                onChange={(e) => updateModulo(index, 'orden', parseInt(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Descripción Breve</label>
                                             <input
                                                 type="text"
-                                                className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
+                                                className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[12px] font-bold text-foreground"
                                                 value={modulo.descripcion}
                                                 onChange={(e) => updateModulo(index, 'descripcion', e.target.value)}
                                             />
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Nota Mínima</label>
-                                            <input
-                                                type="number"
-                                                className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
-                                                value={modulo.notaMinima || ''}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    updateModulo(index, 'notaMinima', val === '' ? 0 : parseInt(val));
-                                                }}
-                                            />
-                                            <div className="space-y-1">
-                                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Estado</label>
+                                        <div className="space-y-1.5 flex flex-col justify-end pb-1">
+                                            <div className="p-3 rounded-xl bg-muted/50 border border-border/50 hover:bg-muted transition-colors">
+                                                <label className="relative flex items-center justify-between cursor-pointer">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-foreground">¿Es Módulo Global?</span>
+                                                        <span className="text-[8px] text-muted-foreground font-bold">Aparece fuera del curso</span>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="sr-only peer"
+                                                            checked={modulo.esGlobal}
+                                                            onChange={(e) => updateModulo(index, 'esGlobal', e.target.checked)}
+                                                        />
+                                                        <div className="w-10 h-6 bg-muted-foreground/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 border-t border-border/20 pt-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado de Publicación</label>
                                                 <select
-                                                    className="w-full h-10 px-3 rounded-lg bg-card border border-border focus:border-primary outline-none text-[11px] font-bold"
+                                                    className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-[12px] font-bold text-foreground"
                                                     value={modulo.estado}
                                                     onChange={(e) => updateModulo(index, 'estado', e.target.value)}
                                                 >
-                                                    <option value="ACTIVO">ACTIVO</option>
-                                                    <option value="INACTIVO">INACTIVO</option>
-                                                    <option value="ELIMINADO">ELIMINADO</option>
+                                                    <option value="ACTIVO">ACTIVO - Público para alumnos</option>
+                                                    <option value="INACTIVO">INACTIVO - Solo facilitadores</option>
+                                                    <option value="ELIMINADO">ELIMINADO - Papelera</option>
                                                 </select>
                                             </div>
+
+                                            {/* ASIGNACIÓN DE FACILITADOR GLOBAL - DISEÑO CREATIVO */}
+                                            {modulo.esGlobal && (
+                                                <div className="space-y-3">
+                                                    <label className="text-[9px] font-black text-emerald-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                                                        <Award className="w-3 h-3" />
+                                                        Lider de Inducción (Gestión Central)
+                                                    </label>
+
+                                                    <div className="relative group/fac">
+                                                        {modulo.facilitadorId ? (
+                                                            <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all animate-in fade-in slide-in-from-top-2">
+                                                                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-emerald-500/30 overflow-hidden border-2 border-white">
+                                                                    {facilitadores.find(f => f.id === modulo.facilitadorId)?.imagen ? (
+                                                                        <img
+                                                                            src={getImageUrl(facilitadores.find(f => f.id === modulo.facilitadorId).imagen)}
+                                                                            className="w-full h-full object-cover"
+                                                                            alt="avatar"
+                                                                        />
+                                                                    ) : (
+                                                                        <span>{facilitadores.find(f => f.id === modulo.facilitadorId)?.nombre?.substring(0, 1)}{facilitadores.find(f => f.id === modulo.facilitadorId)?.apellidos?.substring(0, 1)}</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex-1 flex flex-col min-w-0">
+                                                                    <span className="text-[11px] font-black text-foreground truncate">
+                                                                        {facilitadores.find(f => f.id === modulo.facilitadorId)?.nombre} {facilitadores.find(f => f.id === modulo.facilitadorId)?.apellidos}
+                                                                    </span>
+                                                                    <span className="text-[9px] font-bold text-emerald-600/70 uppercase tracking-tighter">Responsable Oficial Designado</span>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateModulo(index, 'facilitadorId', null)}
+                                                                    className="p-2 rounded-lg hover:bg-destructive/10 text-destructive opacity-0 group-hover/fac:opacity-100 transition-all hover:scale-110"
+                                                                    title="Remover Responsable"
+                                                                >
+                                                                    <XCircle className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-2">
+                                                                <div className="relative">
+                                                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Buscar Administrador, Técnico o Facilitador..."
+                                                                        className="w-full h-11 pl-11 pr-4 rounded-xl bg-muted/20 border border-emerald-100 focus:border-emerald-500 focus:bg-white transition-all outline-none text-[12px] font-bold text-foreground placeholder:text-emerald-900/30"
+                                                                        value={userSearch}
+                                                                        onChange={(e) => setUserSearch(e.target.value)}
+                                                                    />
+                                                                </div>
+
+                                                                {userSearch.length >= 2 && (
+                                                                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-2xl bg-white border border-border shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                                                                        {facilitadores
+                                                                            .filter(f =>
+                                                                                `${f.nombre} ${f.apellidos}`.toLowerCase().includes(userSearch.toLowerCase())
+                                                                            )
+                                                                            .slice(0, 10)
+                                                                            .map(f => (
+                                                                                <button
+                                                                                    key={f.id}
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        updateModulo(index, 'facilitadorId', f.id);
+                                                                                        setUserSearch('');
+                                                                                    }}
+                                                                                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-emerald-50 text-left transition-colors group/item"
+                                                                                >
+                                                                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-[10px] group-hover/item:bg-emerald-500 group-hover/item:text-white transition-colors">
+                                                                                        {f.nombre?.substring(0, 1)}{f.apellidos?.substring(0, 1)}
+                                                                                    </div>
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="text-[11px] font-bold text-foreground">{f.nombre} {f.apellidos}</span>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className="text-[9px] text-muted-foreground uppercase font-black">{f.username}</span>
+                                                                                            {f.roles?.map((r: any, idx: number) => (
+                                                                                                <span key={idx} className="text-[8px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-black uppercase tracking-tighter">
+                                                                                                    {r.role?.nombre || r.role?.name}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </button>
+                                                                            ))
+                                                                        }
+                                                                        {facilitadores.filter(f => `${f.nombre} ${f.apellidos}`.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                                                                            <div className="p-4 text-center text-xs text-muted-foreground italic">No se encontraron resultados</div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {modulo.esGlobal ? (
+                                                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                        <CheckCircle2 size={16} className="text-emerald-500" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.1em]">Configuración Global Activada</span>
+                                                        <span className="text-[8px] font-bold opacity-80 italic">Este módulo será compartido como INDUCCIÓN / MÓDULO 0</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-primary/5 border border-primary/10 text-primary/70">
+                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                        <BookOpen size={16} className="text-primary/50" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.1em]">Módulo Secuencial</span>
+                                                        <span className="text-[8px] font-bold opacity-80 italic">Parte de la malla curricular normal</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

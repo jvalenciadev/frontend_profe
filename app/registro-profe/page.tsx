@@ -12,9 +12,11 @@ import {
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { EyeOff } from 'lucide-react'; // Added EyeOff
 import { toast } from 'sonner';
 import { useProfe } from '@/contexts/ProfeContext';
 import { bancoProfesionalService } from '@/services/bancoProfesionalService';
+import { publicService } from '@/services/publicService';
 
 export default function RegistroProfePage() {
     const router = useRouter();
@@ -27,6 +29,8 @@ export default function RegistroProfePage() {
     const [countdown, setCountdown] = useState(0);
     const [showVerificationInput, setShowVerificationInput] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
@@ -45,6 +49,7 @@ export default function RegistroProfePage() {
         correo: '',
         username: '',
         password: '',
+        confirmPassword: '',
         cargoId: '',
         tenantId: '',
         celular: '',
@@ -62,9 +67,9 @@ export default function RegistroProfePage() {
     useEffect(() => {
         async function loadConfig() {
             try {
-                const [cargosResp, deptsResp, catsResp] = await Promise.all([
+                const [cargosResp, deptsResp, catsResp] = await Promise.all<any>([
                     api.get('/public/banco-profesional/config/cargos'),
-                    api.get('/public/departamentos'),
+                    publicService.getDepartamentos().then(res => ({ data: res })),
                     api.get('/public/banco-profesional/config/categorias')
                 ]);
                 setConfig({
@@ -87,7 +92,11 @@ export default function RegistroProfePage() {
     }, [countdown]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        let value = e.target.value;
+        if (['nombre', 'apellidos', 'direccion', 'licenciatura', 'habilidades', 'idiomas'].includes(e.target.name)) {
+            value = value.toUpperCase();
+        }
+        setForm({ ...form, [e.target.name]: value });
     };
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,9 +142,15 @@ export default function RegistroProfePage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (step < 3) {
-            if (step === 2 && !isEmailVerified) {
-                toast.error('Debes verificar tu correo antes de continuar');
-                return;
+            if (step === 2) {
+                if (!isEmailVerified) {
+                    toast.error('Debes verificar tu correo antes de continuar');
+                    return;
+                }
+                if (form.password !== form.confirmPassword) {
+                    toast.error('Las contraseñas no coinciden');
+                    return;
+                }
             }
             setStep(step + 1);
             return;
@@ -244,7 +259,7 @@ export default function RegistroProfePage() {
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full px-8 pb-12">
+                <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 pb-12 pt-4">
                     <form onSubmit={handleSubmit} className="space-y-12">
 
                         <AnimatePresence mode="wait">
@@ -315,12 +330,12 @@ export default function RegistroProfePage() {
                                                 <Input type="email" name="correo" value={form.correo} onChange={(e) => {
                                                     handleChange(e);
                                                     setIsEmailVerified(false);
-                                                }} placeholder="ejemplo@bolivia.bo" className="pl-14 pr-32 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                }} placeholder="ejemplo@bolivia.bo" className="pl-14 pr-36 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
                                                 <button
                                                     type="button"
                                                     disabled={isSendingVerification || countdown > 0 || isEmailVerified}
                                                     onClick={handleRequestVerification}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2 bg-primary-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-all"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-primary-600 text-white text-[9px] md:text-[10px] sm:px-4 font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-all"
                                                 >
                                                     {isEmailVerified ? (
                                                         <span className="flex items-center gap-1 text-emerald-300"><CheckCircle className="w-3 h-3" /> Verificado</span>
@@ -355,17 +370,33 @@ export default function RegistroProfePage() {
                                         )}
 
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nombre de Usuario</label>
+                                            <div className="flex items-center justify-between ml-1">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Nombre de Usuario</label>
+                                                <span className="px-2 py-0.5 rounded-md bg-primary-600/10 text-primary-600 text-[9px] font-black uppercase tracking-widest border border-primary-600/20">Tu CI</span>
+                                            </div>
                                             <div className="relative group">
-                                                <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input name="username" value={form.username} onChange={handleChange} placeholder="Nombre de usuario único" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400/50" />
+                                                <Input readOnly disabled value={form.ci} placeholder="Ingresa tu CI en el paso 1" className="pl-14 h-16 rounded-3xl bg-slate-100 dark:bg-white/5 border-transparent outline-none text-slate-500 font-bold cursor-not-allowed" />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Contraseña</label>
                                             <div className="relative group">
                                                 <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Seguridad alta" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <Input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Seguridad alta" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors focus:outline-none">
+                                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Confirmar Contraseña</label>
+                                            <div className="relative group">
+                                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                                                <Input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Repite tu contraseña" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors focus:outline-none">
+                                                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="col-span-full space-y-2">

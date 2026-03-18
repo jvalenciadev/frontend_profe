@@ -63,40 +63,37 @@ const menuItems: MenuItem[] = [
             { title: 'Sedes', href: '/dashboard/territorial/sedes', permission: { action: 'read', subject: 'Sede' }, },
             { title: 'Galerías', href: '/dashboard/territorial/galerias', permission: { action: 'read', subject: 'Galeria' }, },
             { title: 'Distritos', href: '/dashboard/territorial/distritos', permission: { action: 'read', subject: 'Distrito' }, },
-            { title: 'Unidades Académicas', href: '/dashboard/territorial/unidades-academicas', permission: { action: 'read', subject: 'UnidadEducativa' }, },
         ],
     },
     {
         title: 'Académico',
         href: '/dashboard/academico',
         icon: GraduationCap,
-        permission: { action: 'read', subject: 'Academic' },
         children: [
-            { title: 'Programas Maestro', href: '/dashboard/programas-maestro' },
-            { title: 'Ofertas Académicas', href: '/dashboard/ofertas-academicas' },
-            { title: 'Inscripciones', href: '/dashboard/academico/inscripciones' },
-            { title: 'Configuración Académica', href: '/dashboard/academico/configuracion' },
+            { title: 'Programas Maestro', href: '/dashboard/programas-maestro', permission: { action: 'read', subject: 'Programa' }, },
+            { title: 'Ofertas Académicas', href: '/dashboard/ofertas-academicas', permission: { action: 'read', subject: 'ProgramaDos' }, },
+            { title: 'Inscripciones', href: '/dashboard/academico/inscripciones', permission: { action: 'read', subject: 'ProgramaInscripcion' }, },
+            { title: 'Clasificación de Categorías', href: '/dashboard/academico/categorias' },
+            { title: 'Configuración Académica', href: '/dashboard/academico/configuracion', permission: { action: 'read', subject: 'ProgramaVersion' }, },
         ],
     },
     {
         title: 'Comunicación',
         href: '/dashboard/comunicacion',
         icon: Megaphone,
-        permission: { action: 'read', subject: 'Territorial' },
         children: [
-            { title: 'Eventos', href: '/dashboard/eventos', icon: Calendar },
-            { title: 'Blogs', href: '/dashboard/blogs', icon: LayoutGrid },
-            { title: 'Comunicados', href: '/dashboard/comunicados', icon: Bell },
+            { title: 'Eventos', href: '/dashboard/eventos', icon: Calendar, permission: { action: 'read', subject: 'Evento' }, },
+            { title: 'Blogs', href: '/dashboard/blogs', icon: LayoutGrid, permission: { action: 'read', subject: 'Blog' }, },
+            { title: 'Comunicados', href: '/dashboard/comunicados', icon: Bell, permission: { action: 'read', subject: 'Comunicado' }, },
         ]
     },
     {
         title: 'RRHH',
         href: '/dashboard/rrhh',
         icon: Users,
-        permission: { action: 'read', subject: 'RRHH' },
         children: [
-            { title: 'Cargos', href: '/dashboard/rrhh/cargos' },
-            { title: 'Banco Profesional', href: '/dashboard/rrhh/banco' },
+            { title: 'Cargos', href: '/dashboard/rrhh/cargos', permission: { action: 'read', subject: 'Cargo' } },
+            { title: 'Banco Profesional', href: '/dashboard/rrhh/banco', permission: { action: 'read', subject: 'bp_posgrado' } },
         ],
     },
     {
@@ -130,7 +127,6 @@ const menuItems: MenuItem[] = [
         title: 'Gestión de Accesos',
         href: '/dashboard/accesos',
         icon: ShieldCheck,
-
         children: [
             { title: 'Usuarios', href: '/dashboard/usuarios', permission: { action: 'read', subject: 'User' }, },
             { title: 'Roles', href: '/dashboard/roles', permission: { action: 'read', subject: 'Role' }, },

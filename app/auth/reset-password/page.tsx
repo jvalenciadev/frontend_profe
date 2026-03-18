@@ -218,10 +218,6 @@ export default function ResetPasswordPage() {
                         className="space-y-6"
                         suppressHydrationWarning={true}
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em]" suppressHydrationWarning={true}>
-                            <TrendingUp className="w-3 h-3" />
-                            Estado Plurinacional de Bolivia
-                        </div>
 
                         <h1 className="text-7xl font-black text-white tracking-tighter leading-[0.9]" suppressHydrationWarning={true}>
                             PROFE <br />

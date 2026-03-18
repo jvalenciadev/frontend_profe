@@ -1,14 +1,4 @@
-import axios from 'axios';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL || '';
-const SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
-
-// Instancia pública sin token de autenticación pero con X-SECRET
-const publicApi = axios.create({
-    baseURL: BASE,
-    headers: { 'Content-Type': 'application/json', 'X-SECRET': SECRET },
-    timeout: 15000,
-});
+import { viewsApi as publicApi } from '@/lib/api';
 
 export const eventoPublicoService = {
     // Obtener detalle de evento por código o ID
@@ -59,6 +49,18 @@ export const eventoPublicoService = {
     // Obtener resultado del cuestionario
     getResultado: async (eventoId: string, cuestionarioId: string, ci: string, fechaNacimiento: string) => {
         const { data } = await publicApi.post(`/public/eventos/${eventoId}/cuestionario/${cuestionarioId}/resultado`, { ci, fechaNacimiento });
+        return data;
+    },
+
+    // Obtener progreso de inscripciones y cuestionarios
+    getProgreso: async (eventoId: string, ci: string, fechaNacimiento: string) => {
+        const { data } = await publicApi.post(`/public/eventos/${eventoId}/progreso`, { ci, fechaNacimiento });
+        return data;
+    },
+
+    // Registrar que el video fue visto
+    marcarVideoVisto: async (eventoId: string, cuestionarioId: string, ci: string, fechaNacimiento: string) => {
+        const { data } = await publicApi.post(`/public/eventos/${eventoId}/cuestionario/${cuestionarioId}/marcar-video`, { ci, fechaNacimiento });
         return data;
     },
 };

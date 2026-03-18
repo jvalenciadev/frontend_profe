@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,11 +10,20 @@ import {
     ToggleLeft, ToggleRight, Copy, ExternalLink, AlertCircle,
     BarChart3, RefreshCw, Timer, BookOpen,
     CircleDot, CheckSquare, Settings2, AlignLeft, Trophy,
-    Mail, Phone
+    Mail, Phone, Play, PieChart as PieChartIcon, BarChart as BarChartIcon,
+    QrCode, QrCode as QrIcon
 } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
+import jsPDF from 'jspdf';
+import { 
+    PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip
+} from 'recharts';
+import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 const TIPOS_PREGUNTA = [
     { value: 'SINGLE', label: 'Selección Única', icon: CircleDot, desc: 'Una sola respuesta correcta' },
@@ -43,6 +52,7 @@ export default function EventoOperativoPage() {
     const [editingCues, setEditingCues] = useState<any>(null);
     const [editingPregunta, setEditingPregunta] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [modalQR, setModalQR] = useState(false);
 
     const [confirmDeletePregunta, setConfirmDeletePregunta] = useState<{
         isOpen: boolean;
@@ -55,7 +65,23 @@ export default function EventoOperativoPage() {
     });
 
     // Forms
-    const [formCues, setFormCues] = useState({ titulo: '', descripcion: '', fechaInicio: '', fechaFin: '', tiempoMaximo: '', puntosMaximos: '', estado: 'activo' });
+    const [formCues, setFormCues] = useState({
+        titulo: '',
+        descripcion: '',
+        fechaInicio: '',
+        fechaFin: '',
+        tiempoMaximo: '',
+        puntosMaximos: '',
+        estado: 'activo',
+        orden: 1,
+        esObligatorio: true,
+        esEvaluativo: true,
+        urlVideo: '',
+        cantidadPreguntas: '',
+        esAleatorio: false,
+        limiteIntentos: '',
+        puntajeMinimo: '0',
+    });
     const [formPregunta, setFormPregunta] = useState({ texto: '', tipo: 'SINGLE', puntos: 1, obligatorio: true, opciones: [{ texto: '', esCorrecta: false }, { texto: '', esCorrecta: false }] });
 
     // Paginación inscripciones (Por la gran cantidad de datos previstos - 20k)
@@ -104,7 +130,23 @@ export default function EventoOperativoPage() {
     // ─── CUESTIONARIO CRUD ───────────────────────────────────────────────────
     const openNewCues = () => {
         setEditingCues(null);
-        setFormCues({ titulo: '', descripcion: '', fechaInicio: '', fechaFin: '', tiempoMaximo: '', puntosMaximos: '', estado: 'activo' });
+        setFormCues({
+            titulo: '',
+            descripcion: '',
+            fechaInicio: '',
+            fechaFin: '',
+            tiempoMaximo: '',
+            puntosMaximos: '',
+            estado: 'activo',
+            orden: cuestionarios.length + 1,
+            esObligatorio: true,
+            esEvaluativo: true,
+            urlVideo: '',
+            cantidadPreguntas: '',
+            esAleatorio: false,
+            limiteIntentos: '',
+            puntajeMinimo: '0',
+        });
         setModalCues(true);
     };
 
@@ -118,6 +160,14 @@ export default function EventoOperativoPage() {
             tiempoMaximo: c.tiempoMaximo?.toString() || '',
             puntosMaximos: c.puntosMaximos?.toString() || '',
             estado: c.estado,
+            orden: c.orden || 1,
+            esObligatorio: c.esObligatorio ?? true,
+            esEvaluativo: c.esEvaluativo ?? true,
+            urlVideo: c.urlVideo || '',
+            cantidadPreguntas: c.cantidadPreguntas?.toString() || '',
+            esAleatorio: c.esAleatorio ?? false,
+            limiteIntentos: c.limiteIntentos?.toString() || '',
+            puntajeMinimo: c.puntajeMinimo?.toString() || '0',
         });
         setModalCues(true);
     };
@@ -132,6 +182,10 @@ export default function EventoOperativoPage() {
                 fechaFin: formCues.fechaFin ? new Date(formCues.fechaFin).toISOString() : null,
                 tiempoMaximo: formCues.tiempoMaximo ? parseInt(formCues.tiempoMaximo) : null,
                 puntosMaximos: formCues.puntosMaximos ? parseInt(formCues.puntosMaximos) : null,
+                orden: parseInt(formCues.orden as any) || 1,
+                cantidadPreguntas: formCues.cantidadPreguntas ? parseInt(formCues.cantidadPreguntas) : null,
+                limiteIntentos: formCues.limiteIntentos ? parseInt(formCues.limiteIntentos) : null,
+                puntajeMinimo: parseInt(formCues.puntajeMinimo) || 0,
             };
             if (editingCues) {
                 await api.patch(`/evento-cuestionarios/${editingCues.id}`, payload);
@@ -224,10 +278,18 @@ export default function EventoOperativoPage() {
     const [codigoAsistencia, setCodigoAsistencia] = useState('');
     const toggleCodigoAsistencia = async () => {
         try {
-            const nuevoCode = codigoAsistencia || Math.random().toString(36).substring(2, 8).toUpperCase();
-            await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: evento?.codigoAsistencia ? null : nuevoCode });
-            toast.success(evento?.codigoAsistencia ? 'Código de asistencia desactivado' : `Código activado: ${nuevoCode}`);
-            setCodigoAsistencia(nuevoCode);
+            if (evento?.codigoAsistencia) {
+                // Desactivar
+                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: null });
+                toast.success('Código de asistencia desactivado');
+                setCodigoAsistencia('');
+            } else {
+                // Activar (usar custom o generar)
+                const nuevoCode = codigoAsistencia || Math.random().toString(36).substring(2, 8).toUpperCase();
+                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: nuevoCode });
+                toast.success(`Código activado: ${nuevoCode}`);
+                setCodigoAsistencia(''); // Limpiar input
+            }
             loadData();
         } catch { toast.error('Error actualizando código'); }
     };
@@ -250,16 +312,141 @@ export default function EventoOperativoPage() {
         } catch { toast.error('Error'); }
     };
 
-    const exportarCSV = () => {
-        const rows = [['CI', 'Nombre', 'Apellido', 'Correo', 'Asistencia']];
-        filteredInscripciones.forEach(i => {
-            rows.push([i.persona?.ci, i.persona?.nombre1, i.persona?.apellido1, i.persona?.correo, i.asistencia ? 'Sí' : 'No']);
-        });
-        const csv = rows.map(r => r.join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `inscripciones_${evento?.nombre}.csv`; a.click();
+    const exportarExcel = () => {
+        try {
+            // 1. Preparar cabeceras base
+            const header = [
+                'CI', 'Nombres', 'Apellidos', 'Celular', 'Correo', 'Asistencia'
+            ];
+
+            // 2. Cabeceras dinámicas para Campos Extras
+            const camposExtras = evento?.camposExtras || [];
+            camposExtras.forEach((c: any) => header.push(c.label));
+
+            // 3. Cabeceras dinámicas para Cuestionarios
+            const cuesActivos = cuestionarios.filter(c => c.estado === 'activo');
+            cuesActivos.forEach((c: any) => {
+                header.push(`${c.titulo} (Estado)`);
+            });
+
+            // 4. Mapear datos de inscritos
+            const rows = filteredInscripciones.map(i => {
+                const row: any = [
+                    String(i.persona?.ci || 'N/A'),
+                    `${i.persona?.nombre1 || ''} ${i.persona?.nombre2 || ''}`.trim(),
+                    `${i.persona?.apellido1 || ''} ${i.persona?.apellido2 || ''}`.trim(),
+                    i.persona?.celular || 'N/A',
+                    i.persona?.correo || 'N/A',
+                    i.asistencia ? 'PRESENTE' : 'AUSENTE'
+                ];
+
+                // Valores de campos extras
+                camposExtras.forEach((campo: any) => {
+                    const resp = i.respuestasExtras?.find((r: any) => r.campoExtraId === campo.id);
+                    row.push(resp?.valor || 'Sin respuesta');
+                });
+
+                // Valores de cuestionarios (Solo estado)
+                cuesActivos.forEach((c: any) => {
+                    const personaIntents = i.persona?.eventoCuestionarioIntentos || [];
+                    const intent = personaIntents.find((it: any) => it.cuestionarioId === c.id && it.estado === 'finished');
+                    row.push(intent ? 'REALIZADO' : 'PENDIENTE');
+                });
+
+                return row;
+            });
+
+            // 5. Crear Hoja de Estadísticas (Resumen de las Tortas)
+            const statsRows: any[] = [
+                ['RESUMEN GENERAL DEL EVENTO'],
+                ['Métrica', 'Cantidad'],
+                ['Total Inscritos', totalInscritos],
+                ['Asistentes', totalAsistencia],
+                ['Completaron Todas las Evaluaciones', totalCompletos],
+                [''],
+                ['ANÁLISIS DE DATOS (CAMPOS EXTRAS)']
+            ];
+
+            extraFieldsStats.forEach((stat: any) => {
+                statsRows.push(['']);
+                statsRows.push([stat.label.toUpperCase(), 'Frecuencia']);
+                stat.chartData.forEach((d: any) => {
+                    statsRows.push([d.name, d.value]);
+                });
+            });
+
+            // 6. Crear el libro y las hojas
+            const workbook = XLSX.utils.book_new();
+            
+            // Hoja 1: Listado Detallado
+            const wsInscritos = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            XLSX.utils.book_append_sheet(workbook, wsInscritos, 'Listado Participantes');
+
+            // Hoja 2: Resumen Estadístico
+            const wsStats = XLSX.utils.aoa_to_sheet(statsRows);
+            XLSX.utils.book_append_sheet(workbook, wsStats, 'Resumen Estadístico');
+
+            // 7. Generar archivo y descargar
+            XLSX.writeFile(workbook, `Reporte_Completo_${evento?.nombre.replace(/\s+/g, '_')}.xlsx`);
+            toast.success('Excel profesional generado');
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al generar el Excel');
+        }
     };
+
+    const getInscripcionStats = useCallback((i: any) => {
+        const activeCues = cuestionarios.filter(c => c.estado === 'activo');
+        if (activeCues.length === 0) return { label: 'N/A', count: 0, total: 0, completed: true, color: 'text-muted-foreground bg-muted/10 border-muted/20' };
+
+        const personaIntents = i.persona?.eventoCuestionarioIntentos || [];
+        const finishedIntents = personaIntents.filter((it: any) => it.estado === 'finished');
+        
+        // Mapeamos los IDs de cuestionarios activos que ya tienen un intento finalizado
+        const completedIds = activeCues.filter(ac => finishedIntents.some((fi: any) => fi.cuestionarioId === ac.id)).map(ac => ac.id);
+        const count = completedIds.length;
+        const total = activeCues.length;
+        const completed = count === total;
+
+        if (completed) return { label: 'Realizado', count, total, completed, color: 'text-green-500 bg-green-500/10 border-green-500/20' };
+        if (count > 0) return { label: 'En progreso', count, total, completed, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' };
+        return { label: 'Pendiente', count, total, completed, color: 'text-red-500 bg-red-500/10 border-red-500/20' };
+    }, [cuestionarios]);
+
+    const totalCompletos = useMemo(() => {
+        return inscripciones.filter(i => getInscripcionStats(i).completed).length;
+    }, [inscripciones, getInscripcionStats]);
+
+    const totalPreguntasGlobal = useMemo(() => {
+        return cuestionarios.reduce((sum, c) => sum + (c.preguntas?.length || 0), 0);
+    }, [cuestionarios]);
+
+    // Estadísticas de Campos Extras
+    const extraFieldsStats = useMemo(() => {
+        if (!evento?.camposExtras || !inscripciones.length) return [];
+
+        return evento.camposExtras.map((campo: any) => {
+            const data: Record<string, number> = {};
+            
+            inscripciones.forEach((ins: any) => {
+                const resp = ins.respuestasExtras?.find((r: any) => r.campoExtraId === campo.id);
+                if (resp) {
+                    const val = resp.valor || 'Sin respuesta';
+                    data[val] = (data[val] || 0) + 1;
+                } else {
+                    data['Sin respuesta'] = (data['Sin respuesta'] || 0) + 1;
+                }
+            });
+
+            const chartData = Object.entries(data).map(([name, value]) => ({ name, value }));
+            return {
+                id: campo.id,
+                label: campo.label,
+                tipo: campo.tipo, // SELECCION_SIMPLE, SELECCION_MULTIPLE, BOOLEANO, TEXTO
+                chartData
+            };
+        });
+    }, [evento, inscripciones]);
 
     if (loading) return (
         <div className="flex items-center justify-center h-64">
@@ -269,6 +456,8 @@ export default function EventoOperativoPage() {
 
     const totalInscritos = inscripciones.length;
     const totalAsistencia = inscripciones.filter(i => i.asistencia).length;
+
+    const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
     return (
         <div className="space-y-8">
@@ -299,7 +488,7 @@ export default function EventoOperativoPage() {
                     { label: 'Inscritos', val: totalInscritos, icon: Users, color: 'text-blue-400' },
                     { label: 'Asistencia', val: totalAsistencia, icon: CheckCircle2, color: 'text-green-400' },
                     { label: 'Cuestionarios', val: cuestionarios.length, icon: FileText, color: 'text-amber-400' },
-                    { label: 'Preguntas', val: preguntas.length, icon: Hash, color: 'text-purple-400' },
+                    { label: 'Preguntas', val: totalPreguntasGlobal, icon: Hash, color: 'text-purple-400' },
                 ].map(s => (
                     <div key={s.label} className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
                         <s.icon className={`w-6 h-6 ${s.color}`} />
@@ -321,10 +510,16 @@ export default function EventoOperativoPage() {
                 </div>
                 <div className="flex gap-2">
                     {evento?.codigoAsistencia && (
-                        <button onClick={() => { navigator.clipboard.writeText(evento.codigoAsistencia); toast.success('Código copiado'); }}
-                            className="h-10 px-4 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all flex items-center gap-2">
-                            <Copy className="w-3.5 h-3.5" /> Copiar
-                        </button>
+                        <>
+                            <button onClick={() => { navigator.clipboard.writeText(evento.codigoAsistencia); toast.success('Código copiado'); }}
+                                className="h-10 px-4 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all flex items-center gap-2">
+                                <Copy className="w-3.5 h-3.5" /> Copiar Código
+                            </button>
+                            <button onClick={() => setModalQR(true)}
+                                className="h-10 px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-black uppercase transition-all flex items-center gap-2 border border-primary/20">
+                                <QrCode className="w-4 h-4" /> Generar QR Asistencia
+                            </button>
+                        </>
                     )}
                     <input type="text" placeholder="Código custom..." value={codigoAsistencia}
                         onChange={e => setCodigoAsistencia(e.target.value.toUpperCase())}
@@ -407,6 +602,21 @@ export default function EventoOperativoPage() {
                                                 {c.puntosMaximos && (
                                                     <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-lg">
                                                         <Trophy className="w-3 h-3 text-amber-500" /> {c.puntosMaximos} pts
+                                                    </span>
+                                                )}
+                                                {c.urlVideo && (
+                                                    <span className="text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 bg-red-500/10 text-red-500 px-2 py-0.5 rounded-lg border border-red-500/20">
+                                                        <Eye className="w-3 h-3" /> Video
+                                                    </span>
+                                                )}
+                                                {c.limiteIntentos && (
+                                                    <span className="text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-lg border border-blue-500/20">
+                                                        <RefreshCw className="w-3 h-3 text-blue-500/70" /> {c.limiteIntentos} Intentos
+                                                    </span>
+                                                )}
+                                                {c.esAleatorio && (
+                                                    <span className="text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 bg-purple-500/10 text-purple-500 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                                                        <Hash className="w-3 h-3 text-purple-500/70" /> Aleatorio
                                                     </span>
                                                 )}
                                             </div>
@@ -530,8 +740,8 @@ export default function EventoOperativoPage() {
                                 className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border outline-none text-sm font-bold focus:border-primary transition-all shadow-sm"
                             />
                         </div>
-                        <button onClick={exportarCSV} className="h-12 px-6 rounded-2xl bg-primary/10 border border-primary/20 text-xs font-black text-primary hover:bg-primary hover:text-white flex items-center justify-center gap-2 transition-all">
-                            <Download className="w-4 h-4" /> Exportar a Excel
+                        <button onClick={exportarExcel} className="h-12 px-6 rounded-2xl bg-primary shadow-lg shadow-primary/20 border border-primary/20 text-xs font-black text-white hover:opacity-90 flex items-center justify-center gap-2 transition-all">
+                            <Download className="w-4 h-4" /> Exportar Súper Excel
                         </button>
                     </div>
 
@@ -539,9 +749,14 @@ export default function EventoOperativoPage() {
 
                         {/* CONTROLES DE PAGINACIÓN SUPERIOR */}
                         <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
-                            <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
-                                Total Registrados: <span className="text-primary">{filteredInscripciones.length}</span>
-                            </span>
+                            <div className="flex gap-4">
+                                <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
+                                    Total Registrados: <span className="text-primary">{filteredInscripciones.length}</span>
+                                </span>
+                                <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
+                                    Han Completado Todo: <span className="text-green-500">{totalCompletos}</span>
+                                </span>
+                            </div>
 
                             {totalPages > 1 && (
                                 <div className="flex items-center gap-2">
@@ -581,7 +796,12 @@ export default function EventoOperativoPage() {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-foreground uppercase text-[13px] leading-tight">
-                                                            {i.persona?.nombre1} {i.persona?.apellido1}
+                                                            {[
+                                                                i.persona?.nombre1,
+                                                                i.persona?.nombre2,
+                                                                i.persona?.apellido1,
+                                                                i.persona?.apellido2
+                                                            ].filter(Boolean).join(' ')}
                                                         </p>
                                                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                                             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate max-w-[150px]" title={i.persona?.correo}>
@@ -600,10 +820,15 @@ export default function EventoOperativoPage() {
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                {/* Verificación de Evaluación Pendiente. (Sujeto al backend) */}
-                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${i.respuestas || i.evaluaciones ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
-                                                    {i.respuestas || i.evaluaciones ? <><CheckCircle2 className="w-3 h-3" /> Realizado</> : <><AlertCircle className="w-3 h-3" /> Pendiente</>}
-                                                </div>
+                                                {(() => {
+                                                    const stats = getInscripcionStats(i);
+                                                    return (
+                                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${stats.color}`}>
+                                                            {stats.completed ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                                                            {stats.label} {stats.total > 0 && `(${stats.count}/${stats.total})`}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="p-4 text-center">
                                                 <button onClick={() => marcarAsistencia(i.id, !i.asistencia)}
@@ -641,19 +866,183 @@ export default function EventoOperativoPage() {
                             <p className="text-[10px] font-black uppercase text-muted-foreground">Confirmaron asistencia</p>
                             <p className="text-4xl font-black text-green-400">{totalAsistencia}</p>
                         </div>
+                        <div className="bg-card border border-border rounded-2xl p-6 space-y-2">
+                            <p className="text-[10px] font-black uppercase text-muted-foreground">Completaron Evaluación</p>
+                            <p className="text-4xl font-black text-blue-400">{totalCompletos}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground tracking-tight">Participantes con todos los formularios realizados.</p>
+                        </div>
                     </div>
 
                     {cuestionarios.map(c => (
-                        <div key={c.id} className="bg-card border border-border rounded-2xl p-6">
-                            <h3 className="font-black text-foreground mb-4">{c.titulo}</h3>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div><span className="text-muted-foreground">Pts máximos:</span> <span className="font-black text-foreground">{c.puntosMaximos || 'Auto'}</span></div>
-                                <div><span className="text-muted-foreground">Tiempo límite:</span> <span className="font-black text-foreground">{c.tiempoMaximo ? `${c.tiempoMaximo} min` : 'Sin límite'}</span></div>
-                                <div><span className="text-muted-foreground">Preguntas:</span> <span className="font-black text-foreground">{c.preguntas?.length || 0}</span></div>
-                                <div><span className="text-muted-foreground">Estado:</span> <span className={`font-black ${c.estado === 'activo' ? 'text-green-400' : 'text-red-400'}`}>{c.estado}</span></div>
+                        <div key={c.id} className="group bg-card border border-border rounded-[2rem] p-6 space-y-6 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500">
+                            <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                                <h3 className="font-black text-foreground text-xl uppercase tracking-tight group-hover:text-primary transition-colors">{c.titulo}</h3>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${c.estado === 'activo' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                        {c.estado === 'activo' ? 'Publicado' : 'Borrador'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-sm">
+                                <div className="space-y-3 p-4 rounded-2xl bg-muted/20 border border-border/40">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        <Trophy className="w-3 h-3 text-amber-500" /> Información de Logro
+                                    </p>
+                                    <div className="space-y-2">
+                                        <p className="flex justify-between items-center"><span className="text-muted-foreground font-medium">Puntos máximos:</span> <span className="font-black text-foreground">{c.puntosMaximos || 'Auto-calculado'}</span></p>
+                                        <p className="flex justify-between items-center"><span className="text-primary font-medium">Nota Mínima (Aprobación):</span> <span className="font-black text-primary">{c.puntajeMinimo || 0} pts</span></p>
+                                        <p className="flex justify-between items-center"><span className="text-muted-foreground font-medium">Tiempo límite:</span> <span className="font-black text-foreground">{c.tiempoMaximo ? `${c.tiempoMaximo} min` : 'Sin límite'}</span></p>
+                                        <p className="flex justify-between items-center"><span className="text-muted-foreground font-medium">Límite Intentos:</span> <span className="font-black text-foreground">{c.limiteIntentos || 'Ilimitado'}</span></p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 p-4 rounded-2xl bg-muted/20 border border-border/40">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        <Settings2 className="w-3 h-3 text-blue-500" /> Reglas de Negocio
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 py-1">
+                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border ${c.esObligatorio ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-border/50'}`}>
+                                            {c.esObligatorio ? 'Requerido' : 'Opcional'}
+                                        </span>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border ${c.esEvaluativo ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : 'bg-muted text-muted-foreground border-border/50'}`}>
+                                            {c.esEvaluativo ? 'Puntuable' : 'Informativo'}
+                                        </span>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border ${c.esAleatorio ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' : 'bg-muted text-muted-foreground border-border/50'}`}>
+                                            {c.esAleatorio ? 'Mezclado' : 'Orden Fijo'}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2 border-t border-border/40 pt-2">
+                                        <p className="flex justify-between items-center"><span className="text-muted-foreground font-medium">Preguntas:</span> <span className="font-black text-foreground">{c.preguntas?.length || 0}</span></p>
+                                        <p className="flex justify-between items-center"><span className="text-muted-foreground font-medium">Cant. a mostrar:</span> <span className="font-black text-primary">{c.cantidadPreguntas || 'Todas'}</span></p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 p-4 rounded-2xl bg-muted/20 border border-border/40">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        <Play className="w-3 h-3 text-red-500" /> Prerrequisito Visual
+                                    </p>
+                                    {c.urlVideo ? (
+                                        <div className="mt-1 p-3 rounded-xl bg-card border border-border/60 shadow-inner">
+                                            <p className="text-[11px] font-black text-foreground truncate max-w-full flex items-center gap-2">
+                                                <ExternalLink className="w-3 h-3 text-primary" /> {c.urlVideo}
+                                            </p>
+                                            <p className="text-[9px] text-muted-foreground font-medium mt-2 leading-relaxed">
+                                                El participante <span className="text-red-500 font-bold">DEBE</span> visualizar este contenido para habilitar su participación.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="h-20 flex items-center justify-center rounded-xl border border-dashed border-border/60">
+                                            <p className="text-xs text-muted-foreground italic font-medium">Sin video previo requerido</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}
+
+                    {/* ── ESTADÍSTICAS DE CAMPOS EXTRAS ── */}
+                    {extraFieldsStats.length > 0 && (
+                        <div className="space-y-6 pt-4">
+                            <div className="flex items-center gap-3 border-b border-border pb-4">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                    <PieChartIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight">Datos Demográficos y Personalizados</h2>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Análisis de campos extras recolectados</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {extraFieldsStats.map((stat: any) => (
+                                    <div key={stat.id} className="group bg-card border border-border rounded-3xl p-6 space-y-4 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-black text-sm uppercase text-foreground tracking-tight group-hover:text-primary transition-colors">{stat.label}</h4>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Distribución de respuestas</p>
+                                            </div>
+                                            <span className="text-[9px] font-black bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full uppercase">
+                                                {stat.tipo.replace('_', ' ')}
+                                            </span>
+                                        </div>
+
+                                        <div className="h-72 w-full relative">
+                                            {stat.tipo === 'TEXTO' ? (
+                                                <div className="h-full overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                                                    {stat.chartData.map((d: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 hover:bg-muted/50 text-xs border border-border/50 transition-all">
+                                                            <span className="font-bold text-foreground/80 truncate max-w-[70%]">{d.name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-1.5 w-12 bg-muted rounded-full overflow-hidden hidden sm:block">
+                                                                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, (d.value / totalInscritos) * 100)}%` }} />
+                                                                </div>
+                                                                <span className="font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg text-[10px]">{d.value}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    {stat.chartData.length <= 4 ? (
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={stat.chartData}
+                                                                cx="50%"
+                                                                cy="50%"
+                                                                innerRadius={70}
+                                                                outerRadius={90}
+                                                                paddingAngle={8}
+                                                                dataKey="value"
+                                                                animationBegin={0}
+                                                                animationDuration={1500}
+                                                            >
+                                                                {stat.chartData.map((_: any, index: number) => (
+                                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                                                ))}
+                                                            </Pie>
+                                                            <RechartsTooltip 
+                                                                contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                                                                itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                                                cursor={{ fill: 'transparent' }}
+                                                            />
+                                                            <Legend 
+                                                                verticalAlign="bottom" 
+                                                                align="center"
+                                                                iconType="circle"
+                                                                formatter={(val) => <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">{val}</span>}
+                                                            />
+                                                        </PieChart>
+                                                    ) : (
+                                                        <BarChart data={stat.chartData} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
+                                                            <defs>
+                                                                <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
+                                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+                                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <XAxis type="number" hide />
+                                                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                                            <Tooltip 
+                                                                contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff' }}
+                                                                itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                                                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                                            />
+                                                            <Bar dataKey="value" fill="url(#colorGradient)" radius={[0, 10, 10, 0]} barSize={20}>
+                                                                {stat.chartData.map((_: any, index: number) => (
+                                                                    <Cell key={`cell-${index}`} fill={index === 0 ? 'url(#colorGradient)' : COLORS[index % COLORS.length]} stroke="none" />
+                                                                ))}
+                                                            </Bar>
+                                                        </BarChart>
+                                                    )}
+                                                </ResponsiveContainer>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -663,9 +1052,14 @@ export default function EventoOperativoPage() {
                     <input placeholder="Título del cuestionario" value={formCues.titulo}
                         onChange={e => setFormCues(p => ({ ...p, titulo: e.target.value }))}
                         className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all" />
-                    <textarea placeholder="Descripción..." value={formCues.descripcion}
-                        onChange={e => setFormCues(p => ({ ...p, descripcion: e.target.value }))}
-                        className="w-full p-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-foreground resize-none h-20 transition-all" />
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase ml-2">Descripción del Cuestionario</label>
+                        <RichTextEditor
+                            value={formCues.descripcion}
+                            onChange={val => setFormCues(p => ({ ...p, descripcion: val }))}
+                            placeholder="Escribe la descripción, instrucciones o introducción..."
+                        />
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-muted-foreground uppercase">Fecha inicio</label>
@@ -691,7 +1085,65 @@ export default function EventoOperativoPage() {
                                 onChange={e => setFormCues(p => ({ ...p, puntosMaximos: e.target.value }))}
                                 className="w-full h-12 px-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm text-foreground transition-all" />
                         </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-primary uppercase">Nota Mínima (Para aprobar)</label>
+                            <input type="number" placeholder="Ej: 51" value={formCues.puntajeMinimo}
+                                onChange={e => setFormCues(p => ({ ...p, puntajeMinimo: e.target.value }))}
+                                className="w-full h-12 px-4 rounded-2xl bg-primary/5 border-2 border-primary/20 focus:border-primary outline-none text-sm font-black text-primary transition-all" />
+                        </div>
                     </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase">Video de YouTube (Prerrequisito)</label>
+                        <input type="text" placeholder="https://youtu.be/... o ID del video" value={formCues.urlVideo}
+                            onChange={e => setFormCues(p => ({ ...p, urlVideo: e.target.value }))}
+                            className="w-full h-12 px-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm text-foreground transition-all" />
+                        <p className="text-[9px] text-muted-foreground ml-2">Si se define, el participante DEBE ver el video para habilitar las preguntas.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase">Cant. a Mostrar</label>
+                            <input type="number" placeholder="Vacío = todas" value={formCues.cantidadPreguntas}
+                                onChange={e => setFormCues(p => ({ ...p, cantidadPreguntas: e.target.value }))}
+                                className="w-full h-12 px-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm text-foreground transition-all" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase">Límite Intentos</label>
+                            <input type="number" placeholder="Vacío = ilimitado" value={formCues.limiteIntentos}
+                                onChange={e => setFormCues(p => ({ ...p, limiteIntentos: e.target.value }))}
+                                className="w-full h-12 px-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm text-foreground transition-all" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                        <label className="flex items-center gap-3 p-3 rounded-2xl bg-muted/40 border-2 border-transparent hover:border-primary/30 cursor-pointer transition-all">
+                            <input type="checkbox" checked={formCues.esObligatorio} onChange={e => setFormCues(p => ({ ...p, esObligatorio: e.target.checked }))} className="w-5 h-5 rounded accent-primary" />
+                            <div className="space-y-0.5">
+                                <p className="text-xs font-black uppercase text-foreground">Obligatorio</p>
+                                <p className="text-[9px] text-muted-foreground">Requerido para aprobación</p>
+                            </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 rounded-2xl bg-muted/40 border-2 border-transparent hover:border-primary/30 cursor-pointer transition-all">
+                            <input type="checkbox" checked={formCues.esEvaluativo} onChange={e => setFormCues(p => ({ ...p, esEvaluativo: e.target.checked }))} className="w-5 h-5 rounded accent-primary" />
+                            <div className="space-y-0.5">
+                                <p className="text-xs font-black uppercase text-foreground">Puntuable</p>
+                                <p className="text-[9px] text-muted-foreground">Genera nota y puntaje</p>
+                            </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 rounded-2xl bg-muted/40 border-2 border-transparent hover:border-primary/30 cursor-pointer transition-all">
+                            <input type="checkbox" checked={formCues.esAleatorio} onChange={e => setFormCues(p => ({ ...p, esAleatorio: e.target.checked }))} className="w-5 h-5 rounded accent-primary" />
+                            <div className="space-y-0.5">
+                                <p className="text-xs font-black uppercase text-foreground">Aleatorio</p>
+                                <p className="text-[9px] text-muted-foreground">Preguntas y opciones mezcladas</p>
+                            </div>
+                        </label>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Orden aparición</label>
+                            <input type="number" value={formCues.orden} onChange={e => setFormCues(p => ({ ...p, orden: parseInt(e.target.value) || 1 }))}
+                                className="w-full h-12 px-4 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all text-sm" />
+                        </div>
+                    </div>
+
                     <select value={formCues.estado} onChange={e => setFormCues(p => ({ ...p, estado: e.target.value }))}
                         className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm font-bold text-foreground transition-all">
                         <option value="activo">Activo</option>
@@ -710,9 +1162,15 @@ export default function EventoOperativoPage() {
             {/* ── MODAL PREGUNTA ── */}
             <Modal isOpen={modalPregunta} onClose={() => setModalPregunta(false)} title={editingPregunta ? 'Editar Pregunta' : 'Nueva Pregunta'} size="lg">
                 <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
-                    <textarea placeholder="Texto de la pregunta..." value={formPregunta.texto}
-                        onChange={e => setFormPregunta(p => ({ ...p, texto: e.target.value }))}
-                        className="w-full p-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-foreground font-bold resize-none h-24 transition-all" />
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase ml-2">Texto de la Pregunta</label>
+                        <RichTextEditor
+                            value={formPregunta.texto}
+                            onChange={val => setFormPregunta(p => ({ ...p, texto: val }))}
+                            placeholder="Escribe la pregunta aquí..."
+                            className="min-h-[150px]"
+                        />
+                    </div>
 
                     {/* Tipo */}
                     <div className="space-y-3">
@@ -835,6 +1293,94 @@ export default function EventoOperativoPage() {
                 description="¿Estás seguro de eliminar esta pregunta? Esta acción no se puede deshacer y los participantes no podrán visualizarla."
                 loading={confirmDeletePregunta.loading}
             />
+            <Modal isOpen={modalQR} onClose={() => setModalQR(false)} title="QR DE ASISTENCIA">
+                <div className="p-6 space-y-8 flex flex-col items-center">
+                    <div className="text-center space-y-2">
+                        <p className="text-xs font-black uppercase text-muted-foreground tracking-widest">Escanea para registrar asistencia</p>
+                        <h3 className="text-xl font-black uppercase text-foreground leading-tight">{evento?.nombre}</h3>
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            <span className="text-[10px] font-black uppercase tracking-widest">Código:</span>
+                            <span className="font-black font-mono text-sm tracking-widest">{evento?.codigoAsistencia}</span>
+                        </div>
+                    </div>
+
+                    <div className="p-8 bg-white rounded-[3rem] shadow-2xl shadow-primary/10 border-4 border-primary/10 relative group">
+                        <QRCodeCanvas 
+                            id="qr-attendance-canvas"
+                            value={`${window.location.origin}/eventos/${evento?.codigo}?step=asistencia&code=${evento?.codigoAsistencia}`}
+                            size={280}
+                            level="H"
+                            includeMargin={false}
+                        />
+                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-[2.5rem]" />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                        <button 
+                            onClick={() => {
+                                const canvas = document.getElementById('qr-attendance-canvas') as HTMLCanvasElement;
+                                if(canvas) {
+                                    const link = document.createElement('a');
+                                    link.download = `QR_Asistencia_${evento?.codigo}.png`;
+                                    link.href = canvas.toDataURL();
+                                    link.click();
+                                    toast.success('Imagen guardada');
+                                }
+                            }}
+                            className="h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all flex items-center justify-center gap-2"
+                        >
+                            <Download className="w-4 h-4" /> Bajar Imagen
+                        </button>
+                        <button 
+                            onClick={async () => {
+                                const canvas = document.getElementById('qr-attendance-canvas') as HTMLCanvasElement;
+                                if(!canvas) return;
+                                
+                                const qrData = canvas.toDataURL('image/png');
+                                const doc = new jsPDF();
+                                const pageWidth = doc.internal.pageSize.getWidth();
+                                
+                                // Diseño del PDF
+                                doc.setFillColor(99, 102, 241); // Color primary
+                                doc.rect(0, 0, pageWidth, 40, 'F');
+                                
+                                doc.setTextColor(255, 255, 255);
+                                doc.setFontSize(24);
+                                doc.setFont('helvetica', 'bold');
+                                doc.text('REGISTRO DE ASISTENCIA', pageWidth / 2, 20, { align: 'center' });
+                                doc.setFontSize(10);
+                                doc.text('SISTEMA PROFE BOLIVIA', pageWidth / 2, 30, { align: 'center' });
+
+                                doc.setTextColor(40, 44, 52);
+                                doc.setFontSize(18);
+                                doc.text(evento?.nombre?.toLocaleUpperCase(), pageWidth / 2, 60, { align: 'center', maxWidth: 170 });
+                                
+                                // QR
+                                doc.addImage(qrData, 'PNG', (pageWidth - 120) / 2, 80, 120, 120);
+                                
+                                doc.setFontSize(14);
+                                doc.text(`CÓDIGO: ${evento?.codigoAsistencia}`, pageWidth / 2, 215, { align: 'center' });
+                                
+                                doc.setFontSize(10);
+                                doc.setFont('helvetica', 'normal');
+                                doc.setTextColor(100, 116, 139);
+                                doc.text('Escanea este código QR con tu celular para registrar tu asistencia', pageWidth / 2, 230, { align: 'center' });
+                                doc.text('en la plataforma oficial del evento.', pageWidth / 2, 235, { align: 'center' });
+
+                                doc.setFontSize(8);
+                                doc.text(`Generado el: ${new Date().toLocaleString()}`, pageWidth / 2, 280, { align: 'center' });
+
+                                doc.save(`QR_Asistencia_${evento?.codigo}.pdf`);
+                                toast.success('PDF generado con éxito');
+                            }}
+                            className="h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                        >
+                            <FileText className="w-4 h-4" /> Imprimir PDF
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
+

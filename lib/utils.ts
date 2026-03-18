@@ -11,19 +11,27 @@ export function getImageUrl(path: string | null | undefined): string {
         return path;
     }
 
-    // Usar la URL de la API configurada
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    // Usar la URL de la API configurada (puerto 3000 por defecto para recursos compartidos)
+    let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
     // Limpiar la URL base (quitar diagonal final si existe)
-    const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-
-    // Asegurar que el path sea relativo a uploads si no lo es ya
-    let cleanPath = path;
-    if (!cleanPath.startsWith('/uploads/') && !cleanPath.startsWith('uploads/')) {
-        cleanPath = cleanPath.startsWith('/') ? `/uploads${cleanPath}` : `/uploads/${cleanPath}`;
-    } else {
-        cleanPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+    if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
     }
 
-    return `${cleanBaseUrl}${cleanPath}`;
+    // Normalizar el path: asegurar que empiece con /
+    let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    // Si el path no incluye /uploads/ ni uploads/, lo añadimos
+    if (!normalizedPath.toLowerCase().startsWith('/uploads/') && !normalizedPath.toLowerCase().startsWith('uploads/')) {
+        normalizedPath = `/uploads${normalizedPath}`;
+    }
+
+    // Evitar dobles diagonales al unir
+    return `${baseUrl}${normalizedPath}`;
+}
+
+export function stripHtml(html: string): string {
+    if (!html) return '';
+    return html.replace(/<[^>]*>?/gm, '');
 }

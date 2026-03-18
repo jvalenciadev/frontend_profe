@@ -17,6 +17,10 @@ interface Programa {
     duracion: { nombre: string };
     sede: { nombre: string };
     costo: number;
+    afiche?: string;
+    banner?: string;
+    codigo?: string;
+    hasMultipleSedes?: boolean;
 }
 
 export default function OfertaPage() {
@@ -27,7 +31,7 @@ export default function OfertaPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const { config } = useProfe();
 
-    const IMG = (src: string | null) => {
+    const IMG = (src: string | null | undefined) => {
         if (!src) return null;
         return src.startsWith('http') ? src : `${process.env.NEXT_PUBLIC_API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
     };
@@ -55,90 +59,130 @@ export default function OfertaPage() {
             description="Explora la vanguardia del postgrado educativo. Programas de alta especialización diseñados para el magisterio de excelencia."
             icon={GraduationCap}
         >
-            <div className="space-y-24">
+            <div className="space-y-16">
 
-                {/* ── SEARCH & FILTER BAR: CINEMATIC ── */}
-                <div className="flex flex-col md:flex-row gap-8 items-center justify-between pb-12 border-b border-slate-100 dark:border-white/5">
-                    <div className="relative w-full max-w-2xl group">
-                        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-hover:text-primary-600 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por programa..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full h-24 pl-20 pr-10 rounded-[2.5rem] bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 text-xl font-bold focus:border-primary-600 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none"
-                        />
-                    </div>
+                {/* ── SEARCH & FILTER: CINEMATIC ── */}
+                <div className="sticky top-20 z-40 py-8 bg-background/80 backdrop-blur-xl border-b border-slate-100 dark:border-white/5 mx-[-2rem] px-[2rem]">
+                    <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
+                        <div className="relative w-full max-w-2xl group">
+                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Escribe el nombre del programa para filtrar..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full h-16 pl-16 pr-6 rounded-3xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-lg font-bold focus:border-primary focus:ring-8 focus:ring-primary/5 transition-all outline-none placeholder:text-slate-300"
+                            />
+                        </div>
 
-                    <div className="flex items-center gap-6">
-                        <div className="px-8 py-4 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                            {filtered.length} Resultados Encontrados
+                        <div className="flex items-center gap-4 shrink-0">
+                            <div className="flex items-center gap-2 px-6 h-12 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10">
+                                <Filter size={14} className="text-primary" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    {filtered.length} Programas Activos
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* ── PROGRAMS GRID: MAJESTIC ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
                     <AnimatePresence mode="popLayout">
                         {isLoading ? (
-                            /* Skeleton */
-                            [1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} className="h-[550px] rounded-[4rem] bg-slate-50 dark:bg-white/5 animate-pulse" />
+                            Array(12).fill(0).map((_, i) => (
+                                <div key={i} className="h-[480px] rounded-[3rem] bg-slate-50 dark:bg-white/5 animate-pulse" />
                             ))
                         ) : (
                             filtered.map((prog, idx) => (
                                 <motion.div
                                     key={prog.id}
                                     layout
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="group relative h-[550px] rounded-[4rem] bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 p-12 overflow-hidden flex flex-col justify-between shadow-2xl hover:shadow-primary-600/10 transition-all duration-700"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.4, delay: idx * 0.05 }}
+                                    className="group relative h-[520px] rounded-[3rem] bg-card border border-border/40 overflow-hidden flex flex-col shadow-sm hover:shadow-3xl hover:shadow-primary/10 transition-all duration-500"
                                 >
-                                    <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12 transition-transform group-hover:rotate-0">
-                                        {config?.imagen ? (
-                                            <img src={IMG(config.imagen)!} className="w-32 h-32 object-contain grayscale" alt="" />
+                                    {/* Poster / Cover */}
+                                    <div className="h-2/3 relative overflow-hidden">
+                                        {prog.afiche ? (
+                                            <img
+                                                src={IMG(prog.afiche)!}
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                alt={prog.nombre}
+                                            />
                                         ) : (
-                                            <BookOpen className="w-32 h-32" />
+                                            <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                                                <BookOpen size={64} className="text-primary/20" />
+                                            </div>
                                         )}
-                                    </div>
+                                        {/* Overlay Gradients */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
 
-                                    <div className="space-y-8 relative z-10">
-                                        <div className="flex items-center gap-4">
-                                            <span className="px-5 py-2 rounded-full bg-primary-600/10 text-primary-600 text-[10px] font-black uppercase tracking-widest border border-primary-600/20">
-                                                {prog.tipo.nombre}
-                                            </span>
-                                            <span className="px-5 py-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                                                {prog.modalidad.nombre}
-                                            </span>
-                                        </div>
-                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white leading-tight tracking-tight group-hover:text-primary-600 transition-colors">
-                                            {prog.nombre}
-                                        </h3>
-                                    </div>
-
-                                    <div className="space-y-10 relative z-10">
-                                        <div className="grid grid-cols-2 gap-8">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-slate-400">
-                                                    <Clock className="w-4 h-4" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">Duración</span>
-                                                </div>
-                                                <p className="text-xl font-bold dark:text-white">{prog.duracion.nombre}</p>
+                                        {/* Badges on Img */}
+                                        <div className="absolute top-6 left-6 right-6 flex justify-between items-start pointer-events-none">
+                                            <div className="flex flex-col gap-2">
+                                                <span className="px-4 h-7 flex items-center rounded-full bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 border border-white/10">
+                                                    {prog.tipo.nombre}
+                                                </span>
+                                                <span className="px-4 h-7 flex items-center rounded-full bg-white/20 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest border border-white/10">
+                                                    {prog.modalidad.nombre}
+                                                </span>
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-slate-400">
-                                                    <MapPin className="w-4 h-4" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">Sede</span>
+                                            {prog.codigo && (
+                                                <div className="px-3 py-1 rounded-lg bg-black/40 backdrop-blur-sm border border-white/10">
+                                                    <span className="text-[10px] font-black text-white/80 tabular-nums">#{prog.codigo}</span>
                                                 </div>
-                                                <p className="text-xl font-bold dark:text-white">{prog.sede.nombre}</p>
-                                            </div>
+                                            )}
                                         </div>
 
-                                        <Link href={`/oferta/${prog.id}`} className="w-full py-7 rounded-3xl bg-slate-50 dark:bg-white/5 flex items-center justify-center gap-4 group/btn overflow-hidden relative transition-all hover:bg-primary-600 hover:text-white">
-                                            <span className="text-[11px] font-black uppercase tracking-[0.4em] relative z-10 ml-[0.4em]">Ver Ficha Técnica</span>
-                                            <ArrowRight className="w-5 h-5 relative z-10 group-hover/btn:translate-x-3 transition-transform duration-500" />
+                                        {/* Title on Img Footer */}
+                                        <div className="absolute bottom-6 left-8 right-8 pointer-events-none">
+                                            <h3 className="text-xl font-black text-white leading-tight tracking-tight line-clamp-2 uppercase">
+                                                {prog.nombre}
+                                            </h3>
+                                        </div>
+                                    </div>
+
+                                    {/* Info Body */}
+                                    <div className="p-8 flex-1 flex flex-col justify-between">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1.5 text-slate-400">
+                                                    <Clock size={12} className="text-primary/60" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Duración</span>
+                                                </div>
+                                                <p className="text-xs font-black text-foreground truncate " title={prog.duracion.nombre}>
+                                                    {prog.duracion.nombre}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1.5 text-slate-400">
+                                                    <MapPin size={12} className="text-primary/60" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Sede</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs font-black text-foreground truncate max-w-full" title={prog.hasMultipleSedes ? 'Disponible en varias sedes' : (prog.sede?.nombre || 'Sede Central')}>
+                                                        {prog.hasMultipleSedes ? 'Nacional' : (prog.sede?.nombre || 'Sede Central')}
+                                                    </p>
+                                                    {prog.hasMultipleSedes && (
+                                                        <span className="px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 text-[8px] font-black uppercase tracking-tighter shrink-0">
+                                                            + Sedes
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <Link
+                                            href={`/oferta/${prog.id}`}
+                                            className="group/btn h-14 rounded-2xl bg-primary text-white flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
+                                        >
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] relative z-10">
+                                                {prog.hasMultipleSedes ? 'Ver Sedes Disponibles' : 'Conocer más'}
+                                            </span>
+                                            <ArrowRight size={16} className="group-hover/btn:translate-x-2 transition-transform" />
                                         </Link>
                                     </div>
                                 </motion.div>
@@ -148,15 +192,21 @@ export default function OfertaPage() {
                 </div>
 
                 {!isLoading && filtered.length === 0 && (
-                    <div className="py-40 text-center space-y-8">
-                        <div className="w-32 h-32 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                            <Search className="w-12 h-12 text-slate-300" />
+                    <div className="py-40 text-center space-y-8 animate-in fade-in zoom-in">
+                        <div className="w-24 h-24 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto border-2 border-dashed border-slate-200 dark:border-white/10">
+                            <Search className="w-10 h-10 text-slate-300" />
                         </div>
-                        <p className="text-2xl font-black text-slate-400 uppercase tracking-widest">No se encontraron programas</p>
-                        <button onClick={() => setSearchTerm('')} className="text-primary-600 font-black uppercase tracking-widest hover:underline">Limpiar Búsqueda</button>
+                        <div className="space-y-2">
+                            <p className="text-xl font-black text-foreground uppercase tracking-widest">Sin resultados</p>
+                            <p className="text-sm text-muted-foreground font-medium">Prueba con otros términos de búsqueda.</p>
+                        </div>
+                        <button onClick={() => setSearchTerm('')} className="px-8 h-12 rounded-full border border-primary text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all">
+                            Limpiar Filtros
+                        </button>
                     </div>
                 )}
             </div>
         </GenericPageTemplate>
     );
 }
+

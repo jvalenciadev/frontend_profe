@@ -12,7 +12,10 @@ export interface Evento {
     inscripcionAbierta: boolean;
     asistencia?: boolean;
     lugar: string;
+    urlVideo?: string;
     totalInscritos: number;
+    inscritos: number;
+    asistidos: number;
     estado?: string;
     tipoId: string;
     tenantId?: string | null;

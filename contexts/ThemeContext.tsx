@@ -56,6 +56,7 @@ interface ThemeContextType {
     setMobileSidebarOpen: (open: boolean) => void;
     customHex: string;
     setCustomHex: (hex: string) => void;
+    toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -162,7 +163,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
             typography, setTypography: setTypographyState,
             isSidebarCollapsed, setSidebarCollapsed: setSidebarCollapsedState,
             isMobileSidebarOpen, setMobileSidebarOpen,
-            customHex, setCustomHex: setCustomHexState
+            customHex, setCustomHex: setCustomHexState,
+            toggleTheme: () => setThemeState(t => t === 'dark' ? 'light' : 'dark'),
         }}>
             {children}
         </ThemeContext.Provider>

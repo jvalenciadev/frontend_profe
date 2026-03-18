@@ -169,7 +169,7 @@ export default function ResetPasswordPage() {
 
                                         <div className="space-y-1.5 group">
                                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Correo Institucional</label>
-                                            <div className="relative flex gap-2">
+                                            <div className="relative flex flex-col xl:flex-row gap-2">
                                                 <div className="relative flex-1">
                                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                                     <input
@@ -190,7 +190,7 @@ export default function ResetPasswordPage() {
                                                             type="button"
                                                             onClick={handleSendVerification}
                                                             disabled={isSendingVerification || countdown > 0}
-                                                            className="h-12 px-6 rounded-2xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white disabled:bg-muted disabled:text-muted-foreground transition-all flex items-center gap-2 whitespace-nowrap"
+                                                            className="h-12 w-full xl:w-auto px-6 rounded-2xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white disabled:bg-muted disabled:text-muted-foreground transition-all flex justify-center items-center gap-2 whitespace-nowrap"
                                                         >
                                                             {isSendingVerification ? (
                                                                 <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

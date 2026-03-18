@@ -30,5 +30,20 @@ export const inscripcionService = {
     getEstados: async () => {
         const { data } = await api.get<any>('/estados-inscripcion');
         return Array.isArray(data) ? data : (data.data || []);
+    },
+
+    getByOferta: async (ofertaId: string) => {
+        const { data } = await api.get<any>(`/inscripciones-clean?programaId=${ofertaId}`);
+        return Array.isArray(data) ? data : (data.data || []);
+    },
+
+    confirmBaucher: async (baucherId: string, confirmed: boolean) => {
+        const { data } = await api.put<any>(`/inscripciones-clean/baucher/${baucherId}/confirmar`, { confirmed });
+        return data;
+    },
+
+    confirmInscripcion: async (id: string) => {
+        const { data } = await api.put<any>(`/inscripciones-clean/${id}/confirmar-inscripcion`);
+        return data;
     }
 };

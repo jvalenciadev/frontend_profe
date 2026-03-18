@@ -12,7 +12,7 @@ export default function NosotrosPage() {
     return (
         <GenericPageTemplate
             title="Nuestra Identidad"
-            description="El Programa de Formación Especializada (PROFE) es el epicentro de la transformación educativa en el Estado Plurinacional de Bolivia."
+            description="El Programa de Formación Especializada (PROFE) es el epicentro de la transformación educativa en el Ministerio de Educación."
             icon={History}
         >
             <div className="space-y-60 pt-20">

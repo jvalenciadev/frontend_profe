@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import GenericPageTemplate from '@/components/GenericPageTemplate';
 import publicService from '@/services/publicService';
-import { getImageUrl } from '@/lib/utils';
+import { getImageUrl, stripHtml } from '@/lib/utils';
 import { useSearchParams } from 'next/navigation';
 
 function formatDate(dateStr: string) {
@@ -83,7 +83,7 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
                         {evento.nombre}
                     </h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                        {evento.descripcion || 'Evento académico del magisterio boliviano.'}
+                        {evento.descripcion ? stripHtml(evento.descripcion) : 'Evento académico del magisterio boliviano.'}
                     </p>
                 </div>
 
@@ -163,67 +163,15 @@ function EventosContent() {
         return matchSearch && matchTipo;
     });
 
-    const statsData = [
-        { label: 'Eventos activos', val: eventos.filter(e => e.estado === 'activo').length, icon: Zap, color: 'text-primary' },
-        { label: 'Participantes', val: eventos.reduce((a, e) => a + (e.totalInscritos || 0), 0), icon: Users, color: 'text-blue-500' },
-        { label: 'Categorías', val: tipos.length, icon: Tag, color: 'text-amber-500' },
-        { label: 'Total eventos', val: eventos.length, icon: BookOpen, color: 'text-purple-500' },
-    ];
-
     return (
         <GenericPageTemplate
-            title="Agenda Nacional"
-            description="Cronograma oficial de seminarios, talleres y eventos de alto nivel académico del magisterio boliviano."
+            title="Eventos Académicos"
+            description="Cronograma oficial de seminarios, talleres y eventos académicos del magisterio boliviano."
             icon={Calendar}
         >
             <div className="space-y-16">
 
-                {/* ── PRESENTATION BANNER & STATS ── */}
-                <div className="relative w-full rounded-[2.5rem] bg-slate-950 overflow-hidden shadow-2xl border border-slate-800">
-                    {/* Placeholder Banner Image - El user puede cambiar esto luego */}
-                    <div className="absolute inset-0 opacity-40 mix-blend-overlay">
-                        <img
-                            src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop"
-                            alt="Banner Eventos"
-                            className="w-full h-full object-cover"
-                        />
-                    </div>
 
-                    {/* Dark gradient for text visibility */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/80 to-transparent" />
-
-                    <div className="relative z-10 p-10 md:p-16 lg:p-20 flex flex-col xl:flex-row gap-12 items-center justify-between">
-
-                        {/* Texto del Banner */}
-                        <div className="max-w-2xl text-center xl:text-left">
-                            <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter leading-[0.9] mb-4">
-                                Plataforma de <span className="text-primary">Capacitación</span>
-                            </h2>
-                            <p className="text-slate-400 text-sm md:text-base max-w-lg leading-relaxed mx-auto xl:mx-0">
-                                Accede al catálogo nacional especializado de formación continua. Espacio destinado a futuros banners promocionales institucionales.
-                            </p>
-                        </div>
-
-                        {/* Stats Row integradas al Banner */}
-                        {!isLoading && eventos.length > 0 && (
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-2 w-full xl:w-auto shrink-0">
-                                {statsData.map((s, i) => (
-                                    <motion.div
-                                        key={s.label}
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: i * 0.08 }}
-                                        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 text-center shadow-2xl hover:bg-white/10 transition-colors"
-                                    >
-                                        <s.icon className={`w-6 h-6 mx-auto mb-3 ${s.color} drop-shadow-md`} />
-                                        <p className="text-3xl font-black text-white">{s.val}</p>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{s.label}</p>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
 
                 {/* ── FILTROS ────────────────────────────────────────────── */}
                 <div className="space-y-4">
@@ -329,52 +277,7 @@ function EventosContent() {
                     </motion.div>
                 )}
 
-                {/* ── SECCIÓN INFORMATIVA ────────────────────────────────── */}
-                {!isLoading && (
-                    <motion.section
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 dark:from-primary/10 dark:to-primary/5 border border-primary/20 rounded-[3rem] p-12 md:p-16"
-                    >
-                        {/* Decorative blobs */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
-                        <div className="relative flex flex-col lg:flex-row items-center justify-between gap-10">
-                            <div className="space-y-4 text-center lg:text-left">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
-                                    <Star className="w-4 h-4 text-primary" />
-                                    <span className="text-xs font-black uppercase tracking-widest text-primary">Formación Continua</span>
-                                </div>
-                                <h4 className="text-3xl md:text-4xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                                    Sé parte del cambio<br />
-                                    <span className="text-primary">educativo nacional</span>
-                                </h4>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed">
-                                    Inscríbete en los eventos académicos del Programa de Formación de Educadores y
-                                    fortalece tus competencias profesionales.
-                                </p>
-                            </div>
-                            <div className="flex flex-col gap-4 w-full lg:w-auto">
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <Link
-                                        href="/registro-profe"
-                                        className="px-8 py-4 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all text-center whitespace-nowrap"
-                                    >
-                                        Registrarse en PROFE
-                                    </Link>
-                                    <Link
-                                        href="/"
-                                        className="px-8 py-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 font-black uppercase tracking-widest text-xs hover:border-primary/40 transition-all text-center text-slate-900 dark:text-white whitespace-nowrap"
-                                    >
-                                        Más información
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.section>
-                )}
             </div>
         </GenericPageTemplate>
     );

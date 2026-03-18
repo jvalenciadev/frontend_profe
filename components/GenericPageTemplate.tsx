@@ -24,9 +24,14 @@ export default function GenericPage({ title, description, icon: Icon, children }
         return getImageUrl(src);
     };
 
+    const [isMounted, setIsMounted] = React.useState(false);
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-1000 selection:bg-primary-600 selection:text-white overflow-hidden">
+        <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-1000 selection:bg-primary-600 selection:text-white overflow-hidden" suppressHydrationWarning>
 
             {/* ── ATMOSPHERE ── */}
             <div className="fixed inset-0 pointer-events-none z-0">
@@ -49,27 +54,7 @@ export default function GenericPage({ title, description, icon: Icon, children }
             <section className="relative pt-52 pb-20 px-10 lg:px-24 z-10">
                 <div className="max-w-[1500px] mx-auto text-center space-y-12">
 
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="w-20 h-20 md:w-24 md:h-24 mx-auto rounded-[2.5rem] bg-primary-600 text-white flex items-center justify-center shadow-2xl relative group overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-primary-700 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                        {config?.imagen ? (
-                            <img src={IMG(config.imagen)!} className="w-12 h-12 md:w-14 md:h-14 relative z-10 object-contain brightness-0 invert" alt="Logo" />
-                        ) : (
-                            <Icon className="w-8 h-8 md:w-10 md:h-10 relative z-10" />
-                        )}
-                    </motion.div>
-
                     <div className="space-y-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-[0.5em] text-slate-500"
-                        >
-                            <Sparkles className="w-4 h-4 text-emerald-500" /> División Nacional
-                        </motion.div>
 
                         <motion.h1
                             initial={{ opacity: 0, y: 20 }}
@@ -128,35 +113,65 @@ export default function GenericPage({ title, description, icon: Icon, children }
                 )}
             </main>
 
-            {/* ── FOOTER: CLEAN FINALE ── */}
-            <footer className="relative py-40 px-10 border-t border-slate-100 dark:border-white/10 overflow-hidden text-center bg-white dark:bg-slate-950">
-                <div className="max-w-7xl mx-auto space-y-12 relative z-10">
-                    <div className="flex flex-col items-center gap-6">
-                        <div className="w-12 h-12 rounded-2xl bg-primary-600 flex items-center justify-center text-white">
-                            <ArrowRight className="w-6 h-6 rotate-[-45deg]" />
-                        </div>
-                        <span className="text-[11px] font-black uppercase tracking-[1em] text-slate-400">Excelencia Institucional</span>
+            {/* ── FOOTER: THE IMPERIAL CONCLUSION ── */}
+            <footer className="relative bg-slate-950 text-white overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 left-0 w-full h-2 flex">
+                        <div className="flex-1 bg-[#E12C21]" />
+                        <div className="flex-1 bg-[#F9E11E]" />
+                        <div className="flex-1 bg-[#009246]" />
                     </div>
-
-                    <p className="text-[12px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.8em]">
-                        Forjando el futuro pedagógico del Estado Plurinacional
-                    </p>
-
-                    <Link href="/" className="inline-flex items-center gap-4 px-12 py-6 rounded-full bg-primary-600 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:scale-105 transition-all shadow-xl shadow-primary-600/20">
-                        Volver al Eje Central <ArrowRight className="w-5 h-5" />
-                    </Link>
-
-                    <div className="pt-20 space-y-4">
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.5em]">
-                            Ministerio de Educación © {new Date().getFullYear()} PROFE Bolivia
-                        </p>
-                        <p className="text-[8px] font-bold text-slate-300 dark:text-slate-800 uppercase tracking-[0.3em]">
-                            Estado Plurinacional de Bolivia
-                        </p>
-                    </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.minedu.gob.bo/templates/images/escudo.png')] bg-no-repeat bg-center opacity-[0.03] scale-150" />
                 </div>
 
-                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" />
+                <div className="max-w-[1700px] mx-auto px-10 lg:px-24 pt-44 pb-20 relative z-10">
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-32 mb-44">
+                        <div className="xl:col-span-4 space-y-12">
+                            <div className="flex items-center gap-8">
+                                <div className="w-20 h-20 rounded-[2.5rem] bg-white text-slate-950 flex items-center justify-center p-4">
+                                    <Landmark className="w-10 h-10" />
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <h3 className="text-4xl font-black uppercase tracking-tighter leading-none">PROFE</h3>
+                                    <p className="text-[10px] font-black text-primary-600 uppercase tracking-[0.5em]">Excelencia Pedagógica</p>
+                                </div>
+                            </div>
+                            <p className="text-white/40 text-base font-medium leading-relaxed max-w-sm text-left">
+                                Fortaleciendo el desempeño profesional del magisterio boliviano con conciencia social y soberanía tecnológica.
+                            </p>
+                        </div>
+
+                        <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-24">
+                            {[
+                                { title: 'Institucional', links: ['Ministerio de Educación', 'Transparencia', 'Gaceta Nacional'] },
+                                { title: 'Plataforma', links: ['Sedes Académicas', 'Oferta Postgrado', 'Revista Científica'] },
+                                { title: 'Recursos', links: ['Repositorio', 'Aula Virtual', 'Soporte'] },
+                            ].map((group) => (
+                                <div key={group.title} className="space-y-10 text-left">
+                                    <h5 className="text-[12px] font-black uppercase tracking-[0.4em] text-white border-l-2 border-primary-600 pl-6">{group.title}</h5>
+                                    <ul className="space-y-6">
+                                        {group.links.map(l => (
+                                            <li key={l}><a href="#" className="text-[11px] font-black text-white/30 hover:text-primary-600 transition-colors uppercase tracking-widest flex items-center gap-4 group">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-primary-600 scale-0 group-hover:scale-100 transition-transform" /> {l}
+                                            </a></li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="pt-20 border-t border-white/5 flex flex-col xl:flex-row items-center justify-between gap-16">
+                        <p className="text-[11px] font-black text-white/20 uppercase tracking-[0.6em] text-center xl:text-left">
+                            Ministerio de Educación © {new Date().getFullYear()} — Estado Plurinacional de Bolivia
+                        </p>
+                        <div className="flex gap-12">
+                            {['Privacidad', 'Condiciones', 'Accesibilidad'].map(l => (
+                                <span key={l} className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white cursor-pointer transition-colors">{l}</span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </footer>
         </div>
     );
