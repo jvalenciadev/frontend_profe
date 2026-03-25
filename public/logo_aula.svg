@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 250" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    AULA PROFE: V8 (POSTGRADUATE EXCELLENCE - ESCUDO)
+    CAMBIOS: Reemplazado el birrete por un Escudo Institucional de Investigación.
+    SIMBOLOGÍA: Escudo (Autoridad), "A" integrada (Aula), Estrella de Investigación (Excelencia).
+  -->
+  <defs>
+    <style>
+      .gold-solid { fill: #FDB931; }
+      .navy-deep { fill: #0F172A; }
+      .white-solid { fill: #FFFFFF; }
+    </style>
+  </defs>
+
+  <!-- ISOTIPO: ESCUDO DE INVESTIGACIÓN SUPERIOR -->
+  <g transform="translate(60, 40)">
+    <!-- Base del Escudo (Navy) -->
+    <path d="M0 0 H140 V90 Q140 140 70 160 Q0 140 0 90 Z" class="navy-deep" />
+    
+    <!-- El "A" Arquitectónico (Oro) - Inspirado en columnas y plumas de investigación -->
+    <path d="M70 30 L40 110 M70 30 L100 110 M50 90 H90" fill="none" stroke="#FDB931" stroke-width="12" stroke-linecap="round" />
+    
+    <!-- Estrella de Investigación / Nodo de Excelencia (Oro) -->
+    <circle cx="70" cy="30" r="12" class="gold-solid" />
+    <path d="M70 10 L70 50 M50 30 H90" stroke="#FFFFFF" stroke-width="3" opacity="0.5" />
+  </g>
+
+  <!-- BLOQUE DE TEXTO: AULA PROFE -->
+  <g transform="translate(260, 135)">
+    <text x="0" y="0" font-family="'Outfit', 'Inter', sans-serif" 
+          font-weight="950" font-size="115" class="navy-deep" letter-spacing="-4">
+      Aula
+    </text>
+    
+    <text x="255" y="0" font-family="'Outfit', 'Inter', sans-serif" 
+          font-weight="980" font-size="115" class="gold-solid" letter-spacing="-4">
+      PROFE
+    </text>
+
+    <!-- Línea de Separación (Oro) -->
+    <rect x="0" y="25" width="670" height="6" rx="3" class="gold-solid" />
+
+    <!-- SLOGAN INSTITUCIONAL (Actualizado para Postgrado/Investigación) -->
+    <text x="5" y="65" font-family="'Inter', sans-serif" 
+          font-weight="900" font-size="22" fill="#64748B" letter-spacing="6" text-transform="uppercase">
+      Institución Superior de Investigación
+    </text>
+  </g>
+</svg>

@@ -41,10 +41,13 @@ import {
     MessagesSquare,
     ClipboardCheck,
     Youtube as YoutubeIcon,
+    Image,
     FileSearch,
     TrendingUp,
     Target,
-    GraduationCap
+    GraduationCap,
+    CalendarCheck,
+    X
 } from 'lucide-react';
 import YouTube from 'react-youtube';
 import AttendanceManager from '@/components/aula/AttendanceManager';
@@ -112,6 +115,24 @@ export default function CourseDetailPage() {
     const [showQuizEditor, setShowQuizEditor] = useState(false);
     const [showQuizPlayer, setShowQuizPlayer] = useState(false);
     const [showStudentList, setShowStudentList] = useState(false);
+
+    // Interceptar botón "atrás" del navegador mientras el QuizPlayer esté abierto
+    useEffect(() => {
+        if (!showQuizPlayer) return;
+        // Añadimos un estado falso al historial para que el back "aterrice" aquí
+        window.history.pushState({ quiz: true }, '');
+        const handlePopState = (e: PopStateEvent) => {
+            // El usuario presionó atrás: cerramos el quiz y recargamos el módulo
+            setShowQuizPlayer(false);
+            loadModulo();
+            // Prevenimos salir de la página del curso empujando de nuevo la entrada
+            // (el estado ya fue consumido por el popstate, no hace falta más)
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [showQuizPlayer]);
     // Unified Items Reorder State
     const [isEditModeCombined, setIsEditModeCombined] = useState(false);
     const [combinedItems, setCombinedItems] = useState<any[]>([]);
@@ -123,13 +144,39 @@ export default function CourseDetailPage() {
     const [itemToDelete, setItemToDelete] = useState<any>(null);
     const [deleteType, setDeleteType] = useState<'activity' | 'resource'>('activity');
 
+    // --- MANEJO DE DEEP LINKS (Notificaciones) ---
+    const openQuizId = searchParams?.get('openQuiz');
+    const targetView = searchParams?.get('view');
+
+    useEffect(() => {
+        if (targetView && ['content', 'attendance', 'stats'].includes(targetView)) {
+            setView(targetView as any);
+        }
+    }, [targetView]);
+
+    useEffect(() => {
+        // Solo procedemos si el módulo ya cargó sus actividades
+        if (openQuizId && modulo) {
+            const allActs = (modulo.mod_unidades || []).flatMap((u: any) => u.actividades || []);
+            const targetAct = allActs.find((a: any) => a.id === openQuizId);
+
+            if (targetAct) {
+                setSelectedActivity(targetAct);
+                if (targetAct.tipo === 'CUESTIONARIO') {
+                    if (isFacilitator) setShowQuizEditor(true);
+                    else setShowQuizPlayer(true);
+                }
+            }
+        }
+    }, [openQuizId, modulo, isFacilitator]);
+
     // --- CÁLCULO DE PROGRESO REAL ---
     const allActivities = (modulo?.mod_unidades || []).flatMap((u: any) => u.actividades || []);
     const totalActivities = allActivities.length;
     const completedActivities = allActivities.filter((a: any) => a.userSubmitted).length;
     const calculatedProgress = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
     const progressText = isFacilitator ? "Avance Curricular" : "Tu Progreso";
-    const displayProgress = isFacilitator ? (totalActivities > 0 ? 100 : 0) : calculatedProgress; 
+    const displayProgress = isFacilitator ? (totalActivities > 0 ? 100 : 0) : calculatedProgress;
     // Para facilitador, si hay actividades, su "avance" es el diseño del curso (asumimos 100% si hay contenido o calculamos según fechas)
     // Pero lo más honesto es mostrar el progreso del alumno. Si es facilitador, tal vez quiera ver el promedio de la clase?
     // Por ahora, calcularemos el progreso real para alumnos y un indicador de diseño para facilitadores.
@@ -142,6 +189,8 @@ export default function CourseDetailPage() {
             } else {
                 setShowQuizPlayer(true);
             }
+        } else if (act.tipo === 'ASISTENCIA') {
+            setView('attendance');
         } else {
             router.push(`/aula/curso/${moduloId}/actividad/${act.id}`);
         }
@@ -175,7 +224,16 @@ export default function CourseDetailPage() {
             const data = await aulaService.getCursoDetalle(moduloId as string, turnoId || undefined);
             if (data) {
                 setModulo(data);
-                const unit = data.mod_unidades?.[activeUnit] || data.mod_unidades?.[0];
+
+                // Si la unidad activa ya no existe o está fuera de rango (p.ej. tras borrarla), volver a la primera o última válida
+                let safeIndex = activeUnit;
+                const unitsCount = data.mod_unidades?.length || 0;
+                if (safeIndex >= unitsCount) {
+                    safeIndex = Math.max(0, unitsCount - 1);
+                    setActiveUnit(safeIndex);
+                }
+
+                const unit = data.mod_unidades?.[safeIndex] || data.mod_unidades?.[0];
                 if (unit) {
                     const combined = [
                         ...(unit.actividades || []).map((a: any) => ({ ...a, itemType: 'activity' })),
@@ -195,7 +253,7 @@ export default function CourseDetailPage() {
                 setTimeout(() => loadModulo(retryCount + 1), retryDelay);
             } else {
                 if (err.response?.status !== 401) {
-                    toast.error('Ocurrió un error al conectar con el aula virtual');
+                    toast.error('Ocurrió un error al conectar con Aula Profe');
                 }
                 setIsLoading(false);
             }
@@ -207,7 +265,7 @@ export default function CourseDetailPage() {
         if (type === 'activity' && (item.respuestasCount || 0) > 0) {
             return toast.error('No se puede eliminar: Esta actividad ya tiene entregas o respuestas de estudiantes.');
         }
-        
+
         setItemToDelete(item);
         setDeleteType(type);
         setShowDeleteModal(true);
@@ -268,7 +326,7 @@ export default function CourseDetailPage() {
             const activities = combinedItems
                 .filter(i => i.itemType === 'activity')
                 .map((act, index) => ({ id: act.id, orden: combinedItems.indexOf(act) }));
-            
+
             const resources = combinedItems
                 .filter(i => i.itemType === 'resource')
                 .map((res, index) => ({ id: res.id, orden: combinedItems.indexOf(res) }));
@@ -292,7 +350,7 @@ export default function CourseDetailPage() {
                 <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 rounded-full" />
                 <div className="absolute top-0 left-0 w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Sincronizando Aula Virtual...</p>
+            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Sincronizando Aula Profe...</p>
         </div>
     );
 
@@ -321,7 +379,7 @@ export default function CourseDetailPage() {
             <header className="pt-12 flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 dark:border-slate-800/60 pb-12 relative">
                 <div className="space-y-8 flex-1">
                     <button
-                        onClick={() => router.back()}
+                        onClick={() => router.push('/aula/cursos')}
                         className="flex items-center gap-2 text-slate-400 hover:text-primary transition-all font-black text-[10px] uppercase tracking-[0.2em] group"
                     >
                         <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Volver al Aula
@@ -570,18 +628,18 @@ export default function CourseDetailPage() {
                                                                 </div>
                                                                 <div className="pl-14">
                                                                     {item.itemType === 'activity' ? (
-                                                                        <ActivityCard 
-                                                                            act={item} 
-                                                                            theme={theme} 
-                                                                            isFac={isFacilitator} 
+                                                                        <ActivityCard
+                                                                            act={item}
+                                                                            theme={theme}
+                                                                            isFac={isFacilitator}
                                                                             onEdit={() => { setActivityToEdit(item); setShowActivityEditor(true); }}
                                                                             onDelete={() => confirmDelete(item, 'activity')}
                                                                         />
                                                                     ) : (
-                                                                        <ResourceCard 
-                                                                            res={item} 
-                                                                            theme={theme} 
-                                                                            isFac={isFacilitator} 
+                                                                        <ResourceCard
+                                                                            res={item}
+                                                                            theme={theme}
+                                                                            isFac={isFacilitator}
                                                                             onEdit={() => { setResourceToEdit(item); setShowResourceModal(currentUnit.id); }}
                                                                             onDelete={() => confirmDelete(item, 'resource')}
                                                                             onView={() => setPdfToView(item)}
@@ -609,16 +667,16 @@ export default function CourseDetailPage() {
                                                                 onDelete={() => confirmDelete(item, 'activity')}
                                                             />
                                                         ) : (
-                                                            <ResourceCard 
-                                                                key={item.id} 
-                                                                res={item} 
-                                                                theme={theme} 
-                                                                isFac={isFacilitator} 
+                                                            <ResourceCard
+                                                                key={item.id}
+                                                                res={item}
+                                                                theme={theme}
+                                                                isFac={isFacilitator}
                                                                 onEdit={() => {
                                                                     setResourceToEdit(item);
                                                                     setShowResourceModal(currentUnit.id);
                                                                 }}
-                                                                onDelete={() => confirmDelete(item, 'resource')} 
+                                                                onDelete={() => confirmDelete(item, 'resource')}
                                                                 onView={() => setPdfToView(item)}
                                                             />
                                                         )
@@ -647,7 +705,7 @@ export default function CourseDetailPage() {
                                         </h3>
                                         <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm leading-relaxed">
                                             {units.length === 0
-                                                ? (isFacilitator ? "Todavía no has creado contenido para esta aula virtual." : "Estamos preparando el material para este curso.")
+                                                ? (isFacilitator ? "Todavía no has creado contenido para Aula Profe." : "Estamos preparando el material para este curso.")
                                                 : "Explora el currículo en el lateral izquierdo para ver el contenido."}
                                         </p>
                                     </div>
@@ -681,13 +739,13 @@ export default function CourseDetailPage() {
                 <div className="mt-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <header className="flex justify-between items-end">
                         <div className="space-y-2">
-                             <h2 className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>
+                            <h2 className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>
                                 Rendimiento del <span style={{ color: 'var(--aula-primary)' }}>Módulo</span>
-                             </h2>
-                             <p className="text-slate-500 font-medium">Estadísticas detalladas y progreso de aprendizaje.</p>
+                            </h2>
+                            <p className="text-slate-500 font-medium">Estadísticas detalladas y progreso de aprendizaje.</p>
                         </div>
                         <div className="flex gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                             <div className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-[9px] font-black uppercase tracking-widest text-primary">Vista General</div>
+                            <div className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-[9px] font-black uppercase tracking-widest text-primary">Vista General</div>
                         </div>
                     </header>
 
@@ -710,22 +768,22 @@ export default function CourseDetailPage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className={cn("lg:col-span-2 p-10 rounded-[3rem] border relative overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/40")}>
-                             <div className="flex items-center justify-between mb-10">
-                                 <h3 className="text-xl font-black uppercase tracking-tight">Cumplimiento por Unidad</h3>
-                                 <TrendingUp size={20} className="text-primary" />
-                             </div>
-                             <div className="space-y-6">
+                            <div className="flex items-center justify-between mb-10">
+                                <h3 className="text-xl font-black uppercase tracking-tight">Cumplimiento por Unidad</h3>
+                                <TrendingUp size={20} className="text-primary" />
+                            </div>
+                            <div className="space-y-6">
                                 {units.map((u: any, i: number) => (
                                     <div key={u.id} className="space-y-3">
                                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
                                             <span>Unidad {u.semana}: {u.titulo}</span>
-                                            <span>{Math.round((i+1)*20)}%</span>
+                                            <span>{Math.round((i + 1) * 20)}%</span>
                                         </div>
                                         <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <motion.div 
+                                            <motion.div
                                                 initial={{ width: 0 }}
-                                                animate={{ width: `${(i+1)*20}%` }}
-                                                transition={{ delay: 0.5 + (i*0.1), duration: 1 }}
+                                                animate={{ width: `${(i + 1) * 20}%` }}
+                                                transition={{ delay: 0.5 + (i * 0.1), duration: 1 }}
                                                 className="h-full bg-primary"
                                             />
                                         </div>
@@ -734,18 +792,18 @@ export default function CourseDetailPage() {
                                 {units.length === 0 && (
                                     <div className="py-20 text-center opacity-30 font-black uppercase tracking-widest text-xs">Sin datos disponibles</div>
                                 )}
-                             </div>
+                            </div>
                         </div>
 
                         <div className={cn("p-10 rounded-[3rem] border flex flex-col items-center justify-center text-center space-y-6 bg-slate-950 text-white border-primary/20 shadow-2xl")}>
-                             <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-2">
+                            <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-2">
                                 <Target size={48} />
-                             </div>
-                             <h4 className="text-2xl font-black">Meta del Mes</h4>
-                             <p className="text-sm opacity-60 font-medium">Alcanza el 90% de participación en foros para desbloquear la insignia de "Interacción Premium".</p>
-                             <div className="w-full pt-6">
+                            </div>
+                            <h4 className="text-2xl font-black">Meta del Mes</h4>
+                            <p className="text-sm opacity-60 font-medium">Alcanza el 90% de participación en foros para desbloquear la insignia de "Interacción Premium".</p>
+                            <div className="w-full pt-6">
                                 <button className="w-full h-12 rounded-2xl bg-white text-slate-950 font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">Ver Recomendaciones</button>
-                             </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -795,8 +853,14 @@ export default function CourseDetailPage() {
                         theme={theme}
                         unit={selectedUnitToEdit}
                         turnoId={turnoId || undefined}
+                        unitsCount={units.length}
                         onClose={() => { setShowUnitEditor(false); setSelectedUnitToEdit(null); }}
-                        onSuccess={() => { setShowUnitEditor(false); setSelectedUnitToEdit(null); loadModulo(); }}
+                        onSuccess={() => {
+                            setShowUnitEditor(false);
+                            setSelectedUnitToEdit(null);
+                            setActiveUnit(0);
+                            loadModulo();
+                        }}
                     />
                 )}
                 {showQuizEditor && selectedActivity && (
@@ -836,7 +900,7 @@ export default function CourseDetailPage() {
             {/* Modal de Confirmación de Eliminación - Ubicación Final Segura */}
             <AnimatePresence>
                 {showDeleteModal && itemToDelete && (
-                    <DeleteConfirmModal 
+                    <DeleteConfirmModal
                         key={`delete-${itemToDelete.id}`}
                         item={itemToDelete}
                         type={deleteType}
@@ -856,43 +920,103 @@ export default function CourseDetailPage() {
 // ─── SUB-COMPONENTS ───────────────────────────────────────────
 
 function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className }: any) {
-    const info = getActTypeInfo(act.tipo);
+    const info = getActTypeInfoPremium(act.tipo);
+
+    // ─── ASISTENCIA: tarjeta compacta especial ───────────────────────────
+    if (act.tipo === 'ASISTENCIA') {
+        const isPresencial = act.asistencia?.esPresencial ?? act.mod_asi_presencial ?? act.esPresencial ?? true;
+        return (
+            <motion.div
+                whileHover={{ x: 2 }}
+                onClick={onClick}
+                className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer group",
+                    theme === 'dark'
+                        ? "bg-slate-900/30 border-slate-800/50 hover:border-indigo-500/30"
+                        : "bg-white border-slate-100 hover:border-indigo-200 shadow-sm",
+                    className
+                )}
+            >
+                {/* Icon */}
+                <div className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:rotate-6",
+                    info.bg, info.color
+                )}>
+                    <info.icon size={16} strokeWidth={1.8} />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-bold truncate leading-tight", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
+                        {act.titulo}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-slate-400 font-medium">{formatDate(act.fechaInicio)}</span>
+                        <span className={cn(
+                            "px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest",
+                            isPresencial
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-indigo-500/10 text-indigo-600"
+                        )}>
+                            {isPresencial ? '● Presencial' : '● Virtual'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Fac actions */}
+                {isFac && (
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all">
+                            <Edit3 size={13} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-500 hover:text-white transition-all">
+                            <Trash2 size={13} />
+                        </button>
+                    </div>
+                )}
+                <ChevronLeft size={14} className="rotate-180 text-slate-300 shrink-0" />
+            </motion.div>
+        );
+    }
+
+    // ─── RESTO DE ACTIVIDADES: tarjeta completa ───────────────────────────
     return (
         <motion.div
             whileHover={{ y: -4, scale: 1.01 }}
             onClick={onClick}
             className={cn(
-                "p-8 rounded-[2.5rem] border transition-all duration-500 cursor-pointer flex items-center gap-8 relative group overflow-hidden",
+                "p-4 md:p-5 rounded-[2rem] border transition-all duration-500 cursor-pointer flex items-center gap-5 relative group overflow-hidden",
                 theme === 'dark'
                     ? cn("bg-slate-900/40 border-slate-800/60", info.border)
-                    : cn("bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.08)]", info.border),
+                    : cn("bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.06)]", info.border),
                 className
             )}
         >
             <div
-                className={cn("w-16 h-16 rounded-3xl flex items-center justify-center text-white shadow-2xl transition-transform group-hover:rotate-6 duration-500")}
+                className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl transition-transform group-hover:rotate-6 duration-500 shrink-0")}
                 style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}
             >
-                <info.icon size={28} />
+                <info.icon size={22} />
             </div>
             <div className="flex-1 min-w-0">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                        <span className={cn("px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-white shadow-sm transition-all", info.bg)}>
+                        <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-white shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-all"
+                            style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}>
                             {info.label}
                         </span>
                         {act.esCalificable && (
-                            <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                            <span className="px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20">
                                 Evaluativo
                             </span>
                         )}
                         {act.categoria && (
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
                                 • {act.categoria.config?.nombre || act.categoria.nombre}
                             </span>
                         )}
                     </div>
-                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tight", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                    <h4 className={cn("text-lg font-black tracking-tight leading-tight truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>
                         {act.titulo}
                     </h4>
                 </div>
@@ -901,95 +1025,100 @@ function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className 
                     {act.instrucciones || 'Haga clic para ingresar a la actividad académica.'}
                 </p>
 
-                <div className="flex flex-wrap items-center gap-6 mt-4">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 px-3 py-1.5 rounded-xl border border-slate-100/50 dark:border-slate-800/50">
-                        <Calendar size={12} className="text-primary opacity-70" />
-                        <span className="opacity-80 tracking-tight">{formatDate(act.fechaInicio)} — {formatDate(act.fechaFin)}</span>
-                    </div>
-
-                    {act.esCalificable && (
-                        <div className="flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl bg-amber-500/5 text-amber-600 border border-amber-500/10 shadow-sm transition-all hover:bg-amber-500/10">
-                            <Trophy size={11} className="text-amber-500" />
-                            <span>{act.puntajeMax} <span className="text-[8px] opacity-60">PUNTOS MÁX.</span></span>
+                <div className="flex flex-wrap items-center gap-4 mt-2">
+                    {/* Fecha de Rango (Solo se muestra si NO ha entregado para incentivar el orden) */}
+                    {!act.userSubmitted && (
+                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 px-2 py-1 rounded-lg border border-slate-100/50 dark:border-slate-800/50">
+                            <Calendar size={10} className="text-primary opacity-70" />
+                            <span className="opacity-80 tracking-tight">{formatDate(act.fechaInicio)} — {formatDate(act.fechaFin)}</span>
                         </div>
                     )}
 
+                    {act.esCalificable && !act.userSubmitted && (
+                        <div className="flex items-center gap-1.5 text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/5 text-amber-600 border border-amber-500/10 shadow-sm transition-all">
+                            <Trophy size={10} className="text-amber-500" />
+                            <span>{act.puntajeMax} <span className="text-[7px] opacity-60 uppercase">PTS</span></span>
+                        </div>
+                    )}
+
+                    {/* Estado de Entrega o Countdown */}
                     {isFac ? (
-                        <div className="flex items-center gap-3">
-                            <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 flex items-center gap-2">
-                                <Users size={12} className="text-primary opacity-60" />
+                        <div className="flex items-center gap-2">
+                            <div className="px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[9px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                <Users size={10} className="text-primary opacity-60" />
                                 {act.respuestasCount || 0} {act.tipo === 'CUESTIONARIO' ? 'Intentos' : 'Entregas'}
                             </div>
-                            {act.tipo === 'CUESTIONARIO' && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onClick(); }}
-                                    className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm"
-                                >
-                                    Ver Resultados
-                                </button>
-                            )}
                         </div>
                     ) : (
-                        <div className={cn(
-                            "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2",
-                            act.isGraded
-                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                                : act.userSubmitted
-                                    ? "bg-primary/10 text-primary border border-primary/20"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 border border-transparent"
-                        )}>
-                            {act.userSubmitted ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                            {act.userSubmitted ? (act.isGraded ? `Calificado: ${act.userGrade}/${act.puntajeMax}` : 'Entregado') : 'Sin entregar'}
+                        <div className="flex items-center gap-2">
+                            {act.userSubmitted ? (
+                                <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                                    <CheckCircle2 size={12} />
+                                    <span>{act.isGraded ? `${act.userGrade}/${act.puntajeMax} PTS` : 'Entregado'}</span>
+                                </div>
+                            ) : (
+                                (() => {
+                                    if (!act.fechaFin) return null;
+                                    const now = new Date();
+                                    const end = new Date(act.fechaFin);
+                                    const diffMs = end.getTime() - now.getTime();
+                                    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+                                    if (diffMs < 0) return (
+                                        <div className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-transparent">
+                                            <Lock size={10} /> <span>Cerrado</span>
+                                        </div>
+                                    );
+
+                                    if (diffHours < 24) return (
+                                        <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse shadow-sm shadow-rose-500/10">
+                                            <Clock size={12} className="text-rose-500" />
+                                            <span>Menos de 24h</span>
+                                        </div>
+                                    );
+
+                                    return (
+                                        <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm shadow-primary/5">
+                                            <Clock size={12} />
+                                            <span>Faltan {diffDays} {diffDays === 1 ? 'día' : 'días'}</span>
+                                        </div>
+                                    );
+                                })()
+                            )}
                         </div>
                     )}
                 </div>
             </div>
 
-                {isFac && (
-                    <div className="flex items-center gap-2 pointer-events-auto relative z-30">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                            className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all shadow-sm"
-                        >
-                            <Edit3 size={18} />
-                        </button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                            className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    </div>
-                )}
-                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 transition-all",
-                    act.tipo === 'FORO' ? "group-hover:bg-primary" :
-                        act.tipo === 'TAREA' ? "group-hover:bg-amber-500" :
-                            act.tipo === 'CUESTIONARIO' ? "group-hover:bg-violet-500" : "group-hover:bg-primary", "group-hover:text-white")}>
-                    <ChevronLeft size={20} className="rotate-180" />
+            {isFac && (
+                <div className="flex items-center gap-1.5 pointer-events-auto relative z-30 shrink-0">
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                        <Edit3 size={15} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                        <Trash2 size={15} />
+                    </button>
                 </div>
+            )}
+            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 transition-all shrink-0 ml-auto md:ml-0",
+                act.tipo === 'FORO' ? "group-hover:bg-primary" :
+                    act.tipo === 'TAREA' ? "group-hover:bg-amber-500" :
+                        act.tipo === 'CUESTIONARIO' ? "group-hover:bg-violet-500" : "group-hover:bg-primary", "group-hover:text-white")}>
+                <ChevronLeft size={16} className="rotate-180" />
+            </div>
         </motion.div>
     );
+
 }
 
-const getResTypeInfoPremium = (tipo: string) => {
-    switch (tipo) {
-        // 📙 PDF: Ámbar Académico — máximo contraste y visibilidad
-        case 'PDF': return { icon: FileText, label: 'Documento PDF', bg: 'bg-amber-500/15 text-amber-600', border: 'border-amber-200', bgHex: '#d97706' };
-        // 🎬 VIDEO: Violeta Real — dinamismo y profundidad
-        case 'VIDEO': return { icon: PlayCircle, label: 'Clase en Video', bg: 'bg-violet-500/15 text-violet-600', border: 'border-violet-200', bgHex: '#7c3aed' };
-        // 🌐 LINK: Azul Eléctrico — conectividad global
-        case 'LINK': return { icon: Globe, label: 'Enlace Externo', bg: 'bg-blue-500/15 text-blue-600', border: 'border-blue-200', bgHex: '#2563eb' };
-        // 🖼️ IMAGEN: Esmeralda — visualización clara
-        case 'IMAGEN': return { icon: File, label: 'Recurso Visual', bg: 'bg-emerald-500/15 text-emerald-600', border: 'border-emerald-200', bgHex: '#059669' };
-        default: return { icon: File, label: 'Material Extra', bg: 'bg-slate-500/15 text-slate-600', border: 'border-slate-200', bgHex: '#475569' };
-    }
-};
+
 
 function PdfViewerModal({ resource, theme, onClose }: any) {
     const isDrive = resource.url.includes('drive.google.com');
     const isImage = resource.tipo === 'IMAGEN' || /\.(jpg|jpeg|png|gif|webp)$/i.test(resource.url) || resource.url.includes('image');
-    const info = getResTypeInfoPremium(resource.tipo);
-    
+    const info = getActTypeInfoPremium(resource.tipo);
+
     let embedUrl = resource.url;
 
     if (isDrive) {
@@ -1003,16 +1132,16 @@ function PdfViewerModal({ resource, theme, onClose }: any) {
 
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xl">
-            <motion.div 
-                initial={{ scale: 0.95, opacity: 0 }} 
-                animate={{ scale: 1, opacity: 1 }} 
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 className={cn("w-full max-w-6xl h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border", theme === 'dark' ? "bg-slate-900 border-white/10" : "bg-white border-slate-200")}
             >
                 <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div 
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg relative overflow-hidden" 
+                        <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg relative overflow-hidden"
                             style={{ backgroundColor: info.bgHex }}
                         >
                             <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent" />
@@ -1024,7 +1153,7 @@ function PdfViewerModal({ resource, theme, onClose }: any) {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button 
+                        <button
                             onClick={() => window.open(resource.url, '_blank')}
                             className="px-6 h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest hover:bg-primary hover:text-white transition-all"
                         >
@@ -1038,15 +1167,15 @@ function PdfViewerModal({ resource, theme, onClose }: any) {
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950 flex items-center justify-center overflow-hidden p-8">
                     {isImage ? (
                         <div className="relative w-full h-full flex items-center justify-center rounded-[2rem] overflow-hidden bg-slate-100/30 dark:bg-slate-900/30 border-2 border-dashed border-slate-200 dark:border-slate-800/50">
-                             <img 
-                                src={resource.url} 
-                                className="max-w-[85%] max-h-[85%] object-contain shadow-2xl rounded-xl ring-8 ring-white/10" 
+                            <img
+                                src={resource.url}
+                                className="max-w-[85%] max-h-[85%] object-contain shadow-2xl rounded-xl ring-8 ring-white/10"
                                 alt={resource.titulo}
                             />
                         </div>
                     ) : (
-                        <iframe 
-                            src={embedUrl} 
+                        <iframe
+                            src={embedUrl}
                             className="w-full h-full border-none rounded-xl"
                             allow="autoplay text-rendering"
                         />
@@ -1058,179 +1187,217 @@ function PdfViewerModal({ resource, theme, onClose }: any) {
 }
 
 function ResourceCard({ res, theme, isFac, onDelete, onEdit, onView, className }: any) {
-    const info = getResTypeInfoPremium(res.tipo);
+    const info = getActTypeInfoPremium(res.tipo);
     const [showVideo, setShowVideo] = useState(false);
 
-    // YouTube URL Extractor
     const getYouTubeId = (url: string) => {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
+        const match = url?.match(regExp);
         return (match && match[2].length === 11) ? match[2] : null;
     };
 
-    const youtubeId = res.tipo === 'VIDEO' ? getYouTubeId(res.url) : null;
-    const isPdf = res.tipo === 'PDF' || res.url.toLowerCase().endsWith('.pdf') || res.url.includes('drive.google.com');
+    const youtubeId = (res.tipo === 'VIDEO' || res.tipo === 'YOUTUBE') ? getYouTubeId(res.url) : null;
+    const isPdf = res.tipo === 'PDF' || res.url?.toLowerCase().endsWith('.pdf') || res.url?.includes('drive.google.com');
 
+    // ─── DISEÑO PARA TÍTULOS (SEPARADORES CREATIVOS) ───
+    if (res.tipo === 'TITULO') {
+        return (
+            <motion.div layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-4 py-3 mt-4 group/title pointer-events-none">
+                <div className="relative shrink-0 flex items-center justify-center">
+                    <div className="w-1.5 h-5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]" style={{ backgroundColor: 'var(--aula-primary)' }} />
+                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full animate-pulse" style={{ backgroundColor: 'var(--aula-primary)' }} />
+                </div>
+                <div className="flex flex-col">
+                    <h3 className={cn("text-base font-black uppercase tracking-[0.1em] transition-colors", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                        {res.titulo}
+                    </h3>
+                    {res.descripcion && (
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 opacity-60">
+                            {res.descripcion}
+                        </p>
+                    )}
+                </div>
+                <div className="h-px flex-1 bg-gradient-to-r from-slate-200 via-slate-100 to-transparent dark:from-slate-800 dark:via-slate-900 dark:to-transparent" />
+
+                {/* Botones para el Fac (estos sí necesitan eventos) */}
+                {isFac && (
+                    <div className="flex gap-2 pointer-events-auto ml-4">
+                        <button onClick={onEdit} className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-primary flex items-center justify-center transition-all bg-opacity-50 backdrop-blur-sm"><Edit3 size={12} /></button>
+                        <button onClick={onDelete} className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all"><Trash2 size={12} /></button>
+                    </div>
+                )}
+            </motion.div>
+        );
+    }
+
+    // ─── DISEÑO PARA RECURSOS MEJORADO (MODERN & PREMIUM) ───
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5 }}
+            whileHover={{ y: -2, scale: 1.002 }}
             className={cn(
-                "group relative overflow-hidden rounded-[2.5rem] border transition-all duration-500",
+                "group relative rounded-2xl border transition-all duration-300 overflow-hidden",
                 theme === 'dark'
-                    ? "bg-slate-900/60 border-slate-800/50 hover:border-primary/40 shadow-2xl shadow-black/40"
-                    : "bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.1)]",
-                className
+                    ? "bg-[#0f172a]/40 border-slate-800/60 hover:border-primary/30 hover:bg-slate-900/40 text-slate-100"
+                    : "bg-white border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.05)] text-slate-800",
+                showVideo && "ring-2 ring-primary/10 border-primary/30 shadow-lg"
             )}
         >
-            {/* Fondo decorativo sutil */}
-            <div className={cn("absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full blur-3xl opacity-10 transition-opacity group-hover:opacity-20", info.bg)} />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/res:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="p-3 md:p-4 flex items-center gap-4 w-full relative">
+                {/* Visual Accent */}
+                <div className={cn("absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity", info.bg)} />
 
-            <div className="p-3">
-                {/* Visual Header / Video Preview (Solo para Videos) */}
-                {res.tipo === 'VIDEO' && youtubeId && (
-                    <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-slate-100 dark:bg-slate-800 group/video mb-3 shadow-inner">
-                        <AnimatePresence mode="wait">
-                            {showVideo ? (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
-                                    <YouTube
-                                        videoId={youtubeId}
-                                        opts={{ width: '100%', height: '100%', playerVars: { autoplay: 1 } }}
-                                        className="w-full h-full"
-                                    />
-                                </motion.div>
-                            ) : (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
-                                    <img
-                                        src={`https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover/video:scale-110"
-                                        alt={res.titulo}
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover/video:opacity-100 transition-opacity flex items-center justify-center">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setShowVideo(true); }}
-                                            className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center text-white hover:scale-110 active:scale-90 transition-all shadow-2xl"
-                                        >
-                                            <PlayCircle size={40} fill="currentColor" stroke="none" />
-                                        </button>
-                                    </div>
-                                    <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
-                                        <YoutubeIcon size={14} /> Reproductor HD
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                )}
-
-                {/* Info Area - Diseño Creativo para Materiales */}
-                <div className={cn("px-5 py-4", res.tipo !== 'VIDEO' && "min-h-[100px] flex items-center")}>
-                    <div className="flex items-center justify-between gap-6 w-full">
-                        <div className="flex items-center gap-6 flex-1 min-w-0">
-                            {/* Visual Asset (Imagen real o Icono Glass) */}
-                            {res.tipo !== 'VIDEO' && (
-                                <div className="shrink-0 relative group/asset">
-                                    {res.tipo === 'IMAGEN' ? (
-                                        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-700 shadow-2xl rotate-[-3deg] group-hover/asset:rotate-0 transition-transform duration-500 bg-slate-100 flex items-center justify-center">
-                                            <img 
-                                                src={res.url} 
-                                                className="w-full h-full object-contain" 
-                                                alt={res.titulo}
-                                                onError={(e: any) => { e.target.src = 'https://via.placeholder.com/150?text=Imagen'; }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div 
-                                            className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl rotate-[-3deg] group-hover/asset:rotate-0 transition-all duration-500 relative overflow-hidden group/icon"
-                                        >
-                                            <div 
-                                                className="absolute inset-0 opacity-100 group-hover/icon:opacity-90 transition-opacity"
-                                                style={{ backgroundColor: info.bgHex }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-tr from-white/40 to-transparent pointer-events-none" />
-                                            <info.icon size={28} className="relative z-10 drop-shadow-md text-white" />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            
-                            <div className="space-y-2 flex-1 min-w-0">
-                                <div className="flex items-center gap-2.5">
-                                    <div className={cn("px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.15em] shadow-sm", info.bg)}>
-                                        {info.label}
-                                    </div>
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-2 py-1 rounded-lg">
-                                        <div className="w-1 h-1 rounded-full bg-slate-400" />
-                                        RECURSO DIGITAL
-                                    </span>
-                                </div>
-                                <h5 className={cn("text-lg font-black tracking-tight leading-tight transition-colors truncate", theme === 'dark' ? "text-white group-hover:text-primary" : "text-slate-800 group-hover:text-primary")}>
-                                    {res.titulo}
-                                </h5>
-                                {res.descripcion && (
-                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tight truncate opacity-80">
-                                        {res.descripcion}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            {(isPdf || res.tipo === 'IMAGEN') && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onView(); }}
-                                    className="w-12 h-12 rounded-2xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm flex items-center justify-center group/view"
-                                >
-                                    <FileSearch size={20} className="group-hover:scale-110 transition-transform" />
-                                </button>
-                            )}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); window.open(res.url, '_blank'); }}
-                                className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all flex items-center justify-center"
-                            >
-                                <ExternalLink size={20} />
-                            </button>
-                            {isFac && (
-                                <div className="flex items-center gap-1.5 flex-nowrap pointer-events-auto relative z-30">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                                        title="Editar material"
-                                        className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all flex items-center justify-center shrink-0"
-                                    >
-                                        <Edit3 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                                        title="Eliminar material"
-                                        className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shrink-0"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                {/* Icon Column */}
+                <div className="shrink-0">
+                    <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:rotate-6 shadow-sm",
+                        info.bg, info.color
+                    )}>
+                        <info.icon size={20} strokeWidth={1.7} />
                     </div>
                 </div>
+
+                {/* Content Info */}
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5 cursor-pointer" onClick={() => youtubeId ? setShowVideo(!showVideo) : (onView ? onView() : window.open(res.url, '_blank'))}>
+                    <div className="flex items-center gap-2">
+                        <span className={cn("px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest shadow-sm", info.bg, info.color)}>
+                            {info.label}
+                        </span>
+                        {res.url?.includes('drive.google.com') && (
+                            <span className="px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 border border-blue-500/10">
+                                Google Drive
+                            </span>
+                        )}
+                    </div>
+                    <h5 className={cn(
+                        "text-sm md:text-base font-bold tracking-tight leading-tight truncate",
+                        theme === 'dark' ? "text-white group-hover:text-primary" : "text-black group-hover:text-primary"
+                    )}>
+                        {res.titulo}
+                    </h5>
+                    {res.descripcion && (
+                        <p className={cn("text-[11px] font-medium line-clamp-1 opacity-70 italic", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                            {res.descripcion}
+                        </p>
+                    )}
+                </div>
+
+                {/* Actions Panel */}
+                <div className="flex items-center gap-2 shrink-0 justify-end">
+                    {/* Primary Action */}
+                    {youtubeId ? (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowVideo(!showVideo); }}
+                            className={cn(
+                                "h-9 px-4 rounded-xl transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest shadow-md",
+                                showVideo
+                                    ? "bg-rose-500 text-white"
+                                    : "bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white"
+                            )}
+                        >
+                            <PlayCircle size={14} /> {showVideo ? 'Cerrar' : 'Ver Video'}
+                        </button>
+                    ) : (isPdf || res.tipo === 'IMAGEN') ? (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onView(); }}
+                            className="h-9 px-4 rounded-xl bg-primary text-white hover:scale-105 active:scale-95 transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20"
+                        >
+                            <FileSearch size={14} /> Abrir
+                        </button>
+                    ) : (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); window.open(res.url, '_blank'); }}
+                            className="h-9 px-4 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest"
+                        >
+                            <ExternalLink size={14} /> Link
+                        </button>
+                    )}
+
+                    {/* Admin Actions */}
+                    {isFac && (
+                        <div className="flex items-center gap-1.5 ml-1 border-l border-slate-100 dark:border-slate-800/50 pl-2">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                                className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center shadow-sm"
+                            >
+                                <Edit3 size={15} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                                className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center justify-center shadow-sm"
+                            >
+                                <Trash2 size={15} />
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Inline YouTube Player Improved */}
+            <AnimatePresence>
+                {showVideo && youtubeId && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="w-full bg-black relative"
+                    >
+                        <div className="absolute top-4 right-4 z-20">
+                            <button onClick={() => setShowVideo(false)} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white flex items-center justify-center transition-all">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="relative aspect-video w-full overflow-hidden">
+                            <YouTube
+                                videoId={youtubeId}
+                                className="absolute inset-0 w-full h-full"
+                                opts={{
+                                    width: '100%',
+                                    height: '100%',
+                                    playerVars: {
+                                        autoplay: 1,
+                                        modestbranding: 1,
+                                        rel: 0,
+                                        showinfo: 0,
+                                        iv_load_policy: 3
+                                    },
+                                }}
+                            />
+                        </div>
+                        <div className="bg-slate-950 p-4 border-t border-white/5 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">En reproducción</span>
+                            </div>
+                            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">{res.titulo}</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Video Indicator Line for Slim */}
+            {(res.tipo === 'VIDEO' || res.tipo === 'YOUTUBE') && !showVideo && (
+                <div className="absolute bottom-0 left-0 h-0.5 bg-red-500/50 w-full opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
         </motion.div>
     );
 }
 
 function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: any) {
     const isEdit = !!resourceToEdit;
-    const [form, setForm] = useState({ 
-        titulo: resourceToEdit?.titulo || '', 
-        tipo: resourceToEdit?.tipo || 'PDF', 
-        url: resourceToEdit?.url || '', 
-        descripcion: resourceToEdit?.descripcion || '' 
+    const [form, setForm] = useState({
+        titulo: resourceToEdit?.titulo || '',
+        tipo: resourceToEdit?.tipo || 'PDF',
+        url: resourceToEdit?.url || '',
+        descripcion: resourceToEdit?.descripcion || ''
     });
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!form.titulo || !form.url) return toast.error('Faltan datos');
+        if (!form.titulo) return toast.error('El título es requerido');
+        if (form.tipo !== 'TITULO' && !form.url) return toast.error('La URL es requerida para este tipo de recurso');
+
         setLoading(true);
         try {
             if (isEdit) {
@@ -1262,32 +1429,38 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
 
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Tipo de Recurso</label>
-                        <div className={cn("grid grid-cols-2 gap-4", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                            {['PDF', 'VIDEO', 'LINK', 'IMAGEN'].map((t) => (
+                        <div className={cn("grid grid-cols-3 gap-3", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                            {[
+                                { t: 'PDF', i: FileText },
+                                { t: 'VIDEO', i: PlayCircle },
+                                { t: 'YOUTUBE', i: YoutubeIcon },
+                                { t: 'LINK', i: LinkIcon },
+                                { t: 'IMAGEN', i: File },
+                                { t: 'TITULO', i: Hash }
+                            ].map(({ t, i: Icon }) => (
                                 <button
                                     key={t}
-                                    onClick={() => setForm({ ...form, tipo: t })}
+                                    onClick={() => setForm({ ...form, tipo: t, url: t === 'TITULO' ? '' : form.url })}
                                     className={cn(
-                                        "h-16 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest flex flex-col items-center justify-center gap-1 transition-all",
-                                        form.tipo === t 
-                                            ? "border-primary bg-primary/5 text-primary" 
+                                        "h-16 rounded-2xl border-2 font-black text-[9px] uppercase tracking-widest flex flex-col items-center justify-center gap-1 transition-all",
+                                        form.tipo === t
+                                            ? "border-primary bg-primary/5 text-primary"
                                             : "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400"
                                     )}
                                 >
-                                    {t === 'PDF' && <FileText size={16} />}
-                                    {t === 'VIDEO' && <YoutubeIcon size={16} />}
-                                    {t === 'LINK' && <LinkIcon size={16} />}
-                                    {t === 'IMAGEN' && <File size={16} />}
+                                    <Icon size={16} />
                                     {t}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">URL / Enlace</label>
-                        <input type="text" placeholder="https://..." value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm", theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")} />
-                    </div>
+                    {form.tipo !== 'TITULO' && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">URL / Enlace</label>
+                            <input type="text" placeholder="https://..." value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm", theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")} />
+                        </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Descripción del Material</label>
@@ -1305,15 +1478,16 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
     );
 }
 
-function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) {
+function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCount = 0 }: any) {
     const isEdit = !!unit;
+    const [showDeletePrompt, setShowDeletePrompt] = useState(false);
     const [form, setForm] = useState({
         titulo: unit?.titulo || '',
         descripcion: unit?.descripcion || '',
-        semana: unit?.semana || 1,
-        orden: unit?.orden || 0,
+        semana: unit?.semana || (unitsCount + 1),
+        orden: unit?.orden || (unitsCount + 1),
         fechaInicio: unit?.fechaInicio ? new Date(unit.fechaInicio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        fechaFin: unit?.fechaFin ? new Date(unit.fechaFin).toISOString().split('T')[0] : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        fechaFin: unit?.fechaFin ? new Date(unit.fechaFin).toISOString().split('T')[0] : new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         turnoId: unit?.turnoId || turnoId || null
     });
     const [loading, setLoading] = useState(false);
@@ -1338,7 +1512,10 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) 
     };
 
     const handleDelete = async () => {
-        if (!confirm('¿Estás seguro de eliminar esta unidad?')) return;
+        if ((unit.actividades?.length || 0) > 0 || (unit.recursos?.length || 0) > 0) {
+            return toast.error('No se puede eliminar: Esta unidad tiene contenido (actividades o materiales). Elimínalos primero.');
+        }
+
         setLoading(true);
         try {
             await aulaService.eliminarUnidad(moduloId, unit.id);
@@ -1348,6 +1525,7 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) 
             toast.error('Error al eliminar unidad');
         } finally {
             setLoading(false);
+            setShowDeletePrompt(false);
         }
     }
 
@@ -1365,7 +1543,7 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) 
                         </h3>
                     </div>
                     {isEdit && (
-                        <button onClick={handleDelete} className="p-4 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-[1.5rem] transition-all border border-transparent hover:border-rose-100">
+                        <button onClick={() => setShowDeletePrompt(true)} className="p-4 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-[1.5rem] transition-all border border-transparent hover:border-rose-100">
                             <Trash2 size={24} />
                         </button>
                     )}
@@ -1399,37 +1577,23 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) 
                         />
                     </div>
 
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">N° de Semana</label>
-                        <div className="relative">
-                            <Hash size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="number"
-                                value={form.semana}
-                                onChange={e => setForm({ ...form, semana: parseInt(e.target.value) })}
-                                className={cn("w-full h-14 pl-12 pr-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
-                                    theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between px-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Orden (Prioridad)</label>
-                            <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">Afecta la secuencia visual</span>
-                        </div>
-                        <div className="relative">
-                            <SlidersHorizontal size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="number"
-                                value={form.orden}
-                                onChange={e => setForm({ ...form, orden: parseInt(e.target.value) })}
-                                className={cn("w-full h-14 pl-12 pr-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
-                                    theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
-                            />
-                        </div>
-                        <p className="text-[9px] text-slate-400 px-1 font-medium italic">Define qué unidad aparece antes cuando están en la misma semana.</p>
-                    </div>
+                    {isEdit && (
+                        <>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">N° de Semana</label>
+                                <div className="relative">
+                                    <Hash size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="number"
+                                        value={form.semana}
+                                        onChange={e => setForm({ ...form, semana: parseInt(e.target.value) })}
+                                        className={cn("w-full h-14 pl-12 pr-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
+                                            theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     <div className="space-y-3">
                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Fecha de Inicio</label>
@@ -1461,28 +1625,40 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId }: any) 
                     </button>
                 </div>
             </motion.div>
+
+            <AnimatePresence>
+                {showDeletePrompt && (
+                    <DeleteConfirmModal
+                        item={unit}
+                        type="unidad"
+                        onConfirm={handleDelete}
+                        onClose={() => setShowDeletePrompt(false)}
+                        theme={theme}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-function getActTypeInfo(type: string) {
-    switch (type.toUpperCase()) {
-        // 🌊 FORO: Teal Cian — conversación fluida y dinámica
-        case 'FORO': return { icon: MessagesSquare, bg: 'bg-[#0891b2]', bgHex: '#0891b2', border: 'hover:border-[#0891b2]/50', label: 'Debate Académico' };
-        // 🌿 TAREA: Esmeralda — productividad y crecimiento
-        case 'TAREA': return { icon: ClipboardCheck, bg: 'bg-[#059669]', bgHex: '#059669', border: 'hover:border-[#059669]/50', label: 'Práctica / Tarea' };
-        // 🔥 CUESTIONARIO: Naranja Profu — desafío y conocimiento
-        case 'CUESTIONARIO': return { icon: Brain, bg: 'bg-[#ea580c]', bgHex: '#ea580c', border: 'hover:border-[#ea580c]/50', label: 'Examen de Unidad' };
-        default: return { icon: CheckCircle2, bg: 'bg-slate-500', bgHex: '#64748b', border: 'hover:border-slate-500/50', label: 'Estructura Académica' };
-    }
-}
+function getActTypeInfoPremium(type: string) {
+    const t = type.toUpperCase();
+    switch (t) {
+        // ─── ACTIVIDADES ───
+        case 'FORO': return { icon: MessageSquare, bg: 'bg-[#0891b2]/10', color: 'text-[#0891b2]', bgHex: '#0891b2', border: 'hover:border-[#0891b2]/30', label: 'Debate' };
+        case 'TAREA': return { icon: ClipboardCheck, bg: 'bg-[#059669]/10', color: 'text-[#059669]', bgHex: '#059669', border: 'hover:border-[#059669]/30', label: 'Tarea' };
+        case 'CUESTIONARIO': return { icon: Brain, bg: 'bg-[#ea580c]/10', color: 'text-[#ea580c]', bgHex: '#ea580c', border: 'hover:border-[#ea580c]/30', label: 'Cuestionario' };
+        case 'ASISTENCIA': return { icon: CalendarCheck, bg: 'bg-[#6366f1]/10', color: 'text-[#6366f1]', bgHex: '#6366f1', border: 'hover:border-[#6366f1]/30', label: 'Asistencia' };
 
-function getResTypeInfo(type: string) {
-    switch (type.toUpperCase()) {
-        case 'PDF': return { icon: File };
-        case 'VIDEO': return { icon: Youtube };
-        case 'LINK': return { icon: LinkIcon };
-        default: return { icon: FileText };
+        // ─── RECURSOS ───
+        case 'PDF': return { icon: FileText, bg: 'bg-rose-500/10', color: 'text-rose-600', bgHex: '#e11d48', border: 'hover:border-rose-500/20', label: 'PDF' };
+        case 'VIDEO':
+        case 'YOUTUBE': return { icon: Youtube, bg: 'bg-red-500/10', color: 'text-red-600', bgHex: '#dc2626', border: 'hover:border-red-500/20', label: 'Video' };
+        case 'LINK': return { icon: LinkIcon, bg: 'bg-blue-500/10', color: 'text-blue-600', bgHex: '#2563eb', border: 'hover:border-blue-500/20', label: 'Enlace' };
+        case 'IMAGEN': return { icon: Image, bg: 'bg-emerald-500/10', color: 'text-emerald-600', bgHex: '#059669', border: 'hover:border-emerald-500/20', label: 'Imagen' };
+        case 'TITULO': return { icon: Hash, bg: 'bg-slate-500/10', color: 'text-slate-600', bgHex: '#334155', border: 'hover:border-slate-500/20', label: 'Título' };
+
+        default: return { icon: BookOpen, bg: 'bg-slate-500/10', color: 'text-slate-600', bgHex: '#475569', border: 'hover:border-slate-500/20', label: 'Material' };
     }
 }
 
@@ -1502,14 +1678,14 @@ function DeleteConfirmModal({ item, type, onConfirm, onClose, theme }: any) {
                 )}
             >
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-rose-500" />
-                
+
                 <div className="w-20 h-20 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
                     <Trash2 size={40} />
                 </div>
 
                 <div className="space-y-3">
                     <h3 className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                        ¿Eliminar {isActivity ? 'Actividad' : 'Material'}?
+                        ¿Eliminar {type === 'unidad' ? 'Unidad' : (isActivity ? 'Actividad' : 'Material')}?
                     </h3>
                     <div className="space-y-2">
                         <p className="text-slate-400 text-sm font-medium leading-relaxed">

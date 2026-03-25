@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    BookOpen, Calendar, Clock, User, ArrowLeft, 
+import {
+    BookOpen, Calendar, Clock, User, ArrowLeft,
     Share2, Bookmark, BookmarkCheck, Newspaper,
     ChevronRight, Sparkles, Award, Quote, Search
 } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function BlogDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        
+
         // Cargar datos
         // Intentamos obtener el detalle, o buscamos en landing page como fallback
         publicService.getLandingPageData().then(data => {
@@ -79,7 +79,7 @@ export default function BlogDetailPage() {
 
     return (
         <div className="min-h-screen bg-[#FDFDFD] dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-1000 selection:bg-primary-600 selection:text-white overflow-hidden">
-            
+
             {/* --- ATMOSPHERE --- */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-0 left-1/4 w-[1000px] h-[1000px] bg-primary-500/[0.04] rounded-full blur-[150px]" />
@@ -88,7 +88,7 @@ export default function BlogDetailPage() {
 
             {/* --- NAVIGATION: CONTEXTUAL BACK BUTTON --- */}
             <nav className="fixed top-24 left-10 md:left-24 z-50 hidden lg:block">
-                <button 
+                <button
                     onClick={() => router.back()}
                     className="group w-20 h-20 rounded-full bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-slate-200 dark:border-white/10 flex items-center justify-center hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-all shadow-2xl"
                 >
@@ -101,7 +101,7 @@ export default function BlogDetailPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-24 items-center">
                     <div className="lg:col-span-7 space-y-12">
                         <div className="space-y-8">
-                            <motion.div 
+                            <motion.div
                                 initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="flex flex-wrap items-center gap-6"
@@ -118,8 +118,8 @@ export default function BlogDetailPage() {
                                     <Clock className="w-5 h-5 text-primary-600" /> {post.readingTime || '8 min read'}
                                 </span>
                             </motion.div>
-                            
-                            <motion.h1 
+
+                            <motion.h1
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.8, delay: 0.2 }}
@@ -127,8 +127,8 @@ export default function BlogDetailPage() {
                             >
                                 {post.titulo}
                             </motion.h1>
-                            
-                            <motion.p 
+
+                            <motion.p
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.4 }}
@@ -138,7 +138,7 @@ export default function BlogDetailPage() {
                             </motion.p>
                         </div>
 
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.6 }}
@@ -194,11 +194,11 @@ export default function BlogDetailPage() {
             {/* --- ARTICLE CONTENT: THE NARRATIVE --- */}
             <main className="relative z-10 px-10 lg:px-24 pb-60">
                 <div className="max-w-4xl mx-auto space-y-24">
-                    
+
                     {/* Share & Utility Bar */}
                     <div className="flex items-center justify-between py-12 border-y border-slate-100 dark:border-white/5">
                         <div className="flex gap-10">
-                            <button 
+                            <button
                                 onClick={() => setIsBookmarked(!isBookmarked)}
                                 className={`flex items-center gap-4 text-[10px] font-black uppercase tracking-widest transition-all ${isBookmarked ? 'text-primary-600' : 'text-slate-400 hover:text-primary-600'}`}
                             >
@@ -217,7 +217,7 @@ export default function BlogDetailPage() {
                     </div>
 
                     {/* Prose Content */}
-                    <motion.article 
+                    <motion.article
                         initial={{ opacity: 0, y: 40 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
@@ -234,7 +234,7 @@ export default function BlogDetailPage() {
                                 </span>
                             ))}
                         </div>
-                        
+
                         <div className="p-16 rounded-[4rem] bg-primary-600 text-white flex flex-col md:flex-row items-center justify-between gap-12 overflow-hidden relative group">
                             <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12 transition-transform group-hover:rotate-0">
                                 <Newspaper className="w-60 h-60" />

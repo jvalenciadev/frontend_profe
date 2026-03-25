@@ -87,7 +87,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
             const pageHeight = doc.internal.pageSize.getHeight();
 
             // 1. Fondo
-            try { doc.addImage('/fondo_doc.jpg', 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST'); } catch (e) {}
+            try { doc.addImage('/fondo_doc.jpg', 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST'); } catch (e) { }
 
             // 2. Encabezado
             doc.setFont('helvetica', 'bold');
@@ -143,7 +143,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 ]);
                 autoTable(doc, {
                     startY: 75,
-                    head: [tableHeaders],
+                    head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 7, halign: 'center' },
@@ -168,7 +168,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 });
                 autoTable(doc, {
                     startY: 75,
-                    head: [tableHeaders],
+                    head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 8, halign: 'center' },
@@ -191,7 +191,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 ]);
                 autoTable(doc, {
                     startY: 75,
-                    head: [tableHeaders],
+                    head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 9, halign: 'center' },
@@ -215,7 +215,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 });
                 autoTable(doc, {
                     startY: 75,
-                    head: [tableHeaders],
+                    head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 6.5, halign: 'center' },
@@ -235,7 +235,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 ]);
                 autoTable(doc, {
                     startY: 75,
-                    head: [tableHeaders],
+                    head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 9, halign: 'center' },
@@ -256,7 +256,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 doc.setPage(i);
                 doc.setFontSize(8); doc.setTextColor(150);
                 doc.text(`Página ${i} de ${pageCount}`, pageWidth - 20, pageHeight - 15, { align: 'right' });
-                doc.text(`${moduloNombre} — Reporte Generado por PROFE LMS`, 20, pageHeight - 15);
+                doc.text(`${moduloNombre} — Reporte Generado por Aula Profe`, 20, pageHeight - 15);
             }
 
             doc.save(`Reporte_${type}_${moduloNombre?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -287,7 +287,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Gestión Académica Integral</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                         <div className="relative group/pdf">
                             <button
@@ -297,31 +297,31 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                 {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
                                 {exporting ? 'Generando...' : 'Generar PDF'}
                             </button>
-                            
+
                             {!exporting && (
                                 <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl opacity-0 invisible group-hover/pdf:opacity-100 group-hover/pdf:visible transition-all z-[4000] p-2 overflow-hidden">
-                                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 mb-1">
-                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Formatos Disponibles</p>
-                                     </div>
-                                     <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-                                         {[
-                                             { id: 'activity', label: 'Por Actividad', sub: 'Puntajes detallados por cada tarea/foro', icon: FileDown, color: 'text-violet-600', bg: 'bg-violet-50' },
-                                             { id: 'summary', label: 'Por Categoría', sub: 'Resultado final y aprobado/reprobado', icon: BarChart3, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                                             { id: 'badges', label: 'Por Insignias', sub: 'Listado de logros y reconocimientos', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
-                                             { id: 'attendance', label: 'Por Asistencia', sub: 'Matriz de faltas y atrasos por fecha', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-                                             { id: 'general', label: 'Reporte General', sub: 'Resumen completo de todo el módulo', icon: Search, color: 'text-rose-600', bg: 'bg-rose-50' }
-                                         ].map(f => (
-                                             <button key={f.id} onClick={() => exportPDF(f.id as any)} className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3">
-                                                 <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", isDark ? 'bg-slate-800' : f.bg, f.color)}>
-                                                     <f.icon size={18} />
-                                                 </div>
-                                                 <div>
-                                                     <p className="text-[11px] font-black uppercase tracking-tight leading-none mb-1">{f.label}</p>
-                                                     <p className="text-[9px] text-slate-400 line-clamp-1">{f.sub}</p>
-                                                 </div>
-                                             </button>
-                                         ))}
-                                     </div>
+                                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 mb-1">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Formatos Disponibles</p>
+                                    </div>
+                                    <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                                        {[
+                                            { id: 'activity', label: 'Por Actividad', sub: 'Puntajes detallados por cada tarea/foro', icon: FileDown, color: 'text-violet-600', bg: 'bg-violet-50' },
+                                            { id: 'summary', label: 'Por Categoría', sub: 'Resultado final y aprobado/reprobado', icon: BarChart3, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                            { id: 'badges', label: 'Por Insignias', sub: 'Listado de logros y reconocimientos', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
+                                            { id: 'attendance', label: 'Por Asistencia', sub: 'Matriz de faltas y atrasos por fecha', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                            { id: 'general', label: 'Reporte General', sub: 'Resumen completo de todo el módulo', icon: Search, color: 'text-rose-600', bg: 'bg-rose-50' }
+                                        ].map(f => (
+                                            <button key={f.id} onClick={() => exportPDF(f.id as any)} className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3">
+                                                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", isDark ? 'bg-slate-800' : f.bg, f.color)}>
+                                                    <f.icon size={18} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-black uppercase tracking-tight leading-none mb-1">{f.label}</p>
+                                                    <p className="text-[9px] text-slate-400 line-clamp-1">{f.sub}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -414,7 +414,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                                         <div className={cn(
                                                             "inline-block px-2.5 py-1 rounded-lg text-[11px]",
                                                             perc >= 70 ? "text-emerald-600 bg-emerald-50" :
-                                                            perc >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
+                                                                perc >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
                                                         )}>
                                                             {score}
                                                         </div>
@@ -425,7 +425,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                                 <span className={cn(
                                                     "inline-flex items-center px-2 py-0.5 rounded-lg text-[11px]",
                                                     (s.asistencia ?? 0) >= 80 ? "text-emerald-600 bg-emerald-50" :
-                                                    (s.asistencia ?? 0) >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
+                                                        (s.asistencia ?? 0) >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
                                                 )}>
                                                     {s.asistencia ?? 0}%
                                                 </span>
@@ -455,7 +455,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                                 <span className={cn(
                                                     "px-3 py-1.5 rounded-xl text-[13px]",
                                                     s.total >= 70 ? "bg-emerald-500 text-white" :
-                                                    s.total >= 51 ? "bg-amber-500 text-white" : "bg-rose-500 text-white"
+                                                        s.total >= 51 ? "bg-amber-500 text-white" : "bg-rose-500 text-white"
                                                 )}>
                                                     {s.total}
                                                 </span>
@@ -482,7 +482,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                             </div>
                         ))}
                     </div>
-                    <div>PROFE LMS</div>
+                    <div>Aula Profe</div>
                 </div>
             </motion.div>
         </div>

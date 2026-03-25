@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { userService } from '@/services/userService';
 import { roleService } from '@/services/roleService';
 import { departmentService } from '@/services/departmentService';
@@ -42,12 +43,11 @@ import {
     LayoutGrid,
     List as ListIcon,
     GraduationCap,
-    Briefcase,
-    Award,
     Globe,
     Book,
     FileText,
-    Download
+    Download,
+    Settings2
 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -370,16 +370,28 @@ export default function UsuariosPage() {
                     </div>
                     <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase">Usuarios</h1>
                 </div>
-                <Can action="create" subject="User">
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="h-10 md:h-14 px-4 md:px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-2 shrink-0"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Nuevo Operador</span>
-                        <span className="sm:hidden">Nuevo</span>
-                    </button>
-                </Can>
+                <div className="flex items-center gap-2">
+                    <Can action="read" subject="User">
+                        <Link
+                            href="/dashboard/usuarios/campos-extra"
+                            className="h-10 md:h-14 px-4 md:px-6 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black text-xs uppercase tracking-[0.2em] hover:bg-amber-500 hover:text-white active:scale-95 transition-all flex items-center gap-2 shrink-0"
+                        >
+                            <Settings2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Campos Extras</span>
+                            <span className="sm:hidden">Extras</span>
+                        </Link>
+                    </Can>
+                    <Can action="create" subject="User">
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="h-10 md:h-14 px-4 md:px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-2 shrink-0"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Nuevo Operador</span>
+                            <span className="sm:hidden">Nuevo</span>
+                        </button>
+                    </Can>
+                </div>
             </div>
 
             {/* Stats Dashboard */}

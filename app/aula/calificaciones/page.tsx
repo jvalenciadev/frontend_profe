@@ -14,7 +14,8 @@ import {
     ChevronRight,
     Search,
     BookOpen,
-    Download
+    Download,
+    Clock
 } from 'lucide-react';
 
 export default function CalificacionesPage() {
@@ -164,29 +165,79 @@ export default function CalificacionesPage() {
                                                     <span className="text-[10px] font-black text-slate-400">{module.progreso?.porcentaje || 0}%</span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-8 text-center">
+                                            <td className="px-10 py-8 text-center min-w-[220px]">
                                                 <div className="flex flex-col items-center">
-                                                    <span className={cn(
-                                                        "text-2xl font-black group-hover:scale-110 transition-all inline-block",
+                                                    <div className={cn(
+                                                        "px-6 py-3 rounded-3xl flex flex-col items-center mb-3 transition-all group-hover:scale-110",
                                                         (module.notaFinal || 0) >= (program.notaReprobacion || 60)
-                                                            ? "text-emerald-500"
-                                                            : "text-rose-500"
+                                                            ? "bg-emerald-500/10 text-emerald-500"
+                                                            : "bg-rose-500/10 text-rose-500"
                                                     )}>
-                                                        {module.notaFinal || '--'}
-                                                    </span>
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Sobre {program.notaMaxima || 100}</span>
+                                                        <span className="text-3xl font-black">
+                                                            {module.notaFinal ?? '--'}
+                                                        </span>
+                                                        <span className="text-[9px] font-black uppercase opacity-70 tracking-[0.2em]">Puntos</span>
+                                                    </div>
+
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Sobre {program.notaMaxima || 100} PTS</span>
+
+                                                    {/* Breakdown por categorías (Dinámico por mod_tipo_calificacion_config) */}
+                                                    {module.notaDetalle && module.notaDetalle.length > 0 && (
+                                                        <div className={cn(
+                                                            "w-full p-4 rounded-2xl space-y-3 border border-dashed",
+                                                            theme === 'dark' ? "border-slate-800 bg-slate-900/50" : "border-slate-100 bg-slate-50/50"
+                                                        )}>
+                                                            {module.notaDetalle.map((det: any, idx: number) => (
+                                                                <div key={idx} className="space-y-1.5">
+                                                                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest">
+                                                                        <span className="truncate max-w-[110px] text-slate-400">{det.nombre}</span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded-md text-slate-500">{det.peso}%</span>
+                                                                            <span className={cn("font-black", det.promedio >= 70 ? "text-emerald-500" : "text-slate-500")}>
+                                                                                {Math.round(det.promedio)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                        <motion.div
+                                                                            initial={{ width: 0 }}
+                                                                            animate={{ width: `${det.promedio}%` }}
+                                                                            className={cn(
+                                                                                "h-full rounded-full",
+                                                                                det.promedio >= 70 ? "bg-emerald-500" : "bg-slate-400"
+                                                                            )}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-10 py-8 text-right">
-                                                <button
-                                                    onClick={() => router.push(`/aula/curso/${module.id}`)}
-                                                    className={cn(
-                                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border",
-                                                        theme === 'dark' ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-white" : "bg-white border-slate-100 text-slate-400 hover:shadow-lg"
-                                                    )}
-                                                >
-                                                    <ChevronRight size={20} />
-                                                </button>
+                                                {(() => {
+                                                    const now = new Date();
+                                                    const start = module.fechaInicio ? new Date(module.fechaInicio) : null;
+                                                    const isLocked = start && now < start;
+
+                                                    if (isLocked) return (
+                                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-300">
+                                                            <Clock size={18} />
+                                                        </div>
+                                                    );
+
+                                                    return (
+                                                        <button
+                                                            onClick={() => router.push(`/aula/curso/${module.id}`)}
+                                                            className={cn(
+                                                                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border group-hover/row:scale-110",
+                                                                theme === 'dark' ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-white" : "bg-white border-slate-100 text-slate-400 hover:shadow-lg"
+                                                            )}
+                                                        >
+                                                            <ChevronRight size={20} />
+                                                        </button>
+                                                    );
+                                                })()}
                                             </td>
                                         </tr>
                                     ))}

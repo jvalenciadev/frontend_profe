@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    ICONO AULA PROFE: V5 (RESEARCH SHIELD - POSTGRADUATE)
+    CAMBIOS: Reemplazado el birrete por el nuevo Escudo Institucional de Investigación.
+  -->
+  <defs>
+    <style>
+      .gold-solid { fill: #FDB931; }
+      .navy-deep { fill: #0F172A; }
+      .gold-stroke { stroke: #FDB931; }
+    </style>
+  </defs>
+
+  <!-- Escudo Centrado (Márgenes de Seguridad 20%) -->
+  <g transform="translate(50, 50) scale(0.6) translate(-50, -50)">
+    <!-- Base del Escudo -->
+    <path d="M0 0 H100 V70 Q100 110 50 130 Q0 110 0 70 Z" class="navy-deep" />
+    
+    <!-- El "A" Arquitectónico Integrado -->
+    <path d="M50 25 L30 100 M50 25 L70 100 M35 75 H65" fill="none" class="gold-stroke" stroke-width="12" stroke-linecap="round" />
+    
+    <!-- Nodo de Excelencia -->
+    <circle cx="50" cy="25" r="10" class="gold-solid" />
+  </g>
+</svg>

@@ -105,30 +105,43 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
                             <div
                                 key={reg.id}
                                 className={cn(
-                                    "flex items-center justify-between p-6 rounded-3xl border transition-all",
-                                    theme === 'dark' ? "bg-slate-800/20 border-slate-700/50" : "bg-slate-50 border-slate-100"
+                                    "flex items-center justify-between p-5 rounded-[2.5rem] border transition-all relative overflow-hidden",
+                                    reg.esPresencial 
+                                        ? (theme === 'dark' ? "bg-slate-800/20 border-slate-700/50 hover:border-emerald-500/50" : "bg-white border-slate-100 shadow-sm hover:border-emerald-500/30")
+                                        : (theme === 'dark' ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:border-indigo-500/50 backdrop-blur-sm" : "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-400/30 backdrop-blur-sm")
                                 )}
                             >
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 flex flex-col items-center justify-center shadow-lg">
-                                        <span className="text-[10px] font-black uppercase text-slate-400">
+                                <div className="flex items-center gap-6 relative z-10 w-full">
+                                    <div className={cn(
+                                        "w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg shrink-0",
+                                        reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
+                                    )}>
+                                        <span className="text-[8px] font-black uppercase mb-0.5">
                                             {reg.fecha ? format(new Date(reg.fecha), 'MMM', { locale: es }) : '---'}
                                         </span>
-                                        <span className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                                        <span className="text-xl font-black leading-none">
                                             {reg.fecha ? format(new Date(reg.fecha), 'dd') : '--'}
                                         </span>
                                     </div>
-                                    <div>
-                                        <p className={cn("font-black text-sm", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                                            {reg.fecha ? format(new Date(reg.fecha), "EEEE, dd 'de' MMMM", { locale: es }) : 'Fecha no disponible'}
-                                        </p>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                                            {reg.fecha ? `Sesión programada para las ${format(new Date(reg.fecha), 'hh:mm a')}` : 'Sin datos de hora'}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <p className={cn("font-black text-sm uppercase tracking-tight truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                                                {reg.fecha ? format(new Date(reg.fecha), "EEEE, dd 'de' MMMM", { locale: es }) : 'Fecha no disponible'}
+                                            </p>
+                                            <div className={cn("px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest",
+                                                reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
+                                            )}>
+                                                {reg.esPresencial ? 'Presencial' : 'Virtual'}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
+                                            {reg.fecha ? `Sesión programada • ${format(new Date(reg.fecha), 'HH:mm')}` : 'Sin datos de hora'}
                                         </p>
                                     </div>
+                                    <div className="shrink-0">
+                                        <StatusBadge estado={reg.estado} />
+                                    </div>
                                 </div>
-
-                                <StatusBadge estado={reg.estado} />
                             </div>
                         ))}
 
@@ -172,7 +185,7 @@ function StatusBadge({ estado }: { estado: string }) {
         P: { label: 'Presente', bg: 'bg-emerald-500', icon: CheckCircle2 },
         F: { label: 'Falta', bg: 'bg-rose-500', icon: XCircle },
         L: { label: 'Licencia', bg: 'bg-amber-500', icon: AlertCircle },
-        T: { label: 'Tardanza', bg: 'bg-blue-500', icon: Clock },
+        T: { label: 'Atraso', bg: 'bg-blue-500', icon: Clock },
     };
     const { label, bg, icon: Icon } = config[estado] || config.P;
 

@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { aulaService } from '@/services/aulaService';
+import { LogoAula } from '@/components/aula/LogoAula';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     GraduationCap,
@@ -44,10 +45,10 @@ export default function AulaLoginPage() {
             const response = await aulaService.login({ username, password });
             // El login del AuthContext (ahora con namespace 'aula') se encarga de las cookies
             login(response.access_token, response.user);
-            toast.success('¡Bienvenido al Aula Virtual!');
+            toast.success('¡Bienvenido a Aula Profe!');
             router.push('/aula');
         } catch (err: any) {
-            const msg = err.response?.data?.message || 'Error al conectar con el Aula Virtual';
+            const msg = err.response?.data?.message || 'Error al conectar con Aula Profe';
             setError(msg);
             toast.error(msg);
         } finally {
@@ -107,11 +108,7 @@ export default function AulaLoginPage() {
                     >
                         {/* Logos with Shadow Depth */}
                         <div className="flex items-center gap-10">
-                            <motion.div whileHover={{ y: -5 }} className="relative">
-                                <img src="/logo-principal.png" alt="PROFE" className="h-20 xl:h-24 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.08)]" />
-                            </motion.div>
-                            <div className="w-px h-16 bg-slate-200 dark:bg-slate-700 mx-2" />
-                            <img src="/logo.svg" alt="Minedu" className="h-10 xl:h-12 object-contain" />
+                            <LogoAula size="lg" />
                         </div>
 
                         <div className="pt-20 space-y-8 max-w-2xl">
@@ -122,13 +119,13 @@ export default function AulaLoginPage() {
                                 className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl border border-[var(--aula-primary)]/10 bg-[var(--aula-primary)]/5 shadow-sm"
                             >
                                 <Sparkles className="w-4 h-4 text-[var(--aula-primary)] animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aula-primary)]">Plataforma Educativa de Élite</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aula-primary)]">Plataforma Educativa</span>
                             </motion.div>
 
                             <h1 className="text-6xl lg:text-8xl font-black text-slate-900 dark:text-white leading-[0.95] tracking-[-0.05em]">
                                 Aula <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-br from-[var(--aula-primary)] via-[var(--aula-primary)] to-[color-mix(in_srgb,var(--aula-primary)_50%,transparent)]">
-                                    Virtual
+                                <span style={{ color: 'var(--aula-primary)' }}>
+                                    PROFE
                                 </span>
                             </h1>
 
@@ -163,14 +160,9 @@ export default function AulaLoginPage() {
                         className="w-full max-w-[420px] space-y-8"
                     >
                         {/* Mobile Branding (only visible on small screens) */}
-                        <div className="lg:hidden text-center space-y-6 mb-8">
-                            <div className="flex items-center justify-center gap-4">
-                                <img src="/logo-principal.png" alt="PROFE" className="h-12 object-contain" />
-                                <div className="w-px h-10 bg-slate-300" />
-                                <img src="/logo.svg" alt="Minedu" className="h-5 object-contain" />
-                            </div>
+                        <div className="lg:hidden text-center space-y-6 mb-8 flex flex-col items-center">
+                            <LogoAula size="lg" />
                             <div>
-                                <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Aula <span style={{ color: 'var(--aula-primary)' }}>Virtual</span></h1>
                                 <p className="text-slate-500 text-sm mt-2">Ingrese sus credenciales de acceso</p>
                             </div>
                         </div>

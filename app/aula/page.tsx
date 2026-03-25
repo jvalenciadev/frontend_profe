@@ -48,7 +48,8 @@ export default function AulaMainPage() {
                     <div className="w-16 h-16 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
                     <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary animate-pulse" size={24} />
                 </div>
-                <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[10px]">Portal de Inteligencia Educativa</p>
+                <img src="/logo_aula.svg" alt="Aula Profe" className="h-20 w-auto animate-pulse" />
+                <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[8px] animate-pulse">Iniciando Portal Académico</p>
             </div>
         );
     }
@@ -76,18 +77,38 @@ export default function AulaMainPage() {
                         <div className="relative z-10 flex flex-col h-full justify-between gap-8">
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-sm bg-white/10 backdrop-blur-sm border border-white/20 text-[9px] font-black uppercase tracking-[0.2em]">
-                                        <Activity size={12} className="text-white animate-pulse" />
-                                        <span>Sistema de Formación Profesional</span>
+                                    <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100">
+                                        <img src="/logo_aula.svg" alt="Aula Profe" className="h-10 md:h-14 w-auto transition-all hover:scale-105 duration-300" />
                                     </div>
-                                    {selectedProgram && (
-                                        <button
-                                            onClick={() => setSelectedProgram(null)}
-                                            className="flex items-center gap-2 text-white/80 hover:text-white transition-all font-black text-[9px] uppercase tracking-widest bg-white/10 px-3 py-1 rounded-sm border border-white/20"
-                                        >
-                                            <ChevronLeft size={14} /> Regresar
-                                        </button>
-                                    )}
+                                    <div className="flex items-center gap-6">
+                                        <div className="hidden lg:flex items-center gap-6 px-4 py-2 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 shadow-lg">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                                                    <Calendar size={14} className="text-white/70" />
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-[8px] font-black uppercase text-white/50 tracking-widest">Gestión Activa</p>
+                                                    <p className="text-[10px] font-bold text-white uppercase tracking-wider">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                                                </div>
+                                            </div>
+                                            <div className="w-px h-6 bg-white/10" />
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                                                    <Clock size={14} className="text-white/70" />
+                                                </div>
+                                                <p className="text-sm font-black text-white tabular-nums">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+                                            </div>
+                                        </div>
+
+                                        {selectedProgram && (
+                                            <button
+                                                onClick={() => setSelectedProgram(null)}
+                                                className="flex items-center gap-2 text-white/80 hover:text-white transition-all font-black text-[9px] uppercase tracking-widest bg-white/10 px-6 py-3 rounded-2xl border border-white/20 shadow-xl"
+                                            >
+                                                <ChevronLeft size={14} /> Regresar
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
@@ -159,7 +180,7 @@ export default function AulaMainPage() {
 
                             <div className="p-6 space-y-4">
                                 {[
-                                    { title: 'Módulos Académicos', count: (courses?.estudiante?.length || 0) + ' Registrados', icon: BookOpen, color: 'text-primary' },
+                                    { title: 'Programas Académicos', count: (courses?.estudiante?.length || 0) + ' Registrados', icon: BookOpen, color: 'text-primary' },
                                     { title: 'Carga Docente', count: (courses?.facilitador?.length || 0) + ' Registrados', icon: GraduationCap, color: 'text-amber-600' },
                                     { title: 'Progreso Promedio', count: averageProg + '% Completado', icon: Activity, color: 'text-emerald-600' },
                                 ].map((item: any, i: number) => (
@@ -465,19 +486,23 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
                             />
                         </div>
 
-                        <div className="flex justify-between items-center gap-2">
-                            <div className="flex items-center gap-1.5 text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
-                                <Clock size={10} className="text-slate-400" />
-                                <span>{isModule ? (course.fechaFin ? new Date(course.fechaFin).toLocaleDateString() : 'Virtual') : (course.modulos?.length || 0) + ' Etapas'}</span>
+                        <div className="flex justify-between items-center gap-2 pt-2">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <Calendar size={12} className="text-primary/70" />
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">
+                                    {isModule ? (course.fechaFin ? `Cierre: ${new Date(course.fechaFin).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}` : 'Vigente') : (course.modulos?.length || 0) + ' Módulos'}
+                                </span>
                             </div>
                             {isModule ? (
-                                <div className="flex items-center gap-1.5 text-[8px] font-bold text-slate-500 uppercase tracking-tighter max-w-[120px]">
-                                    <UserIcon size={10} className="text-slate-400" />
-                                    <span className="truncate">{course.facilitador || 'Por asignar'}</span>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-800 max-w-[130px]">
+                                    <UserIcon size={12} className="text-slate-400" />
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                                        {course.facilitador || 'Facilitador'}
+                                    </span>
                                 </div>
                             ) : (
-                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                                    {course.progreso?.completadas || 0}/{course.progreso?.total || 0} Act.
+                                <div className="px-3 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                    {course.progreso?.completadas || 0}/{course.progreso?.total || 0} Completado
                                 </div>
                             )}
                         </div>

@@ -90,7 +90,7 @@ export const CompromisoReport = ({ inscripcion, oferta }: CompromisoReportProps)
                 </View>
             </View>
 
-            <Text style={styles.footer}>Generado electrónicamente por PROFE LMS - {new Date().toISOString()}</Text>
+            <Text style={styles.footer}>Generado electrónicamente por Aula Profe - {new Date().toISOString()}</Text>
         </Page>
     </Document>
 );

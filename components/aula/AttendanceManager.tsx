@@ -66,6 +66,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     const [showQRModal, setShowQRModal] = useState(false);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [showConfirmCreate, setShowConfirmCreate] = useState(false);
+    const [isPresencial, setIsPresencial] = useState(true);
 
     // ─── Estado QR seguro ────────────────────────────────────────────────────
     const [qrToken, setQrToken] = useState<string | null>(null);
@@ -151,9 +152,8 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
 
     const handleCreateSesion = async () => {
         try {
-            // Usar la fecha local para evitar desfases de zona horaria (UTC vs Local)
             const fecha = format(new Date(), 'yyyy-MM-dd');
-            await aulaService.crearSesionAsistencia(moduloId, { fecha, turnoId });
+            await aulaService.crearSesionAsistencia(moduloId, { fecha, turnoId, esPresencial: isPresencial });
             toast.success('Sesión de asistencia creada correctamente');
             setShowConfirmCreate(false);
             loadSesiones();
@@ -193,7 +193,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
         P: { label: 'Presente', color: 'emerald', description: 'El estudiante asistió a clase' },
         F: { label: 'Falta', color: 'rose', description: 'Inasistencia no justificada' },
         L: { label: 'Licencia', color: 'amber', description: 'Permiso o licencia médica' },
-        T: { label: 'Tardanza', color: 'blue', description: 'Llegada después de la hora' },
+        T: { label: 'Atraso', color: 'blue', description: 'Llegada después de la hora' },
     };
 
     const exportToPDF = async () => {
@@ -248,6 +248,10 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
             doc.text(`${sedeName}`, leftCol + 25, startYDetail + 10);
 
             doc.setFont('helvetica', 'bold');
+            doc.text(`MODALIDAD:`, leftCol, startYDetail + 15);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${selectedSesion.esPresencial ? 'PRESENCIAL' : 'VIRTUAL (REMOTO)'}`, leftCol + 25, startYDetail + 15);
+
             doc.text(`TURNO:`, rightCol, startYDetail);
             doc.setFont('helvetica', 'normal');
             const sessionTurnoName = selectedSesion.turnoNombre || 'Global';
@@ -294,7 +298,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
             // 4. Pie de página
             doc.setFontSize(8);
             doc.setTextColor(150);
-            doc.text('Generado automáticamente por PROFE LMS - Sistema de Inteligencia Educativa', pageWidth / 2, pageHeight - 15, { align: 'center' });
+            doc.text('Generado automáticamente por Aula Profe - Sistema de Inteligencia Educativa', pageWidth / 2, pageHeight - 15, { align: 'center' });
 
             doc.save(`Asistencia_${format(parseLocalDate(selectedSesion.fecha), 'yyyy-MM-dd')}.pdf`);
             toast.success('Reporte PDF generado correctamente');
@@ -330,45 +334,49 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                     </button>
                 </div>
 
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 no-scrollbar">
+                <div className="grid grid-cols-1 gap-3 max-h-[600px] overflow-y-auto pr-2 no-scrollbar">
                     {sesiones.map((s) => (
                         <button
                             key={s.id}
                             onClick={() => handleOpenSesion(s)}
                             className={cn(
-                                "w-full p-4 rounded-3xl border transition-all flex items-center justify-between group relative overflow-hidden",
+                                "w-full p-4 rounded-[2rem] border transition-all flex items-center justify-between group relative overflow-hidden",
                                 selectedSesion?.id === s.id
-                                    ? "bg-primary border-primary text-white shadow-2xl shadow-primary/30"
-                                    : theme === 'dark' ? "bg-slate-900 border-slate-800 text-slate-400 hover:border-primary/50" : "bg-white border-slate-100 text-slate-500 hover:shadow-xl hover:shadow-slate-200/50 hover:border-primary/20"
+                                    ? "bg-primary border-primary text-white shadow-xl shadow-primary/30"
+                                    : s.esPresencial 
+                                        ? (theme === 'dark' ? "bg-slate-900 border-slate-800 text-slate-400 hover:border-emerald-500/50" : "bg-white border-slate-100 text-slate-500 hover:border-emerald-500/30")
+                                        : (theme === 'dark' ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:border-indigo-500/50 backdrop-blur-sm" : "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-400/30 backdrop-blur-sm")
                             )}
                         >
-                            {selectedSesion?.id === s.id && (
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-x-12 -translate-y-16 blur-3xl pointer-events-none" />
-                            )}
-                            <div className="flex items-center gap-4 relative z-10">
+                            <div className="flex items-center gap-4 relative z-10 w-full">
                                 <div className={cn(
-                                    "w-10 h-10 rounded-xl flex flex-col items-center justify-center transition-colors shadow-inner",
-                                    selectedSesion?.id === s.id ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800"
+                                    "w-10 h-10 rounded-xl flex flex-col items-center justify-center transition-all shadow-sm shrink-0",
+                                    selectedSesion?.id === s.id 
+                                        ? "bg-white/20 text-white" 
+                                        : s.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
                                 )}>
-                                    <span className="text-[8px] font-black leading-none mb-0.5">{format(parseLocalDate(s.fecha), 'MMM', { locale: es }).toUpperCase()}</span>
-                                    <span className="text-base font-black leading-none">{format(parseLocalDate(s.fecha), 'dd')}</span>
+                                    <span className="text-[7px] font-black leading-none mb-0.5">{format(parseLocalDate(s.fecha), 'MMM', { locale: es }).toUpperCase()}</span>
+                                    <span className="text-sm font-black leading-none">{format(parseLocalDate(s.fecha), 'dd')}</span>
                                 </div>
-                                <div className="text-left">
-                                    <p className={cn("font-black text-xs uppercase tracking-tight", selectedSesion?.id === s.id ? "text-white" : theme === 'dark' ? "text-white" : "text-slate-800")}>
-                                        {format(parseLocalDate(s.fecha), 'EEEE', { locale: es })}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <p className={cn("text-[9px] font-black uppercase tracking-[0.1em]", selectedSesion?.id === s.id ? "text-white/70" : "opacity-50")}>
-                                            {s._count?.registros > 0 ? `${s._count.registros} Alumnos` : 'PENDIENTE'}
+                                <div className="text-left flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className={cn("font-black text-[11px] uppercase tracking-tight truncate", 
+                                            selectedSesion?.id === s.id ? "text-white" : theme === 'dark' ? "text-white" : "text-slate-800"
+                                        )}>
+                                            {s.actividad?.titulo || 'Sesión de Asistencia'}
                                         </p>
-                                        <div className={cn("w-1 h-1 rounded-full", selectedSesion?.id === s.id ? "bg-white/30" : "bg-slate-400 opacity-30")} />
-                                        <p className={cn("text-[9px] font-black uppercase tracking-[0.1em]", selectedSesion?.id === s.id ? "text-white/70" : "opacity-50")}>
-                                            {s.turnoNombre || 'Global'}
-                                        </p>
+                                        <div className={cn("px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest",
+                                            selectedSesion?.id === s.id ? "bg-white/20 text-white" : s.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
+                                        )}>
+                                            {s.esPresencial ? 'Presencial' : 'Virtual'}
+                                        </div>
                                     </div>
+                                    <p className={cn("text-[9px] font-black uppercase tracking-widest mt-0.5 opacity-60", selectedSesion?.id === s.id ? "text-white" : "")}>
+                                        {format(parseLocalDate(s.fecha), 'HH:mm')} • {s.turnoNombre || 'Global'}
+                                    </p>
                                 </div>
+                                <ChevronRight size={14} className={cn("transition-all shrink-0", selectedSesion?.id === s.id ? "text-white translate-x-1" : "opacity-0 group-hover:opacity-100 group-hover:translate-x-1")} />
                             </div>
-                            <ChevronRight size={18} className={cn("transition-all relative z-10", selectedSesion?.id === s.id ? "text-white translate-x-1" : "opacity-0 group-hover:opacity-100 group-hover:translate-x-1")} />
                         </button>
                     ))}
                     {sesiones.length === 0 && (
@@ -429,10 +437,10 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                     </div>
                                     <div>
                                         <h4 className={cn("text-lg font-black tracking-tight", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                                            Asistencia
+                                            {selectedSesion.actividad?.titulo || 'Asistencia'}
                                         </h4>
                                         <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">
-                                            {format(parseLocalDate(selectedSesion.fecha), "dd 'de' MMMM, yyyy", { locale: es })}
+                                            {format(parseLocalDate(selectedSesion.fecha), "dd 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
                                         </p>
                                     </div>
                                 </div>
@@ -522,7 +530,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                                 active={reg.estado === 'T'}
                                                 label="T"
                                                 color="blue"
-                                                fullName="Tardanza"
+                                                fullName="Atraso"
                                                 onClick={() => updateEstado(reg.userId, 'T')}
                                                 theme={theme}
                                             />
@@ -729,6 +737,8 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                 onClose={() => setShowConfirmCreate(false)}
                 onConfirm={handleCreateSesion}
                 theme={theme}
+                isPresencial={isPresencial}
+                setIsPresencial={setIsPresencial}
             />
         </div>
     );
@@ -774,7 +784,7 @@ function StatusButton({ active, label, color, fullName, onClick, theme }: any) {
 }
 
 // ─── Modal de Confirmación Generación ────────────────────────
-function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme }: any) {
+function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, setIsPresencial }: any) {
     return (
         <AnimatePresence>
             {isOpen && (
@@ -794,13 +804,29 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme }: any) {
                             <CalendarIcon size={40} />
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-6">
                             <h3 className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
                                 ¿Generar asistencia?
                             </h3>
-                            <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                                Se creará una nueva sesión para la fecha de hoy. Los estudiantes podrán registrar su asistencia mediante el código QR o nómina manual.
-                            </p>
+                            
+                            <div className="flex p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                                <button 
+                                    onClick={() => setIsPresencial(true)}
+                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", 
+                                        isPresencial ? "bg-white dark:bg-slate-700 text-primary shadow-md" : "text-slate-400"
+                                    )}
+                                >
+                                    Presencial
+                                </button>
+                                <button 
+                                    onClick={() => setIsPresencial(false)}
+                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", 
+                                        !isPresencial ? "bg-white dark:bg-slate-700 text-indigo-500 shadow-md" : "text-slate-400"
+                                    )}
+                                >
+                                    Virtual
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -815,7 +841,8 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme }: any) {
                             </button>
                             <button
                                 onClick={onConfirm}
-                                className="h-14 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+                                style={{ backgroundColor: isPresencial ? 'var(--aula-primary)' : '#6366f1' }}
+                                className="h-14 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
                             >
                                 Sí, Generar
                             </button>

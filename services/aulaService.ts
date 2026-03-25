@@ -1,39 +1,4 @@
-import axios from 'axios';
-import Cookies from 'js-cookie';
-
-const API_URL = process.env.NEXT_PUBLIC_LMS_API_URL || 'http://localhost:3008/api/aula';
-const API_SECRET = process.env.NEXT_PUBLIC_LMS_API_SECRET || 'LMS_SEC_key_2024_0bb62283a6691_aula_virtual';
-
-const aulaApi = axios.create({
-    baseURL: API_URL,
-    headers: { 'X-SECRET': API_SECRET }
-});
-
-aulaApi.interceptors.request.use((config) => {
-    // Usar exclusivamente aula_token (cookie)
-    const token = Cookies.get('aula_token');
-
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    config.headers['X-SECRET'] = API_SECRET;
-    return config;
-});
-
-aulaApi.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            if (typeof window !== 'undefined') {
-                // Limpiar tokens y redirigir
-                Cookies.remove('aula_token');
-                Cookies.remove('aula_user');
-                if (!window.location.pathname.includes('/aula/login')) {
-                    window.location.href = '/aula/login';
-                }
-            }
-        }
-        return Promise.reject(error);
-    }
-);
+import { aulaApi } from '@/lib/aulaApi';
 
 export const aulaService = {
     // ─── AUTH ─────────────────────────────────────────────────────
@@ -42,9 +7,30 @@ export const aulaService = {
         return response.data;
     },
 
-    // ─── ESTUDIANTE ───────────────────────────────────────────────
+    // ─── ESTUDIANTE / USUARIO ─────────────────────────────────────
     getMisCursos: async () => {
         const response = await aulaApi.get('/mis-cursos');
+        return response.data;
+    },
+
+    actualizarPerfil: async (data: any) => {
+        const response = await aulaApi.patch('/perfil', data);
+        return response.data;
+    },
+
+    getPerfil: async () => {
+        const response = await aulaApi.get('/perfil');
+        return response.data;
+    },
+
+    // ─── CAMPOS EXTRA DEL PERFIL ───────────────────────────────
+    getCamposExtraPerfil: async () => {
+        const response = await aulaApi.get('/perfil/campos-extra');
+        return response.data;
+    },
+
+    guardarRespuestasCamposExtra: async (respuestas: { campoExtraId: string; valor: string }[]) => {
+        const response = await aulaApi.post('/perfil/campos-extra', respuestas);
         return response.data;
     },
 
@@ -217,7 +203,7 @@ export const aulaService = {
         return response.data;
     },
 
-    crearSesionAsistencia: async (moduloId: string, data: { fecha: string; turnoId?: string }) => {
+    crearSesionAsistencia: async (moduloId: string, data: { fecha: string; turnoId?: string; esPresencial?: boolean }) => {
         const response = await aulaApi.post(`/asistencia/modulo/${moduloId}`, data);
         return response.data;
     },
@@ -369,4 +355,5 @@ export const aulaService = {
         });
         return response.data;
     },
+
 };

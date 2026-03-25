@@ -17,6 +17,7 @@ import {
   Urbanist
 } from 'next/font/google';
 import './globals.css';
+import 'katex/dist/katex.min.css';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -41,7 +42,7 @@ const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', displa
 const urbanist = Urbanist({ subsets: ['latin'], variable: '--font-urbanist', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'PROGRAMA PROFE - Sistema Nacional de Gestión Educativa',
+  title: 'Aula Profe - Sistema Nacional de Gestión Educativa',
   description: 'Arquitectura premium para la gestión de programas de formación especializada.',
   icons: {
     icon: '/logo.svg',

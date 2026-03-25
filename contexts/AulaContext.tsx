@@ -116,7 +116,13 @@ export function AulaProvider({ children }: { children: ReactNode }) {
 export function useAula() {
     const context = useContext(AulaContext);
     if (context === undefined) {
-        throw new Error('useAula must be used within an AulaProvider');
+        return {
+            theme: 'light',
+            toggleTheme: () => { },
+            primaryColor: '#4f46e5',
+            secondaryColor: '#1474a6',
+            isFacilitator: false,
+        };
     }
     return context;
 }

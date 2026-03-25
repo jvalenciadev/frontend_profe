@@ -127,30 +127,51 @@ export default function NotificacionesPage() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-10 pb-32">
-            {/* ─── Hero Header ─── */}
-            <header className="relative py-16 px-12 overflow-hidden rounded-[3.5rem] bg-slate-900 border border-slate-800 shadow-2xl">
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
-                <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[80px]" />
+            {/* ─── Hero Header Rediseñado - Sin Degradados ─── */}
+            <header className={cn(
+                "relative py-20 px-12 overflow-hidden rounded-[4rem] border shadow-2xl transition-all duration-500 hover:shadow-primary/20 group",
+                theme === 'dark' 
+                    ? "bg-slate-900 border-slate-800" 
+                    : "bg-[var(--aula-primary)] border-[var(--aula-primary)]"
+            )}>
+                {/* Abstract Pattern Background */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none" 
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} 
+                />
 
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-10">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary shadow-inner">
-                                <Bell size={24} className={cn(notifications.some(n => !n.leida) && "animate-bounce")} />
+                {/* Creative Floating Elements */}
+                <div className="absolute top-10 right-20 w-4 h-4 bg-white/20 rounded-full animate-ping" />
+                <div className="absolute bottom-10 left-1/3 w-2 h-2 bg-white/40 rounded-full" />
+                <div className="absolute top-1/2 right-1/4 w-20 h-20 border-4 border-white/10 rounded-full scale-150" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-12">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-[2rem] bg-white flex items-center justify-center text-[var(--aula-primary)] shadow-2xl group-hover:rotate-12 transition-transform">
+                                <Bell size={32} strokeWidth={2.5} className={cn(notifications.some(n => !n.leida) && "animate-wiggle")} />
                             </div>
-                            <span className="text-primary font-black uppercase tracking-[0.3em] text-[10px]">Centro de Alertas</span>
+                            <div className="space-y-1">
+                                <span className="text-white font-black uppercase tracking-[0.4em] text-[10px] block opacity-70">Sincronizado</span>
+                                <h3 className="text-white font-black uppercase tracking-[0.2em] text-xs">Centro de Alertas</h3>
+                            </div>
                         </div>
-                        <h1 className="text-6xl font-black text-white leading-tight tracking-tight">
+                        <h1 className="text-6xl font-black text-white leading-[1.1] tracking-tighter">
                             Lo que ha pasado <br />
-                            <span className="text-slate-500">mientras no estabas.</span>
+                            <span className="text-white/40">mientras no estabas.</span>
                         </h1>
                     </div>
 
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                         {stats.map((s, i) => (
-                            <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{s.label}</p>
-                                <p className={cn("text-3xl font-black", s.color)}>{s.value}</p>
+                            <div key={i} className={cn(
+                                "p-6 rounded-[2.5rem] border backdrop-blur-md transition-all hover:scale-105 hover:translate-y-[-4px]",
+                                theme === 'dark' ? "bg-white/5 border-white/10" : "bg-white/10 border-white/20 shadow-xl"
+                            )}>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-white/60 mb-2">{s.label}</p>
+                                <div className="flex items-baseline gap-1">
+                                    <p className="text-4xl font-black text-white">{s.value}</p>
+                                    <span className="text-[10px] text-white/40 font-black uppercase">Noti</span>
+                                </div>
                             </div>
                         ))}
                     </div>

@@ -643,7 +643,7 @@ export default function LandingPage() {
                     className="group bg-slate-50 dark:bg-white/[0.02] rounded-[2.5rem] border border-slate-100 dark:border-white/10 overflow-hidden hover:border-primary-500 hover:shadow-2xl transition-all duration-500"
                   >
                     <div className="aspect-[16/11] overflow-hidden relative">
-                       {IMG(post.imagen) ? (
+                      {IMG(post.imagen) ? (
                         <img src={IMG(post.imagen)} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt={post.titulo} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-300">
@@ -866,7 +866,7 @@ export default function LandingPage() {
                   {[
                     { title: 'Institucional', links: ['Ministerio de Educación', 'Viceministerios', 'Reglamentación', 'Transparencia', 'Gaceta Nacional'] },
                     { title: 'Plataforma PROFE', links: ['Sedes Académicas', 'Oferta Postgrado', 'Revista Científica', 'Banco de Profesionales', 'Sistema de Inscripción'] },
-                    { title: 'Recursos Digitales', links: ['Repositorio Nacional', 'Aula Virtual', 'Comunicados Oficiales', 'Trámites en Línea', 'Soporte Técnico'] },
+                    { title: 'Recursos Digitales', links: ['Repositorio Nacional', 'Aula Profe', 'Comunicados Oficiales', 'Trámites en Línea', 'Soporte Técnico'] },
                   ].map((group) => (
                     <div key={group.title} className="space-y-10">
                       <h5 className="text-[12px] font-black uppercase tracking-[0.4em] text-slate-950 dark:text-white border-l-3 border-primary-600 pl-5">{group.title}</h5>

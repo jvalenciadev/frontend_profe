@@ -14,6 +14,10 @@ function PaymentBadge({ inscripcionId, theme }: { inscripcionId: string, theme: 
     const [status, setStatus] = useState<'loading' | 'paid' | 'unpaid' | 'error'>('loading');
 
     useEffect(() => {
+        if (!inscripcionId || inscripcionId === 'undefined' || inscripcionId === 'null') {
+            setStatus('error');
+            return;
+        }
         aulaService.verificarPago(inscripcionId)
             .then(res => setStatus(res.pagoCompleto ? 'paid' : 'unpaid'))
             .catch(() => setStatus('error'));
@@ -195,7 +199,7 @@ export default function MisCursosPage() {
                                 Portal Estudiantil
                             </div>
                             <h1 className={cn("text-5xl md:text-7xl font-black tracking-tighter leading-none", theme === 'dark' ? "text-white" : "text-slate-950")}>
-                                Mis <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--aula-primary)] to-indigo-500">Programas</span>
+                                Mis <span className="text-[var(--aula-primary)]">Programas</span>
                             </h1>
                             <p className="text-lg text-slate-500 font-medium max-w-2xl leading-relaxed">
                                 Bienvenido a tu ecosistema de aprendizaje. Gestiona tus programas activos, consulta tu avance y accede a tus entornos virtuales.

@@ -2,16 +2,17 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useAula } from '@/contexts/AulaContext';
+import { aulaService } from '@/services/aulaService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef } from 'react';
 import {
     User, Mail, Shield, Camera, Settings, LogOut, CheckCircle2,
     UserCircle, Phone, MapPin, Calendar, Heart, Facebook, Link as LinkIcon,
     Edit3, Save, X, Loader2, FileText, Briefcase, Globe, Lock, Bell, Moon, Sun,
-    Eye, EyeOff, ShieldCheck, Activity, Zap
+    Eye, EyeOff, ShieldCheck, Activity, Zap, Info
 } from 'lucide-react';
+import React from 'react';
 import { cn, getImageUrl } from '@/lib/utils';
-import { userService } from '@/services/userService';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
 
@@ -25,6 +26,8 @@ export default function PerfilPage() {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [passwordData, setPasswordData] = useState({ current: '', next: '', confirm: '' });
+    const [newPhoto, setNewPhoto] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form State
@@ -40,16 +43,67 @@ export default function PerfilPage() {
         idiomas: user?.idiomas || '',
     });
 
+    const [camposExtra, setCamposExtra] = useState<any[]>([]);
+    const [respuestasExtra, setRespuestasExtra] = useState<Record<string, string>>({});
+
+    React.useEffect(() => {
+        const loadPerfil = async () => {
+            try {
+                const fullUser = await aulaService.getPerfil();
+                updateUser(fullUser);
+                // Sync form data with full user
+                setFormData({
+                    nombre: fullUser.nombre || '',
+                    apellidos: fullUser.apellidos || '',
+                    celular: fullUser.celular || '',
+                    direccion: fullUser.direccion || '',
+                    facebook: fullUser.facebook || '',
+                    tiktok: fullUser.tiktok || '',
+                    resumenProfesional: fullUser.resumenProfesional || '',
+                    habilidades: fullUser.habilidades || '',
+                    idiomas: fullUser.idiomas || '',
+                });
+            } catch (err) {
+                console.error("Error loading full profile:", err);
+            }
+        };
+
+        const loadCampos = async () => {
+            try {
+                const data = await aulaService.getCamposExtraPerfil();
+                setCamposExtra(data);
+                const initResp: Record<string, string> = {};
+                data.forEach((c: any) => {
+                    initResp[c.id] = c.valorActual || '';
+                });
+                setRespuestasExtra(initResp);
+                
+                // Si hay campos obligatorios vacíos, se fuerza la edición y alerta
+                const hasMissing = data.some((c: any) => c.esObligatorio && !c.valorActual);
+                if (hasMissing) {
+                    setIsEditing(true);
+                    toast.warning('Debe completar su información institucional obligatoria.');
+                }
+            } catch (err) {
+                console.error("Error loading campos extra:", err);
+            }
+        };
+        
+        loadPerfil();
+        loadCampos();
+    }, []);
+
     const handleUpdate = async () => {
         setIsLoading(true);
         try {
             const payload: any = {};
-            if (formData.nombre) payload.nombre = formData.nombre;
-            if (formData.apellidos) payload.apellidos = formData.apellidos;
-            if (formData.direccion) payload.direccion = formData.direccion;
-            if (formData.facebook) payload.facebook = formData.facebook;
-            if (formData.tiktok) payload.tiktok = formData.tiktok;
-            if (formData.resumenProfesional) payload.resumenProfesional = formData.resumenProfesional;
+            // Sólo los campos editables
+            if (formData.direccion !== undefined) payload.direccion = formData.direccion;
+            if (formData.facebook !== undefined) payload.facebook = formData.facebook;
+            if (formData.tiktok !== undefined) payload.tiktok = formData.tiktok;
+            if (formData.resumenProfesional !== undefined) payload.resumenProfesional = formData.resumenProfesional;
+            if (formData.habilidades !== undefined) payload.habilidades = formData.habilidades;
+            if (formData.idiomas !== undefined) payload.idiomas = formData.idiomas;
 
             if (formData.celular && formData.celular.toString().trim() !== '') {
                 payload.celular = Number(formData.celular);
@@ -57,9 +111,44 @@ export default function PerfilPage() {
                 payload.celular = null;
             }
 
-            const updatedUser = await userService.updateProfile(payload);
-            updateUser(updatedUser);
+            // Validar campos obligatorios
+            const missing = camposExtra.find(c => c.esObligatorio && (!respuestasExtra[c.id] || respuestasExtra[c.id].trim() === ''));
+            if (missing) {
+                setIsLoading(false);
+                return toast.error(`El campo "${missing.label}" es obligatorio.`);
+            }
+
+            if (newPhoto) {
+                setIsUploading(true);
+                try {
+                    const response = await uploadService.uploadFile(newPhoto, 'usuarios');
+                    if (response.success) {
+                        const resData = response as any;
+                        payload.imagen = resData.data?.path || resData.path;
+                    }
+                } catch (error) {
+                    toast.error('Error al subir la imagen');
+                    setIsLoading(false);
+                    return;
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+
+            const updatedResponse = await aulaService.actualizarPerfil(payload);
+            
+            // Save extra fields
+            const formatRespuestas = Object.entries(respuestasExtra).map(([id, val]) => ({ campoExtraId: id, valor: String(val) }));
+            if (formatRespuestas.length > 0) {
+                await aulaService.guardarRespuestasCamposExtra(formatRespuestas);
+            }
+
+            if (updatedResponse.user) {
+                updateUser(updatedResponse.user);
+            }
             setIsEditing(false);
+            setNewPhoto(null);
+            setPhotoPreview(null);
             toast.success('Perfil institucional actualizado');
         } catch (error: any) {
             console.error('Validation error:', error);
@@ -80,7 +169,7 @@ export default function PerfilPage() {
 
         setIsLoading(true);
         try {
-            await userService.updateProfile({ password: passwordData.next } as any);
+            await aulaService.actualizarPerfil({ password: passwordData.next } as any);
             toast.success('Contraseña actualizada');
             setIsPasswordModalOpen(false);
             setPasswordData({ current: '', next: '', confirm: '' });
@@ -91,29 +180,12 @@ export default function PerfilPage() {
         }
     };
 
-    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        setIsUploading(true);
-        try {
-            const response = await uploadService.uploadFile(file, 'usuarios');
-            if (response.success) {
-                const resData = response as any;
-                const newImagePath = resData.data?.path || resData.path;
-                const updatedUser = await userService.updateProfile({
-                    imagen: newImagePath
-                } as any);
-
-                updateUser(updatedUser);
-                toast.success('Fotografía actualizada');
-            }
-        } catch (error) {
-            console.error('Error uploading photo:', error);
-            toast.error('Error al subir la imagen');
-        } finally {
-            setIsUploading(false);
-        }
+        setNewPhoto(file);
+        setPhotoPreview(URL.createObjectURL(file));
     };
 
     const tabs = [
@@ -129,17 +201,18 @@ export default function PerfilPage() {
                 style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
             <div className="relative z-10 space-y-8">
-                {/* Institutional Header Banner */}
+                {/* Institutional Header Banner - Rediseñado sin degradados */}
                 <div className={cn(
                     "relative overflow-hidden rounded-[2rem] shadow-xl border transition-all",
                     theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
                 )}>
                     {/* Top Solid Banner */}
-                    <div className="h-56 lg:h-64 relative bg-primary overflow-hidden" style={{ backgroundImage: 'linear-gradient(135deg, var(--aula-primary), color-mix(in srgb, var(--aula-primary) 60%, black))' }}>
-                        <div className="absolute inset-0 opacity-20">
-                            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-                        </div>
-                        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-transparent to-black/30" />
+                    <div className="h-56 lg:h-64 relative bg-[var(--aula-primary)] overflow-hidden">
+                        {/* Abstract Pattern */}
+                        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} 
+                        />
+                        
                         <div className="absolute top-6 right-6 lg:top-8 lg:right-10 px-5 py-2.5 bg-black/20 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-3 shadow-lg">
                             <ShieldCheck className="text-white" size={16} />
                             <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] hidden sm:block">Perfil Verificado</p>
@@ -154,8 +227,8 @@ export default function PerfilPage() {
                                     "w-40 h-40 lg:w-48 lg:h-48 rounded-[2.5rem] border-8 overflow-hidden shadow-2xl relative transition-all duration-500 group-hover:scale-[1.02]",
                                     theme === 'dark' ? "border-slate-900 bg-slate-800 shadow-black/50" : "border-white bg-slate-100 shadow-primary/10"
                                 )}>
-                                    {user?.imagen ? (
-                                        <img src={getImageUrl(user.imagen)} alt={user.nombre} className="w-full h-full object-cover" />
+                                    {photoPreview || user?.imagen ? (
+                                        <img src={photoPreview ? photoPreview : (user?.imagen ? getImageUrl(user.imagen) : '')} alt={user?.nombre || 'Perfil'} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-300">
                                             <UserCircle size={64} strokeWidth={1} />
@@ -167,8 +240,11 @@ export default function PerfilPage() {
                                         </div>
                                     )}
                                     <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                                        onClick={() => isEditing && fileInputRef.current?.click()}
+                                        className={cn(
+                                            "absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center text-white",
+                                            isEditing ? "opacity-0 group-hover:opacity-100 cursor-pointer" : "hidden"
+                                        )}
                                     >
                                         <Camera size={28} />
                                     </button>
@@ -201,15 +277,21 @@ export default function PerfilPage() {
 
                                 <div className="flex flex-wrap justify-center lg:justify-start gap-4">
                                     <button
-                                        onClick={() => setIsEditing(!isEditing)}
+                                        onClick={() => {
+                                            if (isEditing) {
+                                                setNewPhoto(null);
+                                                setPhotoPreview(null);
+                                            }
+                                            setIsEditing(!isEditing)
+                                        }}
                                         className={cn(
                                             "px-8 h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-xl",
                                             isEditing
-                                                ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                                                : "bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] active:scale-95 shadow-primary/20"
+                                                ? "bg-rose-50 text-rose-600 shadow-rose-500/10 hover:bg-rose-100 border border-rose-200"
+                                                : "bg-primary text-white shadow-primary/20 hover:scale-105 active:scale-95"
                                         )}
                                     >
-                                        {isEditing ? <><X size={16} /> Cancelar</> : <><Edit3 size={16} /> Editar Perfil</>}
+                                        {isEditing ? <><X size={14} /> Cancelar</> : <><Edit3 size={14} /> Editar Perfil</>}
                                     </button>
                                     <button
                                         onClick={logout}
@@ -258,31 +340,116 @@ export default function PerfilPage() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {[
-                                        { label: 'Nombres', key: 'nombre', icon: UserCircle },
-                                        { label: 'Apellidos', key: 'apellidos', icon: UserCircle },
-                                        { label: 'Celular', key: 'celular', icon: Phone },
-                                        { label: 'Dirección', key: 'direccion', icon: MapPin },
-                                        { label: 'Facebook', key: 'facebook', icon: Facebook },
-                                        { label: 'TikTok', key: 'tiktok', icon: Globe },
+                                        { label: 'Nombres', key: 'nombre', icon: UserCircle, readonly: true },
+                                        { label: 'Apellidos', key: 'apellidos', icon: UserCircle, readonly: true },
+                                        { label: 'Carnet de Identidad', key: 'ci', icon: Shield, readonly: true },
+                                        { label: 'Correo Electrónico', key: 'email', icon: Mail, readonly: true },
+                                        { label: 'Fecha de Nacimiento', key: 'fechaNacimiento', icon: Calendar, readonly: true },
+                                        { label: 'Celular', key: 'celular', icon: Phone, readonly: false },
+                                        { label: 'Dirección', key: 'direccion', icon: MapPin, readonly: false },
+                                        { label: 'Facebook', key: 'facebook', icon: Facebook, readonly: false },
+                                        { label: 'TikTok', key: 'tiktok', icon: Globe, readonly: false },
                                     ].map((field) => (
                                         <div key={field.key} className="space-y-3">
                                             <label className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
                                                 <field.icon size={12} className="text-primary" />
-                                                {field.label}
+                                                {field.label} {field.readonly && <span className="text-slate-400 font-medium">(No editable)</span>}
                                             </label>
                                             <input
                                                 type="text"
-                                                value={(formData as any)[field.key]}
-                                                onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                                                disabled={!isEditing}
+                                                value={field.readonly ? (user as any)?.[field.key] || '' : (formData as any)[field.key] || ''}
+                                                onChange={(e) => {
+                                                    if (!field.readonly) {
+                                                        setFormData({ ...formData, [field.key]: e.target.value })
+                                                    }
+                                                }}
+                                                disabled={!isEditing || field.readonly}
                                                 className={cn(
                                                     "w-full h-14 px-6 rounded-2xl border-2 transition-all text-sm font-bold",
-                                                    isEditing
-                                                        ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none"
-                                                        : "bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                                    (isEditing && !field.readonly)
+                                                        ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none shadow-sm cursor-text"
+                                                        : "bg-slate-50 dark:bg-slate-800/80 border-transparent text-slate-600 dark:text-slate-400 cursor-not-allowed opacity-80"
                                                 )}
                                                 placeholder={`Ingrese ${field.label.toLowerCase()}...`}
                                             />
+                                        </div>
+                                    ))}
+
+                                    {/* CAMPOS EXTRA DINÁMICOS */}
+                                    {camposExtra.length > 0 && camposExtra.map(campo => (
+                                        <div key={campo.id} className="space-y-3 relative">
+                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+                                                <Info size={12} className={campo.esObligatorio ? "text-rose-500" : "text-primary"} />
+                                                <label>{campo.label}</label>
+                                                {campo.esObligatorio && <span className="text-rose-500">*</span>}
+                                                {campo.esObligatorio && (!respuestasExtra[campo.id] || respuestasExtra[campo.id].trim() === '') && (
+                                                    <motion.div 
+                                                        initial={{ opacity: 0, scale: 0.8 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        className="ml-auto flex items-center gap-1 bg-rose-500/10 text-rose-500 px-2.5 py-1 rounded-full border border-rose-500/20"
+                                                    >
+                                                        <span className="relative flex h-2 w-2">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                                        </span>
+                                                        <span className="text-[8px] font-black tracking-widest">FALTA COMPLETAR</span>
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                            
+                                            {campo.tipo === 'TEXTO' && (
+                                                <input
+                                                    type="text"
+                                                    value={respuestasExtra[campo.id] || ''}
+                                                    onChange={(e) => setRespuestasExtra({ ...respuestasExtra, [campo.id]: e.target.value })}
+                                                    disabled={!isEditing}
+                                                    className={cn(
+                                                        "w-full h-14 px-6 rounded-2xl border-2 transition-all text-sm font-bold shadow-sm",
+                                                        isEditing
+                                                            ? (campo.esObligatorio && (!respuestasExtra[campo.id] || respuestasExtra[campo.id].trim() === ''))
+                                                                ? "bg-rose-50 dark:bg-rose-900/10 border-rose-300 dark:border-rose-800 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none"
+                                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none"
+                                                            : "bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                                    )}
+                                                    placeholder={`Ingrese ${campo.label.toLowerCase()}...`}
+                                                />
+                                            )}
+
+                                            {campo.tipo === 'BOOLEAN' && (
+                                                <div className="h-14 flex items-center">
+                                                    <label className="flex items-center gap-3 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={respuestasExtra[campo.id] === 'true'}
+                                                            onChange={(e) => setRespuestasExtra({ ...respuestasExtra, [campo.id]: e.target.checked ? 'true' : 'false' })}
+                                                            disabled={!isEditing}
+                                                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary transition-all"
+                                                        />
+                                                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Marcar si aplica</span>
+                                                    </label>
+                                                </div>
+                                            )}
+
+                                            {(campo.tipo === 'SINGLE_SELECT' || campo.tipo === 'MULTIPLE_SELECT') && (
+                                                <select
+                                                    value={respuestasExtra[campo.id] || ''}
+                                                    onChange={(e) => setRespuestasExtra({ ...respuestasExtra, [campo.id]: e.target.value })}
+                                                    disabled={!isEditing}
+                                                    className={cn(
+                                                        "w-full h-14 px-6 rounded-2xl border-2 transition-all text-sm font-bold appearance-none",
+                                                        isEditing
+                                                            ? (campo.esObligatorio && (!respuestasExtra[campo.id] || respuestasExtra[campo.id].trim() === ''))
+                                                                ? "bg-rose-50 dark:bg-rose-900/10 border-rose-300 dark:border-rose-800 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none"
+                                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none"
+                                                            : "bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                                    )}
+                                                >
+                                                    <option value="" disabled>Seleccionar opción...</option>
+                                                    {campo.opciones && Array.isArray(campo.opciones) && campo.opciones.map((opt: any, idx: number) => (
+                                                        <option key={idx} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -478,13 +645,15 @@ export default function PerfilPage() {
                                         </div>
                                     ))}
 
-                                    <button
-                                        onClick={handleChangePassword}
-                                        disabled={isLoading}
-                                        className="w-full h-14 bg-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 mt-4"
-                                    >
-                                        {isLoading ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Actualizar Credencial'}
-                                    </button>
+                                    <div className="flex justify-center pt-2">
+                                        <button
+                                            onClick={handleChangePassword}
+                                            disabled={isLoading}
+                                            className="w-full max-w-[240px] h-12 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
+                                        >
+                                            {isLoading ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Actualizar Credencial'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </motion.div>

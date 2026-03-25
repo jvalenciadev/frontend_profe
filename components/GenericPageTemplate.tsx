@@ -145,7 +145,7 @@ export default function GenericPage({ title, description, icon: Icon, children }
                             {[
                                 { title: 'Institucional', links: ['Ministerio de Educación', 'Transparencia', 'Gaceta Nacional'] },
                                 { title: 'Plataforma', links: ['Sedes Académicas', 'Oferta Postgrado', 'Revista Científica'] },
-                                { title: 'Recursos', links: ['Repositorio', 'Aula Virtual', 'Soporte'] },
+                                { title: 'Recursos', links: ['Repositorio', 'Aula Profe', 'Soporte'] },
                             ].map((group) => (
                                 <div key={group.title} className="space-y-10 text-left">
                                     <h5 className="text-[12px] font-black uppercase tracking-[0.4em] text-white border-l-2 border-primary-600 pl-6">{group.title}</h5>

@@ -26,8 +26,12 @@ import {
     X,
     Calendar,
     GraduationCap,
-    BookOpen
+    BookOpen,
+    Trophy
 } from 'lucide-react';
+import { aulaUploadConfigService } from '@/services/aulaUploadConfigService';
+import QuizPlayer from '@/components/aula/QuizPlayer';
+import QuestionnaireEditor from '@/components/aula/QuestionnaireEditor';
 
 /** Paleta creativa por tipo de actividad — independiente del color institucional */
 function getActColor(tipo: string): string {
@@ -40,6 +44,7 @@ function getActColor(tipo: string): string {
 }
 
 import { cn, getImageUrl } from '@/lib/utils';
+import MathRenderer from '@/components/aula/MathRenderer';
 import { toast } from 'sonner';
 import { useAula } from '@/contexts/AulaContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,13 +69,34 @@ export default function ActivityDetailPage() {
     const [gradingData, setGradingData] = useState<{ id: string, nota: number, retro: string }>({ id: '', nota: 0, retro: '' });
 
     // Tarea submission state
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [deliveryText, setDeliveryText] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [maxSizeMB, setMaxSizeMB] = useState<number>(5);
+
+    // Cuestionario state
+    const [showQuizPlayer, setShowQuizPlayer] = useState(false);
+    const [showQuizEditor, setShowQuizEditor] = useState(false);
+    const [intentos, setIntentos] = useState<any[]>([]);
+    const [lobby, setLobby] = useState<any>(null);
+
     useEffect(() => {
         loadContent();
+        fetchUploadConfig();
     }, [cursoId, actId]);
+
+    const fetchUploadConfig = async () => {
+        try {
+            const config = await aulaUploadConfigService.getAll();
+            const taskConfig = config.find((c: any) => c.tableName === 'mod_entrega');
+            if (taskConfig) {
+                setMaxSizeMB(taskConfig.maxSizeMB);
+            }
+        } catch (error) {
+            console.error('Error fetching upload config:', error);
+        }
+    };
 
     const loadContent = async () => {
         setIsLoading(true);
@@ -84,6 +110,18 @@ export default function ActivityDetailPage() {
                 loadEntregas();
             } else if (actData.tipo === 'TAREA') {
                 loadEntregas();
+            } else if (actData.tipo === 'CUESTIONARIO') {
+                try {
+                    // Cargar lobby e intentos
+                    if (actData.cuestionario?.id) {
+                        const lob = await aulaService.getQuizLobby(actData.cuestionario.id);
+                        setLobby(lob);
+                        const atts = await aulaService.getIntentosPorCuestionario(actData.cuestionario.id);
+                        setIntentos(atts);
+                    }
+                } catch (e) {
+                    console.error('Error cargando datos del cuestionario', e);
+                }
             }
         } catch (err) {
             console.error('Error loading activity', err);
@@ -148,35 +186,39 @@ export default function ActivityDetailPage() {
 
     const handleSubmission = async () => {
         if (!activity?.tarea?.id) return;
-        
+
         // Si no hay archivo nuevo y no hay texto, y no había entrega previa, error
         const hasExistingDelivery = entregas.length > 0;
-        if (!selectedFile && !deliveryText.trim() && !hasExistingDelivery) {
-            return toast.error('Debes adjuntar un archivo o escribir una respuesta');
+        if (selectedFiles.length === 0 && !deliveryText.trim() && !hasExistingDelivery) {
+            return toast.error('Debes adjuntar al menos un archivo o escribir una respuesta');
         }
 
         setIsSubmitting(true);
         try {
             // Preservar URL anterior si existe y no se sube un archivo nuevo
-            let fileUrl = hasExistingDelivery ? entregas[0].archivoUrl : '';
-            
-            // 1. Upload file if exists
-            if (selectedFile) {
-                const fd = new FormData();
-                fd.append('file', selectedFile);
-                const uploadRes = await aulaService.uploadFile('mod_entrega', fd);
-                fileUrl = uploadRes.data.path;
+            let fileUrls = hasExistingDelivery ? (entregas[0].archivoUrl || '').split(',').filter(Boolean) : [];
+
+            // 1. Upload files
+            if (selectedFiles.length > 0) {
+                const newUrls = [];
+                for (const file of selectedFiles) {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const uploadRes = await aulaService.uploadFile('mod_entrega', fd);
+                    newUrls.push(uploadRes.data.path);
+                }
+                fileUrls = newUrls; // Reemplazamos por el nuevo set de archivos si se suben nuevos
             }
 
             // 2. Submit task
             await aulaService.submitTarea(activity.tarea.id, {
                 texto: deliveryText,
-                archivoUrl: fileUrl
+                archivoUrl: fileUrls.join(',')
             });
 
             toast.success(hasExistingDelivery ? '¡Entrega actualizada con éxito!' : '¡Actividad entregada con éxito!');
-            
-            setSelectedFile(null);
+
+            setSelectedFiles([]);
             loadContent();
         } catch (err: any) {
             console.error('Error submitting task', err);
@@ -330,7 +372,7 @@ export default function ActivityDetailPage() {
                                     <FileText size={12} /> Instrucciones
                                 </h4>
                                 <div className={cn("text-sm font-medium leading-relaxed", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
-                                    {activity.instrucciones || 'Sin instrucciones adicionales asignadas por el docente.'}
+                                    <MathRenderer text={activity.instrucciones || 'Sin instrucciones adicionales asignadas por el docente.'} />
                                 </div>
                             </div>
 
@@ -446,7 +488,8 @@ export default function ActivityDetailPage() {
                         </div>
                     ) : (
                         <div className="space-y-12">
-                            {(activity.tipo === 'FORO' || (activity.tipo === 'TAREA' && isFacilitator)) && (
+                            {/* Renderizado para FORO o TAREA (Facilitador) */}
+                            {((activity.tipo === 'FORO') || (activity.tipo === 'TAREA' && isFacilitator)) && (
                                 <div className={cn(
                                     "flex flex-col min-h-[800px] rounded-[3rem] border overflow-hidden relative",
                                     theme === 'dark' ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-2xl shadow-slate-200/50"
@@ -688,9 +731,13 @@ export default function ActivityDetailPage() {
                                                                             : "bg-white border-slate-100 hover:border-slate-200 shadow-sm"
                                                                     )}>
                                                                         {activity.tipo === 'TAREA' && post.archivoUrl ? (
-                                                                            <a href={post.archivoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-primary hover:bg-primary/10 transition-all">
-                                                                                <Paperclip size={16} /> <span className="text-xs font-black uppercase">Archivo Adjunto</span>
-                                                                            </a>
+                                                                            <div className="flex flex-wrap gap-2 p-2">
+                                                                                {post.archivoUrl.split(',').filter(Boolean).map((url: string, uIdx: number) => (
+                                                                                    <a key={uIdx} href={getImageUrl(url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 text-primary hover:bg-primary/10 transition-all">
+                                                                                        <Paperclip size={12} /> <span className="text-[10px] font-black uppercase">Doc #{uIdx + 1}</span>
+                                                                                    </a>
+                                                                                ))}
+                                                                            </div>
                                                                         ) : (
                                                                             <p className={cn(
                                                                                 "text-[12px] font-medium leading-normal whitespace-pre-wrap",
@@ -765,6 +812,93 @@ export default function ActivityDetailPage() {
                                 </div>
                             )}
 
+                            {/* Vista Especial: CUESTIONARIO para Estudiantes */}
+                            {!isFacilitator && activity.tipo === 'CUESTIONARIO' && (
+                                <div className="space-y-10">
+                                    {/* Main Hero Card for Quiz */}
+                                    <div className={cn(
+                                        "relative p-10 md:p-16 rounded-[4rem] overflow-hidden border shadow-2xl transition-all duration-500",
+                                        theme === 'dark' ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/50"
+                                    )}>
+                                        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                                            <Trophy size={200} className="text-primary" />
+                                        </div>
+
+                                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
+                                            <div className="w-32 h-32 rounded-[2.5rem] bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shadow-2xl">
+                                                <FileText size={56} />
+                                            </div>
+
+                                            <div className="flex-1 text-center md:text-left space-y-4">
+                                                <h2 className={cn("text-3xl md:text-5xl font-black leading-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                    {lobby?.intentosRestantes > 0 || lobby?.intentoEnProgreso ? 'Evaluación Lista' : 'Evaluación Finalizada'}
+                                                </h2>
+                                                <p className={cn("text-lg font-medium max-w-xl", theme === 'dark' ? "text-slate-400" : "text-slate-500")}>
+                                                    {lobby?.intentosRestantes > 0
+                                                        ? `Tienes ${lobby.intentosRestantes} de ${activity.cuestionario?.maxIntentos} intentos disponibles para alcanzar tu mejor puntaje.`
+                                                        : 'Has completado todos los intentos permitidos para esta actividad.'}
+                                                </p>
+
+                                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4">
+                                                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-500/10 text-slate-500 font-black text-[10px] uppercase tracking-widest">
+                                                        <Clock size={14} /> {activity.cuestionario?.duracion === 0 ? 'Sin Límite' : `${activity.cuestionario?.duracion} minutos`}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest">
+                                                        <Award size={14} /> {activity.puntajeMax} Puntos Máximos
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {(lobby?.intentosRestantes > 0 || lobby?.intentoEnProgreso) && (
+                                                <button
+                                                    onClick={() => setShowQuizPlayer(true)}
+                                                    className="px-12 h-20 rounded-[2rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-4"
+                                                >
+                                                    {lobby.intentoEnProgreso ? <Loader2 size={20} className="animate-spin" /> : <Send size={18} />}
+                                                    {lobby.intentoEnProgreso ? 'Continuar Evaluación' : 'Empezar ahora'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Score Summary if attempts exist */}
+                                    {intentos.length > 0 && (
+                                        <div className="space-y-6">
+                                            <h3 className={cn("text-xs font-black uppercase tracking-[0.3em] flex items-center gap-4", theme === 'dark' ? "text-slate-500" : "text-slate-400")}>
+                                                Historial de Intentos
+                                                <div className="h-px flex-1 bg-current opacity-10" />
+                                            </h3>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {intentos.map((int: any, idx: number) => (
+                                                    <div key={int.id} className={cn(
+                                                        "p-8 rounded-[2.5rem] border transition-all",
+                                                        theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl"
+                                                    )}>
+                                                        <div className="flex justify-between items-start mb-6">
+                                                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black">
+                                                                #{intentos.length - idx}
+                                                            </div>
+                                                            <div className={cn(
+                                                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                                                int.estado === 'finalizado' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                                                            )}>
+                                                                {int.estado === 'finalizado' ? 'Finalizado' : 'En progreso'}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{new Date(int.iniciadoEn).toLocaleDateString()}</p>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <p className={cn("text-3xl font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>{Math.round(int.puntajeTotal)}</p>
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase">/ {activity.puntajeMax} Pts</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {!isFacilitator && activity.tipo === 'TAREA' && (
                                 <div className="space-y-10">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -806,7 +940,7 @@ export default function ActivityDetailPage() {
                                                             )}>
                                                                 {/* Sutil acento lateral */}
                                                                 <div className="absolute left-0 top-10 bottom-10 w-1.5 rounded-r-full" style={{ backgroundColor: 'var(--aula-primary)' }} />
-                                                                
+
                                                                 <div className="relative z-10 space-y-8">
                                                                     {/* Header del Widget */}
                                                                     <div className="flex items-center justify-between">
@@ -834,8 +968,8 @@ export default function ActivityDetailPage() {
                                                                                 placeholder="Escribe tu observación o respuesta aquí..."
                                                                                 className={cn(
                                                                                     "w-full h-32 rounded-[1.5rem] p-5 text-sm transition-all outline-none resize-none border-2",
-                                                                                    theme === 'dark' 
-                                                                                        ? "bg-slate-950/50 border-slate-800 text-white focus:border-primary/50" 
+                                                                                    theme === 'dark'
+                                                                                        ? "bg-slate-950/50 border-slate-800 text-white focus:border-primary/50"
                                                                                         : "bg-slate-50/50 border-slate-100 text-slate-700 focus:border-primary/30 focus:bg-white shadow-inner"
                                                                                 )}
                                                                             />
@@ -853,52 +987,79 @@ export default function ActivityDetailPage() {
                                                                                 onClick={() => fileInputRef.current?.click()}
                                                                                 className={cn(
                                                                                     "group/upload relative border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center gap-4 transition-all cursor-pointer",
-                                                                                    (selectedFile || entregas[0]?.archivoUrl)
+                                                                                    (selectedFiles.length > 0 || entregas[0]?.archivoUrl)
                                                                                         ? "border-emerald-500/40 bg-emerald-50/10 dark:bg-emerald-500/5"
                                                                                         : theme === 'dark' ? "border-slate-800 bg-slate-950/40 hover:border-primary/40" : "border-slate-200 bg-slate-50/60 hover:border-primary/40 hover:bg-white"
                                                                                 )}
                                                                             >
                                                                                 <input
                                                                                     type="file"
+                                                                                    multiple
                                                                                     ref={fileInputRef}
-                                                                                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                                                                    onChange={(e) => {
+                                                                                        const files = Array.from(e.target.files || []);
+                                                                                        const max = activity.tarea?.maxArchivos || 1;
+                                                                                        if (files.length > max) {
+                                                                                            toast.warning(`Solo puedes subir hasta ${max} archivos`);
+                                                                                        }
+                                                                                        setSelectedFiles(files.slice(0, max));
+                                                                                    }}
                                                                                     className="hidden"
                                                                                     accept={activity.tarea?.tiposArch ? activity.tarea.tiposArch.split(',').map((t: string) => `.${t.trim()}`).join(',') : '*/*'}
                                                                                 />
-                                                                                
+
                                                                                 <div className={cn(
                                                                                     "w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500",
-                                                                                    (selectedFile || entregas[0]?.archivoUrl)
+                                                                                    (selectedFiles.length > 0 || entregas[0]?.archivoUrl)
                                                                                         ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
                                                                                         : theme === 'dark' ? "bg-slate-800 text-slate-400 group-hover/upload:text-primary group-hover/upload:scale-110" : "bg-white text-slate-400 group-hover/upload:text-primary group-hover/upload:scale-110 shadow-sm"
                                                                                 )}>
-                                                                                    {(selectedFile || entregas[0]?.archivoUrl) ? <CheckCircle2 size={28} /> : <Paperclip size={28} />}
+                                                                                    {(selectedFiles.length > 0 || entregas[0]?.archivoUrl) ? <CheckCircle2 size={28} /> : <Paperclip size={28} />}
                                                                                 </div>
-                                                                                
+
                                                                                 <div className="text-center space-y-1">
                                                                                     <h4 className={cn("text-xs font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                                                                                        {selectedFile ? selectedFile.name : (entregas[0]?.archivoUrl ? 'Documento Registrado' : 'Selecciona tu Archivo')}
+                                                                                        {selectedFiles.length > 0
+                                                                                            ? `${selectedFiles.length} Archivos seleccionados`
+                                                                                            : (entregas[0]?.archivoUrl ? 'Documentos Registrados' : 'Selecciona tus Archivos')}
                                                                                     </h4>
                                                                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                                                                        {activity.tarea?.tiposArch?.toUpperCase() || 'PDF • DOCX'} (LÍMITE {process.env.NEXT_PUBLIC_MAX_FILE_SIZE || '20'}MB)
+                                                                                        MÁX. {activity.tarea?.maxArchivos || 1} ARCHIVOS • {activity.tarea?.tiposArch?.toUpperCase() || 'PDF • DOCX'} • {maxSizeMB.toFixed(1)} MB DISPONIBLES
                                                                                     </p>
                                                                                 </div>
                                                                             </div>
 
-                                                                            {entregas[0]?.archivoUrl && !selectedFile && (
-                                                                                <div className="flex items-center justify-between px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        <FileText size={14} className="text-emerald-500" />
-                                                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Archivo en Servidor</p>
+                                                                            {selectedFiles.length > 0 && (
+                                                                                <div className="flex flex-wrap gap-2">
+                                                                                    {selectedFiles.map((f, fi) => (
+                                                                                        <div key={fi} className="px-3 py-1 bg-primary text-white text-[8px] font-black rounded-full uppercase tracking-widest">
+                                                                                            {f.name.length > 15 ? f.name.substring(0, 12) + '...' : f.name}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+
+                                                                            {entregas[0]?.archivoUrl && selectedFiles.length === 0 && (
+                                                                                <div className="space-y-2">
+                                                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Documentos en Servidor:</p>
+                                                                                    <div className="grid grid-cols-1 gap-2">
+                                                                                        {entregas[0].archivoUrl.split(',').filter(Boolean).map((url: string, idx: number) => (
+                                                                                            <div key={idx} className="flex items-center justify-between px-5 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                                                                                                <div className="flex items-center gap-3">
+                                                                                                    <FileText size={14} className="text-emerald-500" />
+                                                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Doc #{idx + 1}</p>
+                                                                                                </div>
+                                                                                                <a
+                                                                                                    href={getImageUrl(url)}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="text-[9px] font-black text-primary hover:underline"
+                                                                                                >
+                                                                                                    VER
+                                                                                                </a>
+                                                                                            </div>
+                                                                                        ))}
                                                                                     </div>
-                                                                                    <a 
-                                                                                        href={getImageUrl(entregas[0].archivoUrl)} 
-                                                                                        target="_blank" 
-                                                                                        rel="noopener noreferrer"
-                                                                                        className="text-[9px] font-black text-primary hover:underline"
-                                                                                    >
-                                                                                        VER DOCUMENTO
-                                                                                    </a>
                                                                                 </div>
                                                                             )}
                                                                         </div>
@@ -909,7 +1070,7 @@ export default function ActivityDetailPage() {
                                                                         onClick={handleSubmission}
                                                                         disabled={isSubmitting}
                                                                         className="group/btn relative w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] transition-all active:scale-95 disabled:opacity-50 shadow-lg"
-                                                                        style={{ 
+                                                                        style={{
                                                                             backgroundColor: 'var(--aula-primary)',
                                                                             color: 'white'
                                                                         }}
@@ -942,9 +1103,9 @@ export default function ActivityDetailPage() {
                                                             )}>
                                                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--aula-primary),transparent)] opacity-[0.05] pointer-events-none" />
                                                                 <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-                                                                    <div 
+                                                                    <div
                                                                         className="w-20 h-20 rounded-[2.5rem] flex items-center justify-center shadow-2xl animate-in fade-in zoom-in duration-500"
-                                                                        style={{ 
+                                                                        style={{
                                                                             backgroundColor: isGraded ? 'rgba(16, 185, 129, 0.1)' : 'rgba(100, 116, 139, 0.1)',
                                                                             border: `1px solid ${isGraded ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)'}`
                                                                         }}
@@ -978,7 +1139,7 @@ export default function ActivityDetailPage() {
                                                                     theme === 'dark' ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-100"
                                                                 )}>
                                                                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
-                                                                    
+
                                                                     <div className="flex items-center justify-between relative z-10">
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: 'var(--aula-primary)' }} />
@@ -991,7 +1152,7 @@ export default function ActivityDetailPage() {
                                                                             Registro ID: {entregas[0].id.split('-')[0].toUpperCase()}
                                                                         </div>
                                                                     </div>
-                                                                    
+
                                                                     <div className="grid grid-cols-1 gap-10 relative z-10">
                                                                         {entregas[0].texto && (
                                                                             <div className="space-y-4">
@@ -1012,27 +1173,32 @@ export default function ActivityDetailPage() {
                                                                             <div className="space-y-4">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <FileText size={14} style={{ color: 'var(--aula-primary)' }} />
-                                                                                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Soporte Documental:</p>
+                                                                                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Soporte Documental ({entregas[0].archivoUrl.split(',').filter(Boolean).length} elementos):</p>
                                                                                 </div>
-                                                                                <a 
-                                                                                    href={getImageUrl(entregas[0].archivoUrl)} 
-                                                                                    target="_blank" 
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="flex items-center justify-between p-6 bg-slate-900 hover:bg-slate-800/80 rounded-[2rem] border border-slate-800 transition-all group/file"
-                                                                                >
-                                                                                    <div className="flex items-center gap-4">
-                                                                                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 transition-transform">
-                                                                                            <Download size={24} />
-                                                                                        </div>
-                                                                                        <div className="text-left">
-                                                                                            <p className="text-xs font-black text-white">{entregas[0].archivoUrl.split('/').pop()}</p>
-                                                                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.1em]">Expediente Digital</p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div className="w-10 h-10 rounded-full border border-slate-700 flex items-center justify-center text-slate-500 group-hover/file:text-white group-hover/file:border-white transition-all">
-                                                                                        <ArrowRight size={18} />
-                                                                                    </div>
-                                                                                </a>
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                                    {entregas[0].archivoUrl.split(',').filter(Boolean).map((url: string, idx: number) => (
+                                                                                        <a
+                                                                                            key={idx}
+                                                                                            href={getImageUrl(url)}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="flex items-center justify-between p-4 bg-slate-900 hover:bg-slate-800/80 rounded-[1.5rem] border border-slate-800 transition-all group/file"
+                                                                                        >
+                                                                                            <div className="flex items-center gap-3">
+                                                                                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 transition-transform">
+                                                                                                    <Download size={20} />
+                                                                                                </div>
+                                                                                                <div className="text-left overflow-hidden">
+                                                                                                    <p className="text-[10px] font-black text-white truncate w-32">{url.split('/').pop()}</p>
+                                                                                                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.1em]">Expediente #{idx + 1}</p>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-slate-500 group-hover/file:text-white group-hover/file:border-white transition-all">
+                                                                                                <ArrowRight size={14} />
+                                                                                            </div>
+                                                                                        </a>
+                                                                                    ))}
+                                                                                </div>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1078,35 +1244,31 @@ export default function ActivityDetailPage() {
 
                             {/* Contenido Desplazable */}
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-10 space-y-10">
-                                {/* Historial de Intervenciones */}
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(var(--aula-primary-rgb),0.6)]" style={{ backgroundColor: 'var(--aula-primary)' }} />
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intervenciones</label>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {groupedParticipants.find(p => p.id === gradingData.id)?.posts.map((post: any, pIdx: number) => (
-                                            <div key={pIdx} className={cn(
-                                                "p-5 rounded-2xl border transition-all text-[12px] leading-relaxed",
-                                                theme === 'dark' ? "bg-slate-800/40 border-slate-700/50 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-600"
-                                            )}>
-                                                <div className="flex justify-between items-start mb-2 opacity-60">
-                                                    <span className="text-[9px] font-black uppercase tracking-wider">Aporte #{pIdx + 1}</span>
-                                                    <span className="text-[9px] font-bold">
-                                                        {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(post.createdAt))}
-                                                    </span>
-                                                </div>
-                                                {post.archivoUrl ? (
-                                                    <a href={post.archivoUrl} target="_blank" rel="noopener noreferrer" className="font-bold hover:underline flex items-center gap-2" style={{ color: 'var(--aula-primary)' }}>
-                                                        <Paperclip size={12} /> Descargar Archivo Adjunto
-                                                    </a>
-                                                ) : (
+                                {/* Historial de Intervenciones (Especial para FORO) */}
+                                {activity.tipo === 'FORO' && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(var(--aula-primary-rgb),0.6)]" style={{ backgroundColor: 'var(--aula-primary)' }} />
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intervenciones</label>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {groupedParticipants.find(p => p.id === gradingData.id)?.posts.map((post: any, pIdx: number) => (
+                                                <div key={pIdx} className={cn(
+                                                    "p-5 rounded-2xl border transition-all text-[12px] leading-relaxed",
+                                                    theme === 'dark' ? "bg-slate-800/40 border-slate-700/50 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-600"
+                                                )}>
+                                                    <div className="flex justify-between items-start mb-2 opacity-60">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider">Aporte #{pIdx + 1}</span>
+                                                        <span className="text-[9px] font-bold">
+                                                            {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(post.createdAt))}
+                                                        </span>
+                                                    </div>
                                                     <p className="font-medium italic">"{post.mensaje || post.texto}"</p>
-                                                )}
-                                            </div>
-                                        ))}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="space-y-4">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Puntaje Asignado</label>
@@ -1126,7 +1288,7 @@ export default function ActivityDetailPage() {
                                 <div className="space-y-4">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Retroalimentación / Comentario</label>
                                     <textarea
-                                        rows={4}
+                                        rows={6}
                                         placeholder="Escribe una observación técnica para el estudiante..."
                                         value={gradingData.retro}
                                         onChange={e => setGradingData({ ...gradingData, retro: e.target.value })}
@@ -1136,18 +1298,42 @@ export default function ActivityDetailPage() {
                                 </div>
                             </div>
 
-                            {/* Footer Fijo con Botón */}
-                            <div className={cn("p-10 pt-6 border-t", theme === 'dark' ? "border-slate-800 bg-slate-900" : "border-slate-100 bg-white")}>
+                            <div className="p-10 pt-0">
                                 <button
                                     onClick={() => handleCalificar(gradingData.id, activity.tipo)}
-                                    className="h-16 w-full text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-                                    style={{ backgroundColor: 'var(--aula-primary)', boxShadow: '0 20px 40px -10px rgba(var(--aula-primary-rgb), 0.3)' }}
+                                    className="w-full h-20 rounded-[2rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-primary/30 hover:scale-[1.02] transition-all"
                                 >
-                                    <Save size={18} /> Confirmar Calificación
+                                    Guardar Calificación
                                 </button>
                             </div>
                         </motion.div>
                     </div>
+                )}
+
+                {/* Quiz Editor for Facilitator */}
+                {showQuizEditor && (
+                    <QuestionnaireEditor
+                        actividadId={activity.id}
+                        actividadTitulo={activity.titulo}
+                        actividadPuntajeMax={activity.puntajeMax}
+                        theme={theme}
+                        onClose={() => {
+                            setShowQuizEditor(false);
+                            loadContent();
+                        }}
+                    />
+                )}
+
+                {/* Quiz Player for Students */}
+                {showQuizPlayer && (
+                    <QuizPlayer
+                        actividadId={activity.id}
+                        theme={theme}
+                        onClose={() => {
+                            setShowQuizPlayer(false);
+                            loadContent();
+                        }}
+                    />
                 )}
             </AnimatePresence>
         </div>

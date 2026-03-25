@@ -33,8 +33,8 @@ export default function Navbar() {
     }, [tenant]);
 
     const institution = data?.profe || {
-        nombre: 'PROFE',
-        nombreAbreviado: 'PROFE',
+        nombre: 'Programa Profe',
+        nombreAbreviado: 'Programa Profe',
         imagen: null,
         logoPrincipal: null
     };

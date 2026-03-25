@@ -5,16 +5,27 @@ const nextConfig: NextConfig = {
   // reactStrictMode: false evita el doble render en dev que exacerba los errores de hidratación
   reactStrictMode: false,
   images: {
-    domains: ['localhost'],
     remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3000',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3005',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3008',
+      },
       {
         protocol: 'https',
         hostname: '**',
       },
     ],
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,

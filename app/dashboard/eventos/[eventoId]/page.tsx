@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsPDF from 'jspdf';
-import { 
+import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts';
@@ -377,7 +377,7 @@ export default function EventoOperativoPage() {
 
             // 6. Crear el libro y las hojas
             const workbook = XLSX.utils.book_new();
-            
+
             // Hoja 1: Listado Detallado
             const wsInscritos = XLSX.utils.aoa_to_sheet([header, ...rows]);
             XLSX.utils.book_append_sheet(workbook, wsInscritos, 'Listado Participantes');
@@ -401,7 +401,7 @@ export default function EventoOperativoPage() {
 
         const personaIntents = i.persona?.eventoCuestionarioIntentos || [];
         const finishedIntents = personaIntents.filter((it: any) => it.estado === 'finished');
-        
+
         // Mapeamos los IDs de cuestionarios activos que ya tienen un intento finalizado
         const completedIds = activeCues.filter(ac => finishedIntents.some((fi: any) => fi.cuestionarioId === ac.id)).map(ac => ac.id);
         const count = completedIds.length;
@@ -427,7 +427,7 @@ export default function EventoOperativoPage() {
 
         return evento.camposExtras.map((campo: any) => {
             const data: Record<string, number> = {};
-            
+
             inscripciones.forEach((ins: any) => {
                 const resp = ins.respuestasExtras?.find((r: any) => r.campoExtraId === campo.id);
                 if (resp) {
@@ -883,7 +883,7 @@ export default function EventoOperativoPage() {
                                     </span>
                                 </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-sm">
                                 <div className="space-y-3 p-4 rounded-2xl bg-muted/20 border border-border/40">
                                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
@@ -1001,13 +1001,13 @@ export default function EventoOperativoPage() {
                                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                                                                 ))}
                                                             </Pie>
-                                                            <RechartsTooltip 
+                                                            <RechartsTooltip
                                                                 contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                                                                 itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                                                 cursor={{ fill: 'transparent' }}
                                                             />
-                                                            <Legend 
-                                                                verticalAlign="bottom" 
+                                                            <Legend
+                                                                verticalAlign="bottom"
                                                                 align="center"
                                                                 iconType="circle"
                                                                 formatter={(val) => <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">{val}</span>}
@@ -1017,13 +1017,13 @@ export default function EventoOperativoPage() {
                                                         <BarChart data={stat.chartData} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
                                                             <defs>
                                                                 <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
-                                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.8} />
                                                                 </linearGradient>
                                                             </defs>
                                                             <XAxis type="number" hide />
                                                             <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                                            <Tooltip 
+                                                            <Tooltip
                                                                 contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff' }}
                                                                 itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                                                 cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
@@ -1305,7 +1305,7 @@ export default function EventoOperativoPage() {
                     </div>
 
                     <div className="p-8 bg-white rounded-[3rem] shadow-2xl shadow-primary/10 border-4 border-primary/10 relative group">
-                        <QRCodeCanvas 
+                        <QRCodeCanvas
                             id="qr-attendance-canvas"
                             value={`${window.location.origin}/eventos/${evento?.codigo}?step=asistencia&code=${evento?.codigoAsistencia}`}
                             size={280}
@@ -1316,10 +1316,10 @@ export default function EventoOperativoPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                        <button 
+                        <button
                             onClick={() => {
                                 const canvas = document.getElementById('qr-attendance-canvas') as HTMLCanvasElement;
-                                if(canvas) {
+                                if (canvas) {
                                     const link = document.createElement('a');
                                     link.download = `QR_Asistencia_${evento?.codigo}.png`;
                                     link.href = canvas.toDataURL();
@@ -1331,19 +1331,19 @@ export default function EventoOperativoPage() {
                         >
                             <Download className="w-4 h-4" /> Bajar Imagen
                         </button>
-                        <button 
+                        <button
                             onClick={async () => {
                                 const canvas = document.getElementById('qr-attendance-canvas') as HTMLCanvasElement;
-                                if(!canvas) return;
-                                
+                                if (!canvas) return;
+
                                 const qrData = canvas.toDataURL('image/png');
                                 const doc = new jsPDF();
                                 const pageWidth = doc.internal.pageSize.getWidth();
-                                
+
                                 // Diseño del PDF
                                 doc.setFillColor(99, 102, 241); // Color primary
                                 doc.rect(0, 0, pageWidth, 40, 'F');
-                                
+
                                 doc.setTextColor(255, 255, 255);
                                 doc.setFontSize(24);
                                 doc.setFont('helvetica', 'bold');
@@ -1354,13 +1354,13 @@ export default function EventoOperativoPage() {
                                 doc.setTextColor(40, 44, 52);
                                 doc.setFontSize(18);
                                 doc.text(evento?.nombre?.toLocaleUpperCase(), pageWidth / 2, 60, { align: 'center', maxWidth: 170 });
-                                
+
                                 // QR
                                 doc.addImage(qrData, 'PNG', (pageWidth - 120) / 2, 80, 120, 120);
-                                
+
                                 doc.setFontSize(14);
                                 doc.text(`CÓDIGO: ${evento?.codigoAsistencia}`, pageWidth / 2, 215, { align: 'center' });
-                                
+
                                 doc.setFontSize(10);
                                 doc.setFont('helvetica', 'normal');
                                 doc.setTextColor(100, 116, 139);

@@ -115,12 +115,13 @@ const menuItems: MenuItem[] = [
         ],
     },
     {
-        title: 'Administración PROFE',
+        title: 'Administración',
         href: '/dashboard/profe',
         icon: Shield,
         permission: { action: 'manage', subject: 'all' },
         children: [
             { title: 'Datos Institucionales', href: '/dashboard/profe/configuracion' },
+            { title: 'Configuraciones de Carga', href: '/dashboard/upload-configs' },
         ],
     },
     {
@@ -289,15 +290,11 @@ export function Sidebar() {
                             whileTap={{ scale: 0.95 }}
                             className="w-12 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-black/5 shrink-0 cursor-pointer overflow-hidden border border-border/50"
                         >
-                            {profe?.imagen ? (
-                                <img
-                                    src={(profe.imagen && profe.imagen.startsWith('http')) ? profe.imagen : `${process.env.NEXT_PUBLIC_API_URL}${profe.imagen?.startsWith('/') ? '' : '/'}${profe.imagen}`}
-                                    alt="Logo"
-                                    className="w-full h-full object-contain p-1.5"
-                                />
-                            ) : (
-                                <img src="/logo.svg" className="w-7 h-7" alt="PROFE" />
-                            )}
+                            <img
+                                src={isCollapsed && !isMobileOpen ? "/icon_aula.svg" : "/logo_aula.svg"}
+                                alt="Aula Profe"
+                                className="h-full w-auto object-contain p-1"
+                            />
                         </motion.div>
                     </Link>
                     {(!isCollapsed || isMobileOpen) && (

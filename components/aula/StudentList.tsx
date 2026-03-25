@@ -274,7 +274,7 @@ export default function StudentList({ moduloId, turnoId, onClose, theme, moduloN
                 {/* Footer */}
                 <div className={cn("px-8 py-3 border-t flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-400", isDark ? "border-slate-800" : "border-slate-100")}>
                     <span>{filtered.length} de {students.length} participantes</span>
-                    <span>PROFE LMS</span>
+                    <span>Aula Profe</span>
                 </div>
             </motion.div>
         </div>

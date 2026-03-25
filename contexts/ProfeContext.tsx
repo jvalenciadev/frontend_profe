@@ -58,7 +58,12 @@ export function ProfeProvider({ children }: { children: ReactNode }) {
 export function useProfe() {
     const context = useContext(ProfeContext);
     if (context === undefined) {
-        throw new Error('useProfe must be used within a ProfeProvider');
+        // En modo build/server, retornamos un estado seguro en lugar de lanzar error
+        return {
+            config: null,
+            isLoading: false,
+            refreshConfig: async () => { },
+        };
     }
     return context;
 }

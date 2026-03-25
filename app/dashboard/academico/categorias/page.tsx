@@ -806,7 +806,7 @@ export default function CategoriasPage() {
                                     />
                                     <div>
                                         <p className="text-xs font-black">Es Evaluación Final</p>
-                                        <p className="text-[9px] text-muted-foreground font-medium">Marca esta categoría como el examen o producto final del módulo</p>
+                                        <p className="text-[9px] text-muted-foreground font-medium">Marca esta categoría como el cuestionario o producto final del módulo</p>
                                     </div>
                                     <Shield className={cn('w-5 h-5 ml-auto flex-shrink-0 transition-colors', form.esEvalFinal ? 'text-amber-500' : 'text-muted-foreground/20')} />
                                 </label>

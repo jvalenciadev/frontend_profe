@@ -136,12 +136,10 @@ export default function AulaOlvidePasswordPage() {
                         className="relative z-10 space-y-12"
                     >
                         {/* Logos with Shadow Depth */}
-                        <div className="flex items-center gap-10">
-                            <motion.div whileHover={{ y: -5 }} className="relative">
-                                <img src="/logo-principal.png" alt="PROFE" className="h-20 xl:h-24 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.08)]" />
+                        <div className="flex items-center gap-6">
+                            <motion.div whileHover={{ y: -5 }} className="relative bg-white rounded-2xl p-4 shadow-xl shadow-black/5">
+                                <img src="/logo_aula.svg" alt="Aula Profe" className="h-16 xl:h-20 object-contain" />
                             </motion.div>
-                            <div className="w-px h-16 bg-slate-200 dark:bg-slate-700 mx-2" />
-                            <img src="/logo.svg" alt="Minedu" className="h-10 xl:h-12 object-contain" />
                         </div>
 
                         <div className="pt-20 space-y-8 max-w-2xl">
@@ -157,7 +155,7 @@ export default function AulaOlvidePasswordPage() {
 
                             <h1 className="text-6xl lg:text-8xl font-black text-slate-900 dark:text-white leading-[0.95] tracking-[-0.05em]">
                                 Recuperar <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-br from-[var(--aula-primary)] via-[var(--aula-primary)] to-[color-mix(in_srgb,var(--aula-primary)_50%,transparent)]">
+                                <span style={{ color: 'var(--aula-primary)' }}>
                                     Acceso
                                 </span>
                             </h1>
@@ -194,10 +192,8 @@ export default function AulaOlvidePasswordPage() {
                     >
                         {/* Mobile Branding */}
                         <div className="lg:hidden text-center space-y-6 mb-8">
-                            <div className="flex items-center justify-center gap-4">
-                                <img src="/logo-principal.png" alt="PROFE" className="h-12 object-contain" />
-                                <div className="w-px h-10 bg-slate-300" />
-                                <img src="/logo.svg" alt="Minedu" className="h-5 object-contain" />
+                            <div className="flex items-center justify-center gap-4 bg-white/50 backdrop-blur-xl p-4 rounded-3xl border border-white shadow-sm">
+                                <img src="/logo_aula.svg" alt="Aula Profe" className="h-14 object-contain" />
                             </div>
                             <div>
                                 <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Recuperar <span style={{ color: 'var(--aula-primary)' }}>Clave</span></h1>

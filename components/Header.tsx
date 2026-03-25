@@ -42,7 +42,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
     cargos: 'Cargos',
     evaluaciones: 'Evaluaciones',
     periodos: 'Periodos',
-    profe: 'Admin PROFE',
+    profe: 'Administración',
     configuracion: 'Configuración',
     accesos: 'Accesos',
     'mi-ficha': 'Mi Ficha',

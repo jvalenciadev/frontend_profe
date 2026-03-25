@@ -14,6 +14,7 @@ import { ChevronLeft } from 'lucide-react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useProfe } from '@/contexts/ProfeContext';
 import { aulaService } from '../../services/aulaService';
+import { LogoAula } from '@/components/aula/LogoAula';
 
 export default function AulaLayout({
     children,
@@ -85,16 +86,15 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                     <div className="relative" suppressHydrationWarning>
                         <div
                             suppressHydrationWarning
-                            className="w-24 h-24 rounded-[2rem] flex items-center justify-center text-white shadow-2xl overflow-hidden"
-                            style={{ backgroundColor: 'var(--aula-primary)', boxShadow: '0 20px 40px -10px rgba(79, 70, 229, 0.4)' }}
+                            className="h-24 px-8 rounded-[2rem] flex items-center justify-center bg-white shadow-2xl overflow-hidden"
                         >
-                            <GraduationCap size={48} />
+                            <LogoAula size="lg" showText={false} />
                         </div>
                         <div className="absolute -inset-4 border-2 border-primary/20 rounded-[2.5rem] animate-[spin_4s_linear_infinite]" suppressHydrationWarning />
                     </div>
                     <div className="text-center space-y-2" suppressHydrationWarning>
-                        <h1 className={cn("text-3xl font-black tracking-tighter", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                            Aula <span className="text-primary">PROFE</span>
+                        <h1 suppressHydrationWarning className={cn("text-3xl font-black tracking-tighter", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                            Aula <span suppressHydrationWarning className="text-primary">PROFE</span>
                         </h1>
                     </div>
                 </motion.div>
@@ -103,7 +103,11 @@ function AulaContent({ children }: { children: React.ReactNode }) {
     }
 
     const menuItems = [
-        { icon: LayoutDashboard, label: 'Mi Aula', href: '/aula' },
+        {
+            icon: LayoutDashboard,
+            label: 'Mi Aula',
+            href: '/aula'
+        },
         ...(isFacilitator ? [{ icon: GraduationCap, label: 'Docencia', href: '/aula/docencia' }] : []),
         { icon: BookOpen, label: 'Mis Cursos', href: '/aula/cursos' },
         { icon: GraduationCap, label: 'Calificaciones', href: '/aula/calificaciones' },
@@ -124,6 +128,7 @@ function AulaContent({ children }: { children: React.ReactNode }) {
             {/* Ultra-Premium Collapsible Sidebar - Hidden on Auth Pages */}
             {!isAuthPage && (
                 <motion.aside
+                    suppressHydrationWarning
                     initial={false}
                     animate={{
                         width: sidebarCollapsed ? 80 : 280,
@@ -147,33 +152,12 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                         </motion.div>
                     </button>
 
-                    {/* Brand Identity */}
                     <div className={cn("p-6 mb-4 flex items-center overflow-hidden", sidebarCollapsed ? "justify-center" : "gap-4")}>
-                        <div
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-2xl shrink-0 transition-all duration-500 group-hover/sidebar:rotate-6 overflow-hidden"
-                            style={{ backgroundColor: 'var(--aula-primary)', boxShadow: '0 12px 24px -16px var(--aula-primary)' }}
-                        >
-                            {config?.imagen ? (
-                                <img src={getImageUrl(config.imagen)} alt="Logo" className="w-full h-full object-cover" />
-                            ) : (
-                                <GraduationCap size={28} />
-                            )}
-                        </div>
-                        {!sidebarCollapsed && (
-                            <motion.div
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3 }}
-                                className="min-w-0"
-                            >
-                                <h1 className={cn("font-black leading-none text-xl tracking-tighter truncate", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                    Aula <span style={{ color: 'var(--aula-primary)' }}>PROFE</span>
-                                </h1>
-                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-none mt-2 block truncate">
-                                    {config?.nombreAbreviado || 'Digital Ecosystem'}
-                                </span>
-                            </motion.div>
-                        )}
+                        <LogoAula 
+                            size={sidebarCollapsed ? "sm" : "md"} 
+                            showText={!sidebarCollapsed}
+                            className="transition-all duration-500"
+                        />
                     </div>
 
                     {/* Navigation Scrollable */}

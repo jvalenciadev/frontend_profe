@@ -17,11 +17,11 @@ const iconMap: Record<string, any> = {
 };
 
 const gradientMap: Record<string, string> = {
-    ALUMNO_ESTRELLA:     'from-amber-400 to-orange-500',
+    ALUMNO_ESTRELLA: 'from-amber-400 to-orange-500',
     ASISTENCIA_PERFECTA: 'from-emerald-400 to-teal-500',
-    PRIMER_FORO:         'from-sky-400 to-blue-600',
-    TAREA_100:           'from-violet-400 to-purple-600',
-    PRIMER_PUESTO:       'from-rose-400 to-pink-500',
+    PRIMER_FORO: 'from-sky-400 to-blue-600',
+    TAREA_100: 'from-violet-400 to-purple-600',
+    PRIMER_PUESTO: 'from-rose-400 to-pink-500',
 };
 
 interface InsigniaManagerProps {
@@ -79,7 +79,7 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
                 const updated = participantes.find(p => p.userId === selectedUser.userId);
                 if (updated) {
                     // Si el usuario seleccionado era este, actualizamos su lista de insignias localmente
-                    setSelectedUser(prev => ({ ...prev, insignias: updated.insignias }));
+                    setSelectedUser((prev: any) => ({ ...prev, insignias: updated.insignias }));
                 }
             }
         } catch (e: any) {
@@ -99,8 +99,8 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
             // Refresh selectedUser local state
             const updated = participantes.find(p => p.userId === selectedUser.userId);
             if (updated) {
-                 const newInsignias = (selectedUser.insignias || []).filter((i: any) => i.insigniaId !== insigniaId);
-                 setSelectedUser(prev => ({ ...prev, insignias: newInsignias }));
+                const newInsignias = (selectedUser.insignias || []).filter((i: any) => i.insigniaId !== insigniaId);
+                setSelectedUser((prev: any) => ({ ...prev, insignias: newInsignias }));
             }
         } catch (e: any) {
             toast.error(e?.response?.data?.message || 'Error al revocar insignia');
@@ -187,9 +187,9 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
                                                     ? "border-transparent hover:border-slate-700 hover:bg-slate-800/50"
                                                     : "border-transparent hover:border-slate-200 hover:bg-white"
                                         )}
-                                        style={selectedUser?.userId === p.userId ? { 
+                                        style={selectedUser?.userId === p.userId ? {
                                             backgroundColor: isDark ? `${secondaryColor}15` : `${secondaryColor}08`,
-                                            borderColor: secondaryColor 
+                                            borderColor: secondaryColor
                                         } : {}}
                                     >
                                         <div className={cn(
@@ -278,7 +278,7 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
                                                 Logros Disponibles
                                             </p>
                                         </div>
-                                        
+
                                         {insigniasDisp.length === 0 ? (
                                             <div className="text-center py-20 bg-slate-50/50 dark:bg-slate-950/20 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800">
                                                 <Award size={40} className="mx-auto text-slate-200 dark:text-slate-700 mb-4" />
@@ -317,7 +317,7 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
                                                             <div className={cn(
                                                                 "w-20 h-20 rounded-[2rem] flex items-center justify-center relative transition-all duration-500",
                                                                 hasIt ? "shadow-xl" : "bg-slate-100 dark:bg-slate-800"
-                                                            )} style={hasIt ? { 
+                                                            )} style={hasIt ? {
                                                                 backgroundColor: badgeColor,
                                                                 boxShadow: `0 10px 25px ${badgeColor}44`
                                                             } : {}}>
@@ -348,7 +348,7 @@ export default function InsigniaManager({ moduloId, turnoId, onClose, theme }: I
                                                                         : "text-white hover:opacity-90 shadow-lg",
                                                                     !!awarding && "opacity-50 cursor-not-allowed"
                                                                 )}
-                                                                style={!hasIt ? { 
+                                                                style={!hasIt ? {
                                                                     backgroundColor: secondaryColor,
                                                                     boxShadow: `0 8px 16px ${secondaryColor}33`
                                                                 } : {}}

@@ -123,7 +123,7 @@ export default function AulaResetPasswordPage() {
                             <h2 className="text-xl font-black uppercase tracking-tight text-primary-700">Acción Requerida de Seguridad</h2>
                             <p className="text-xs font-bold text-primary-700/70 uppercase tracking-widest leading-relaxed">
                                 Estas ingresando con una clave generada por sistema. <br />
-                                <span className="text-primary-600 font-black italic">Debes configurar una nueva clave permanente para continuar en el Aula Virtual.</span>
+                                <span className="text-primary-600 font-black italic">Debes configurar una nueva clave permanente para continuar en Aula Profe.</span>
                             </p>
                         </div>
                     </div>
@@ -131,9 +131,10 @@ export default function AulaResetPasswordPage() {
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden p-0 relative">
                         <div className="absolute inset-0 bg-gradient-to-b from-primary-50/50 to-transparent pointer-events-none" />
                         <div className="p-8 md:p-12 space-y-10 relative z-10">
-                            <div className="space-y-2 text-center md:text-left">
+                            <div className="space-y-6 text-center md:text-left">
+                                <img src="/logo_aula.svg" alt="Aula Profe" className="h-14 lg:h-16 object-contain mb-4 mx-auto md:mx-0" />
                                 <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Configurar Credenciales</h1>
-                                <p className="text-sm font-medium text-slate-500 uppercase tracking-widest">Asegura tu cuenta de Aula Virtual</p>
+                                <p className="text-sm font-medium text-slate-500 uppercase tracking-widest">Asegura tu cuenta de Aula Profe</p>
                             </div>
 
                             {error && (

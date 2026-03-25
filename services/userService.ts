@@ -56,5 +56,23 @@ export const userService = {
     requestEmailVerification: async (email: string) => {
         const { data } = await api.post('/users/request-email-verification', { email });
         return data;
+    },
+
+    // ─── CAMPOS EXTRA (ADMIN DASHBOARD) ─────────────────────────
+    getCamposExtra: async () => {
+        const { data } = await api.get('/users/campos-extra');
+        return data;
+    },
+    createCampoExtra: async (payload: any) => {
+        const { data } = await api.post('/users/campos-extra', payload);
+        return data;
+    },
+    updateCampoExtra: async (id: string, payload: any) => {
+        const { data } = await api.put(`/users/campos-extra/${id}`, payload);
+        return data;
+    },
+    deleteCampoExtra: async (id: string) => {
+        const { data } = await api.delete(`/users/campos-extra/${id}`);
+        return data;
     }
 };
