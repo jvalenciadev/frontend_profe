@@ -8,6 +8,7 @@ import {
     CheckCircle2, Trophy, TrendingUp, Users
 } from 'lucide-react';
 import { useAula } from '@/contexts/AulaContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -18,10 +19,12 @@ interface GradeReportProps {
     theme: 'light' | 'dark';
     moduloNombre?: string;
     moduloData?: any; // Añadido opcional
+    turnoNombre?: string;
 }
 
-export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloNombre }: GradeReportProps) {
+export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloNombre, turnoNombre }: GradeReportProps) {
     const { secondaryColor } = useAula();
+    const { user } = useAuth();
     const [report, setReport] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -52,7 +55,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
     const isDark = theme === 'dark';
 
     const filteredStudents = report?.estudiantes?.filter((s: any) =>
-        s.nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.nombre || '').toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
 
     // Group headers by categoria type (from mod_tipo_calificacion_config order)
@@ -77,12 +80,13 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
         ] : [99, 102, 241];
     };
 
-    const exportPDF = async (type: 'activity' | 'summary' | 'badges' | 'attendance' | 'general') => {
+    const exportPDF = async (type: 'detailed' | 'attendance' | 'general') => {
         setExporting(true);
         try {
             const { default: jsPDF } = await import('jspdf');
             const { default: autoTable } = await import('jspdf-autotable');
-            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            const isPortrait = type !== 'detailed';
+            const doc = new jsPDF({ orientation: isPortrait ? 'portrait' : 'landscape', unit: 'mm', format: 'a4' });
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -93,109 +97,172 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(22);
             doc.setTextColor(40, 44, 52);
-            const titleMap = {
-                activity: 'REPORTE DETALLADO POR ACTIVIDAD',
-                summary: 'REPORTE DE CALIFICACIÓN POR CATEGORÍA',
-                badges: 'REPORTE DE INSIGNIAS Y RECONOCIMIENTOS',
-                attendance: 'REPORTE DETALLADO DE ASISTENCIA',
+            const titleMap: any = {
+                detailed: 'Registro Matriz de Calificaciones',
+                attendance: 'REPORTE EXHAUSTIVO DE ASISTENCIA',
                 general: 'REPORTE GENERAL ACADÉMICO'
             };
-            doc.text(titleMap[type], pageWidth / 2, 45, { align: 'center' });
 
+            // Título Principal
+            doc.text(titleMap[type] || 'REPORTE', pageWidth / 2, type === 'detailed' ? 42 : 45, { align: 'center' });
+
+            // Subtítulo especial para Reporte Detallado
+            if (type === 'detailed') {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(100, 116, 139);
+                doc.text('Ordenado por jerarquía académica (mod_tcc_orden)', pageWidth / 2, 48, { align: 'center' });
+            }
+
+            // Fecha de Generación
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageWidth / 2, 52, { align: 'center' });
+            doc.setTextColor(40, 44, 52);
+            const dateStr = new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
+            doc.text(`Generado el: ${dateStr}`, pageWidth / 2, type === 'detailed' ? 54 : 52, { align: 'center' });
 
             // 3. Detalles Académicos
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
-            const startYDetail = 60;
+            const startYDetail = type === 'detailed' ? 64 : 60;
             const leftCol = 20;
-            const rightCol = pageWidth - 100;
+            // rightCol depends on orientation. If portrait, pageWidth is ~210, if landscape it's ~297.
+            const rightCol = isPortrait ? 120 : pageWidth - 100;
 
+            // Row 1: Programa
             doc.text(`PROGRAMA:`, leftCol, startYDetail);
             doc.setFont('helvetica', 'normal');
-            doc.text(`${fullModulo?.programaDos?.nombre || 'PROFE'}`, leftCol + 25, startYDetail);
+            const progName = fullModulo?.programaDos?.nombre || fullModulo?.programa?.nombre || 'PROFE';
+            doc.text(doc.splitTextToSize(progName, rightCol - leftCol - 30), leftCol + 30, startYDetail);
 
+            // Row 2: Módulo
             doc.setFont('helvetica', 'bold');
-            doc.text(`MÓDULO:`, leftCol, startYDetail + 5);
+            doc.text(`MÓDULO:`, leftCol, startYDetail + 8);
             doc.setFont('helvetica', 'normal');
-            doc.text(`${moduloNombre || 'N/A'}`, leftCol + 25, startYDetail + 5);
+            doc.text(doc.splitTextToSize(moduloNombre || 'N/A', rightCol - leftCol - 30), leftCol + 30, startYDetail + 8);
 
+            // Row 3: Facilitador
+            doc.setFont('helvetica', 'bold');
+            doc.text(`FACILITADOR/A:`, leftCol, startYDetail + 16);
+            doc.setFont('helvetica', 'normal');
+            const apellidoUser = (user as any)?.persona?.apellidos || (user as any)?.apellidos || '';
+            const nombreUser = (user as any)?.persona?.nombre || user?.nombre || '';
+            const facName = `${apellidoUser} ${nombreUser}`.trim().toUpperCase() || 'DOCENTE DESIGNADO';
+            doc.text(doc.splitTextToSize(facName, rightCol - leftCol - 30), leftCol + 30, startYDetail + 16);
+
+            // Row 1 (Right): Turno
             doc.setFont('helvetica', 'bold');
             doc.text(`TURNO:`, rightCol, startYDetail);
             doc.setFont('helvetica', 'normal');
-            const turnLabel = turnoId === 'global' ? 'GLOBAL / CENTRAL' : (report?.estudiantes?.[0]?.turnoNombre || 'ÚNICO');
+            const turnLabel = turnoId === 'global' ? 'GLOBAL / CENTRAL' : (turnoNombre || fullModulo?.turno?.nombre || fullModulo?.turno?.turno || 'Turno Único');
             doc.text(turnLabel, rightCol + 25, startYDetail);
+
+            // Row 2 (Right): Inscritos
+            doc.setFont('helvetica', 'bold');
+            doc.text(`INSCRITOS:`, rightCol, startYDetail + 8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${filteredStudents.length} Estudiantes`, rightCol + 25, startYDetail + 8);
 
             const primaryRGB = hexToRgb(secondaryColor);
 
             // 4. Lógica de Tablas
-            if (type === 'activity') {
+            if (type === 'detailed') {
                 const acts = report.headers || [];
-                const tableHeaders = ['#', 'Estudiante', ...acts.map((h: any) => h.titulo.substring(0, 10)), 'Total', 'Estado'];
-                const tableBody = filteredStudents.map((s: any, idx: number) => [
-                    idx + 1,
-                    s.nombreCompleto,
-                    ...acts.map((h: any) => s.scores[h.id] || 0),
-                    s.total,
-                    s.total >= notaMinima ? 'APROBADO' : 'REPROBADO'
-                ]);
-                autoTable(doc, {
-                    startY: 75,
-                    head: [tableHeaders as any],
-                    body: tableBody as any[],
-                    theme: 'grid',
-                    headStyles: { fillColor: primaryRGB, fontSize: 7, halign: 'center' },
-                    styles: { fontSize: 7, cellPadding: 2.5 },
-                    didParseCell: (data) => {
-                        if (data.column.index === tableHeaders.length - 1 && data.section === 'body') {
-                            const val = data.cell.raw as string;
-                            data.cell.styles.textColor = val === 'APROBADO' ? [16, 185, 129] : [239, 68, 68];
-                            data.cell.styles.fontStyle = 'bold';
-                        }
-                    }
-                });
-            } else if (type === 'summary') {
-                const categories = Array.from(new Set(report.headers.map((h: any) => h.categoriaNombre)));
-                const tableHeaders = ['#', 'Estudiante', ...categories, 'Nota Final', 'Resultado'];
-                const tableBody = filteredStudents.map((s: any, idx: number) => {
-                    const rowScores = categories.map(cat => {
-                        const actsInCat = report.headers.filter((h: any) => h.categoriaNombre === cat);
-                        return actsInCat.reduce((sum: number, h: any) => sum + (s.scores[h.id] || 0), 0);
+                // Forzar todas las categorías de la configuración raíz, ordenadas
+                const categories = report.categorias?.length
+                    ? report.categorias.map((c: any) => c.nombre)
+                    : Array.from(new Set(acts.map((h: any) => h.categoriaNombre)));
+
+                const headRow1: any[] = [{ content: '#', rowSpan: 2 }, { content: 'Estudiante', rowSpan: 2 }];
+                const headRow2: any[] = [];
+
+                categories.forEach((cat: any) => {
+                    const catActs = acts.filter((h: any) => h.categoriaNombre === cat);
+                    // Buscar el peso oficial de la categoría
+                    const catInfo = report.categorias?.find((c: any) => c.nombre === cat);
+                    const peso = catInfo ? catInfo.peso : 0;
+
+                    // Header de Categoría arriba (span = numActs + 1)
+                    headRow1.push({ content: `${(cat as string).substring(0, 15)} (${peso}%)`, colSpan: catActs.length + 1, styles: { halign: 'center' } });
+
+                    // Header de actividades abajo (Tipo Oficial)
+                    catActs.forEach((h: any) => {
+                        const tipoNombre = h.tipo ? String(h.tipo).toUpperCase() : h.titulo;
+                        headRow2.push({ content: tipoNombre.substring(0, 12), styles: { halign: 'center' } });
                     });
-                    return [idx + 1, s.nombreCompleto, ...rowScores, s.total, s.total >= notaMinima ? 'APROBADO' : 'REPROBADO'];
+                    // Columna sub-total por categoría
+                    headRow2.push({ content: '= Pts', styles: { halign: 'center', fontStyle: 'bold' } });
                 });
+
+                headRow1.push({ content: 'Promedio', rowSpan: 2 });
+                headRow1.push({ content: 'Estado', rowSpan: 2 });
+
+                // tableBody es la correspondencia directa
+                const tableBody = filteredStudents.map((s: any, idx: number) => {
+                    const row: any[] = [idx + 1, s.nombre];
+                    categories.forEach((cat: any) => {
+                        const catActs = acts.filter((h: any) => h.categoriaNombre === cat);
+                        catActs.forEach((h: any) => {
+                            row.push(s.scores[h.id] || 0);
+                        });
+                        // El cálculo matemático y aporte final a la nota de esta categoría
+                        const des = s.desglose?.find((d: any) => d.nombre === cat);
+                        row.push(des?.aporte ?? 0);
+                    });
+                    row.push(s.total);
+                    row.push(s.total === 0 ? 'ABANDONO' : s.total >= notaMinima ? 'APROBADO' : 'REPROBADO');
+                    return row;
+                });
+
                 autoTable(doc, {
-                    startY: 75,
-                    head: [tableHeaders as any],
-                    body: tableBody as any[],
+                    startY: 88,
+                    head: [headRow1, headRow2],
+                    body: tableBody,
                     theme: 'grid',
-                    headStyles: { fillColor: primaryRGB, fontSize: 8, halign: 'center' },
-                    styles: { fontSize: 8, cellPadding: 3 },
+                    headStyles: { fillColor: primaryRGB, fontSize: 6.5, halign: 'center' },
+                    styles: { fontSize: 6.5, cellPadding: 2, halign: 'center' },
+                    columnStyles: { 1: { halign: 'left', cellWidth: 35 } },
                     didParseCell: (data) => {
-                        if (data.column.index === tableHeaders.length - 1 && data.section === 'body') {
+                        const totalCols = 2 + acts.length + categories.length + 2;
+                        const isMainCategoryHeader = data.section === 'head' && data.row.index === 0 && data.column.index > 1;
+                        if (isMainCategoryHeader) {
+                            // Tono más oscuro a la fila superior (Categorías Mayores)
+                            data.cell.styles.fillColor = [
+                                Math.max(0, primaryRGB[0] - 30),
+                                Math.max(0, primaryRGB[1] - 30),
+                                Math.max(0, primaryRGB[2] - 30)
+                            ];
+                            data.cell.styles.fontSize = 7;
+                        } else if (data.section === 'head' && data.row.index === 1 && data.cell.raw === '= Pts') {
+                            // Tono diferente para distinguir la columna Pts
+                            data.cell.styles.fillColor = [
+                                Math.max(0, primaryRGB[0] - 15),
+                                Math.max(0, primaryRGB[1] - 15),
+                                Math.max(0, primaryRGB[2] - 15)
+                            ];
+                        }
+
+                        // Destacar también los sub-totales en el cuerpo
+                        if (data.section === 'body') {
+                            let currCol = 2; // arranca post-estudiante
+                            categories.forEach((cat: any) => {
+                                const count = acts.filter((h: any) => h.categoriaNombre === cat).length;
+                                currCol += count; // Avanza por las acts
+                                if (data.column.index === currCol) {
+                                    data.cell.styles.fontStyle = 'bold';
+                                    data.cell.styles.textColor = [0, 0, 0];
+                                }
+                                currCol += 1; // Avanza el = Pts
+                            });
+                        }
+
+                        // Formato de estados al final de la fila
+                        if (data.column.index === totalCols - 1 && data.section === 'body') {
                             const val = data.cell.raw as string;
-                            data.cell.styles.textColor = val === 'APROBADO' ? [16, 185, 129] : [239, 68, 68];
+                            data.cell.styles.textColor = val === 'APROBADO' ? [16, 185, 129] : val === 'ABANDONO' ? [100, 116, 139] : [239, 68, 68];
                             data.cell.styles.fontStyle = 'bold';
                         }
                     }
-                });
-            } else if (type === 'badges') {
-                const tableHeaders = ['#', 'Estudiante', 'Insignias Ganadas', 'Total Insignias'];
-                const tableBody = filteredStudents.map((s: any, idx: number) => [
-                    idx + 1,
-                    s.nombreCompleto,
-                    s.insignias?.map((i: any) => i.nombre).join(', ') || 'Sin insignias',
-                    s.insignias?.length || 0
-                ]);
-                autoTable(doc, {
-                    startY: 75,
-                    head: [tableHeaders as any],
-                    body: tableBody as any[],
-                    theme: 'grid',
-                    headStyles: { fillColor: primaryRGB, fontSize: 9, halign: 'center' },
-                    styles: { fontSize: 9, cellPadding: 4 }
                 });
             } else if (type === 'attendance') {
                 setFetchingAttendance(true);
@@ -203,7 +270,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 const tableHeaders = ['#', 'Estudiante', ...sessions.map((sess: any) => new Date(sess.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })), '%'];
                 const allRegs = await Promise.all(sessions.map((sess: any) => aulaService.getRegistrosAsistencia(sess.id)));
                 const tableBody = filteredStudents.map((s: any, idx: number) => {
-                    const row = [idx + 1, s.nombreCompleto];
+                    const row = [idx + 1, s.nombre];
                     let pCount = 0;
                     sessions.forEach((sess: any, sIdx: number) => {
                         const reg = allRegs[sIdx].find((r: any) => r.userId === s.userId);
@@ -214,7 +281,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                     return row;
                 });
                 autoTable(doc, {
-                    startY: 75,
+                    startY: 88,
                     head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
@@ -224,30 +291,79 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                 });
                 setFetchingAttendance(false);
             } else if (type === 'general') {
-                const tableHeaders = ['#', 'Estudiante', 'Promedio Notas', 'Asistencia %', 'Insignias', 'Estado Final'];
+                const tableHeaders = ['#', 'Estudiante', 'Promedio Notas', 'Asistencia %', 'Estado Final'];
                 const tableBody = filteredStudents.map((s: any, idx: number) => [
                     idx + 1,
-                    s.nombreCompleto,
+                    s.nombre,
                     s.total,
                     `${s.asistencia}%`,
-                    s.insignias?.length || 0,
-                    s.total >= notaMinima ? 'APROBADO' : 'REPROBADO'
+                    s.total === 0 ? 'ABANDONO' : s.total >= notaMinima ? 'APROBADO' : 'REPROBADO'
                 ]);
                 autoTable(doc, {
-                    startY: 75,
+                    startY: 88,
                     head: [tableHeaders as any],
                     body: tableBody as any[],
                     theme: 'grid',
                     headStyles: { fillColor: primaryRGB, fontSize: 9, halign: 'center' },
                     styles: { fontSize: 9, cellPadding: 4 },
                     didParseCell: (data) => {
-                        if (data.column.index === 5 && data.section === 'body') {
+                        if (data.column.index === 4 && data.section === 'body') {
                             const val = data.cell.raw as string;
-                            data.cell.styles.textColor = val === 'APROBADO' ? [16, 185, 129] : [239, 68, 68];
+                            data.cell.styles.textColor = val === 'APROBADO' ? [16, 185, 129] : val === 'ABANDONO' ? [100, 116, 139] : [239, 68, 68];
                             data.cell.styles.fontStyle = 'bold';
                         }
                     }
                 });
+            }
+
+            // 5. Cuadro Resumen Matemático-Visual (Post-Tabla)
+            if (['detailed', 'general'].includes(type)) {
+                let finalY = (doc as any).lastAutoTable?.finalY || 100;
+                if (finalY > pageHeight - 45) { // Más margen porque las tarjetas usan más altura
+                    doc.addPage();
+                    finalY = 20;
+                }
+
+                const totalAbandono = filteredStudents.filter((s: any) => s.total === 0).length;
+                const totalAprob = filteredStudents.filter((s: any) => s.total >= notaMinima && s.total > 0).length;
+                const totalReprob = filteredStudents.filter((s: any) => s.total < notaMinima && s.total > 0).length;
+
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(40, 44, 52);
+                doc.text(`ESTADÍSTICAS DEL MÓDULO`, 20, finalY + 15);
+
+                // Helper para renderizar tarjetas minimalistas y coloridas
+                const renderCard = (x: number, r: number, g: number, b: number, title: string, count: number, subtitle: string) => {
+                    // Diseño del fondo (Tarjeta)
+                    doc.setFillColor(r, g, b);
+                    doc.roundedRect(x, finalY + 20, 50, 20, 3, 3, 'F');
+
+                    // Título de la tarjeta
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(title, x + 5, finalY + 26);
+
+                    // El Número (Grande)
+                    doc.setFontSize(22);
+                    doc.text(count.toString(), x + 40, finalY + 34, { align: 'center' });
+
+                    // Condición (Pequeña abajo)
+                    doc.setFontSize(7);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(subtitle, x + 5, finalY + 36);
+                };
+
+                // Aprobados (Verde Esmeralda)
+                renderCard(20, 16, 185, 129, 'APROBADOS', totalAprob, `Notas >= ${notaMinima} pts`);
+
+                // Reprobados (Rojo Carmesí)
+                renderCard(75, 239, 68, 68, 'REPROBADOS', totalReprob, `Notas < ${notaMinima} pts`);
+
+                // Abandono (Plomo Grisáceo)
+                renderCard(130, 100, 116, 139, 'ABANDONO', totalAbandono, `Notas igual a 0 pts`);
             }
 
             // Footer
@@ -305,9 +421,7 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                     </div>
                                     <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
                                         {[
-                                            { id: 'activity', label: 'Por Actividad', sub: 'Puntajes detallados por cada tarea/foro', icon: FileDown, color: 'text-violet-600', bg: 'bg-violet-50' },
-                                            { id: 'summary', label: 'Por Categoría', sub: 'Resultado final y aprobado/reprobado', icon: BarChart3, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                                            { id: 'badges', label: 'Por Insignias', sub: 'Listado de logros y reconocimientos', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
+                                            { id: 'detailed', label: 'Reporte Detallado', sub: 'Categorías, actividades y puntajes', icon: FileDown, color: 'text-violet-600', bg: 'bg-violet-50' },
                                             { id: 'attendance', label: 'Por Asistencia', sub: 'Matriz de faltas y atrasos por fecha', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
                                             { id: 'general', label: 'Reporte General', sub: 'Resumen completo de todo el módulo', icon: Search, color: 'text-rose-600', bg: 'bg-rose-50' }
                                         ].map(f => (
@@ -338,7 +452,6 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                             { icon: Users, label: 'Estudiantes', value: filteredStudents.length, color: 'text-violet-500' },
                             { icon: TrendingUp, label: 'Promedio', value: avg, color: 'text-blue-500' },
                             { icon: CheckCircle2, label: 'Aprobados', value: aprobados, color: 'text-emerald-500' },
-                            { icon: Trophy, label: 'Con Insignias', value: filteredStudents.filter((s: any) => s.insignias?.length > 0).length, color: 'text-amber-500' },
                         ].map((stat, i) => (
                             <div key={i} className="flex items-center gap-2" title={stat.label}>
                                 <stat.icon size={14} className={stat.color} />
@@ -382,18 +495,15 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                         <th className={cn("sticky left-0 z-20 px-6 py-4 text-left text-[9px] font-black uppercase tracking-[0.2em] border-b border-r", isDark ? "bg-slate-900 text-slate-400 border-slate-800" : "bg-white text-slate-500 border-slate-100")}>
                                             Estudiante
                                         </th>
-                                        {headers.map((h: any) => (
-                                            <th key={h.id} className={cn("px-4 py-4 text-center text-[9px] font-black uppercase tracking-tight border-b min-w-[100px]", isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-100")}>
-                                                <div className="text-[7px] opacity-60 mb-1">{h.categoriaNombre}</div>
-                                                <div className="mb-0.5">{h.titulo}</div>
-                                                <span className="opacity-40 font-bold block text-[8px]">/{h.puntajeMax}pts</span>
+                                        {report.categorias?.map((c: any) => (
+                                            <th key={c.configId || c.nombre} className={cn("px-4 py-4 text-center text-[9px] font-black uppercase tracking-tight border-b min-w-[100px]", isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-100")}>
+                                                <div className="text-[7px] opacity-60 mb-1">Categoría</div>
+                                                <div className="mb-0.5">{c.nombre}</div>
+                                                <span className="opacity-40 font-bold block text-[8px]">{c.peso}pts</span>
                                             </th>
                                         ))}
                                         <th className={cn("px-4 py-4 text-center text-[9px] font-black uppercase tracking-tight border-b min-w-[80px]", isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-100")}>
-                                            Asistencia
-                                        </th>
-                                        <th className={cn("px-4 py-4 text-center text-[9px] font-black uppercase tracking-tight border-b min-w-[100px]", isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-100")}>
-                                            Insignias
+                                            % Asist.
                                         </th>
                                         <th className="sticky right-0 z-20 px-6 py-4 text-center text-[9px] font-black uppercase tracking-[0.2em] border-b border-l bg-violet-600 text-white min-w-[90px]">
                                             Total
@@ -404,19 +514,20 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                     {filteredStudents.map((s: any) => (
                                         <tr key={s.userId} className="group">
                                             <td className={cn("sticky left-0 z-10 px-6 py-3 font-bold text-sm border-b border-r transition-colors group-hover:bg-slate-50/80", isDark ? "bg-slate-900 text-white border-slate-800 dark:group-hover:bg-slate-800/40" : "bg-white text-slate-900 border-slate-100")}>
-                                                {s.nombreCompleto}
+                                                {s.nombre}
                                             </td>
-                                            {headers.map((h: any) => {
-                                                const score = s.scores?.[h.id] ?? 0;
-                                                const perc = h.puntajeMax > 0 ? (score / h.puntajeMax) * 100 : 0;
+                                            {report.categorias?.map((c: any) => {
+                                                const catData = s.desglose?.find((d: any) => d.nombre === c.nombre);
+                                                const aporte = catData?.aporte ?? 0;
+                                                const perc = c.peso > 0 ? (aporte / c.peso) * 100 : 0;
                                                 return (
-                                                    <td key={h.id} className={cn("px-4 py-3 text-center border-b font-black text-xs", isDark ? "border-slate-800" : "border-slate-100")}>
+                                                    <td key={c.configId || c.nombre} className={cn("px-4 py-3 text-center border-b font-black text-xs", isDark ? "border-slate-800" : "border-slate-100")}>
                                                         <div className={cn(
                                                             "inline-block px-2.5 py-1 rounded-lg text-[11px]",
                                                             perc >= 70 ? "text-emerald-600 bg-emerald-50" :
                                                                 perc >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
                                                         )}>
-                                                            {score}
+                                                            {aporte}
                                                         </div>
                                                     </td>
                                                 );
@@ -430,35 +541,18 @@ export default function GradeReport({ moduloId, turnoId, onClose, theme, moduloN
                                                     {s.asistencia ?? 0}%
                                                 </span>
                                             </td>
-                                            <td className={cn("px-4 py-3 text-center border-b", isDark ? "border-slate-800" : "border-slate-100")}>
-                                                <div className="flex justify-center -space-x-1.5">
-                                                    {(s.insignias?.length ?? 0) > 0 ? s.insignias.slice(0, 3).map((ins: any, idx: number) => (
-                                                        <div
-                                                            key={ins.id || idx}
-                                                            title={ins.nombre || ins.tipo}
-                                                            className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-black"
-                                                            style={{ background: ins.color || '#6366f1', color: 'white' }}
-                                                        >
-                                                            {ins.nombre?.charAt(0) || '🏅'}
-                                                        </div>
-                                                    )) : (
-                                                        <span className="text-slate-300 dark:text-slate-700 text-[10px]">—</span>
-                                                    )}
-                                                    {(s.insignias?.length || 0) > 3 && (
-                                                        <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white flex items-center justify-center text-[8px] font-black text-slate-500">
-                                                            +{s.insignias.length - 3}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
                                             <td className={cn("sticky right-0 z-10 px-6 py-3 text-center font-black text-base border-b border-l transition-colors group-hover:bg-white", isDark ? "bg-slate-900 border-slate-800 dark:group-hover:bg-slate-800" : "bg-white border-slate-100")}>
                                                 <span className={cn(
-                                                    "px-3 py-1.5 rounded-xl text-[13px]",
-                                                    s.total >= 70 ? "bg-emerald-500 text-white" :
-                                                        s.total >= 51 ? "bg-amber-500 text-white" : "bg-rose-500 text-white"
+                                                    "px-3 py-1.5 rounded-xl text-[13px] block text-center w-full",
+                                                    s.total === 0 ? "bg-slate-500 text-white" :
+                                                        s.total >= 70 ? "bg-emerald-500 text-white" :
+                                                            s.total >= 51 ? "bg-amber-500 text-white" : "bg-rose-500 text-white"
                                                 )}>
                                                     {s.total}
                                                 </span>
+                                                <div className={cn("text-[9px] mt-1.5 font-black uppercase tracking-widest", s.total === 0 ? "text-slate-500" : s.total >= 70 ? "text-emerald-500" : "text-rose-500")}>
+                                                    {s.total === 0 ? 'ABANDONO' : s.total >= 70 ? 'APROBADO' : 'REPROBADO'}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

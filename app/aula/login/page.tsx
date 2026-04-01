@@ -7,7 +7,6 @@ import { aulaService } from '@/services/aulaService';
 import { LogoAula } from '@/components/aula/LogoAula';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    GraduationCap,
     User as UserIcon,
     Lock,
     AlertCircle,
@@ -15,7 +14,10 @@ import {
     ArrowRight,
     BookOpen,
     Eye,
-    EyeOff
+    EyeOff,
+    ShieldAlert,
+    KeyRound,
+    CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,8 +28,9 @@ export default function AulaLoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -43,10 +46,15 @@ export default function AulaLoginPage() {
 
         try {
             const response = await aulaService.login({ username, password });
-            // El login del AuthContext (ahora con namespace 'aula') se encarga de las cookies
-            login(response.access_token, response.user);
-            toast.success('¡Bienvenido a Aula Profe!');
-            router.push('/aula');
+            if (response.user?.requiresPasswordChange) {
+                login(response.access_token, response.user);
+                toast.info('Debe configurar sus credenciales antes de continuar.');
+                router.push('/aula/reset-password');
+            } else {
+                login(response.access_token, response.user);
+                toast.success('¡Bienvenido a Aula Profe!');
+                router.push('/aula');
+            }
         } catch (err: any) {
             const msg = err.response?.data?.message || 'Error al conectar con Aula Profe';
             setError(msg);
@@ -56,6 +64,7 @@ export default function AulaLoginPage() {
         }
     };
 
+
     if (!mounted) return null;
 
     return (
@@ -63,6 +72,7 @@ export default function AulaLoginPage() {
             suppressHydrationWarning
             className="fixed inset-0 bg-slate-50 flex overflow-hidden selection:bg-[var(--aula-primary)]/30"
         >
+
             {/* ── HIGH-FIDELITY BACKGROUND ── */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 {/* Dynamic Gradient Orbs */}

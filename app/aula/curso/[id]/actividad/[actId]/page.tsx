@@ -27,7 +27,8 @@ import {
     Calendar,
     GraduationCap,
     BookOpen,
-    Trophy
+    Trophy,
+    Eye
 } from 'lucide-react';
 import { aulaUploadConfigService } from '@/services/aulaUploadConfigService';
 import QuizPlayer from '@/components/aula/QuizPlayer';
@@ -1047,16 +1048,27 @@ export default function ActivityDetailPage() {
                                                                                             <div key={idx} className="flex items-center justify-between px-5 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                                                                                                 <div className="flex items-center gap-3">
                                                                                                     <FileText size={14} className="text-emerald-500" />
-                                                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Doc #{idx + 1}</p>
+                                                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Soporte Académico #{idx + 1}</p>
                                                                                                 </div>
-                                                                                                <a
-                                                                                                    href={getImageUrl(url)}
-                                                                                                    target="_blank"
-                                                                                                    rel="noopener noreferrer"
-                                                                                                    className="text-[9px] font-black text-primary hover:underline"
-                                                                                                >
-                                                                                                    VER
-                                                                                                </a>
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <a
+                                                                                                        href={getImageUrl(url)}
+                                                                                                        target="_blank"
+                                                                                                        rel="noopener noreferrer"
+                                                                                                        className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all shadow-lg active:scale-95"
+                                                                                                        title="Vista Previa"
+                                                                                                    >
+                                                                                                        <Eye size={18} />
+                                                                                                    </a>
+                                                                                                    <a
+                                                                                                        href={getImageUrl(url)}
+                                                                                                        download
+                                                                                                        className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
+                                                                                                        title="Descargar"
+                                                                                                    >
+                                                                                                        <Download size={18} />
+                                                                                                    </a>
+                                                                                                </div>
                                                                                             </div>
                                                                                         ))}
                                                                                     </div>
@@ -1175,28 +1187,43 @@ export default function ActivityDetailPage() {
                                                                                     <FileText size={14} style={{ color: 'var(--aula-primary)' }} />
                                                                                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Soporte Documental ({entregas[0].archivoUrl.split(',').filter(Boolean).length} elementos):</p>
                                                                                 </div>
-                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                                                                                     {entregas[0].archivoUrl.split(',').filter(Boolean).map((url: string, idx: number) => (
-                                                                                        <a
-                                                                                            key={idx}
-                                                                                            href={getImageUrl(url)}
-                                                                                            target="_blank"
-                                                                                            rel="noopener noreferrer"
-                                                                                            className="flex items-center justify-between p-4 bg-slate-900 hover:bg-slate-800/80 rounded-[1.5rem] border border-slate-800 transition-all group/file"
-                                                                                        >
-                                                                                            <div className="flex items-center gap-3">
-                                                                                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 transition-transform">
-                                                                                                    <Download size={20} />
+                                                                                        <div key={idx} className={cn(
+                                                                                            "group/file relative flex items-center justify-between p-5 rounded-3xl border transition-all duration-300",
+                                                                                            theme === 'dark' ? "bg-slate-900 border-slate-800 hover:border-primary/40 shadow-xl" : "bg-white border-slate-100 hover:border-primary/30 shadow-md shadow-slate-200/40"
+                                                                                        )}>
+                                                                                            <div className="flex items-center gap-4">
+                                                                                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 group-hover/file:rotate-3 transition-all duration-500">
+                                                                                                    <Download size={22} />
                                                                                                 </div>
                                                                                                 <div className="text-left overflow-hidden">
-                                                                                                    <p className="text-[10px] font-black text-white truncate w-32">{url.split('/').pop()}</p>
-                                                                                                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.1em]">Expediente #{idx + 1}</p>
+                                                                                                    <p className={cn("text-[11px] font-black truncate w-32", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                                                                        {url.split('/').pop()}
+                                                                                                    </p>
+                                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Expediente Oficial #{idx + 1}</p>
                                                                                                 </div>
                                                                                             </div>
-                                                                                            <div className="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-slate-500 group-hover/file:text-white group-hover/file:border-white transition-all">
-                                                                                                <ArrowRight size={14} />
+                                                                                            <div className="flex items-center gap-3">
+                                                                                                <a
+                                                                                                    href={getImageUrl(url)}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary hover:border-primary transition-all duration-300"
+                                                                                                    title="Previsualizar"
+                                                                                                >
+                                                                                                    <Eye size={16} />
+                                                                                                </a>
+                                                                                                <a
+                                                                                                    href={getImageUrl(url)}
+                                                                                                    download
+                                                                                                    className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary hover:border-primary transition-all duration-300"
+                                                                                                    title="Descargar"
+                                                                                                >
+                                                                                                    <Download size={16} />
+                                                                                                </a>
                                                                                             </div>
-                                                                                        </a>
+                                                                                        </div>
                                                                                     ))}
                                                                                 </div>
                                                                             </div>

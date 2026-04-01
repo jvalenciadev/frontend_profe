@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api, { lmsApi } from '@/lib/api';
 import { User } from '@/types';
 
 
@@ -46,6 +46,13 @@ export const userService = {
         return await authService.getProfile();
     },
 
+    // Actualizar perfil propio en el LMS (Aula Virtual)
+    updateLmsProfile: async (profileData: Partial<User>) => {
+        await lmsApi.patch<User>('/perfil', profileData);
+        const { data } = await lmsApi.get<User>('/perfil');
+        return data;
+    },
+
     // Resetear contraseña
     resetPassword: async (id: string) => {
         const { data } = await api.post(`/users/${id}/reset-password`);
@@ -55,6 +62,12 @@ export const userService = {
     // Solicitar verificación de email dinámicamente
     requestEmailVerification: async (email: string) => {
         const { data } = await api.post('/users/request-email-verification', { email });
+        return data;
+    },
+
+    // Solicitar verificación de email dinámicamente en el LMS
+    requestLmsEmailVerification: async (email: string) => {
+        const { data } = await lmsApi.post('/request-email-verification', { email });
         return data;
     },
 

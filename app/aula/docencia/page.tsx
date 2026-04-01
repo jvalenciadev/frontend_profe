@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import StudentList from '@/components/aula/StudentList';
 import GradeReport from '@/components/aula/GradeReport';
-import InsigniaManager from '@/components/aula/InsigniaManager';
 import { QrCode, ClipboardList, Award } from 'lucide-react';
 
 export default function DocenciaPage() {
@@ -39,7 +38,6 @@ export default function DocenciaPage() {
     const [selectedMod, setSelectedMod] = useState<any>(null);
     const [showStudents, setShowStudents] = useState(false);
     const [showGrades, setShowGrades] = useState(false);
-    const [showInsignias, setShowInsignias] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated || user) {
@@ -177,46 +175,45 @@ export default function DocenciaPage() {
                             return acc;
                         }, {})
                     ) as [string, any][])
-                    .sort(([a]: any, [b]: any) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
-                    .map(([moduloNombre, instances]: [string, any[]], modIdx: number) => (
-                        <motion.div 
-                            key={moduloNombre} 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: modIdx * 0.1 }}
-                            className="space-y-6"
-                        >
-                            <div className="flex items-center gap-4 px-2">
-                                <div className="h-8 w-1.5 rounded-full" style={{ backgroundColor: secondaryColor }} />
-                                <h2 className={cn("text-2xl font-black uppercase tracking-tight", isDark ? "text-white" : "text-slate-800")}>
-                                    {moduloNombre}
-                                </h2>
-                                <div className="flex-1 h-[1px] bg-slate-100 dark:bg-white/5" />
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-white/5 px-3 py-1 rounded-lg">
-                                    {instances.length} {instances.length === 1 ? 'Turno' : 'Turnos'}
-                                </span>
-                            </div>
+                        .sort(([a]: any, [b]: any) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                        .map(([moduloNombre, instances]: [string, any[]], modIdx: number) => (
+                            <motion.div
+                                key={moduloNombre}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: modIdx * 0.1 }}
+                                className="space-y-6"
+                            >
+                                <div className="flex items-center gap-4 px-2">
+                                    <div className="h-8 w-1.5 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                                    <h2 className={cn("text-2xl font-black uppercase tracking-tight", isDark ? "text-white" : "text-slate-800")}>
+                                        {moduloNombre}
+                                    </h2>
+                                    <div className="flex-1 h-[1px] bg-slate-100 dark:bg-white/5" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-white/5 px-3 py-1 rounded-lg">
+                                        {instances.length} {instances.length === 1 ? 'Turno' : 'Turnos'}
+                                    </span>
+                                </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {instances
-                                    .sort((a: any, b: any) => (a.turno || '').localeCompare(b.turno || ''))
-                                    .map((item: any, i: number) => (
-                                        <ModuloCard
-                                            key={item.id}
-                                            item={item}
-                                            progItem={selectedProg}
-                                            index={i}
-                                            theme={theme}
-                                            secondaryColor={secondaryColor}
-                                            onViewStudents={() => { setSelectedMod(item); setShowStudents(true); }}
-                                            onViewGrades={() => { setSelectedMod(item); setShowGrades(true); }}
-                                            onViewInsignias={() => { setSelectedMod(item); setShowInsignias(true); }}
-                                        />
-                                    ))
-                                }
-                            </div>
-                        </motion.div>
-                    ))}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {instances
+                                        .sort((a: any, b: any) => (a.turno || '').localeCompare(b.turno || ''))
+                                        .map((item: any, i: number) => (
+                                            <ModuloCard
+                                                key={item.id}
+                                                item={item}
+                                                progItem={selectedProg}
+                                                index={i}
+                                                theme={theme}
+                                                secondaryColor={secondaryColor}
+                                                onViewStudents={() => { setSelectedMod(item); setShowStudents(true); }}
+                                                onViewGrades={() => { setSelectedMod(item); setShowGrades(true); }}
+                                            />
+                                        ))
+                                    }
+                                </div>
+                            </motion.div>
+                        ))}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -276,15 +273,7 @@ export default function DocenciaPage() {
                         onClose={() => { setShowGrades(false); setSelectedMod(null); }}
                         theme={theme as any}
                         moduloNombre={selectedMod.moduloNombre || selectedMod.nombre}
-                    />
-                )}
-                {showInsignias && selectedMod && (
-                    <InsigniaManager
-                        key="insignia-manager-modal"
-                        moduloId={selectedMod.moduloId || selectedMod.id}
-                        turnoId={selectedMod.turnoId}
-                        onClose={() => { setShowInsignias(false); setSelectedMod(null); }}
-                        theme={theme as any}
+                        turnoNombre={selectedMod.turno}
                     />
                 )}
             </AnimatePresence>
@@ -350,7 +339,7 @@ function ProgramaCard({ item, index, theme, secondaryColor, onSelect }: any) {
 // ─────────────────────────────────────────────
 // ModuloCard
 // ─────────────────────────────────────────────
-function ModuloCard({ item, progItem, index, theme, secondaryColor, onViewStudents, onViewGrades, onViewInsignias }: any) {
+function ModuloCard({ item, progItem, index, theme, secondaryColor, onViewStudents, onViewGrades }: any) {
     const isDark = theme === 'dark';
 
     return (
@@ -412,32 +401,25 @@ function ModuloCard({ item, progItem, index, theme, secondaryColor, onViewStuden
                     </Link>
 
                     {/* Quick Tools Grid */}
-                    <div className="grid grid-cols-4 gap-2">
-                        <ActionButton 
-                            icon={Users} 
-                            label="Nómina" 
-                            onClick={onViewStudents} 
-                            isDark={isDark} 
+                    <div className="grid grid-cols-3 gap-2">
+                        <ActionButton
+                            icon={Users}
+                            label="Nómina"
+                            onClick={onViewStudents}
+                            isDark={isDark}
                         />
-                        <ActionButton 
-                            icon={ClipboardList} 
-                            label="Notas" 
-                            onClick={onViewGrades} 
-                            isDark={isDark} 
-                        />
-                        <ActionButton 
-                            icon={Award} 
-                            label="Logros" 
-                            onClick={onViewInsignias} 
-                            isDark={isDark} 
-                            accent 
+                        <ActionButton
+                            icon={ClipboardList}
+                            label="Notas"
+                            onClick={onViewGrades}
+                            isDark={isDark}
                         />
                         <Link
                             href={`/aula/asistencia/qr?sesionId=hoy&moduloId=${item.moduloId || item.id}&modulo=${encodeURIComponent(item.nombre)}&turnoId=${item.turnoId || ''}`}
                             className={cn(
                                 "h-16 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 border",
-                                isDark 
-                                    ? "bg-slate-800 border-slate-700 text-amber-500 hover:border-amber-500/40" 
+                                isDark
+                                    ? "bg-slate-800 border-slate-700 text-amber-500 hover:border-amber-500/40"
                                     : "bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100"
                             )}
                         >
@@ -457,7 +439,7 @@ function ActionButton({ icon: Icon, label, onClick, isDark, accent }: any) {
             onClick={onClick}
             className={cn(
                 "h-16 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 border group",
-                accent 
+                accent
                     ? isDark ? "bg-primary/10 border-primary/20 text-primary" : "bg-primary/5 border-primary/10 text-primary"
                     : isDark ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-white" : "bg-slate-50 border-slate-100 text-slate-500 hover:text-slate-900"
             )}

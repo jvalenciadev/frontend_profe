@@ -86,6 +86,7 @@ export default function MiFichaPage() {
     const [editingProduccionId, setEditingProduccionId] = useState<string | null>(null);
 
     const [passwordForm, setPasswordForm] = useState({
+        oldPassword: '',
         newPassword: '',
         confirmPassword: ''
     });
@@ -177,20 +178,32 @@ export default function MiFichaPage() {
 
     const handleRequestVerification = async () => {
         const email = ficha?.user?.correo || (ficha as any)?.correo;
-        if (!email) {
-            toast.error('Ingresa un correo válido');
+        if (!email || !email.includes('@')) {
+            toast.error('Ingresa un correo válido antes de verificar');
             return;
         }
         setIsSendingVerification(true);
         try {
             await bancoProfesionalService.requestVerification(email);
-            toast.success('Código de verificación enviado');
+            toast.success(`Código enviado a ${email}`);
             setShowVerificationInput(true);
             setCountdown(60);
-        } catch (error) {
-            toast.error('Error al enviar código');
+        } catch (error: any) {
+            console.error('Verification error:', error);
+            const msg = error.response?.data?.message || 'Error al enviar código';
+            toast.error(Array.isArray(msg) ? msg[0] : msg);
         } finally {
             setIsSendingVerification(false);
+        }
+    };
+
+    const handleVerifyCode = (code: string) => {
+        setVerificationCode(code);
+        if (code.length === 6) {
+            setIsEmailVerified(true);
+            toast.success('Correo verificado (Recuerda Guardar Cambios)');
+        } else {
+            setIsEmailVerified(false);
         }
     };
 
@@ -234,12 +247,24 @@ export default function MiFichaPage() {
                 idiomas: ficha.idiomas,
                 experienciaLaboral: ficha.experienciaLaboral
             });
+            if (passwordForm.newPassword) {
+                if (!passwordForm.oldPassword) {
+                    toast.error('Debes ingresar tu contraseña actual para cambiarla');
+                    setSubmitting(false);
+                    return;
+                }
+                await api.post('/users/profile/change-password', {
+                    oldPassword: passwordForm.oldPassword,
+                    newPassword: passwordForm.newPassword
+                });
+            }
+
             toast.success('Datos actualizados correctamente');
             setOriginalEmail(currentEmail);
             setIsEmailVerified(false);
             setShowVerificationInput(false);
             setVerificationCode('');
-            setPasswordForm({ newPassword: '', confirmPassword: '' });
+            setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
             await loadData();
         } catch (error: any) {
             console.error('Update error:', error);
@@ -1231,14 +1256,70 @@ export default function MiFichaPage() {
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Correo Electrónico (No modificable)</label>
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Correo Electrónico Institucional</label>
                                                 <div className="relative">
                                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
-                                                    <Input
-                                                        value={ficha.user?.correo || ficha.correo || ''}
-                                                        disabled
-                                                        className="pl-11 h-11 rounded-xl bg-muted/50 border-border text-muted-foreground cursor-not-allowed italic font-medium"
-                                                    />
+                                                <div className="flex flex-col xl:flex-row gap-3">
+                                                    <div className="relative flex-1">
+                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                                        <Input
+                                                            value={ficha.user?.correo || ficha.correo || ''}
+                                                            onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, correo: e.target.value } : { correo: e.target.value } as any, correo: e.target.value })}
+                                                            className={cn(
+                                                                "pl-11 h-12 rounded-xl bg-muted/30 border-transparent focus:bg-background transition-all",
+                                                                isEmailVerified && "border-emerald-500/50 bg-emerald-500/5"
+                                                            )}
+                                                            placeholder="correo@ejemplo.com"
+                                                        />
+                                                    </div>
+                                                    
+                                                    {ficha.user?.correo !== originalEmail && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={handleRequestVerification}
+                                                            disabled={isSendingVerification || countdown > 0 || isEmailVerified}
+                                                            className="h-12 px-6 rounded-xl border-primary/20 text-primary hover:bg-primary/10 whitespace-nowrap"
+                                                        >
+                                                            {isSendingVerification ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : countdown > 0 ? (
+                                                                `Reenviar en ${countdown}s`
+                                                            ) : isEmailVerified ? (
+                                                                <>
+                                                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                                                    Verificado
+                                                                </>
+                                                            ) : (
+                                                                'Verificar Correo'
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                <AnimatePresence>
+                                                    {showVerificationInput && !isEmailVerified && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            className="space-y-2 mt-2"
+                                                        >
+                                                            <label className="text-[9px] font-black text-primary uppercase tracking-widest ml-1">Código de Verificación</label>
+                                                            <div className="relative">
+                                                                <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                                                                <Input
+                                                                    value={verificationCode}
+                                                                    onChange={(e) => handleVerifyCode(e.target.value)}
+                                                                    placeholder="Ingresa el código de 6 dígitos"
+                                                                    className="pl-11 h-11 rounded-xl bg-primary/5 border-primary/20 text-primary font-bold tracking-[0.2em]"
+                                                                    maxLength={6}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[10px] text-muted-foreground italic pl-1">Ingresa el código que enviamos a tu nuevo correo</p>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                                 </div>
                                             </div>
                                         </div>
@@ -1249,6 +1330,16 @@ export default function MiFichaPage() {
                                             <Lock className="w-4 h-4" /> Actualizar Contraseña
                                         </h3>
                                         <div className="space-y-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contraseña Actual</label>
+                                                <Input
+                                                    type="password"
+                                                    value={passwordForm.oldPassword}
+                                                    onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                                                    placeholder="Ingresa tu contraseña actual"
+                                                    className="h-11 rounded-xl bg-muted/30 border-transparent focus:bg-background"
+                                                />
+                                            </div>
                                             <div className="space-y-1">
                                                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nueva Contraseña</label>
                                                 <Input

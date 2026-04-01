@@ -67,6 +67,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [showConfirmCreate, setShowConfirmCreate] = useState(false);
     const [isPresencial, setIsPresencial] = useState(true);
+    const [creating, setCreating] = useState(false);
 
     // ─── Estado QR seguro ────────────────────────────────────────────────────
     const [qrToken, setQrToken] = useState<string | null>(null);
@@ -151,7 +152,9 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     }, [moduloId, turnoId]);
 
     const handleCreateSesion = async () => {
+        if (creating) return;
         try {
+            setCreating(true);
             const fecha = format(new Date(), 'yyyy-MM-dd');
             await aulaService.crearSesionAsistencia(moduloId, { fecha, turnoId, esPresencial: isPresencial });
             toast.success('Sesión de asistencia creada correctamente');
@@ -159,6 +162,8 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
             loadSesiones();
         } catch (err) {
             toast.error('Error al crear sesión');
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -181,7 +186,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     };
 
     const updateEstado = (userId: string, nuevoEstado: string) => {
-        setRegistros(regs => regs.map(r => r.userId === userId ? { ...r, estado: nuevoEstado } : r));
+        setRegistros(regs => regs.map(r => r.userId === userId ? { ...r, estado: r.estado === nuevoEstado ? '' : nuevoEstado } : r));
     };
 
     const filteredRegistros = registros.filter(r =>
@@ -242,7 +247,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
             doc.setFont('helvetica', 'bold');
             doc.text(`SEDE:`, leftCol, startYDetail + 10);
             doc.setFont('helvetica', 'normal');
-            const sedeName = selectedSesion.turnoId 
+            const sedeName = selectedSesion.turnoId
                 ? (moduloData?.programaDos?.sede?.nombre || moduloData?.sede?.nombre || 'Sede Central')
                 : 'TODAS LAS SEDES / GLOBAL';
             doc.text(`${sedeName}`, leftCol + 25, startYDetail + 10);
@@ -343,7 +348,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                 "w-full p-4 rounded-[2rem] border transition-all flex items-center justify-between group relative overflow-hidden",
                                 selectedSesion?.id === s.id
                                     ? "bg-primary border-primary text-white shadow-xl shadow-primary/30"
-                                    : s.esPresencial 
+                                    : s.esPresencial
                                         ? (theme === 'dark' ? "bg-slate-900 border-slate-800 text-slate-400 hover:border-emerald-500/50" : "bg-white border-slate-100 text-slate-500 hover:border-emerald-500/30")
                                         : (theme === 'dark' ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:border-indigo-500/50 backdrop-blur-sm" : "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-400/30 backdrop-blur-sm")
                             )}
@@ -351,8 +356,8 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                             <div className="flex items-center gap-4 relative z-10 w-full">
                                 <div className={cn(
                                     "w-10 h-10 rounded-xl flex flex-col items-center justify-center transition-all shadow-sm shrink-0",
-                                    selectedSesion?.id === s.id 
-                                        ? "bg-white/20 text-white" 
+                                    selectedSesion?.id === s.id
+                                        ? "bg-white/20 text-white"
                                         : s.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
                                 )}>
                                     <span className="text-[7px] font-black leading-none mb-0.5">{format(parseLocalDate(s.fecha), 'MMM', { locale: es }).toUpperCase()}</span>
@@ -360,7 +365,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                 </div>
                                 <div className="text-left flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <p className={cn("font-black text-[11px] uppercase tracking-tight truncate", 
+                                        <p className={cn("font-black text-[11px] uppercase tracking-tight truncate",
                                             selectedSesion?.id === s.id ? "text-white" : theme === 'dark' ? "text-white" : "text-slate-800"
                                         )}>
                                             {s.actividad?.titulo || 'Sesión de Asistencia'}
@@ -463,7 +468,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                         onClick={() => setRegistros(rs => rs.map(r => ({ ...r, estado: 'P' })))}
                                         className="h-10 px-4 rounded-xl bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-emerald-500/20"
                                     >
-                                        Todos P
+                                        Todos Presentes
                                     </button>
                                 </div>
 
@@ -763,10 +768,10 @@ function LegendItem({ label, name, color }: { label: string, name: string, color
 
 function StatusButton({ active, label, color, fullName, onClick, theme }: any) {
     const colors: any = {
-        emerald: active ? 'bg-emerald-500 border-emerald-500 text-white' : 'hover:border-emerald-500 text-emerald-500 bg-emerald-500/5',
-        rose: active ? 'bg-rose-500 border-rose-500 text-white' : 'hover:border-rose-500 text-rose-500 bg-rose-500/5',
-        amber: active ? 'bg-amber-500 border-amber-500 text-white' : 'hover:border-amber-500 text-amber-500 bg-amber-500/5',
-        blue: active ? 'bg-blue-500 border-blue-500 text-white' : 'hover:border-blue-500 text-blue-500 bg-blue-500/5',
+        emerald: active ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:border-emerald-500 hover:text-emerald-500 bg-transparent',
+        rose: active ? 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/30' : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:border-rose-500 hover:text-rose-500 bg-transparent',
+        amber: active ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/30' : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500 bg-transparent',
+        blue: active ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30' : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:border-blue-500 hover:text-blue-500 bg-transparent',
     };
 
     return (
@@ -784,7 +789,7 @@ function StatusButton({ active, label, color, fullName, onClick, theme }: any) {
 }
 
 // ─── Modal de Confirmación Generación ────────────────────────
-function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, setIsPresencial }: any) {
+function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, setIsPresencial, isLoading }: any) {
     return (
         <AnimatePresence>
             {isOpen && (
@@ -799,7 +804,7 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, s
                         )}
                     >
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
-                        
+
                         <div className="w-20 h-20 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
                             <CalendarIcon size={40} />
                         </div>
@@ -808,19 +813,21 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, s
                             <h3 className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
                                 ¿Generar asistencia?
                             </h3>
-                            
+
                             <div className="flex p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
-                                <button 
+                                <button
                                     onClick={() => setIsPresencial(true)}
-                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", 
+                                    disabled={isLoading}
+                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
                                         isPresencial ? "bg-white dark:bg-slate-700 text-primary shadow-md" : "text-slate-400"
                                     )}
                                 >
                                     Presencial
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setIsPresencial(false)}
-                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", 
+                                    disabled={isLoading}
+                                    className={cn("flex-1 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
                                         !isPresencial ? "bg-white dark:bg-slate-700 text-indigo-500 shadow-md" : "text-slate-400"
                                     )}
                                 >
@@ -832,8 +839,9 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, s
                         <div className="grid grid-cols-2 gap-4">
                             <button
                                 onClick={onClose}
+                                disabled={isLoading}
                                 className={cn(
-                                    "h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-100 dark:hover:bg-slate-800",
+                                    "h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50",
                                     theme === 'dark' ? "text-slate-400" : "text-slate-500"
                                 )}
                             >
@@ -841,10 +849,12 @@ function ConfirmCreateModal({ isOpen, onClose, onConfirm, theme, isPresencial, s
                             </button>
                             <button
                                 onClick={onConfirm}
+                                disabled={isLoading}
                                 style={{ backgroundColor: isPresencial ? 'var(--aula-primary)' : '#6366f1' }}
-                                className="h-14 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+                                className="h-14 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                Sí, Generar
+                                {isLoading ? <RefreshCw size={14} className="animate-spin" /> : null}
+                                {isLoading ? 'Generando...' : 'Sí, Generar'}
                             </button>
                         </div>
                     </motion.div>

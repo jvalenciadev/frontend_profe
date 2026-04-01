@@ -10,7 +10,6 @@ import {
     FileText,
     MessageSquare,
     Link as LinkIcon,
-    CheckCircle2,
     PlayCircle,
     Download,
     Lock,
@@ -31,6 +30,7 @@ import {
     Calendar,
     ArrowRight,
     Search,
+    Info,
     Trophy,
     BarChart2,
     Hash,
@@ -47,8 +47,11 @@ import {
     Target,
     GraduationCap,
     CalendarCheck,
+    CheckCircle2,
+    Printer,
     X
 } from 'lucide-react';
+import React from 'react';
 import YouTube from 'react-youtube';
 import AttendanceManager from '@/components/aula/AttendanceManager';
 import AttendanceStudentView from '@/components/aula/AttendanceStudentView';
@@ -374,7 +377,7 @@ export default function CourseDetailPage() {
     const participantesCount = modulo.participantes?.length || 0;
 
     return (
-        <div key={moduloId as string} className="max-w-7xl mx-auto px-6 space-y-12 pb-32">
+        <div key={moduloId as string} className="max-w-9xl mx-auto px-6 space-y-12 pb-32">
             {/* Premium Top Header */}
             <header className="pt-12 flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 dark:border-slate-800/60 pb-12 relative">
                 <div className="space-y-8 flex-1">
@@ -493,7 +496,7 @@ export default function CourseDetailPage() {
             <div className="flex gap-2 p-2 bg-slate-100/60 dark:bg-slate-900/40 rounded-[2rem] w-fit backdrop-blur-md border border-white/20">
                 <TabButton active={view === 'content'} onClick={() => setView('content')} label="Contenido" icon={Layout} />
                 <TabButton active={view === 'attendance'} onClick={() => setView('attendance')} label="Asistencia" icon={Calendar} />
-                <TabButton active={view === 'stats'} onClick={() => setView('stats')} label="Rendimiento" icon={BarChart2} />
+                <TabButton active={view === 'stats'} onClick={() => setView('stats')} label={isFacilitator ? "Rendimiento" : "Calificaciones"} icon={isFacilitator ? BarChart2 : Trophy} />
             </div>
 
             {view === 'content' && (
@@ -736,76 +739,48 @@ export default function CourseDetailPage() {
             )}
 
             {view === 'stats' && (
-                <div className="mt-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <header className="flex justify-between items-end">
-                        <div className="space-y-2">
-                            <h2 className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>
-                                Rendimiento del <span style={{ color: 'var(--aula-primary)' }}>Módulo</span>
-                            </h2>
-                            <p className="text-slate-500 font-medium">Estadísticas detalladas y progreso de aprendizaje.</p>
-                        </div>
-                        <div className="flex gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                            <div className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-[9px] font-black uppercase tracking-widest text-primary">Vista General</div>
-                        </div>
-                    </header>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {[
-                            { label: 'Unidades', value: units.length, icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                            { label: 'Actividades', value: units.reduce((s: number, u: any) => s + (u.actividades?.length || 0), 0), icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                            { label: 'Recursos', value: units.reduce((s: number, u: any) => s + (u.recursos?.length || 0), 0), icon: GraduationCap, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                            { label: 'Estudiantes', value: modulo?.studentCount || 0, icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                        ].map((stat, i) => (
-                            <div key={i} className={cn("p-8 rounded-[2.5rem] border transition-all hover:scale-[1.02] cursor-default", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/40")}>
-                                <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6", stat.bg, stat.color)}>
-                                    <stat.icon size={28} />
+                <div className="mt-10 space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    {isFacilitator ? (
+                        <>
+                            <header className="flex justify-between items-end">
+                                <div className="space-y-2">
+                                    <h2 className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>
+                                        Rendimiento del <span style={{ color: 'var(--aula-primary)' }}>Módulo</span>
+                                    </h2>
+                                    <p className="text-slate-500 font-medium">Estadísticas detalladas y progreso de aprendizaje.</p>
                                 </div>
-                                <p className="text-4xl font-black mb-1">{stat.value}</p>
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{stat.label}</p>
-                            </div>
-                        ))}
-                    </div>
+                                <div className="flex gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                                    <div className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-[9px] font-black uppercase tracking-widest text-primary">Vista General</div>
+                                </div>
+                            </header>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className={cn("lg:col-span-2 p-10 rounded-[3rem] border relative overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/40")}>
-                            <div className="flex items-center justify-between mb-10">
-                                <h3 className="text-xl font-black uppercase tracking-tight">Cumplimiento por Unidad</h3>
-                                <TrendingUp size={20} className="text-primary" />
-                            </div>
-                            <div className="space-y-6">
-                                {units.map((u: any, i: number) => (
-                                    <div key={u.id} className="space-y-3">
-                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                            <span>Unidad {u.semana}: {u.titulo}</span>
-                                            <span>{Math.round((i + 1) * 20)}%</span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {[
+                                    { label: 'Unidades', value: units.length, icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                                    { label: 'Actividades', value: units.reduce((s: number, u: any) => s + (u.actividades?.length || 0), 0), icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                                    { label: 'Recursos', value: units.reduce((s: number, u: any) => s + (u.recursos?.length || 0), 0), icon: GraduationCap, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                                    { label: 'Estudiantes', value: modulo?.studentCount || (modulo.participantes?.length || 0), icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                                ].map((stat, i) => (
+                                    <div key={i} className={cn("p-8 rounded-[2.5rem] border transition-all hover:scale-[1.02] cursor-default", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/40")}>
+                                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6", stat.bg, stat.color)}>
+                                            <stat.icon size={28} />
                                         </div>
-                                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${(i + 1) * 20}%` }}
-                                                transition={{ delay: 0.5 + (i * 0.1), duration: 1 }}
-                                                className="h-full bg-primary"
-                                            />
-                                        </div>
+                                        <p className="text-4xl font-black mb-1">{stat.value}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{stat.label}</p>
                                     </div>
                                 ))}
-                                {units.length === 0 && (
-                                    <div className="py-20 text-center opacity-30 font-black uppercase tracking-widest text-xs">Sin datos disponibles</div>
-                                )}
                             </div>
-                        </div>
 
-                        <div className={cn("p-10 rounded-[3rem] border flex flex-col items-center justify-center text-center space-y-6 bg-slate-950 text-white border-primary/20 shadow-2xl")}>
-                            <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-2">
-                                <Target size={48} />
-                            </div>
-                            <h4 className="text-2xl font-black">Meta del Mes</h4>
-                            <p className="text-sm opacity-60 font-medium">Alcanza el 90% de participación en foros para desbloquear la insignia de "Interacción Premium".</p>
-                            <div className="w-full pt-6">
-                                <button className="w-full h-12 rounded-2xl bg-white text-slate-950 font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">Ver Recomendaciones</button>
-                            </div>
-                        </div>
-                    </div>
+                            <FacilitatorGradesReport
+                                moduloId={moduloId as string}
+                                turnoId={modulo?.currentTurnoId || turnoId || undefined}
+                                theme={theme}
+                                moduloNombre={modulo.nombre}
+                            />
+                        </>
+                    ) : (
+                        <StudentGradesDetailed moduloId={moduloId as string} theme={theme} />
+                    )}
                 </div>
             )}
 
@@ -1637,6 +1612,421 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCo
                     />
                 )}
             </AnimatePresence>
+        </div>
+    );
+}
+
+function StudentGradesDetailed({ moduloId, theme }: { moduloId: string; theme: string }) {
+    const [report, setReport] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const isDark = theme === 'dark';
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const data = await aulaService.getMisCalificaciones(moduloId);
+                setReport(data);
+            } catch (err) { console.error(err); }
+            finally { setIsLoading(false); }
+        };
+        load();
+    }, [moduloId]);
+
+    if (isLoading) return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Calculando Notas...</p>
+        </div>
+    );
+
+    if (!report || (report.categorias || []).length === 0) return (
+        <div className="py-20 text-center opacity-30 font-black uppercase tracking-widest text-xs">Sin registros de calificación disponibles</div>
+    );
+
+    const total = parseFloat(report.totalAcumulado) || 0;
+    const notaReprobacion = parseFloat(report.notaReprobacion) || 60;
+    const aprobado = total >= notaReprobacion;
+
+    return (
+        <div className="space-y-12">
+            <header className={cn(
+                "p-10 rounded-[3rem] border flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden",
+                isDark ? "bg-slate-950 border-slate-800" : "bg-white border-slate-100 shadow-xl"
+            )}>
+                <div className="relative z-10 space-y-4 flex-1 text-center md:text-left">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                        <div className="px-4 py-1.5 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest rounded-xl border border-primary/20">Estado Académico</div>
+                        <div className={cn("px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-xl border",
+                            aprobado ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-rose-500/10 text-rose-600 border-rose-500/20")}>
+                            {aprobado ? 'Aprobado' : 'En Proceso'}
+                        </div>
+                    </div>
+                    <h2 className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>Tu Desempeño Global</h2>
+                    <p className="text-slate-400 font-medium text-sm">Puntaje calculado según la configuración de calificación del programa.</p>
+                </div>
+                <div className={cn("relative z-10 w-full md:w-56 p-8 rounded-[2.5rem] flex flex-col items-center justify-center text-center shadow-2xl transition-transform hover:scale-105",
+                    aprobado ? "bg-emerald-600 text-white" : "bg-rose-600 text-white")}>
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-1">Total Final</p>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-5xl font-black">{total.toFixed(1)}</span>
+                        <span className="text-lg font-bold opacity-60">/ {report.notaMaxima || 100}</span>
+                    </div>
+                </div>
+            </header>
+
+            {/* Sistema de Ponderación Explicativo */}
+            <div className={cn("p-8 rounded-[2.5rem] border", isDark ? "bg-slate-900/50 border-slate-800" : "bg-slate-50 border-slate-100")}>
+                <div className="flex items-center gap-2 mb-6 text-primary">
+                    <Info size={14} className="animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Configuración Institucional (100 Puntos)</span>
+                </div>
+                <div className="flex flex-wrap gap-6">
+                    {report.categorias.map((cat: any, idx: number) => (
+                        <div key={idx} className={cn(
+                            "flex-1 min-w-[140px] p-6 rounded-[2rem] border shadow-sm flex flex-col items-center text-center relative overflow-hidden transition-all hover:scale-105 group",
+                            cat.esEvalFinal ? "bg-primary/10 border-primary/30 ring-4 ring-primary/5" : "bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800"
+                        )}>
+                            {cat.esEvalFinal && <Trophy size={12} className="absolute top-4 right-4 text-primary animate-pulse" />}
+                            <p className={cn("text-3xl font-black mb-1", cat.esEvalFinal ? "text-primary" : (isDark ? "text-white" : "text-slate-900"))}>{cat.ponderacion}%</p>
+                            <p className={cn("text-[9px] font-black uppercase tracking-widest", cat.esEvalFinal ? "text-primary/70" : "text-slate-400")}>{cat.nombre}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {report.categorias.map((cat: any, i: number) => (
+                    <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+                        className={cn("p-10 rounded-[3rem] border transition-all hover:bg-slate-50 dark:hover:bg-slate-800/20 relative",
+                            cat.esEvalFinal ? "bg-primary/[0.02] border-primary/30 ring-4 ring-primary/5 shadow-2xl shadow-primary/10" : (isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-sm"))}>
+                        {cat.esEvalFinal && (
+                            <div className="absolute top-0 right-10 -translate-y-1/2 flex items-center gap-2 px-5 py-2 bg-primary text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-xl">
+                                <Trophy size={12} />
+                                Componente de Evaluación Final
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="space-y-1">
+                                <h3 className={cn("text-lg font-black uppercase tracking-tight", isDark ? "text-white" : "text-slate-800")}>{cat.nombre}</h3>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Peso: {cat.ponderacion}% • Aporte: {cat.aporteNota} pts</p>
+                            </div>
+                            <div className={cn("w-12 h-12 rounded-2xl flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800")}>
+                                <span className="text-lg font-black">{Math.round(cat.totalCategoria)}</span>
+                                <span className="text-[7px] font-black opacity-50 uppercase leading-none mt-0.5">Nota</span>
+                            </div>
+                        </div>
+                        <div className="space-y-5">
+                            {(cat.actividades || []).map((act: any) => (
+                                <div key={act.id} className="group/item space-y-2">
+                                    <div className="flex justify-between items-center pr-1">
+                                        <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">{act.titulo}</span>
+                                        <div className="text-right flex items-baseline gap-1">
+                                            <span className={cn("text-xs font-black", act.nota >= (act.puntajeMax * 0.6) ? "text-emerald-500" : "text-slate-400")}>{act.nota || '---'}</span>
+                                            <span className="text-[9px] font-bold text-slate-300">/ {act.puntajeMax}</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <motion.div initial={{ width: 0 }} animate={{ width: `${act.nota ? (act.nota / act.puntajeMax * 100) : 0}%` }}
+                                            className={cn("h-full rounded-full transition-colors", (act.nota / act.puntajeMax) >= 0.7 ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600")} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function FacilitatorGradesReport({ moduloId, turnoId, theme }: any) {
+    const [report, setReport] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const isDark = theme === 'dark';
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const data = await aulaService.getReporteCalificaciones(moduloId, turnoId);
+                setReport(data);
+            } catch (err) { console.error(err); }
+            finally { setLoading(false); }
+        };
+        load();
+    }, [moduloId, turnoId]);
+
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center py-32 gap-6">
+            <div className="relative">
+                <div className="w-20 h-20 border-4 border-slate-100 dark:border-slate-800 rounded-full" />
+                <div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0 shadow-lg shadow-primary/20" />
+            </div>
+            <div className="animate-pulse flex flex-col items-center">
+                <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[10px]">Cuadro de Calificaciones</p>
+                <p className="text-xs font-bold text-slate-500 mt-1">Sincronizando con el Programa Académico...</p>
+            </div>
+        </div>
+    );
+
+    if (!report) return null;
+
+    const categories = report.categorias || [];
+    const students = report.estudiantes || [];
+    const headers = report.headers || [];
+    const notaReprobacion = report.notaReprobacion || 60;
+
+    const stats = {
+        total: students.length,
+        aprobados: students.filter((s: any) => s.total >= notaReprobacion).length,
+        reprobados: students.filter((s: any) => s.total < notaReprobacion).length,
+        promedioGeneral: students.length > 0 ? (students.reduce((acc: number, s: any) => acc + s.total, 0) / students.length).toFixed(1) : 0
+    };
+
+    // Paleta de colores para categorías (estética premium)
+    const catColors = [
+        { main: 'indigo', bg: 'bg-indigo-500/10', text: 'text-indigo-600', border: 'border-indigo-500/30', gradient: 'from-indigo-500 to-indigo-400' },
+        { main: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-600', border: 'border-amber-500/30', gradient: 'from-amber-500 to-amber-400' },
+        { main: 'teal', bg: 'bg-teal-500/10', text: 'text-teal-600', border: 'border-teal-500/30', gradient: 'from-teal-500 to-teal-400' },
+        { main: 'rose', bg: 'bg-rose-500/10', text: 'text-rose-600', border: 'border-rose-500/30', gradient: 'from-rose-500 to-rose-400' },
+        { main: 'cyan', bg: 'bg-cyan-500/10', text: 'text-cyan-600', border: 'border-cyan-500/30', gradient: 'from-cyan-500 to-cyan-400' },
+    ];
+
+    return (
+        <div className="space-y-12 pb-32">
+            {/* Super Dashboard Header */}
+            <motion.div initial={{ opacity: 0, y: -40 }} animate={{ opacity: 1, y: 0 }} className="relative">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
+                    <div className={cn("lg:col-span-1 p-10 rounded-[3.5rem] border relative overflow-hidden flex flex-col justify-between group h-full shadow-2xl",
+                        isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-slate-200/50")}>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-[100px] group-hover:bg-primary/10 transition-all duration-700" />
+                        <div>
+                            <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-8 shadow-inner">
+                                <TrendingUp size={32} />
+                            </div>
+                            <h3 className={cn("text-2xl font-black leading-tight", isDark ? "text-white" : "text-slate-900")}>Monitor de <br /><span className="text-primary italic">Resultados Académicos</span></h3>
+                            <div className="flex items-center gap-2 mt-4 bg-slate-50 dark:bg-slate-800/50 px-4 py-2 rounded-2xl w-fit">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Sincronización v2.6 Activa</p>
+                            </div>
+                        </div>
+                        <button onClick={() => window.print()} className="mt-12 h-14 w-full rounded-[1.5rem] bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-3">
+                            <Printer size={18} /> Exportar Registro Oficial
+                        </button>
+                    </div>
+
+                    <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {[
+                            { label: 'Participantes', val: stats.total, sub: 'Inscritos en el turno', icon: Users, color: 'indigo' },
+                            { label: 'Aprobados', val: stats.aprobados, sub: `Min. ${notaReprobacion} pts`, icon: CheckCircle2, color: 'emerald' },
+                            { label: 'Media del Módulo', val: stats.promedioGeneral, sub: 'Rendimiento Grupal', icon: Target, color: 'primary' },
+                        ].map((st, i) => (
+                            <div key={i} className={cn("p-10 rounded-[3.5rem] border relative overflow-hidden group transition-all hover:-translate-y-2 hover:shadow-3xl",
+                                isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-xl shadow-slate-200/30")}>
+                                <div className="absolute top-6 right-10 opacity-[0.03] group-hover:opacity-10 transition-all duration-700">
+                                    <st.icon size={120} />
+                                </div>
+                                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-inner",
+                                    st.color === 'indigo' ? "bg-blue-500/10 text-blue-500" :
+                                        st.color === 'emerald' ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary")}>
+                                    <st.icon size={24} />
+                                </div>
+                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{st.label}</p>
+                                <div className="flex items-baseline gap-2">
+                                    <h4 className={cn("text-5xl font-black tracking-tighter", isDark ? "text-white" : "text-slate-900")}>{st.val}</h4>
+                                    {st.label === 'Media del Módulo' && <span className="text-xl font-bold text-slate-400">/ 100</span>}
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-2">
+                                    <span className={cn("w-1.5 h-1.5 rounded-full",
+                                        st.color === 'indigo' ? "bg-blue-500" : st.color === 'emerald' ? "bg-emerald-500" : "bg-primary")} />
+                                    {st.sub}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Matrix Section */}
+            <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className={cn(
+                "rounded-[4.5rem] border shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] relative overflow-hidden backdrop-blur-xl",
+                isDark ? "bg-slate-900/90 border-slate-800" : "bg-white/95 border-slate-100"
+            )}>
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-primary to-emerald-500" />
+
+                <div className="p-12 border-b border-slate-100 dark:border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                            </div>
+                            <h3 className={cn("text-2xl font-black uppercase tracking-tight", isDark ? "text-white" : "text-slate-900")}>Registro Matriz de Calificaciones</h3>
+                        </div>
+                        <p className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.3em] mt-2 block">Ordenado por jerarquía académica (mod_tcc_orden)</p>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto scrollbar-premium">
+                    <table className="w-full text-left border-separate border-spacing-0">
+                        <thead>
+                            <tr className={cn(isDark ? "bg-slate-800/20" : "bg-slate-50/50")}>
+                                <th className="p-0 sticky left-0 z-40 bg-inherit shadow-[10px_0_30px_-15px_rgba(0,0,0,0.1)]"></th>
+                                {categories.map((cat: any, i: number) => {
+                                    const count = headers.filter((h: any) => h.categoriaId === cat.configId || h.categoriaNombre === cat.nombre).length;
+                                    const color = catColors[i % catColors.length];
+                                    return (
+                                        <th key={i} colSpan={count + 1} className={cn("px-8 py-10 text-center border-l border-slate-100 dark:border-slate-800/50", color.bg)}>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={cn("px-6 py-2 rounded-2xl border font-black text-[11px] uppercase tracking-[0.15em] shadow-sm", color.bg, color.text, color.border)}>
+                                                    {cat.nombre}
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[16px] font-black leading-none">{cat.peso}%</span>
+                                                        <span className="text-[7px] font-black uppercase opacity-40">Ponderación</span>
+                                                    </div>
+                                                    {cat.esEvalFinal && (
+                                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/30 animate-bounce">
+                                                            <Trophy size={16} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </th>
+                                    );
+                                })}
+                                <th className="sticky right-0 z-40 bg-inherit shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.1)]"></th>
+                            </tr>
+
+                            <tr className={cn(isDark ? "bg-slate-800/40" : "bg-slate-50/80")}>
+                                <th className="px-12 py-10 text-[12px] font-black uppercase tracking-[0.2em] text-slate-400 min-w-[320px] sticky left-0 z-30 bg-inherit backdrop-blur-2xl border-b border-r border-slate-100 dark:border-slate-800/50">Listado de Participantes</th>
+                                {categories.map((cat: any, ci: number) => {
+                                    const color = catColors[ci % catColors.length];
+                                    return (
+                                        <React.Fragment key={cat.nombre}>
+                                            {headers.filter((h: any) => h.categoriaId === cat.configId || h.categoriaNombre === cat.nombre).map((h: any) => (
+                                                <th key={h.id} className="px-6 py-10 text-center min-w-[140px] border-l border-b border-slate-100 dark:border-slate-800/20">
+                                                    <div className="flex flex-col gap-2">
+                                                        <span className={cn("text-[10px] font-black leading-snug uppercase px-3", isDark ? "text-slate-300" : "text-slate-600 line-clamp-2")}>{h.titulo}</span>
+                                                        <div className={cn("text-[9px] font-bold italic w-fit mx-auto px-2 py-0.5 rounded-md", color.bg, color.text)}>{h.puntajeMax} pts</div>
+                                                    </div>
+                                                </th>
+                                            ))}
+                                            <th className={cn("px-8 py-10 text-center min-w-[220px] border-l border-b font-black text-[11px] uppercase tracking-widest shadow-inner", isDark ? "bg-slate-800/60" : "bg-slate-100/50")}>
+                                                Rendimiento Parcial
+                                            </th>
+                                        </React.Fragment>
+                                    );
+                                })}
+                                <th className="px-12 py-10 text-[12px] font-black uppercase tracking-[0.2em] text-primary text-center sticky right-0 z-30 bg-primary/[0.03] backdrop-blur-2xl border-l border-b border-slate-100 dark:border-slate-800/50">Puntaje Final</th>
+                            </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                            {students.map((s: any, idx: number) => (
+                                <motion.tr initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04 }} key={idx} className="hover:bg-primary/[0.03] transition-all group duration-500">
+                                    <td className="px-8 py-4 sticky left-0 z-20 bg-inherit backdrop-blur-2xl border-r border-slate-100 dark:border-slate-800/10 shadow-[4px_0_15px_-5px_rgba(0,0,0,0.05)]">
+                                        <div className="flex flex-col gap-1 pr-6">
+                                            <p className={cn("text-[13px] font-black tracking-tight truncate leading-tight", isDark ? "text-slate-100" : "text-slate-900")}>
+                                                {s.nombre}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1 w-20 bg-slate-100 dark:bg-slate-800/50 rounded-full overflow-hidden">
+                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${s.total}%` }} transition={{ duration: 1 }} className={cn("h-full", s.total >= notaReprobacion ? "bg-emerald-500" : "bg-primary")} />
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-400 tabular-nums">{s.total} pts</span>
+                                                <span className={cn("text-[7px] font-black px-1.5 py-0.5 rounded uppercase border",
+                                                    s.asistencia >= 80 ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10" : "bg-primary/5 text-primary border-primary/10")}>
+                                                    {s.asistencia}% Asist.
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {categories.map((cat: any, ci: number) => {
+                                        const catScore = s.desglose.find((d: any) => d.nombre === cat.nombre);
+                                        const catActHeaders = headers.filter((h: any) => h.categoriaId === cat.configId || h.categoriaNombre === cat.nombre);
+                                        const color = catColors[ci % catColors.length];
+                                        return (
+                                            <React.Fragment key={cat.nombre}>
+                                                {catActHeaders.map((h: any) => (
+                                                    <td key={h.id} className="px-6 py-2 text-center text-[12px] font-bold text-slate-500 border-l border-slate-50 dark:border-slate-800/10 tabular-nums">
+                                                        {s.scores[h.id] ?? 0}
+                                                    </td>
+                                                ))}
+                                                <td className={cn("px-4 py-2 border-l border-slate-100 dark:border-slate-800/30", isDark ? "bg-slate-800/20" : "bg-slate-50/30")}>
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <div className="flex items-center gap-1.5 opacity-40 text-[8px] font-black font-mono">
+                                                            ({catActHeaders.map((h: any) => s.scores[h.id] ?? 0).join(',') || '0'}) / {catActHeaders.length || 1}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex flex-col items-center">
+                                                                <span className={cn("text-[10px] font-black", isDark ? "text-slate-100" : "text-slate-800")}>{catScore?.promedio || 0}</span>
+                                                                <span className="text-[6px] uppercase opacity-40 font-black">Prom.</span>
+                                                            </div>
+                                                            <div className={cn("w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1")} />
+                                                            <div className="flex flex-col items-center">
+                                                                <span className={cn("text-[12px] font-black", color.text)}>{catScore?.aporte || 0}</span>
+                                                                <span className={cn("text-[6px] uppercase font-black opacity-60", color.text)}>Ptos</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </React.Fragment>
+                                        );
+                                    })}
+
+                                    <td className="px-12 py-8 text-center sticky right-0 z-20 bg-primary/[0.02] backdrop-blur-2xl border-l border-slate-100 dark:border-slate-800/50 shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)]">
+                                        <motion.div whileHover={{ scale: 1.1, rotate: -2 }} className={cn(
+                                            "w-20 h-20 flex flex-col items-center justify-center rounded-[2rem] border-4 transition-all duration-500",
+                                            parseFloat(s.total) >= notaReprobacion
+                                                ? "bg-emerald-500 text-white border-emerald-100 shadow-xl shadow-emerald-500/30"
+                                                : "bg-rose-500 text-white border-rose-100 shadow-xl shadow-rose-500/30"
+                                        )}>
+                                            <span className="text-2xl font-black">{s.total}</span>
+                                            <p className="text-[7px] font-black uppercase tracking-[0.1em] opacity-80 mt-1">{parseFloat(s.total) >= notaReprobacion ? 'PROMOCIONADO' : ' REPROBADO'}</p>
+                                        </motion.div>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <footer className="p-16 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800/50 relative overflow-hidden">
+                    <div className="absolute bottom-0 right-0 p-10 opacity-5">
+                        <GraduationCap size={200} />
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-16 items-center justify-between relative z-10">
+                        <div className="flex flex-wrap gap-12">
+                            <div className="flex items-center gap-5 p-6 rounded-[2rem] bg-white dark:bg-slate-900 shadow-xl border border-slate-100 dark:border-slate-800">
+                                <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20"><CheckCircle2 size={24} /></div>
+                                <div>
+                                    <h5 className="text-3xl font-black">{stats.aprobados}</h5>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Alumnos Aprobados</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-5 p-6 rounded-[2rem] bg-white dark:bg-slate-900 shadow-xl border border-slate-100 dark:border-slate-800">
+                                <div className="w-14 h-14 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20"><XCircle size={24} /></div>
+                                <div>
+                                    <h5 className="text-3xl font-black">{stats.reprobados}</h5>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Alumnos Reprobados</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-center md:items-end gap-6">
+                            <div className="flex flex-col items-center">
+                                <div className="w-64 h-32 border-b-2 border-slate-300 dark:border-slate-700 border-dashed mb-4 flex items-end justify-center pb-4 italic text-slate-400 text-sm font-serif">
+                                    Firma Electrónica
+                                </div>
+                                <span className="text-[11px] font-black text-primary uppercase tracking-[0.3em]">Validación del Facilitador</span>
+                            </div>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase">Generado automáticamente por Aula Profe AI Core</p>
+                        </div>
+                    </div>
+                </footer>
+            </motion.div>
         </div>
     );
 }

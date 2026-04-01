@@ -4,10 +4,13 @@ import { errorStore } from './error-store';
 import { toast } from 'sonner';
 
 // Configuración de constantes de entorno
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Durante SSG/SSR en Node, es imperativo tener URLs absolutas para evitar DEP0169 (url.parse)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
 const VIEWS_API_URL = process.env.NEXT_PUBLIC_VIEWS_API_URL || 'http://localhost:3005';
 // IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'qjmwyxYXMqe';
+const LMS_API_URL = process.env.NEXT_PUBLIC_LMS_API_URL || 'http://localhost:3008/api/aula';
+const LMS_API_SECRET = process.env.NEXT_PUBLIC_LMS_API_SECRET || 'LMS_SEC_key_2024_0bb62283a6691_aula_virtual';
 
 /**
  * API PRINCIPAL (Backend Administrativo / Dashboard)
@@ -33,10 +36,35 @@ export const viewsApi = axios.create({
     },
 });
 
+/**
+ * API AULA VIRTUAL (LMS)
+ * Requiere sesión (aula_token) y su propio X-SECRET
+ */
+export const lmsApi = axios.create({
+    baseURL: LMS_API_URL,
+    headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-SECRET': LMS_API_SECRET
+    },
+});
+
 // Interceptor de Request para API Principal (incluye Token)
 api.interceptors.request.use(
     (config) => {
         const token = Cookies.get('token');
+        if (token && config.headers && !config.headers.Authorization) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        if (!config.timeout) config.timeout = 30000;
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Interceptor de Request para API LMS (usa aula_token)
+lmsApi.interceptors.request.use(
+    (config) => {
+        const token = Cookies.get('aula_token');
         if (token && config.headers && !config.headers.Authorization) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -103,5 +131,6 @@ const handleResponseError = (error: any) => {
 
 api.interceptors.response.use(handleResponseSuccess, handleResponseError);
 viewsApi.interceptors.response.use(handleResponseSuccess, handleResponseError);
+lmsApi.interceptors.response.use(handleResponseSuccess, handleResponseError);
 
 export default api;

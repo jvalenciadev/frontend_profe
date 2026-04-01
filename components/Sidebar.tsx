@@ -51,7 +51,6 @@ const menuItems: MenuItem[] = [
         title: 'Mi Ficha (Banco)',
         href: '/dashboard/mi-ficha',
         icon: UserIcon,
-        permission: { action: 'read', subject: 'bp_posgrado' }
     },
     {
         title: 'Territorial',
@@ -73,7 +72,7 @@ const menuItems: MenuItem[] = [
             { title: 'Programas Maestro', href: '/dashboard/programas-maestro', permission: { action: 'read', subject: 'Programa' }, },
             { title: 'Ofertas Académicas', href: '/dashboard/ofertas-academicas', permission: { action: 'read', subject: 'ProgramaDos' }, },
             { title: 'Inscripciones', href: '/dashboard/academico/inscripciones', permission: { action: 'read', subject: 'ProgramaInscripcion' }, },
-            { title: 'Clasificación de Categorías', href: '/dashboard/academico/categorias' },
+            { title: 'Clasificación de Categorías', href: '/dashboard/academico/categorias', permission: { action: 'read', subject: 'MapCategoria' } },
             { title: 'Configuración Académica', href: '/dashboard/academico/configuracion', permission: { action: 'read', subject: 'ProgramaVersion' }, },
         ],
     },

@@ -14,7 +14,6 @@ import publicService, { LandingPageData } from '@/services/publicService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getImageUrl } from '@/lib/utils';
 import RegistrationModal from '@/components/RegistrationModal';
-import { Toaster } from 'sonner';
 
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -143,7 +142,7 @@ export default function LandingPage() {
                   transition={{ duration: 4, repeat: Infinity }}
                   className="absolute -inset-10 bg-primary-600/10 rounded-full blur-3xl"
                 />
-                <img src="/logo.svg" alt="PROFE" className="h-18 sm:h-28 w-auto relative z-8 drop-shadow-2xl" />
+                <img src="/logoprofe-2026.png" alt="PROFE" className="h-18 sm:h-28 w-auto relative z-8 drop-shadow-2xl" />
               </div>
 
               {/* Solemn Text & Progress */}
@@ -620,50 +619,99 @@ export default function LandingPage() {
 
 
           {/* ══════════════════════════════════════════════════════════
-              BLOG: THE ACADEMIC THOUGHT
+              BLOG: EL ARCHIVO (Institutional Spread)
           ══════════════════════════════════════════════════════════ */}
-          <section className="relative py-24 px-6 sm:px-10 lg:px-24 bg-slate-50 dark:bg-white/[0.01]">
-            <div className="max-w-[1700px] mx-auto">
-              <div className="flex flex-col lg:flex-row items-end justify-between gap-10 mb-16 border-b border-slate-100 dark:border-white/5 pb-12">
-                <div className="space-y-6 max-w-4xl">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary-600/10 flex items-center justify-center text-primary-600"><BookOpenText className="w-6 h-6" /></div>
-                    <span className="text-primary-600 font-black text-[10px] uppercase tracking-[0.5em]">PENSAMIENTO PEDAGÓGICO</span>
+          <section className="relative py-24 px-6 sm:px-10 lg:px-24 bg-white dark:bg-[#020617] overflow-hidden border-t-2 border-slate-900">
+            <div className="max-w-[1700px] mx-auto z-10 relative">
+
+              {/* Institutional Header - Clean */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-16 border-b-2 pb-10" style={{ borderColor: data?.profe?.color || '#0f172a' }}>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-[2px]" style={{ backgroundColor: data?.profe?.color || '#0f172a' }} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.5em]" style={{ color: data?.profe?.color || '#0f172a' }}>Prensa Institucional</span>
                   </div>
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-950 dark:text-white leading-tight uppercase tracking-tighter">
-                    Revista <span className="text-primary-600 font-serif italic lowercase tracking-normal">Científica.</span>
+                  <h2 className="text-5xl md:text-7xl font-black text-slate-950 dark:text-white leading-none uppercase tracking-tighter font-fraunces">
+                    {data?.profe?.nombreAbreviado || 'Aula Profe'} <span className="italic" style={{ color: data?.profe?.color || '#0f172a' }}>Actualidad.</span>
                   </h2>
                 </div>
-                <Link href="/blog" className="px-8 py-3 rounded-xl bg-slate-950 text-white text-[9px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all">Explorar Blog</Link>
+                <div className="flex flex-col items-center md:items-end gap-3">
+                  <Link href="/blog" className="px-12 py-5 bg-slate-950 text-white text-[11px] font-black uppercase tracking-[0.4em] hover:opacity-80 transition-all">Ver Toda la Hemeroteca</Link>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                {(data?.blogs || []).slice(0, 3).map((post: any, idx: number) => (
-                  <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
-                    className="group bg-slate-50 dark:bg-white/[0.02] rounded-[2.5rem] border border-slate-100 dark:border-white/10 overflow-hidden hover:border-primary-500 hover:shadow-2xl transition-all duration-500"
-                  >
-                    <div className="aspect-[16/11] overflow-hidden relative">
-                      {IMG(post.imagen) ? (
-                        <img src={IMG(post.imagen)} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt={post.titulo} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-300">
-                          <BookOpenText className="w-12 h-12 opacity-20" />
+              {/* Grid with Square Alignment */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+                {(() => {
+                  const blogs = data?.blogs || [];
+                  if (blogs.length === 0) return null;
+                  const [featured, second, third] = blogs;
+                  const brandColor = data?.profe?.color || '#0f172a';
+
+                  return (
+                    <>
+                      {/* Left Block */}
+                      {second && (
+                        <div className="space-y-8 bg-slate-50 p-10 border-t-4" style={{ borderColor: brandColor }}>
+                          <Link href={`/blog/${second.id}`} className="group block space-y-6">
+                            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{second.tipo || 'ARTÍCULO'}</span>
+                            <div className="aspect-square overflow-hidden border border-slate-200">
+                              <img src={IMG(second.imagen || second.imagenes?.[0]) || FALLBACK_IMG} className="w-full h-full object-cover" alt="n2" />
+                            </div>
+                            <h3 className="text-2xl font-black leading-tight uppercase font-fraunces tracking-tight group-hover:opacity-70 transition-all">{second.titulo}</h3>
+                            <p className="text-sm text-slate-500 font-serif leading-relaxed line-clamp-3">"{second.subtitulo || second.descripcion}"</p>
+                          </Link>
                         </div>
                       )}
-                      <div className="absolute bottom-6 left-6 px-4 py-2 rounded-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-[9px] font-black uppercase tracking-widest text-primary-600 shadow-xl">
-                        {new Date(post.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+
+                      {/* Center Block (Featured) */}
+                      <div className="lg:col-span-1 space-y-10 group">
+                        <Link href={`/blog/${featured.id}`} className="block space-y-10">
+                          <div className="relative aspect-square overflow-hidden border-8 border-white shadow-xl">
+                            <img src={IMG(featured.imagen || featured.imagenes?.[0]) || FALLBACK_IMG} className="w-full h-full object-cover transition-transform duration-[4000ms] group-hover:scale-105" alt="main" />
+                            <div className="absolute top-0 left-0 p-8">
+                              <span className="text-white px-6 py-2 text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: brandColor }}>DESTACADO</span>
+                            </div>
+                          </div>
+                          <div className="space-y-6 text-center">
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{new Date(featured.fecha).toLocaleDateString()}</span>
+                            <h3 className="text-4xl md:text-5xl font-black text-slate-950 dark:text-white leading-[1] uppercase tracking-tighter font-fraunces">{featured.titulo}</h3>
+                            <div className="w-16 h-1 bg-slate-900 mx-auto" style={{ backgroundColor: brandColor }} />
+                            <p className="text-lg text-slate-500 font-serif line-clamp-2 max-w-sm mx-auto">{featured.subtitulo}</p>
+                          </div>
+                        </Link>
                       </div>
-                    </div>
-                    <div className="p-8 space-y-4">
-                      <h3 className="text-xl sm:text-2xl font-black text-slate-950 dark:text-white leading-tight line-clamp-2 uppercase tracking-tight group-hover:text-primary-600 transition-colors">{post.titulo}</h3>
-                      <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed line-clamp-3">{post.subtitulo}</p>
-                      <Link href={`/blog/${post.id}`} className="inline-flex items-center gap-3 text-primary-600 text-[10px] font-black uppercase tracking-widest pt-4 border-t border-slate-100 dark:border-white/5 w-full">
-                        Leer Artículo Completo <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
-                      </Link>
-                    </div>
-                  </motion.div>
-                ))}
+
+                      {/* Right Block */}
+                      <div className="space-y-12">
+                        {third && (
+                          <div className="pb-10 border-b-2 border-slate-100 flex flex-col gap-6 group">
+                            <Link href={`/blog/${third.id}`} className="space-y-4 block">
+                              <div className="aspect-square overflow-hidden border border-slate-200 w-full max-h-[300px]">
+                                <img src={IMG(third.imagen || third.imagenes?.[0]) || FALLBACK_IMG} className="w-full h-full object-cover" alt="n3" />
+                              </div>
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{third.tipo || 'NOTICIA'}</span>
+                              <h4 className="text-2xl font-black uppercase font-fraunces leading-tight group-hover:opacity-70 transition-all">{third.titulo}</h4>
+                            </Link>
+                          </div>
+                        )}
+                        <div className="space-y-8">
+                          <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-950 border-l-4 pl-4" style={{ borderColor: brandColor }}>Más Contenido</h5>
+                          <div className="divide-y divide-slate-100">
+                            {blogs.slice(3, 6).map((post: any) => (
+                              <Link key={post.id} href={`/blog/${post.id}`} className="py-6 flex items-center justify-between group">
+                                <span className="text-sm font-bold uppercase font-fraunces text-slate-900 group-hover:translate-x-3 transition-transform">{post.titulo}</span>
+                                <ChevronRight className="w-5 h-5 text-slate-200" />
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
+
             </div>
           </section>
 
@@ -946,7 +994,6 @@ export default function LandingPage() {
         }}
         program={selectedProg}
       />
-      <Toaster position="top-right" richColors />
     </div>
   );
 }

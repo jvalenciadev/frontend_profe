@@ -9,12 +9,11 @@ import { Lock, Mail, User as UserIcon, AlertCircle, CheckCircle, Save, ShieldAle
 import { toast } from 'sonner';
 
 export default function AulaResetPasswordPage() {
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const [formData, setFormData] = useState({
-        username: user?.username || '',
         email: user?.email || user?.correo || '',
         password: '',
         confirmPassword: '',
@@ -29,10 +28,30 @@ export default function AulaResetPasswordPage() {
     const isEmailDifferent = formData.email !== (user?.email || user?.correo);
 
     useEffect(() => {
-        if (!(user as any)?.requiresPasswordChange) {
+        if (!authLoading && !(user as any)?.requiresPasswordChange) {
             router.push('/aula'); // Redirect if password change is not required
         }
-    }, [user, router]);
+    }, [user, authLoading, router]);
+
+    // Sincronizar datos del usuario cuando el auth termine de cargar
+    useEffect(() => {
+        if (user && !authLoading) {
+            setFormData(prev => {
+                // Solo actualizar si los campos están vacíos para evitar sobreescribir lo que el usuario escriba en el email
+                const newUsername = user.username || '';
+                const newEmail = user.email || user.correo || '';
+
+                if ((!prev.email && newEmail)) {
+                    return {
+                        ...prev,
+                        username: newUsername,
+                        email: prev.email || newEmail
+                    };
+                }
+                return prev;
+            });
+        }
+    }, [user, authLoading]);
 
     // Timer para el reenvío de código
     useEffect(() => {
@@ -50,7 +69,7 @@ export default function AulaResetPasswordPage() {
 
         setIsSendingVerification(true);
         try {
-            await userService.requestEmailVerification(formData.email);
+            await userService.requestLmsEmailVerification(formData.email);
             toast.success(`Código enviado a ${formData.email}`);
             setCountdown(60); // Bloquear reenvío por 60 segundos
         } catch (err: any) {
@@ -74,15 +93,14 @@ export default function AulaResetPasswordPage() {
             return;
         }
 
-        if (!formData.verificationCode) {
+        if (isEmailDifferent && !formData.verificationCode) {
             setError('Debes ingresar el código de verificación enviado al correo');
             return;
         }
 
         setIsLoading(true);
         try {
-            const updatedProfile = await userService.updateProfile({
-                username: formData.username,
+            const updatedProfile = await userService.updateLmsProfile({
                 email: formData.email,
                 password: formData.password,
                 verificationCode: formData.verificationCode
@@ -100,6 +118,14 @@ export default function AulaResetPasswordPage() {
             setIsLoading(false);
         }
     };
+
+    if (authLoading) {
+        return (
+            <div className="absolute inset-0 bg-slate-50 flex items-center justify-center z-50">
+                <div className="w-10 h-10 border-4 border-primary-600/30 border-t-primary-600 rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     if (!(user as any)?.requiresPasswordChange) return null;
 
@@ -153,27 +179,13 @@ export default function AulaResetPasswordPage() {
                                     {/* Link Identity */}
                                     <div className="space-y-6">
                                         <div className="flex items-center gap-2 text-[10px] font-black text-primary-600 uppercase tracking-[0.3em]">
-                                            <Key className="w-3 h-3" />
+                                            <Mail className="w-3 h-3" />
                                             <span>Validar Identidad</span>
                                         </div>
 
                                         <div className="space-y-1.5 group">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Usuario</label>
-                                            <div className="relative">
-                                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    className="w-full h-12 pl-12 pr-5 rounded-2xl bg-slate-50 border border-slate-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none text-[13px] font-black text-slate-900"
-                                                    value={formData.username}
-                                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5 group">
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Correo Electrónico (Para enviar código)</label>
-                                            <div className="relative flex gap-2">
+                                            <div className="relative flex flex-col sm:flex-row gap-3">
                                                 <div className="relative flex-1">
                                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
                                                     <input
@@ -194,7 +206,7 @@ export default function AulaResetPasswordPage() {
                                                             type="button"
                                                             onClick={handleSendVerification}
                                                             disabled={isSendingVerification || countdown > 0}
-                                                            className="h-12 px-6 rounded-2xl bg-primary-100 text-primary-700 text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 hover:text-white disabled:bg-slate-200 disabled:text-slate-500 transition-all flex items-center gap-2 whitespace-nowrap"
+                                                            className="h-12 px-6 rounded-2xl bg-primary-100 text-primary-700 text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 hover:text-white disabled:bg-slate-200 disabled:text-slate-500 transition-all flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto"
                                                         >
                                                             {isSendingVerification ? (
                                                                 <div className="w-3 h-3 border-2 border-primary-600/30 border-t-primary-600 disabled:border-t-slate-500 rounded-full animate-spin" />
@@ -210,21 +222,31 @@ export default function AulaResetPasswordPage() {
                                             {isEmailDifferent && <p className="text-[10px] text-orange-500 ml-1 font-bold mt-1">Ha cambiado su correo. Haga clic en Verificar.</p>}
                                         </div>
 
-                                        <div className="space-y-1.5 group bg-primary-50 p-4 rounded-3xl border border-primary-100/50">
-                                            <label className="text-[10px] font-black text-primary-700 uppercase tracking-widest ml-1">Código de Verificación</label>
-                                            <div className="relative">
-                                                <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 group-focus-within:text-primary-600 transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Ej: 123456"
-                                                    className="w-full h-12 pl-12 pr-5 rounded-2xl bg-white border border-primary-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none text-[13px] font-black text-primary-800 tracking-[0.2em]"
-                                                    value={formData.verificationCode}
-                                                    onChange={(e) => setFormData({ ...formData, verificationCode: e.target.value })}
-                                                    required
-                                                />
-                                            </div>
-                                            {!formData.verificationCode && <p className="text-[10px] text-slate-500 italic">Enviado a tu correo.</p>}
-                                        </div>
+                                        <AnimatePresence>
+                                            {isEmailDifferent && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="space-y-1.5 group bg-primary-50 p-4 rounded-3xl border border-primary-100/50"
+                                                >
+                                                    <label className="text-[10px] font-black text-primary-700 uppercase tracking-widest ml-1">Código de Verificación</label>
+                                                    <div className="relative">
+                                                        <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 group-focus-within:text-primary-600 transition-colors" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Ej: 123456"
+                                                            className="w-full h-12 pl-12 pr-5 rounded-2xl bg-white border border-primary-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none text-[13px] font-black text-primary-800 tracking-[0.2em]"
+                                                            value={formData.verificationCode}
+                                                            onChange={(e) => setFormData({ ...formData, verificationCode: e.target.value })}
+                                                            required={isEmailDifferent}
+                                                        />
+                                                    </div>
+                                                    {!formData.verificationCode && <p className="text-[10px] text-slate-500 italic">Enviado a tu correo.</p>}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
                                     </div>
 
                                     {/* Security Update */}

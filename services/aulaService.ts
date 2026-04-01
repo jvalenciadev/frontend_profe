@@ -7,6 +7,19 @@ export const aulaService = {
         return response.data;
     },
 
+    /**
+     * Cambia la contraseña de un usuario que tiene requiresPasswordChange=true.
+     * Usa el token de acceso recién obtenido en el login como Bearer.
+     */
+    changePasswordWithToken: async (token: string, newPassword: string) => {
+        const response = await aulaApi.post(
+            '/perfil/change-password',
+            { newPassword, currentPassword: 'profe2026' },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return response.data;
+    },
+
     // ─── ESTUDIANTE / USUARIO ─────────────────────────────────────
     getMisCursos: async () => {
         const response = await aulaApi.get('/mis-cursos');
@@ -300,6 +313,11 @@ export const aulaService = {
         return response.data;
     },
 
+    saveTokenDispositivo: async (tokenDispositivo: string) => {
+        // Registramos el token directamente en el perfil del usuario autenticado
+        return aulaApi.patch('/perfil', { tokenDispositivo });
+    },
+
     // ─── INSIGNIAS ───────────────────────────────────────────────
     getMisInsignias: async () => {
         const response = await aulaApi.get('/insignias/me');
@@ -345,6 +363,11 @@ export const aulaService = {
     // ─── REPORTES ──────────────────────────────────────────────────
     getReporteCalificaciones: async (moduloId: string, turnoId?: string) => {
         const response = await aulaApi.get(`/modulo/${moduloId}/reporte-calificaciones${turnoId ? `?turnoId=${turnoId}` : ''}`);
+        return response.data;
+    },
+
+    getMisCalificaciones: async (moduloId: string) => {
+        const response = await aulaApi.get(`/modulo/${moduloId}/mis-calificaciones`);
         return response.data;
     },
 

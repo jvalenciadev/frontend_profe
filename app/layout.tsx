@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   title: 'Aula Profe - Sistema Nacional de Gestión Educativa',
   description: 'Arquitectura premium para la gestión de programas de formación especializada.',
   icons: {
-    icon: '/logo.svg',
+    icon: '/logoprofe-2026.png',
   },
 };
 

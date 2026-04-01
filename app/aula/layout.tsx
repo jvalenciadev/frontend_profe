@@ -7,7 +7,6 @@ import Cookies from 'js-cookie';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getImageUrl } from '@/lib/utils';
 import { GraduationCap, BookOpen, User, LogOut, LayoutDashboard, Trophy, Bell, Search, MoreVertical } from 'lucide-react';
-import { Toaster } from 'sonner';
 
 import { AulaProvider, useAula } from '@/contexts/AulaContext';
 import { ChevronLeft } from 'lucide-react';
@@ -15,6 +14,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { useProfe } from '@/contexts/ProfeContext';
 import { aulaService } from '../../services/aulaService';
 import { LogoAula } from '@/components/aula/LogoAula';
+import PushNotificationManager from '@/components/aula/PushNotificationManager';
 
 export default function AulaLayout({
     children,
@@ -42,19 +42,9 @@ function AulaContent({ children }: { children: React.ReactNode }) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const isAuthPage = pathname === '/aula/login' || pathname === '/aula/olvide-password' || pathname === '/aula/reset-password';
 
-    const [badgeCount, setBadgeCount] = useState(0);
-
     useEffect(() => {
         setMounted(true);
     }, []);
-
-    useEffect(() => {
-        if (isAuthenticated && !isAuthPage) {
-            aulaService.getMisInsignias()
-                .then((data: any[]) => setBadgeCount(data.length))
-                .catch((err: any) => console.error("Error fetching badges:", err));
-        }
-    }, [isAuthenticated, isAuthPage]);
 
     useEffect(() => {
         const hasToken = !!Cookies.get('aula_token');
@@ -111,7 +101,6 @@ function AulaContent({ children }: { children: React.ReactNode }) {
         ...(isFacilitator ? [{ icon: GraduationCap, label: 'Docencia', href: '/aula/docencia' }] : []),
         { icon: BookOpen, label: 'Mis Cursos', href: '/aula/cursos' },
         { icon: GraduationCap, label: 'Calificaciones', href: '/aula/calificaciones' },
-        { icon: Trophy, label: 'Insignias', href: '/aula/insignias', badge: badgeCount > 0 ? badgeCount : null },
         { icon: Bell, label: 'Notificaciones', href: '/aula/notificaciones' },
         { icon: User, label: 'Perfil', href: '/aula/perfil' },
     ];
@@ -125,6 +114,7 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                 theme === 'dark' ? "bg-slate-950 text-slate-100" : "bg-[#f8fafc] text-slate-900"
             )}
         >
+            {isAuthenticated && !isAuthPage && <PushNotificationManager />}
             {/* Ultra-Premium Collapsible Sidebar - Hidden on Auth Pages */}
             {!isAuthPage && (
                 <motion.aside
@@ -153,8 +143,8 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                     </button>
 
                     <div className={cn("p-6 mb-4 flex items-center overflow-hidden", sidebarCollapsed ? "justify-center" : "gap-4")}>
-                        <LogoAula 
-                            size={sidebarCollapsed ? "sm" : "md"} 
+                        <LogoAula
+                            size={sidebarCollapsed ? "sm" : "md"}
                             showText={!sidebarCollapsed}
                             className="transition-all duration-500"
                         />
@@ -201,16 +191,6 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                                             >
                                                 {item.label}
                                             </motion.span>
-                                            {item.badge && (
-                                                <span className="bg-amber-400 text-amber-950 text-[9px] font-black px-2 py-0.5 rounded-full mr-2">
-                                                    {item.badge}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                    {sidebarCollapsed && item.badge && (
-                                        <div className="absolute top-2 right-2 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center text-amber-950 text-[8px] font-black">
-                                            {item.badge}
                                         </div>
                                     )}
                                 </button>
@@ -294,7 +274,7 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                 {/* Responsive Visual Grains and Accents */}
                 <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
                 <div className="fixed bottom-0 left-0 w-[600px] h-[600px] blur-[120px] pointer-events-none rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--aula-primary), transparent 95%)' }} />
-                <div className="p-4 md:p-10 max-w-7xl mx-auto w-full relative">
+                <div className="p-4 md:p-4 max-w-1xl mx-auto w-full relative">
                     {children}
                 </div>
             </main>
