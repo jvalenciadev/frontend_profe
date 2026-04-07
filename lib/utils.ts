@@ -19,6 +19,11 @@ export function getImageUrl(path: string | null | undefined): string {
         baseUrl = baseUrl.slice(0, -1);
     }
 
+    // Si la URL base termina en /api, lo quitamos para los recursos estáticos (uploads)
+    if (baseUrl.toLowerCase().endsWith('/api')) {
+        baseUrl = baseUrl.slice(0, -4);
+    }
+
     // Normalizar el path: asegurar que empiece con /
     let normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
