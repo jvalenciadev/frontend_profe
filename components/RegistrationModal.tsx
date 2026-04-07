@@ -137,21 +137,21 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
             />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[3rem] overflow-hidden shadow-3xl border border-slate-200 dark:border-white/5"
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-3xl border border-slate-200 dark:border-white/5"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-8 border-b border-slate-100 dark:border-white/5">
+                <div className="flex items-center justify-between p-6 sm:p-8 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm">
                     <div>
-                        <h2 className="text-2xl font-black uppercase tracking-tighter">Inscripción Académica</h2>
-                        <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mt-1">
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Inscripción Académica</h2>
+                        <p className="text-[9px] font-black text-primary-600 uppercase tracking-widest mt-0.5">
                             {program?.nombre || 'Portal de Registro'}
                         </p>
                     </div>
-                    <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all">
-                        <X className="w-6 h-6" />
+                    <button onClick={onClose} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all text-slate-400">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
@@ -192,24 +192,24 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
                                         <p className="text-slate-500 dark:text-slate-400">Ingrese su documento de identidad para validar su registro profesional.</p>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Cédula de Identidad</label>
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Cédula de Identidad</label>
                                             <input
                                                 type="text"
                                                 value={ci}
                                                 onChange={(e) => setCi(e.target.value)}
-                                                className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary-600 outline-none transition-all font-bold text-lg"
+                                                className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary-600 outline-none transition-all font-bold text-lg"
                                                 placeholder="Ej. 8472931"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Complemento (Opcional)</label>
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-2">Complemento (Opcional)</label>
                                             <input
                                                 type="text"
                                                 value={complemento}
                                                 onChange={(e) => setComplemento(e.target.value)}
-                                                className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary-600 outline-none transition-all font-bold text-lg"
+                                                className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary-600 outline-none transition-all font-bold text-lg"
                                                 placeholder="Ej. 1A"
                                             />
                                         </div>
@@ -218,20 +218,20 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
                                     <button
                                         onClick={handleSearch}
                                         disabled={isSearching}
-                                        className="w-full h-16 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-widest flex items-center justify-center gap-4 hover:brightness-110 disabled:opacity-50 transition-all"
+                                        className="w-full h-14 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-[0.15em] text-[11px] flex items-center justify-center gap-4 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-primary-600/20"
                                     >
-                                        {isSearching ? 'Buscando...' : 'Verificar Identidad'} <Search className="w-5 h-5" />
+                                        {isSearching ? 'Buscando...' : 'Verificar Identidad'} <Search className="w-4 h-4" />
                                     </button>
                                 </motion.div>
                             )}
 
                             {step === 2 && persona && (
                                 <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-                                    <div className="p-6 rounded-3xl bg-primary-50 dark:bg-primary-900/10 border border-primary-500/10 flex items-center gap-6">
-                                        <div className="w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center text-white"><User className="w-8 h-8" /></div>
+                                    <div className="p-5 rounded-2xl bg-primary-50 dark:bg-primary-900/10 border border-primary-500/10 flex items-center gap-5">
+                                        <div className="w-12 h-12 rounded-xl bg-primary-600 flex items-center justify-center text-white border-2 border-white shadow-lg shadow-primary-600/20 shrink-0"><User className="w-6 h-6" /></div>
                                         <div>
-                                            <h4 className="text-xl font-black uppercase tracking-tighter">{persona.nombre} {persona.apellidoPaterno}</h4>
-                                            <p className="text-[10px] font-bold text-primary-600 uppercase tracking-widest">Documento Verificado ✓</p>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter">{persona.nombre} {persona.apellidoPaterno}</h4>
+                                            <p className="text-[9px] font-bold text-primary-600 uppercase tracking-widest">Documento Verificado ✓</p>
                                         </div>
                                     </div>
 
@@ -256,9 +256,9 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-4">
-                                        <button onClick={() => setStep(1)} className="px-10 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Atrás</button>
-                                        <button onClick={() => setStep(3)} className="flex-1 h-16 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-widest hover:brightness-110 transition-all">Siguiente Paso</button>
+                                    <div className="flex gap-3 pt-2">
+                                        <button onClick={() => setStep(1)} className="px-8 h-14 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all">Atrás</button>
+                                        <button onClick={() => setStep(3)} className="flex-1 h-14 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-widest text-[10px] hover:brightness-110 active:scale-[0.98] transition-all">Siguiente Paso</button>
                                     </div>
                                 </motion.div>
                             )}
@@ -311,33 +311,33 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-4 pt-4">
-                                        <button onClick={() => setStep(2)} className="px-10 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Atrás</button>
+                                    <div className="flex gap-3 pt-4">
+                                        <button onClick={() => setStep(2)} className="px-8 h-14 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all">Atrás</button>
                                         <button
                                             onClick={handleSubmit}
                                             disabled={isLoading}
-                                            className="flex-1 h-16 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-4"
+                                            className="flex-1 h-14 rounded-2xl bg-primary-600 text-white font-black uppercase tracking-widest text-[10px] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-3"
                                         >
-                                            {isLoading ? 'Procesando...' : 'Finalizar Inscripción'} <ArrowRight className="w-5 h-5" />
+                                            {isLoading ? 'Procesando...' : 'Finalizar Inscripción'} <ArrowRight className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </motion.div>
                             )}
 
                             {step === 4 && (
-                                <motion.div key="step4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center h-full space-y-12 py-10">
+                                <motion.div key="step4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center h-full space-y-10 py-8">
                                     <div className="relative">
-                                        <div className="absolute inset-0 bg-green-500/20 blur-[50px] animate-pulse" />
-                                        <div className="w-32 h-32 rounded-full bg-green-500 text-white flex items-center justify-center relative z-10 shadow-3xl">
-                                            <CheckCircle2 className="w-16 h-16" />
+                                        <div className="absolute inset-0 bg-green-500/20 blur-[40px] animate-pulse" />
+                                        <div className="w-24 h-24 rounded-[2rem] bg-green-500 text-white flex items-center justify-center relative z-10 shadow-3xl rotate-6">
+                                            <CheckCircle2 className="w-12 h-12" />
                                         </div>
                                     </div>
-                                    <div className="text-center space-y-4">
-                                        <h3 className="text-4xl font-black uppercase tracking-tighter">¡Registro Exitoso!</h3>
-                                        <p className="text-slate-500 max-w-sm mx-auto">Su solicitud está siendo procesada. Una vez validado el baucher, podrá acceder plenamente.</p>
+                                    <div className="text-center space-y-3">
+                                        <h3 className="text-2xl font-black uppercase tracking-tighter">¡Registro Exitoso!</h3>
+                                        <p className="text-slate-500 text-[13px] max-w-xs mx-auto leading-relaxed">Su solicitud ha sido registrada. Una vez validado el comprobante, podrá acceder plenamente.</p>
                                     </div>
-                                    <button onClick={onClose} className="px-16 py-6 rounded-2xl bg-slate-950 text-white font-black uppercase tracking-widest hover:brightness-110 transition-all">
-                                        Cerrar y Continuar
+                                    <button onClick={onClose} className="px-12 py-4 rounded-full bg-slate-950 text-white font-black uppercase tracking-widest text-[10px] hover:opacity-80 active:scale-95 transition-all">
+                                        Cerrar Ventana
                                     </button>
                                 </motion.div>
                             )}

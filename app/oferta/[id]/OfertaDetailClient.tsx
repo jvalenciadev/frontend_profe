@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ArrowLeft, Calendar, Clock, MapPin, Users,
+    ArrowLeft, ArrowRight, Calendar, Clock, MapPin, Users,
     Upload, CheckCircle2, X, Search, Loader2, BadgeCheck,
     CreditCard, AlertCircle, ChevronRight, ShieldCheck,
     Building2, GraduationCap, User, AlertTriangle, Info,
-    BookOpen, Sparkles, ChevronDown, Check
+    BookOpen, Sparkles, ChevronDown, Check, School
 } from 'lucide-react';
 import { publicService } from '@/services/publicService';
 import { toast } from 'sonner';
@@ -59,7 +59,7 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
             </nav>
 
             {/* ── CINEMATIC HERO ── */}
-            <header className="relative h-[70vh] min-h-[600px] overflow-hidden">
+            <header className="relative h-[60vh] min-h-[500px] overflow-hidden">
                 <div className="absolute inset-0">
                     <img
                         src={IMG(programa.banner || programa.imagen)}
@@ -103,7 +103,10 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                             )}
                             <div className="flex items-center gap-3 text-slate-400">
                                 <MapPin className="w-5 h-5 text-primary" />
-                                <span className="text-sm font-bold uppercase tracking-widest">{programa.sede?.nombre || 'Sede Central'}</span>
+                                <span className="text-sm font-bold uppercase tracking-widest">
+                                    {(programa.sede?.departamento?.nombre || programa.sede?.dep?.nombre || programa.sede?.departamento) ? `${(programa.sede?.departamento?.nombre || programa.sede?.dep?.nombre || programa.sede?.departamento)} - ` : ''}
+                                    {programa.sede?.nombre || 'Sede Central'}
+                                </span>
                             </div>
                         </div>
                     </motion.div>
@@ -174,11 +177,102 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Horarios / Turnos Disponibles */}
+                        {programa.turnos?.length > 0 && (
+                            <div className="space-y-8">
+                                <h4 className="text-2xl font-black uppercase tracking-widest px-8">Horarios Disponibles</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {programa.turnos.map((t: any) => {
+                                        const inscritos = t._count?.inscripciones || 0;
+                                        const capacidad = t.cupo || 100;
+                                        const porcentaje = Math.min((inscritos / capacidad) * 100, 100);
+                                        const isFull = inscritos >= capacidad;
+
+                                        return (
+                                            <div key={t.id} className="p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-sm space-y-6 relative overflow-hidden">
+                                                <div className="flex items-center justify-between relative z-10">
+                                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                                        <Clock className="w-6 h-6" />
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estado</p>
+                                                        <span className={cn("text-[11px] font-black uppercase px-3 py-1 rounded-full border", isFull ? "text-rose-500 border-rose-500/20 bg-rose-500/5" : "text-emerald-500 border-emerald-500/20 bg-emerald-500/5")}>
+                                                            {isFull ? 'Cupos Agotados' : 'Vacantes Disponibles'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2 relative z-10">
+                                                    <h5 className="text-xl font-black uppercase tracking-tight">{t.turnoConfig?.nombre || 'General'}</h5>
+                                                    {t.turnoConfig && (
+                                                        <p className="text-sm font-bold text-slate-500">
+                                                            {t.turnoConfig.horaInicio?.substring(0, 5)} — {t.turnoConfig.horaFin?.substring(0, 5)}
+                                                            {t.turnoConfig.descripcion && <span className="block text-[10px] text-slate-400 uppercase tracking-widest mt-1">{t.turnoConfig.descripcion}</span>}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/5 relative z-10">
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                                        <span className="text-slate-400">Cupos Reservados</span>
+                                                        <span className={isFull ? "text-rose-500" : "text-primary"}>{inscritos} / {capacidad}</span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                                        <motion.div 
+                                                            initial={{ width: 0 }} 
+                                                            animate={{ width: `${porcentaje}%` }} 
+                                                            className={cn("h-full rounded-full", isFull ? "bg-rose-500" : "bg-primary")} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* DERECHA: INSCRIPCION (4 Cols) */}
-                    <div className="lg:col-span-4">
+                    <div className="lg:col-span-4 order-2 lg:order-2 hidden lg:block">
                         <div className="sticky top-32 space-y-8">
+
+                            {/* Sedes si hay múltiples */}
+                            {programa.sedesDisponibles?.length > 1 && (
+                                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-white/5 space-y-6 shadow-sm">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4">Otras Sedes para este programa</p>
+                                    <div className="space-y-2">
+                                        {programa.sedesDisponibles.map((s: any) => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => {
+                                                    const sedesList = programa.sedesDisponibles;
+                                                    setPrograma({ ...s, sedesDisponibles: sedesList });
+                                                    window.history.replaceState(null, '', `/oferta/${s.id}`);
+                                                }}
+                                                className={cn(
+                                                    "w-full p-6 rounded-2xl text-left flex justify-between items-center transition-all border-2",
+                                                    programa.id === s.id
+                                                        ? "bg-primary border-primary text-white shadow-xl shadow-primary/20"
+                                                        : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <MapPin className={cn("w-5 h-5", programa.id === s.id ? "text-white" : "text-primary")} />
+                                                    <div className="space-y-0.5">
+                                                        <p className={cn("text-[8px] font-black uppercase opacity-60", programa.id === s.id ? "text-white" : "")}>
+                                                            {(s.sede?.departamento?.nombre || s.sede?.dep?.nombre || s.sede?.departamento || '')}
+                                                        </p>
+                                                        <span className="text-xs font-black uppercase tracking-tight">{s.sede?.nombre}</span>
+                                                    </div>
+                                                </div>
+                                                {programa.id === s.id && <Check className="w-5 h-5" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Card de Acción (INSTITUTIONAL COLOR) */}
                             <div className="rounded-[3rem] p-10 text-white shadow-3xl shadow-primary/30 space-y-10 relative overflow-hidden group"
@@ -223,41 +317,31 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                     <ShieldCheck className="w-6 h-6 text-primary group-hover/btn:rotate-12 transition-transform" />
                                     Postular al Programa
                                 </button>
-
                             </div>
-
-                            {/* Sedes si hay múltiples */}
-                            {programa.sedesDisponibles?.length > 1 && (
-                                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-white/5 space-y-6">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4">Otras Sedes para este programa</p>
-                                    <div className="space-y-2">
-                                        {programa.sedesDisponibles.map((s: any) => (
-                                            <button
-                                                key={s.id}
-                                                onClick={() => {
-                                                    const sedesList = programa.sedesDisponibles;
-                                                    setPrograma({ ...s, sedesDisponibles: sedesList });
-                                                    window.history.replaceState(null, '', `/oferta/${s.id}`);
-                                                }}
-                                                className={cn(
-                                                    "w-full p-6 rounded-2xl text-left flex justify-between items-center transition-all border-2",
-                                                    programa.id === s.id
-                                                        ? "bg-primary border-primary text-white shadow-xl shadow-primary/20"
-                                                        : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20"
-                                                )}
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <MapPin className={cn("w-5 h-5", programa.id === s.id ? "text-white" : "text-primary")} />
-                                                    <span className="text-xs font-black uppercase tracking-tight">{s.sede?.nombre}</span>
-                                                </div>
-                                                {programa.id === s.id && <Check className="w-5 h-5" />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
                         </div>
+                    </div>
+
+                    {/* MOBILE FLOATING CTA */}
+                    <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[60]">
+                        <motion.div
+                            initial={{ y: 100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-5 rounded-[2.5rem] shadow-4xl flex items-center justify-between gap-4 backdrop-blur-xl"
+                        >
+                            <div className="pl-3">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Inversión única</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{programa.costo} Bs.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowModal(true)}
+                                disabled={!programa.estadoInscripcion}
+                                className="flex-1 h-14 rounded-2xl text-white font-black uppercase tracking-widest text-[9px] shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                                style={{ backgroundColor: brandColor }}
+                            >
+                                <ShieldCheck className="w-5 h-5" />
+                                Postular Ahora
+                            </button>
+                        </motion.div>
                     </div>
                 </div>
             </main>
@@ -292,65 +376,86 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
     // Datos Personales
     const [manualData, setManualData] = useState({
-        nombre: '', apellidos: '', correo: '', correoConfirmacion: '', celular: ''
+        nombre: '', apellidos: '', correo: '', correoConfirmacion: '', celular: '',
+        unidadEducativa: '', nivel: '', area: ''
     });
     const [isEmailSent, setIsEmailSent] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
 
-    // Pago
+    // Baucher
     const [baucher, setBaucher] = useState({
         nroDeposito: '', monto: programa?.costo?.toString() || '',
         fecha: new Date().toISOString().split('T')[0], imagen: '', imagenPreview: ''
     });
 
-    const turnoId = programa.turnos?.[0]?.id || '';
-    const sedeId = programa.sedeId || programa.sede?.id || programa.id;
+    // Preferencias
+    const [selectedSedeId, setSelectedSedeId] = useState(programa.id);
+    const [selectedTurnoId, setSelectedTurnoId] = useState('');
+
+    const currentProgram = useMemo(() => {
+        if (selectedSedeId === programa.id) return programa;
+        return (programa.sedesDisponibles || []).find((s: any) => s.id === selectedSedeId) || programa;
+    }, [selectedSedeId, programa]);
+
+    useEffect(() => {
+        if (programa.id) setSelectedSedeId(programa.id);
+    }, [programa.id]);
+
+    useEffect(() => {
+        if (currentProgram.turnos?.length > 0) {
+            setSelectedTurnoId(currentProgram.turnos[0].id);
+        } else {
+            setSelectedTurnoId('');
+        }
+    }, [currentProgram]);
 
     const handleSearch = async () => {
         if (!ci || !fechaNacimiento) return toast.error('Complete la identificación');
         setIsSearching(true);
         try {
             const data = await publicService.checkPersonaByDate(ci.trim(), fechaNacimiento, complemento.trim() || undefined, programa.id);
-            setPersona(data);
-            setPersonaFound(data?.found ?? false);
-            setPersonaSource(data?.source ?? null);
+            
             if (data?.alreadyEnrolled) {
-                toast.error('Usted ya cuenta con una inscripción activa');
+                // REDIRECCIÓN A ÉXITO (MODO COMPROBANTE)
+                setPersona(data);
+                setPersonaFound(true);
+                setManualData(p => ({ 
+                    ...p, 
+                    correo: data.correo || '', 
+                    celular: data.celular || '',
+                    nombre: data.nombre || '',
+                    apellidos: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' ')
+                }));
+                setStep(7);
                 return;
             }
-            if (data?.found) {
-                setManualData(p => ({ ...p, correo: data.correo || '', correoConfirmacion: data.correo || '', celular: data.celular || '' }));
-                toast.success('Información cargada del padrón');
+
+            if (!data?.found) {
+                toast.error('Su identificación no se encuentra registrada para este programa');
+                return;
             }
+
+            setPersona(data);
+            setPersonaFound(true);
+            setPersonaSource(data.source || null);
+            setManualData(p => ({ 
+                ...p, 
+                correo: data.correo || '', 
+                correoConfirmacion: data.correo || '', 
+                celular: data.celular || '',
+                nombre: data.nombre || '',
+                apellidos: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' ')
+            }));
+            toast.success('Identidad verificada correctamente');
             setStep(2);
         } catch (err) { toast.error('Error al verificar identidad'); } finally { setIsSearching(false); }
     };
 
     const handleManualNext = async () => {
-        if (!personaFound && (!manualData.nombre || !manualData.apellidos)) return toast.error('Complete sus datos personales');
         if (!manualData.correo || manualData.correo !== manualData.correoConfirmacion) return toast.error('Los correos no coinciden');
-
-        if (!personaFound) {
-            if (!isEmailSent) {
-                setIsVerifying(true);
-                try {
-                    await publicService.sendVerificationCode(manualData.correo, `${manualData.nombre} ${manualData.apellidos}`);
-                    setIsEmailSent(true);
-                    toast.success('Código de seguridad enviado');
-                } catch { toast.error('Error al enviar código'); } finally { setIsVerifying(false); }
-                return;
-            } else {
-                if (!verificationCode) return toast.error('Ingrese el código');
-                setIsVerifying(true);
-                try {
-                    await publicService.verifyCode(manualData.correo, verificationCode);
-                    setStep(Number(programa.costo) > 0 ? 3 : 4);
-                } catch { toast.error('Código incorrecto'); } finally { setIsVerifying(false); }
-                return;
-            }
-        }
-        setStep(Number(programa.costo) > 0 ? 3 : 4);
+        if (!manualData.celular) return toast.error('Ingrese su número de celular');
+        setStep(3);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -368,18 +473,19 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
         try {
             const res = await publicService.registerInscripcion({
                 userId: persona?.userId || null,
-                programaId: programa.id,
-                turnoId,
-                sedeId,
+                programaId: currentProgram.id,
+                turnoId: selectedTurnoId,
+                sedeId: currentProgram.sede?.id, // CORRECTO: El ID de la tabla Sede, no el ID del programa
                 baucher,
                 datosPersona: {
                     ci, complemento, fechaNacimiento,
-                    nombre: personaFound ? persona.nombre : manualData.nombre,
-                    apellidos: personaFound ? [persona.apellidoPaterno, persona.apellidoMaterno].filter(Boolean).join(' ') : manualData.apellidos,
+                    nombre: manualData.nombre,
+                    apellidos: manualData.apellidos,
                     correo: manualData.correo,
-                },
+                    celular: manualData.celular,
+                }
             });
-            if (res.success) setStep(5);
+            if (res.success) setStep(7);
         } catch { toast.error('Error al procesar inscripción'); } finally { setIsLoading(false); }
     };
 
@@ -388,25 +494,30 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={onClose} />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-4xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-                <div className="p-10 border-b border-slate-100 dark:border-white/5 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight">Registro Académico</h3>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{programa.nombre}</p>
+                <div className="p-8 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-xl font-black uppercase tracking-tight">Registro Académico</h3>
+                            <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest">{currentProgram.modalidad?.nombre}</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[400px]">
+                            {currentProgram.version?.numero ? `VERSIÓN ${currentProgram.version.numero} (${currentProgram.version.gestion})` : 'VERSIÓN ÚNICA'} • {currentProgram.nombre}
+                        </p>
                     </div>
-                    <button onClick={onClose} className="p-4 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-all"><X /></button>
+                    <button onClick={onClose} className="p-3 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-all text-slate-400 shrink-0"><X className="w-5 h-5" /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-12">
+                <div className="flex-1 overflow-y-auto p-8 lg:p-12">
 
                     {/* Stepper Moderno */}
-                    {step < 5 && (
-                        <div className="flex gap-4 mb-16">
-                            {[1, 2, 3, 4].map(n => (
-                                <div key={n} className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+                    {step < 7 && (
+                        <div className="flex gap-2 mb-10">
+                            {[1, 2, 3, 4, 5, 6].map(n => (
+                                <div key={n} className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
                                     <div className={cn("h-full transition-all duration-500", step >= n ? "bg-primary" : "w-0")} />
                                 </div>
                             ))}
@@ -415,132 +526,379 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
                     {/* Step 1: Identificación */}
                     {step === 1 && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="space-y-4">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-4">Número de Identidad (CI)</label>
-                                <input value={ci} onChange={e => setCi(e.target.value)} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-2xl font-black focus:border-primary outline-none transition-all" placeholder="0000000" />
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Número de Identidad (CI)</label>
+                                <input value={ci} onChange={e => setCi(e.target.value)} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-xl font-black focus:border-primary outline-none transition-all" placeholder="0000000" />
                             </div>
-                            <div className="space-y-4">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-4">Fecha de Nacimiento</label>
-                                <input type="date" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-lg font-black focus:border-primary outline-none transition-all" />
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Fecha de Nacimiento</label>
+                                <input type="date" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-base font-black focus:border-primary outline-none transition-all" />
                             </div>
-                            <button onClick={handleSearch} disabled={isSearching} className="w-full h-20 rounded-[1.5rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-sm hover:scale-[1.02] shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-6">
-                                {isSearching ? <Loader2 className="animate-spin h-6 w-6" /> : <Search className="h-6 w-6" />}
-                                Verificar Información
+                            <button onClick={handleSearch} disabled={isSearching} className="w-full h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] hover:brightness-110 active:scale-95 shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-4">
+                                {isSearching ? <Loader2 className="animate-spin h-5 w-5" /> : <Search className="h-5 w-5" />}
+                                Verificar Identidad
                             </button>
                         </div>
                     )}
 
                     {/* Step 2: Personales */}
                     {step === 2 && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                             {personaFound && (
-                                <div className="p-8 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-6">
-                                    <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center"><BadgeCheck className="h-8 w-8" /></div>
+                                <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-5">
+                                    <div className="w-12 h-12 rounded-xl bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-lg shadow-emerald-500/20 shrink-0"><BadgeCheck className="h-6 w-6" /></div>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Verificado en {personaSource === 'map_persona' ? 'Padrón Minedu' : 'Sistema Profe'}</p>
-                                        <p className="text-xl font-black text-slate-900 dark:text-white uppercase">{persona.nombre} {persona.nombre2} {[persona.apellidoPaterno, persona.apellidoMaterno].join(' ')}</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Verificado en {personaSource === 'map_persona' ? 'Padrón Minedu' : 'Sistema Profe'}</p>
+                                        <p className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">{persona.nombre} {persona.nombre2} {[persona.apellidoPaterno, persona.apellidoMaterno].join(' ')}</p>
                                     </div>
                                 </div>
                             )}
-
                             {!personaFound && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <input value={manualData.nombre} onChange={e => setManualData(p => ({ ...p, nombre: e.target.value.toUpperCase() }))} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold" placeholder="NOMBRE(S)" />
-                                    <input value={manualData.apellidos} onChange={e => setManualData(p => ({ ...p, apellidos: e.target.value.toUpperCase() }))} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold" placeholder="APELLIDO(S)" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input value={manualData.nombre} onChange={e => setManualData(p => ({ ...p, nombre: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NOMBRE(S)" />
+                                    <input value={manualData.apellidos} onChange={e => setManualData(p => ({ ...p, apellidos: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="APELLIDO(S)" />
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <input value={manualData.correo} onChange={e => setManualData(p => ({ ...p, correo: e.target.value.toLowerCase() }))} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold" placeholder="CORREO ELECTRÓNICO" />
-                                <input value={manualData.correoConfirmacion} onChange={e => setManualData(p => ({ ...p, correoConfirmacion: e.target.value.toLowerCase() }))} className="w-full h-20 px-8 rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold" placeholder="REPETIR CORREO" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input value={manualData.correo} onChange={e => setManualData(p => ({ ...p, correo: e.target.value.toLowerCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="CORREO ELECTRÓNICO" />
+                                <input value={manualData.celular} onChange={e => setManualData(p => ({ ...p, celular: e.target.value }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NRO. CELULAR (WHATSAPP)" />
                             </div>
+                            {!personaFound && (
+                                <div className="space-y-4">
+                                    <input value={manualData.correoConfirmacion} onChange={e => setManualData(p => ({ ...p, correoConfirmacion: e.target.value.toLowerCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="REPETIR CORREO ELECTRÓNICO" />
+                                </div>
+                            )}
 
                             {isEmailSent && (
-                                <div className="pt-8 space-y-4">
-                                    <p className="text-center text-xs font-black uppercase tracking-widest text-primary">Ingresa el código enviado a tu correo</p>
-                                    <input value={verificationCode} onChange={e => setVerificationCode(e.target.value)} className="w-full h-24 rounded-[1.5rem] bg-primary/5 border-2 border-primary text-center text-5xl font-black tracking-[0.5em] outline-none" placeholder="000000" />
+                                <div className="pt-4 space-y-3">
+                                    <p className="text-center text-[10px] font-black uppercase tracking-widest text-primary">Ingresa el código enviado a tu correo</p>
+                                    <input value={verificationCode} onChange={e => setVerificationCode(e.target.value)} className="w-full h-20 rounded-2xl bg-primary/5 border-2 border-primary text-center text-4xl font-black tracking-[0.5em] outline-none" placeholder="000000" />
                                 </div>
                             )}
 
-                            <button onClick={handleManualNext} disabled={isVerifying} className="w-full h-20 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-widest hover:scale-[1.02] shadow-xl transition-all flex items-center justify-center gap-4">
-                                {isVerifying && <Loader2 className="animate-spin h-6 w-6" />}
+                            <button onClick={handleManualNext} disabled={isVerifying} className="w-full h-16 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-[0.15em] text-[11px] hover:brightness-110 shadow-xl transition-all flex items-center justify-center gap-4">
+                                {isVerifying && <Loader2 className="animate-spin h-5 w-5" />}
                                 {personaFound ? 'Confirmar y Continuar' : isEmailSent ? 'Verificar Código' : 'Solicitar Código de Acceso'}
                             </button>
                         </div>
                     )}
 
-                    {/* Step 3: Baucher */}
+                    {/* Step 3: Sede, Turno y Datos Académicos */}
                     {step === 3 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="aspect-square rounded-[3rem] bg-slate-50 dark:bg-white/5 border-4 border-dashed border-slate-200 dark:border-white/10 flex items-center justify-center relative group overflow-hidden">
+                        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                            <div className="space-y-10">
+                                {/* SECCIÓN: UBICACIÓN GEOGRÁFICA */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><MapPin className="w-4 h-4" /></div>
+                                            I. Ubicación de Sede
+                                        </h4>
+                                        <span className="text-[9px] font-black uppercase text-primary px-3 py-1 bg-primary/5 rounded-full border border-primary/10">{(programa.sedesDisponibles?.length || 0) > 1 ? `${programa.sedesDisponibles.length} sedes disponibles` : 'Sede única habilitada'}</span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {(programa.sedesDisponibles || [programa]).map((s: any) => {
+                                            const isActive = String(selectedSedeId) === String(s.id);
+                                            const dep = s.sede?.departamento?.nombre || s.sede?.dep?.nombre || '';
+                                            return (
+                                                <button 
+                                                    key={s.id} 
+                                                        onClick={() => setSelectedSedeId(s.id)} 
+                                                    className={cn(
+                                                        "group p-5 rounded-[2rem] text-left border-2 transition-all relative overflow-hidden",
+                                                        isActive 
+                                                            ? "bg-primary border-primary text-white shadow-2xl shadow-primary/20 scale-[1.02]" 
+                                                            : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20 hover:scale-[1.01]"
+                                                    )}
+                                                >
+                                                    <div className="relative z-10 space-y-1">
+                                                        <p className={cn("text-[9px] font-black uppercase tracking-widest", isActive ? "text-white/60" : "text-slate-400")}>{dep}</p>
+                                                        <p className="text-sm font-black uppercase tracking-tight leading-none">{s.sede?.nombre || 'Sede Central'}</p>
+                                                    </div>
+                                                    {isActive && <CheckCircle2 className="absolute top-6 right-6 w-5 h-5 text-white/50 animate-in zoom-in" />}
+                                                    {!isActive && <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* SECCIÓN: HORARIOS Y CUPOS */}
+                                <div className="space-y-6 pt-10 border-t border-slate-100 dark:border-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><Clock className="w-4 h-4" /></div>
+                                            II. Elección de Turno
+                                        </h4>
+                                    </div>
+
+                                    {currentProgram.turnos?.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {currentProgram.turnos.map((t: any) => {
+                                                const isActive = String(selectedTurnoId) === String(t.id);
+                                                const inscritos = t._count?.inscripciones || 0;
+                                                const capacidad = t.cupo || 100;
+                                                const porcentaje = Math.min((inscritos / capacidad) * 100, 100);
+                                                const colorClase = porcentaje > 90 ? 'bg-rose-500' : porcentaje > 70 ? 'bg-amber-500' : 'bg-emerald-500';
+
+                                                return (
+                                                    <button
+                                                        key={t.id}
+                                                        onClick={() => setSelectedTurnoId(t.id)}
+                                                        className={cn(
+                                                            "group p-6 rounded-[2.5rem] text-left border-2 transition-all flex flex-col gap-5 relative overflow-hidden",
+                                                            isActive 
+                                                                ? "bg-white dark:bg-slate-800 border-primary shadow-2xl shadow-primary/10 scale-[1.02]" 
+                                                                : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", isActive ? "bg-primary text-white" : "bg-white dark:bg-white/5 shadow-sm text-primary group-hover:scale-110")}>
+                                                                <Clock className="w-6 h-6" />
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isActive ? "text-primary" : "text-slate-400")}>Cupos Libres</p>
+                                                                <p className="text-sm font-black">{capacidad - inscritos}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-4">
+                                                            <div>
+                                                                <span className="text-xs font-black uppercase tracking-tight block mb-1">{t.turnoConfig?.nombre || 'Turno Único'}</span>
+                                                                {t.turnoConfig?.horaInicio && t.turnoConfig?.horaFin && (
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                                                        {t.turnoConfig.horaInicio.substring(0, 5)} — {t.turnoConfig.horaFin.substring(0, 5)}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
+                                                                    <span className="text-slate-400">Progreso</span>
+                                                                    <span className={cn(isActive ? "text-primary" : "text-slate-400")}>{inscritos} / {capacidad} inscritos</span>
+                                                                </div>
+                                                                <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${porcentaje}%` }} transition={{ duration: 1, ease: "easeOut" }} className={cn("h-full rounded-full transition-all", isActive ? colorClase : "bg-slate-300 dark:bg-white/20")} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {isActive && <CheckCircle2 className="absolute top-6 right-6 w-5 h-5 text-primary animate-in zoom-in" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="p-12 rounded-[3rem] bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 text-center space-y-3">
+                                            <Calendar className="w-10 h-10 mx-auto text-slate-300" />
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">No se requieren turnos para esta sede</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-8">
+                                <button onClick={() => setStep(2)} className="h-20 px-10 rounded-[2rem] bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition-all flex items-center gap-3">
+                                    <ArrowLeft className="w-4 h-4" /> Atrás
+                                </button>
+                                <button 
+                                    onClick={() => setStep(Number(currentProgram.costo) > 0 ? 4 : 5)} 
+                                    disabled={(!selectedTurnoId && currentProgram.turnos?.length > 0)} 
+                                    className="flex-1 h-20 rounded-[2rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-20 flex items-center justify-center gap-3"
+                                >
+                                    Siguiente Paso <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Baucher */}
+                    {step === 4 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="aspect-square rounded-3xl bg-slate-50 dark:bg-white/5 border-4 border-dashed border-slate-200 dark:border-white/10 flex items-center justify-center relative group overflow-hidden">
                                 {baucher.imagenPreview ? (
                                     <img src={baucher.imagenPreview} className="w-full h-full object-cover" alt="Baucher" />
                                 ) : (
-                                    <div className="text-center space-y-4 opacity-40">
-                                        <Upload className="w-16 h-16 mx-auto" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Subir Imagen del Depósito</p>
+                                    <div className="text-center space-y-3 opacity-30">
+                                        <Upload className="w-12 h-12 mx-auto" />
+                                        <p className="text-[9px] font-black uppercase tracking-widest">Subir Depósito</p>
                                     </div>
                                 )}
                                 <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                             </div>
-                            <div className="space-y-8">
-                                <div className="space-y-4">
-                                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número de Depósito</label>
-                                    <input value={baucher.nroDeposito} onChange={e => setBaucher(p => ({ ...p, nroDeposito: e.target.value }))} className="w-full h-20 px-8 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold" />
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Número de Depósito</label>
+                                    <input value={baucher.nroDeposito} onChange={e => setBaucher(p => ({ ...p, nroDeposito: e.target.value }))} className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" />
                                 </div>
-                                <div className="p-8 rounded-3xl bg-primary/5 border border-primary/20">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Monto a Confirmar</p>
-                                    <p className="text-4xl font-black">{programa.costo} Bs.</p>
+                                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-1">Monto Confirmado</p>
+                                    <p className="text-3xl font-black">{programa.costo} Bs.</p>
                                 </div>
-                                <button onClick={() => setStep(4)} disabled={!baucher.imagen || !baucher.nroDeposito} className="w-full h-20 rounded-2xl bg-primary text-white font-black uppercase tracking-widest">Continuar al Resumen</button>
+                                <div className="flex gap-4">
+                                    <button onClick={() => setStep(3)} className="h-16 px-6 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[11px]">Atrás</button>
+                                    <button onClick={() => setStep(5)} disabled={!baucher.imagen || !baucher.nroDeposito} className="flex-1 h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-lg shadow-primary/20">Continuar al Resumen</button>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Step 4: Resumen */}
-                    {step === 4 && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 text-center">
-                            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary mb-4">
-                                <CheckCircle2 className="h-12 w-12" />
-                            </div>
-                            <h4 className="text-3xl font-black uppercase tracking-tight">Verifica tu Información</h4>
-                            <div className="bg-slate-50 dark:bg-white/5 rounded-[2.5rem] p-10 grid grid-cols-2 gap-8 text-left">
-                                <div>
-                                    <p className="text-[10px] font-black opacity-40 uppercase">Postulante</p>
-                                    <p className="font-black text-lg uppercase">{personaFound ? persona.nombre : manualData.nombre} {personaFound ? [persona.apellidoPaterno, persona.apellidoMaterno].join(' ') : manualData.apellidos}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black opacity-40 uppercase">Programa</p>
-                                    <p className="font-black text-lg uppercase">{programa.nombre}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black opacity-40 uppercase">Cédula</p>
-                                    <p className="font-black text-lg uppercase">{ci} {complemento}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black opacity-40 uppercase">Inversión</p>
-                                    <p className="font-black text-lg uppercase">{baucher.monto} Bs.</p>
-                                </div>
-                            </div>
-                            <button onClick={handleSubmit} disabled={isLoading} className="w-full h-24 rounded-[2rem] bg-emerald-500 text-white font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all text-sm flex items-center justify-center gap-6">
-                                {isLoading ? <Loader2 className="animate-spin h-8 w-8" /> : <ShieldCheck className="h-8 w-8" />}
-                                Confirmar Inscripción Oficial
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Step 5: Éxito */}
+                    {/* Step 5: Resumen */}
                     {step === 5 && (
-                        <div className="py-20 text-center space-y-10 animate-in zoom-in">
-                            <div className="w-32 h-32 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-white shadow-3xl shadow-emerald-500/30">
-                                <CheckCircle2 className="h-20 w-20" />
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 text-center">
+                            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary mb-2">
+                                <CheckCircle2 className="h-10 w-10" />
                             </div>
-                            <div className="space-y-4">
-                                <h2 className="text-5xl font-black uppercase tracking-tighter">¡Inscripción Exitosa!</h2>
-                                <p className="text-slate-500 dark:text-slate-400 font-medium max-w-lg mx-auto leading-relaxed">Tu solicitud ha sido registrada correctamente. Recibirás un correo electrónico con tus credenciales de acceso una vez validemos tu depósito.</p>
+                            <h4 className="text-2xl font-black uppercase tracking-tight">Verificación de Registro</h4>
+                            <div className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left border-2 border-slate-100 dark:border-white/5 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors" />
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Postulante</p>
+                                    <p className="font-black text-lg uppercase tracking-tight truncate">
+                                        {personaFound ? persona.nombre : manualData.nombre} {personaFound ? [persona.apellidoPaterno, persona.apellidoMaterno].filter(Boolean).join(' ') : manualData.apellidos}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Programa / Curso</p>
+                                    <p className="font-black text-lg uppercase tracking-tight truncate">{programa.nombre}</p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Versión Inscrita</p>
+                                    <p className="font-black text-lg uppercase tracking-tight">
+                                        {programa.version?.numero ? `VERSIÓN ${programa.version.numero} (${programa.version.gestion})` : 'VERSIÓN ÚNICA'}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Sede de Estudios</p>
+                                    <p className="font-black text-lg uppercase tracking-tight">
+                                        {(() => {
+                                            const s = (programa.sedesDisponibles || []).find((x: any) => String(x.id) === String(selectedSedeId));
+                                            const prog = s || programa;
+                                            const d = prog.sede?.departamento?.nombre || prog.sede?.dep?.nombre;
+                                            const n = prog.sede?.nombre || 'SEDE CENTRAL';
+                                            return d ? `${d} - ${n}` : n;
+                                        })()}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Horario / Turno</p>
+                                    <p className="font-black text-lg uppercase tracking-tight">
+                                        {(() => {
+                                            const t = currentProgram.turnos?.find((x: any) => String(x.id) === String(selectedTurnoId));
+                                            if (!t) return 'NO REQUERIDO';
+                                            const n = t.turnoConfig?.nombre || 'ÚNICO';
+                                            const hasTime = t.turnoConfig?.horaInicio && t.turnoConfig?.horaFin;
+                                            const h = hasTime ? `${t.turnoConfig.horaInicio.substring(0, 5)} - ${t.turnoConfig.horaFin.substring(0, 5)}` : '';
+                                            return h ? `${n} (${h})` : n;
+                                        })()}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Identificación CI</p>
+                                    <p className="font-black text-lg uppercase tracking-tight">{ci} {complemento}</p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Contacto Directo</p>
+                                    <p className="font-black text-sm uppercase tracking-tight truncate">{manualData.celular} • {manualData.correo}</p>
+                                </div>
+
+                                {/* CAMPOS EXTRA DINÁMICOS (mod_campo_extra) */}
+                                {programa.mod_campo_extra && Object.keys(programa.mod_campo_extra).length > 0 && (
+                                    <div className="col-span-full pt-6 mt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                        {Object.entries(programa.mod_campo_extra).map(([k, v]: any) => (
+                                            <div key={k} className="space-y-1">
+                                                <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">{k.replace(/_/g, ' ')}</p>
+                                                <p className="font-black text-xs uppercase tracking-tight">{v}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <button onClick={onClose} className="px-16 h-16 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-widest text-xs">Cerrar Ventana</button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setStep(Number(programa.costo) > 0 ? 4 : 3)} className="h-20 px-8 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[11px]">Atrás</button>
+                                <button onClick={handleSubmit} disabled={isLoading} className="flex-1 h-20 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:brightness-110 active:scale-95 transition-all text-[11px] flex items-center justify-center gap-4">
+                                    {isLoading ? <Loader2 className="animate-spin h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
+                                    Finalizar y Enviar Inscripción
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 7: Éxito o Comprobante de Ya Inscrito */}
+                    {step === 7 && (
+                        <div className="py-8 space-y-8 animate-in zoom-in">
+                            <div className="text-center space-y-6">
+                                <div className="w-24 h-24 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto text-white shadow-2xl shadow-emerald-500/20 rotate-12">
+                                    <CheckCircle2 className="h-12 w-12" />
+                                </div>
+                                <div className="space-y-3">
+                                    <h2 className="text-3xl font-black uppercase tracking-tighter">
+                                        {persona?.alreadyEnrolled ? 'Usted ya está registrado' : '¡Registro Exitoso!'}
+                                    </h2>
+                                    <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto leading-relaxed text-sm">
+                                        {persona?.alreadyEnrolled 
+                                            ? 'A continuación se muestran los detalles de su inscripción vigente.' 
+                                            : 'Tu solicitud ha sido registrada correctamente en el sistema.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* COMPROBANTE DE INSCRIPCIÓN */}
+                            <div className="bg-slate-50 dark:bg-white/5 rounded-[2rem] p-8 border border-slate-100 dark:border-white/10 space-y-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <ShieldCheck className="w-32 h-32" />
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 relative z-10">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Postulante</p>
+                                        <p className="font-black text-sm uppercase truncate">
+                                            {manualData.nombre} {manualData.apellidos}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Curso / Programa</p>
+                                        <p className="font-black text-sm uppercase">{programa.nombre}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Versión / Gestión</p>
+                                        <p className="font-black text-sm uppercase">
+                                            {programa.version?.numero ? `VERSIÓN ${programa.version.numero} (${programa.version.gestion})` : 'VERSIÓN 1 (2026)'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Sede de Estudios</p>
+                                        <p className="font-black text-sm uppercase">
+                                            {persona?.alreadyEnrolled 
+                                                ? `${persona.alreadyEnrolled.departamento || ''} - ${persona.alreadyEnrolled.sede || 'Sede Central'}` 
+                                                : `${currentProgram.sede?.departamento?.nombre || ''} - ${currentProgram.sede?.nombre || 'Sede Central'}`}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Turno Habilitado</p>
+                                        <p className="font-black text-sm uppercase tracking-widest">
+                                            {persona?.alreadyEnrolled 
+                                                ? persona.alreadyEnrolled.turno || 'ÚNICO' 
+                                                : currentProgram.turnos?.find((x: any) => String(x.id) === String(selectedTurnoId))?.turnoConfig?.nombre || 'ÚNICO'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Contacto Registrado</p>
+                                        <p className="font-black text-sm uppercase tracking-tight">{manualData.celular} • {manualData.correo}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button onClick={onClose} className="w-full h-16 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all">Cerrar Ventana de Registro</button>
                         </div>
                     )}
 
