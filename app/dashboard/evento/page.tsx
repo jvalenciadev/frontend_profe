@@ -450,7 +450,7 @@ export default function EventosPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button
-                                                            onClick={() => router.push(`/dashboard/eventos/${evento.id}`)}
+                                                            onClick={() => router.push(`/dashboard/evento/${evento.id}`)}
                                                             className="h-8 px-3 rounded-xl bg-primary/10 text-primary text-xs font-black hover:bg-primary/20 transition-all flex items-center gap-1.5"
                                                         >
                                                             <Settings2 className="w-3.5 h-3.5" />
@@ -579,7 +579,7 @@ export default function EventosPage() {
                                                     </button>
                                                 </div>
                                                 <button
-                                                    onClick={() => router.push(`/dashboard/eventos/${evento.id}`)}
+                                                    onClick={() => router.push(`/dashboard/evento/${evento.id}`)}
                                                     className="flex items-center gap-1.5 h-8 px-4 rounded-xl bg-primary text-white text-xs font-black hover:bg-primary/90 transition-all"
                                                 >
                                                     <Settings2 className="w-3.5 h-3.5" />

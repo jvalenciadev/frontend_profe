@@ -471,11 +471,11 @@ export default function EventoOperativoPage() {
                     <h1 className="text-2xl font-black uppercase tracking-tight text-foreground">{evento?.nombre || 'Evento'}</h1>
                 </div>
                 <div className="ml-auto flex items-center gap-3">
-                    <a href={`/eventos/${evento?.codigo || eventoId}`} target="_blank"
+                    <a href={`/evento/${evento?.codigo || eventoId}`} target="_blank"
                         className="flex items-center gap-2 h-10 px-4 rounded-xl bg-card border border-border text-xs font-bold text-muted-foreground hover:text-primary hover:border-primary transition-all">
                         <ExternalLink className="w-3.5 h-3.5" /> Ver Pública
                     </a>
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/eventos/${evento?.codigo || eventoId}`); toast.success('URL copiada'); }}
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/evento/${evento?.codigo || eventoId}`); toast.success('URL copiada'); }}
                         className="flex items-center gap-2 h-10 px-4 rounded-xl bg-card border border-border text-xs font-bold text-muted-foreground hover:text-primary hover:border-primary transition-all">
                         <Copy className="w-3.5 h-3.5" /> Copiar URL
                     </button>
@@ -1307,7 +1307,7 @@ export default function EventoOperativoPage() {
                     <div className="p-8 bg-white rounded-[3rem] shadow-2xl shadow-primary/10 border-4 border-primary/10 relative group">
                         <QRCodeCanvas
                             id="qr-attendance-canvas"
-                            value={`${window.location.origin}/eventos/${evento?.codigo}?step=asistencia&code=${evento?.codigoAsistencia}`}
+                            value={`${window.location.origin}/evento/${evento?.codigo}?step=asistencia&code=${evento?.codigoAsistencia}`}
                             size={280}
                             level="H"
                             includeMargin={false}

@@ -54,10 +54,10 @@ export default function Navbar() {
         },
         {
             label: 'Eventos',
-            path: '/eventos',
+            path: '/evento',
             submenu: tiposEvento.map(t => ({
                 label: t.nombre,
-                path: `/eventos?tipo=${t.nombre}`
+                path: `/evento?tipo=${t.nombre}`
             }))
         },
         {

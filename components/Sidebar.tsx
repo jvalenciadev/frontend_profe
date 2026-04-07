@@ -81,7 +81,7 @@ const menuItems: MenuItem[] = [
         href: '/dashboard/comunicacion',
         icon: Megaphone,
         children: [
-            { title: 'Eventos', href: '/dashboard/eventos', icon: Calendar, permission: { action: 'read', subject: 'Evento' }, },
+            { title: 'Eventos', href: '/dashboard/evento', icon: Calendar, permission: { action: 'read', subject: 'Evento' }, },
             { title: 'Blogs', href: '/dashboard/blogs', icon: LayoutGrid, permission: { action: 'read', subject: 'Blog' }, },
             { title: 'Comunicados', href: '/dashboard/comunicados', icon: Bell, permission: { action: 'read', subject: 'Comunicado' }, },
         ]

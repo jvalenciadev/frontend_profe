@@ -46,6 +46,8 @@ export const metadata: Metadata = {
   description: 'Arquitectura premium para la gestión de programas de formación especializada.',
   icons: {
     icon: '/logoprofe-2026.png',
+    shortcut: '/logoprofe-2026.png',
+    apple: '/logoprofe-2026.png',
   },
 };
 

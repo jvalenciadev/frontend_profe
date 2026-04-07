@@ -175,7 +175,7 @@ export default function DashboardPage() {
     const estadosData = metrics?.estadosInscripcion?.length ? metrics.estadosInscripcion : [
         { name: 'Cargando...', valor: 1, fill: '#cbd5e1' }
     ];
-    
+
     // Asignar colores vibrantes dinámicamente
     const colors = ['#10b981', '#f59e0b', '#06b6d4', '#f43f5e', '#64748b', '#8b5cf6', '#3b82f6'];
     estadosData.forEach((d: any, i: number) => {
@@ -370,7 +370,7 @@ export default function DashboardPage() {
                         permission={{ action: 'read', subject: 'Sede' }}
                     />
                     <QuickCard
-                        href="/dashboard/eventos"
+                        href="/dashboard/evento"
                         icon={Calendar}
                         label="Eventos"
                         sub="Agenda institucional"

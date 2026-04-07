@@ -112,7 +112,7 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
                 {/* CTA */}
                 <div className="pt-2 border-t border-slate-100 dark:border-white/5">
                     <Link
-                        href={`/eventos/${evento.codigo || evento.id}`}
+                        href={`/evento/${evento.codigo || evento.id}`}
                         className="flex items-center justify-between w-full group/btn"
                     >
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">

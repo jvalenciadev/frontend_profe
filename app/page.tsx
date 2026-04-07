@@ -273,7 +273,7 @@ export default function LandingPage() {
                             </div>
                           </div>
                           {/* Event image */}
-                          <Link href={`/eventos/${featured.codigo || featured.id}`} className="block group">
+                          <Link href={`/evento/${featured.codigo || featured.id}`} className="block group">
                             <div className="relative h-[220px] sm:h-[280px] lg:h-[320px] overflow-hidden">
                               <img src={featured.banner ? IMG(featured.banner) : (featured.afiche ? IMG(featured.afiche) : FALLBACK_IMG)}
                                 className="w-full h-full object-cover transition-transform duration-[6000ms] group-hover:scale-105" alt={featured.nombre} />
@@ -304,18 +304,18 @@ export default function LandingPage() {
                           {/* Action footer */}
                           <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800/50">
                             {featured.inscripcionAbierta && (
-                              <Link href={`/eventos/${featured.codigo || featured.id}`}
+                              <Link href={`/evento/${featured.codigo || featured.id}`}
                                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-[9px] font-black uppercase tracking-wider hover:bg-primary-700 transition-all shadow-sm flex-1 justify-center">
                                 <Users className="w-3 h-3" /> Inscripción
                               </Link>
                             )}
                             {featured.asistencia && (
-                              <Link href={`/eventos/${featured.codigo || featured.id}?step=asistencia`}
+                              <Link href={`/evento/${featured.codigo || featured.id}?step=asistencia`}
                                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider hover:bg-amber-600 transition-all shadow-sm flex-1 justify-center">
                                 <CheckCircle2 className="w-3 h-3" /> Asistencia
                               </Link>
                             )}
-                            <Link href={`/eventos/${featured.codigo || featured.id}`}
+                            <Link href={`/evento/${featured.codigo || featured.id}`}
                               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-[9px] font-black uppercase tracking-wider hover:border-primary-500 hover:text-primary-600 transition-all">
                               <Eye className="w-3 h-3" /> Ver
                             </Link>
@@ -326,7 +326,7 @@ export default function LandingPage() {
                         {nextTwo.length > 0 && (
                           <div className="grid grid-cols-3 gap-2">
                             {nextTwo.map((evt: any) => (
-                              <Link key={evt.id} href={`/eventos/${evt.codigo || evt.id}`}>
+                              <Link key={evt.id} href={`/evento/${evt.codigo || evt.id}`}>
                                 <div className="relative h-[80px] sm:h-[96px] rounded-2xl overflow-hidden group border border-slate-200 dark:border-slate-700 hover:border-primary-400 transition-all bg-white dark:bg-slate-800 shadow-sm">
                                   <img src={(evt.afiche || evt.banner) ? IMG(evt.afiche || evt.banner) : FALLBACK_IMG}
                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt={evt.nombre} />
@@ -759,7 +759,7 @@ export default function LandingPage() {
                     </div>
 
                     <div className="flex items-center justify-end sm:border-l border-slate-100 dark:border-white/10 sm:pl-8">
-                      <Link href={`/eventos/${evt.codigo || evt.id}`} className="w-12 h-12 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600 transition-all">
+                      <Link href={`/evento/${evt.codigo || evt.id}`} className="w-12 h-12 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-600 transition-all">
                         <ArrowRight className="w-5 h-5" />
                       </Link>
                     </div>

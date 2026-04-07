@@ -153,7 +153,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
     const tipoLabel = config.label;
 
     const urlVerificacion = typeof window !== 'undefined'
-        ? `${window.location.origin}/eventos/${evento?.codigo || evento?.id}`
+        ? `${window.location.origin}/evento/${evento?.codigo || evento?.id}`
         : '';
 
     // Generar QR en canvas
@@ -1004,7 +1004,7 @@ export default function EventoPublicoPage() {
             <p className="text-muted-foreground max-w-md mb-8">
                 El evento con el código <span className="text-primary font-bold">"{codigo}"</span> no existe o no se encuentra disponible actualmente. Verifica el enlace o contacta con el administrador.
             </p>
-            <button onClick={() => window.location.href = '/eventos'}
+            <button onClick={() => window.location.href = '/evento'}
                 className="h-14 px-8 rounded-2xl bg-primary text-white font-black uppercase text-xs tracking-widest hover:opacity-90 transition-all">
                 Ver todos los eventos
             </button>

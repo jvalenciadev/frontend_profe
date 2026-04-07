@@ -12,7 +12,7 @@ export default function ComunicacionDashboard() {
             title: 'Gestión de Eventos',
             description: 'Organización de seminarios, webinars y encuentros presenciales.',
             icon: Calendar,
-            href: '/dashboard/eventos',
+            href: '/dashboard/evento',
             color: 'bg-rose-500/10 text-rose-600',
             border: 'hover:border-rose-200'
         },
