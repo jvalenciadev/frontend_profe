@@ -42,18 +42,15 @@ const FALLBACK_IMG = 'https://images.unsplash.com/photo-1541829070764-84a7d30dee
 
 function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
   if (!dateStr) return '';
-  const dateObj = typeof dateStr === 'string' ? dateStr : (dateStr as any).toISOString?.() || String(dateStr);
-  const parts = dateObj.split('T')[0].split('-');
-  if (parts.length < 3) return '';
+  const match = dateStr.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(dateStr);
+  const [_, year, month, day] = match;
 
-  const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
-  
-  return d.toLocaleDateString('es-BO', options || { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric',
-    timeZone: 'UTC'
-  });
+  if (options?.month === 'short') {
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${day} ${months[parseInt(month) - 1]} ${year}`;
+  }
+  return `${day}/${month}/${year}`;
 }
 
 
