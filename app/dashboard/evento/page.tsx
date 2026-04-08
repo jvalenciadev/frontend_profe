@@ -145,7 +145,7 @@ export default function EventosPage() {
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
-            const payload = {
+            const basePayload = {
                 ...formData,
                 fecha: formData.fecha, // Send as YYYY-MM-DD string
                 totalInscritos: Number(formData.totalInscritos),
@@ -159,17 +159,24 @@ export default function EventosPage() {
                         : f.opciones
                 }))
             };
+
             // Limpiar campos que no deben ir en el update/create
-            delete (payload as any).createdBy;
-            delete (payload as any).updatedBy;
-            delete (payload as any).deletedBy;
-            delete (payload as any).createdAt;
-            delete (payload as any).updatedAt;
+            delete (basePayload as any).createdBy;
+            delete (basePayload as any).updatedBy;
+            delete (basePayload as any).deletedBy;
+            delete (basePayload as any).createdAt;
+            delete (basePayload as any).updatedAt;
+
+            const payload = {
+                ...basePayload,
+                fecha: formData.fecha ? `${formData.fecha}T00:00:00.000Z` : null
+            };
+
             if (editingEvento) {
-                await eventoService.update(editingEvento.id, payload);
+                await eventoService.update(editingEvento.id, basePayload);
                 toast.success('Evento actualizado exitosamente');
             } else {
-                await eventoService.create(payload);
+                await eventoService.create(basePayload);
                 toast.success('Evento creado exitosamente');
             }
             setIsModalOpen(false);
