@@ -173,10 +173,10 @@ export default function EventosPage() {
             };
 
             if (editingEvento) {
-                await eventoService.update(editingEvento.id, basePayload);
+                await eventoService.update(editingEvento.id, payload as any);
                 toast.success('Evento actualizado exitosamente');
             } else {
-                await eventoService.create(basePayload);
+                await eventoService.create(payload as any);
                 toast.success('Evento creado exitosamente');
             }
             setIsModalOpen(false);
