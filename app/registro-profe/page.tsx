@@ -242,17 +242,17 @@ export default function RegistroProfePage() {
 
                 {/* Header Portátil */}
                 <div className="p-8 lg:p-12 flex items-center justify-between">
-                    <button onClick={() => step > 1 ? setStep(step - 1) : router.back()} className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 transition-colors">
+                    <button onClick={() => step > 1 ? setStep(step - 1) : router.back()} className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-500 transition-colors">
                         <ArrowLeft className="w-4 h-4" /> Volver
                     </button>
 
                     <div className="flex items-center gap-4">
                         {steps.map((s, i) => (
                             <div key={i} className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${step === i + 1 ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' : (step > i + 1 ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400')}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${step === i + 1 ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : (step > i + 1 ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400')}`}>
                                     {step > i + 1 ? <CheckCircle className="w-4 h-4" /> : i + 1}
                                 </div>
-                                <span className={`hidden md:block text-[10px] font-black uppercase tracking-widest ${step === i + 1 ? 'text-primary-600' : 'text-slate-400'}`}>{s.title}</span>
+                                <span className={`hidden md:block text-[10px] font-black uppercase tracking-widest ${step === i + 1 ? 'text-primary-500' : 'text-slate-400'}`}>{s.title}</span>
                                 {i < 2 && <div className="w-4 h-px bg-slate-200 dark:bg-white/10 hidden md:block" />}
                             </div>
                         ))}
@@ -267,7 +267,7 @@ export default function RegistroProfePage() {
                             {step === 1 && (
                                 <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-10">
                                     <div className="space-y-4">
-                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Información <span className="text-primary-600">Personal.</span></h3>
+                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Información <span className="text-primary-500">Personal.</span></h3>
                                         <p className="text-slate-500 dark:text-slate-400 font-medium">Comencmos con tus datos básicos de identificación.</p>
                                     </div>
 
@@ -277,13 +277,13 @@ export default function RegistroProfePage() {
                                                 {form.imagen ? (
                                                     <img src={form.imagen.startsWith('http') ? form.imagen : `${process.env.NEXT_PUBLIC_API_URL}${form.imagen}`} className="w-full h-full object-cover" alt="Perfil" />
                                                 ) : <User className="w-16 h-16 text-slate-300" />}
-                                                <label className="absolute inset-0 bg-primary-600/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
+                                                <label className="absolute inset-0 bg-primary-500/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
                                                     <Upload className="w-10 h-10 text-white mb-2" />
                                                     <span className="text-[9px] font-black text-white uppercase tracking-widest">Cambiar</span>
                                                     <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                                                 </label>
                                             </div>
-                                            {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 rounded-[3rem]"><Loader2 className="w-8 h-8 animate-spin text-primary-600" /></div>}
+                                            {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 rounded-[3rem]"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>}
                                         </div>
                                     </div>
 
@@ -291,24 +291,24 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Cédula de Identidad</label>
                                             <div className="relative group">
-                                                <IdCard className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input name="ci" value={form.ci} onChange={handleChange} placeholder="Número de Documento" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <IdCard className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                                                <Input name="ci" value={form.ci} onChange={handleChange} placeholder="Número de Documento" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Fecha de Nacimiento</label>
                                             <div className="relative group">
-                                                <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input type="date" name="fechaNac" value={form.fechaNac} onChange={handleChange} className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                                                <Input type="date" name="fechaNac" value={form.fechaNac} onChange={handleChange} className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nombres</label>
-                                            <Input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Como figura en tu CI" className="h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                            <Input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Como figura en tu CI" className="h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Apellidos</label>
-                                            <Input name="apellidos" value={form.apellidos} onChange={handleChange} placeholder="Paterno y Materno" className="h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                            <Input name="apellidos" value={form.apellidos} onChange={handleChange} placeholder="Paterno y Materno" className="h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                         </div>
                                     </div>
                                 </motion.div>
@@ -318,7 +318,7 @@ export default function RegistroProfePage() {
                             {step === 2 && (
                                 <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-10">
                                     <div className="space-y-4">
-                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Acceso & <span className="text-primary-600">Contacto.</span></h3>
+                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Acceso & <span className="text-primary-500">Contacto.</span></h3>
                                         <p className="text-slate-500 dark:text-slate-400 font-medium">Configura cómo accederás a la plataforma y cómo te contactaremos.</p>
                                     </div>
 
@@ -326,16 +326,16 @@ export default function RegistroProfePage() {
                                         <div className="col-span-full space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Correo Electrónico</label>
                                             <div className="relative group">
-                                                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                                                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                                                 <Input type="email" name="correo" value={form.correo} onChange={(e) => {
                                                     handleChange(e);
                                                     setIsEmailVerified(false);
-                                                }} placeholder="ejemplo@bolivia.bo" className="pl-14 pr-36 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                }} placeholder="ejemplo@bolivia.bo" className="pl-14 pr-36 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                                 <button
                                                     type="button"
                                                     disabled={isSendingVerification || countdown > 0 || isEmailVerified}
                                                     onClick={handleRequestVerification}
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-primary-600 text-white text-[9px] md:text-[10px] sm:px-4 font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-all"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-primary-500 text-white text-[9px] md:text-[10px] sm:px-4 font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-all"
                                                 >
                                                     {isEmailVerified ? (
                                                         <span className="flex items-center gap-1 text-emerald-300"><CheckCircle className="w-3 h-3" /> Verificado</span>
@@ -350,7 +350,7 @@ export default function RegistroProfePage() {
                                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="col-span-full space-y-2">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Código de Verificación</label>
                                                 <div className="relative group">
-                                                    <Hash className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                                                    <Hash className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                                                     <Input
                                                         name="verificationCode"
                                                         value={form.verificationCode}
@@ -362,7 +362,7 @@ export default function RegistroProfePage() {
                                                             }
                                                         }}
                                                         placeholder="Ingresa el código de 6 dígitos"
-                                                        className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none"
+                                                        className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none"
                                                         maxLength={6}
                                                     />
                                                 </div>
@@ -372,7 +372,7 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between ml-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Nombre de Usuario</label>
-                                                <span className="px-2 py-0.5 rounded-md bg-primary-600/10 text-primary-600 text-[9px] font-black uppercase tracking-widest border border-primary-600/20">Tu CI</span>
+                                                <span className="px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-500 text-[9px] font-black uppercase tracking-widest border border-primary-500/20">Tu CI</span>
                                             </div>
                                             <div className="relative group">
                                                 <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400/50" />
@@ -382,9 +382,9 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Contraseña</label>
                                             <div className="relative group">
-                                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Seguridad alta" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
-                                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors focus:outline-none">
+                                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                                                <Input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Seguridad alta" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
+                                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors focus:outline-none">
                                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                                 </button>
                                             </div>
@@ -392,9 +392,9 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Confirmar Contraseña</label>
                                             <div className="relative group">
-                                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Repite tu contraseña" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
-                                                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors focus:outline-none">
+                                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                                                <Input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Repite tu contraseña" className="pl-14 pr-12 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
+                                                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors focus:outline-none">
                                                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                                 </button>
                                             </div>
@@ -402,8 +402,8 @@ export default function RegistroProfePage() {
                                         <div className="col-span-full space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Número de Celular</label>
                                             <div className="relative group">
-                                                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
-                                                <Input name="celular" value={form.celular} onChange={handleChange} placeholder="WhatsApp para coordinaciones" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none" required />
+                                                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                                                <Input name="celular" value={form.celular} onChange={handleChange} placeholder="WhatsApp para coordinaciones" className="pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none" required />
                                             </div>
                                         </div>
                                     </div>
@@ -414,7 +414,7 @@ export default function RegistroProfePage() {
                             {step === 3 && (
                                 <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-10">
                                     <div className="space-y-4">
-                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Selección <span className="text-primary-600">Institucional.</span></h3>
+                                        <h3 className="text-4xl font-black text-slate-950 dark:text-white uppercase tracking-tighter italic">Selección <span className="text-primary-500">Institucional.</span></h3>
                                         <p className="text-slate-500 dark:text-slate-400 font-medium">Indica tu área de interés y ubicación para tu postulación.</p>
                                     </div>
 
@@ -422,8 +422,8 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Departamento de Postulación</label>
                                             <div className="relative group">
-                                                <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors z-10" />
-                                                <select name="tenantId" value={form.tenantId} onChange={handleChange} className="w-full pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none appearance-none font-bold text-sm text-slate-900 dark:text-white" required>
+                                                <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors z-10" />
+                                                <select name="tenantId" value={form.tenantId} onChange={handleChange} className="w-full pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none appearance-none font-bold text-sm text-slate-900 dark:text-white" required>
                                                     <option value="" disabled>Selecciona tu sede territorial</option>
                                                     {config.departamentos.map((d: any) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                                                 </select>
@@ -434,8 +434,8 @@ export default function RegistroProfePage() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Área de Especialidad (Cargo)</label>
                                             <div className="relative group">
-                                                <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors z-10" />
-                                                <select name="cargoId" value={form.cargoId} onChange={handleChange} className="w-full pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-600/5 transition-all outline-none appearance-none font-bold text-sm text-slate-900 dark:text-white" required>
+                                                <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-500 transition-colors z-10" />
+                                                <select name="cargoId" value={form.cargoId} onChange={handleChange} className="w-full pl-14 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 border-transparent focus:bg-white dark:focus:bg-white/10 focus:ring-8 focus:ring-primary-500/5 transition-all outline-none appearance-none font-bold text-sm text-slate-900 dark:text-white" required>
                                                     <option value="" disabled>Selecciona tu rol profesional</option>
                                                     {config.cargos.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                                                 </select>
@@ -469,7 +469,7 @@ export default function RegistroProfePage() {
                                                         <div className="space-y-2">
                                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número RDA</label>
                                                             <div className="relative group">
-                                                                <Hash className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                                                                <Hash className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                                                                 <Input
                                                                     type="number"
                                                                     name="rda"
@@ -588,7 +588,7 @@ export default function RegistroProfePage() {
                         </AnimatePresence>
 
                         <div className="pt-8">
-                            <Button type="submit" disabled={isLoading} className="w-full py-10 rounded-full text-xs font-black uppercase tracking-[0.4em] shadow-3xl shadow-primary-600/20 active:scale-95 transition-all flex items-center justify-center gap-4">
+                            <Button type="submit" disabled={isLoading} className="w-full py-10 rounded-full text-xs font-black uppercase tracking-[0.4em] shadow-3xl shadow-primary-500/20 active:scale-95 transition-all flex items-center justify-center gap-4">
                                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                                     <> {step === 3 ? 'Finalizar Postulación' : 'Continuar al Paso Siguiente'} <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform" /> </>
                                 )}
@@ -597,7 +597,7 @@ export default function RegistroProfePage() {
                     </form>
 
                     <div className="mt-12 text-center">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">¿Ya eres parte de la red? <Link href="/login" className="text-primary-600 hover:underline ml-2">Acceso Portal</Link></p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">¿Ya eres parte de la red? <Link href="/login" className="text-primary-500 hover:underline ml-2">Acceso Portal</Link></p>
                     </div>
                 </div>
             </div>

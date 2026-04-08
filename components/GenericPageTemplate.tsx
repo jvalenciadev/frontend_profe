@@ -63,7 +63,7 @@ export default function GenericPage({ title, description, icon: Icon, children }
                             className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.9] text-slate-950 dark:text-white"
                         >
                             {title.split(' ').map((word, i) => (
-                                <span key={i} className={i % 2 !== 0 ? 'text-primary-600' : ''}>
+                                <span key={i} className={i % 2 !== 0 ? 'text-primary-500' : ''}>
                                     {word}{' '}
                                 </span>
                             ))}
@@ -136,7 +136,7 @@ export default function GenericPage({ title, description, icon: Icon, children }
                                     <p className="text-[10px] font-black text-primary-600 uppercase tracking-[0.5em]">Excelencia Pedagógica</p>
                                 </div>
                             </div>
-                            <p className="text-white/40 text-base font-medium leading-relaxed max-w-sm text-left">
+                            <p className="text-white/60 text-base font-medium leading-relaxed max-w-sm text-left">
                                 Fortaleciendo el desempeño profesional del magisterio boliviano con conciencia social y soberanía tecnológica.
                             </p>
                         </div>
@@ -151,7 +151,7 @@ export default function GenericPage({ title, description, icon: Icon, children }
                                     <h5 className="text-[12px] font-black uppercase tracking-[0.4em] text-white border-l-2 border-primary-600 pl-6">{group.title}</h5>
                                     <ul className="space-y-6">
                                         {group.links.map(l => (
-                                            <li key={l}><a href="#" className="text-[11px] font-black text-white/30 hover:text-primary-600 transition-colors uppercase tracking-widest flex items-center gap-4 group">
+                                            <li key={l}><a href="#" className="text-[11px] font-black text-white/60 hover:text-white transition-colors uppercase tracking-widest flex items-center gap-4 group">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-primary-600 scale-0 group-hover:scale-100 transition-transform" /> {l}
                                             </a></li>
                                         ))}

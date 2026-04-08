@@ -149,25 +149,25 @@ export default function OfertaPage() {
                                     <div className="p-8 flex-1 flex flex-col justify-between">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
-                                                <div className="flex items-center gap-1.5 text-slate-400">
-                                                    <Clock size={12} className="text-primary/60" />
-                                                    <span className="text-[8px] font-black uppercase tracking-widest">Duración</span>
+                                                <div className="flex items-center gap-1.5 text-slate-500 font-black">
+                                                    <Clock size={12} className="text-primary-600" />
+                                                    <span className="text-[8px] uppercase tracking-widest">Duración</span>
                                                 </div>
-                                                <p className="text-xs font-black text-foreground truncate " title={prog.duracion.nombre}>
+                                                <p className="text-xs font-black text-slate-900 dark:text-white truncate " title={prog.duracion.nombre}>
                                                     {prog.duracion.nombre}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
-                                                <div className="flex items-center gap-1.5 text-slate-400">
-                                                    <MapPin size={12} className="text-primary/60" />
-                                                    <span className="text-[8px] font-black uppercase tracking-widest">Sede</span>
+                                                <div className="flex items-center gap-1.5 text-slate-500 font-black">
+                                                    <MapPin size={12} className="text-primary-600" />
+                                                    <span className="text-[8px] uppercase tracking-widest">Sede</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-xs font-black text-foreground truncate max-w-full" title={prog.hasMultipleSedes ? 'Disponible en varias sedes' : (prog.sede?.nombre || 'Sede Central')}>
+                                                    <p className="text-xs font-black text-slate-900 dark:text-white truncate max-w-full" title={prog.hasMultipleSedes ? 'Disponible en varias sedes' : (prog.sede?.nombre || 'Sede Central')}>
                                                         {prog.hasMultipleSedes ? 'Nacional' : (prog.sede?.nombre || 'Sede Central')}
                                                     </p>
                                                     {prog.hasMultipleSedes && (
-                                                        <span className="px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 text-[8px] font-black uppercase tracking-tighter shrink-0">
+                                                        <span className="px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 text-[8px] font-black uppercase tracking-tighter shrink-0 border border-primary-200">
                                                             + Sedes
                                                         </span>
                                                     )}

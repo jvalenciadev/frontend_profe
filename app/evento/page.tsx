@@ -91,21 +91,21 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
                 </div>
 
                 {/* Meta info */}
-                <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-500">
+                <div className="flex flex-wrap gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
                     {evento.lugar && (
-                        <span className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5">
+                            <MapPin className="w-3.5 h-3.5 text-primary-600" />
                             {evento.lugar}
                         </span>
                     )}
                     {evento.totalInscritos > 0 && (
-                        <span className="flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5">
+                            <Users className="w-3.5 h-3.5 text-primary-600" />
                             {evento.totalInscritos} inscritos
                         </span>
                     )}
                     {evento.tenant?.nombre && (
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400">
                             <Globe className="w-3.5 h-3.5" />
                             {evento.tenant.nombre}
                         </span>

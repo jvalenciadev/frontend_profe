@@ -36,10 +36,10 @@ export default function ComunicadosPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 whileInView={{ opacity: 1, x: 0 }}
                                 transition={{ delay: idx * 0.1 }}
-                                className="group p-10 rounded-[2.5rem] bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 hover:border-primary-600 transition-all shadow-xl hover:shadow-primary-600/5"
+                                className="group p-10 rounded-[2.5rem] bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 hover:border-primary-500 transition-all shadow-xl hover:shadow-primary-500/5"
                             >
                                 <div className="flex flex-col md:flex-row gap-8 items-start">
-                                    <div className="w-20 h-20 rounded-2xl bg-primary-600/10 text-primary-600 flex items-center justify-center shrink-0">
+                                    <div className="w-20 h-20 rounded-2xl bg-primary-500/10 text-primary-500 flex items-center justify-center shrink-0">
                                         <Bell className="w-8 h-8" />
                                     </div>
                                     <div className="flex-1 space-y-4">
@@ -54,7 +54,7 @@ export default function ComunicadosPage() {
                                                 </span>
                                             </div>
                                         </div>
-                                        <h3 className="text-3xl font-black text-slate-950 dark:text-white tracking-tight uppercase group-hover:text-primary-600 transition-colors">
+                                        <h3 className="text-3xl font-black text-slate-950 dark:text-white tracking-tight uppercase group-hover:text-primary-500 transition-colors">
                                             {item.titulo}
                                         </h3>
                                         <p className="text-lg text-slate-500 font-medium leading-relaxed">
@@ -62,7 +62,7 @@ export default function ComunicadosPage() {
                                         </p>
 
                                         {item.archivo && (
-                                            <a href={`${process.env.NEXT_PUBLIC_API_URL}${item.archivo}`} target="_blank" className="inline-flex items-center gap-3 text-primary-600 font-black uppercase tracking-widest text-[10px] pt-4 hover:gap-5 transition-all">
+                                            <a href={`${process.env.NEXT_PUBLIC_API_URL}${item.archivo}`} target="_blank" className="inline-flex items-center gap-3 text-primary-500 font-black uppercase tracking-widest text-[10px] pt-4 hover:gap-5 transition-all">
                                                 Ver Documento Adjunto <ChevronRight className="w-4 h-4" />
                                             </a>
                                         )}

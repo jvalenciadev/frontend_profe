@@ -1487,7 +1487,7 @@ export default function EventoPublicoPage() {
                                                                                         ? "bg-muted text-muted-foreground border-2 border-dashed border-border shadow-none opacity-50 cursor-not-allowed"
                                                                                         : isFinished
                                                                                             ? "bg-amber-500 text-black shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400"
-                                                                                            : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-600"
+                                                                                            : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
                                                                                 )}
                                                                             >
                                                                                 {videoPendiente ? 'Mira el video para habilitar' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación')}

@@ -125,7 +125,7 @@ export default function LoginPage() {
                             opacity: [0.1, 0.15, 0.1],
                         }}
                         transition={{ duration: 15, repeat: Infinity }}
-                        className="absolute -top-[10%] -right-[10%] w-[80%] h-[80%] bg-primary-600 rounded-full blur-[150px]"
+                        className="absolute -top-[10%] -right-[10%] w-[80%] h-[80%] bg-primary-500 rounded-full blur-[150px]"
                         suppressHydrationWarning={true}
                     />
                 </div>
@@ -138,15 +138,15 @@ export default function LoginPage() {
                         suppressHydrationWarning={true}
                     >
                         <div className="inline-flex items-center gap-4 px-8 py-3 rounded-full bg-white/10 backdrop-blur-2xl border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.5em]" suppressHydrationWarning={true}>
-                            <ShieldCheck className="w-4 h-4 text-primary-600" /> Acceso de Grado Gubernamental
+                            <ShieldCheck className="w-4 h-4 text-primary-500" /> Acceso de Grado Gubernamental
                         </div>
 
                         <h1 className="text-8xl font-black text-white tracking-tighter leading-[0.8] uppercase" suppressHydrationWarning={true}>
                             Sistema <br />
-                            <span className="text-primary-600">Nacional.</span>
+                            <span className="text-primary-500">Nacional.</span>
                         </h1>
 
-                        <p className="text-2xl text-white/50 font-medium leading-relaxed max-w-xl border-l-[3px] border-primary-600 pl-8 py-2" suppressHydrationWarning={true}>
+                        <p className="text-2xl text-white/50 font-medium leading-relaxed max-w-xl border-l-[3px] border-primary-500 pl-8 py-2" suppressHydrationWarning={true}>
                             Plataforma centralizada para la gestión de la formación especializada.
                         </p>
                     </motion.div>

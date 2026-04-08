@@ -106,30 +106,59 @@ export function AuthProvider({ children, namespace }: AuthProviderProps) {
         return perms;
     };
 
+    // Función para "adelgazar" el objeto de usuario antes de guardarlo en cookies
+    const trimUser = (u: User): any => {
+        const { permissions, roles, sedes, ...rest } = u as any;
+        return {
+            ...rest,
+            // Guardamos solo lo básico para que la UI no se rompa mientras carga el resto
+            roles: Array.isArray(roles) ? roles.map((r: any) => typeof r === 'string' ? r : (r.name || r.role?.name)) : [],
+            hasFullData: false // Bandera para saber que debemos pedir el perfil completo
+        };
+    };
+
     // Cargar usuario desde cookies al montar
     useEffect(() => {
         const loadUser = async () => {
             const savedToken = Cookies.get(tokenKey);
             const savedUser = Cookies.get(userKey);
 
-            if (savedToken && savedUser) {
-                try {
-                    const parsedUser = JSON.parse(savedUser);
-                    // Asegurar que tenantId esté presente si existe tenant object
-                    if (!parsedUser.tenantId && parsedUser.tenant?.id) {
-                        parsedUser.tenantId = parsedUser.tenant.id;
-                    }
+            if (savedToken) {
+                setToken(savedToken);
 
-                    setToken(savedToken);
-                    setUser(parsedUser);
+                // Si tenemos el usuario en cookie, lo cargamos como estado inicial rápido
+                if (savedUser) {
+                    try {
+                        const parsedUser = JSON.parse(savedUser);
+                        if (!parsedUser.tenantId && parsedUser.tenant?.id) {
+                            parsedUser.tenantId = parsedUser.tenant.id;
+                        }
+                        setUser(parsedUser);
+                        setAbility(defineAbilityFromPermissions(
+                            getPermissionsFromUser(parsedUser),
+                            getRolesFromUser(parsedUser)
+                        ));
+                    } catch (e) {
+                        console.error("Error parsing user cookie", e);
+                    }
+                }
+
+                // SIEMPRE pedimos el perfil completo al backend para refrescar permisos y datos pesados
+                // Esto soluciona el problema de las cookies gigantes
+                try {
+                    const fullUser = await authService.getProfile(savedToken);
+                    setUser(fullUser);
                     setAbility(defineAbilityFromPermissions(
-                        getPermissionsFromUser(parsedUser),
-                        getRolesFromUser(parsedUser)
+                        getPermissionsFromUser(fullUser),
+                        getRolesFromUser(fullUser)
                     ));
+                    // Opcionalmente actualizamos la cookie con la versión ligera
+                    Cookies.set(userKey, JSON.stringify(trimUser(fullUser)), { expires: 1 });
                 } catch (error) {
-                    console.error(`Error parsing user from cookies (${userKey}):`, error);
-                    Cookies.remove(tokenKey);
-                    Cookies.remove(userKey);
+                    console.error("Error recuperando perfil completo:", error);
+                    if ((error as any).response?.status === 401) {
+                        logout();
+                    }
                 }
             }
             setIsLoading(false);
@@ -151,9 +180,10 @@ export function AuthProvider({ children, namespace }: AuthProviderProps) {
             getRolesFromUser(newUser)
         ));
 
-        // Guardar en cookies (7 días)
-        Cookies.set(tokenKey, newToken, { expires: 7 });
-        Cookies.set(userKey, JSON.stringify(newUser), { expires: 7 });
+        // Guardar en cookies (1 días)
+        Cookies.set(tokenKey, newToken, { expires: 1 });
+        // GUARDAMOS LA VERSIÓN LIGERA EN LA COOKIE
+        Cookies.set(userKey, JSON.stringify(trimUser(newUser)), { expires: 1 });
     };
 
     const logout = () => {
@@ -177,7 +207,8 @@ export function AuthProvider({ children, namespace }: AuthProviderProps) {
             getPermissionsFromUser(newUser),
             getRolesFromUser(newUser)
         ));
-        Cookies.set(userKey, JSON.stringify(newUser), { expires: 7 });
+        // GUARDAMOS LA VERSIÓN LIGERA EN LA COOKIE
+        Cookies.set(userKey, JSON.stringify(trimUser(newUser)), { expires: 1 });
     };
 
     const isSuperAdmin = (): boolean => {

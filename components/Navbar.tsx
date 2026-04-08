@@ -133,7 +133,7 @@ export default function Navbar() {
                             )}
                             {tenant && (
                                 <div className="absolute -bottom-4 left-0 whitespace-nowrap">
-                                    <span className="text-[8px] font-black text-primary-600 uppercase tracking-[0.3em]">
+                                    <span className="text-[8px] font-black text-primary-500 uppercase tracking-[0.3em]">
                                         {depNombre || tenant}
                                     </span>
                                 </div>
@@ -150,7 +150,7 @@ export default function Navbar() {
                                     className="text-[9px] font-black text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-all uppercase tracking-[0.3em] relative group/link whitespace-nowrap"
                                 >
                                     {item.label}
-                                    <span className="absolute -bottom-2 left-0 w-0 h-[2px] bg-primary-600 transition-all duration-500 group-hover/link:w-full" />
+                                    <span className="absolute -bottom-2 left-0 w-0 h-[2px] bg-primary-500 transition-all duration-500 group-hover/link:w-full" />
                                 </Link>
 
                                 {item.submenu && (
@@ -160,7 +160,7 @@ export default function Navbar() {
                                                 <Link
                                                     key={sub.label}
                                                     href={sub.path}
-                                                    className="px-4 py-3 text-[9px] font-black text-slate-500 dark:text-slate-400 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all uppercase tracking-widest"
+                                                    className="px-4 py-3 text-[9px] font-black text-slate-500 dark:text-slate-400 hover:text-primary-500 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all uppercase tracking-widest"
                                                 >
                                                     {sub.label}
                                                 </Link>
@@ -174,7 +174,7 @@ export default function Navbar() {
                         {/* Portal Entry */}
                         <Link
                             href="/login"
-                            className="ml-4 px-10 h-12 flex items-center bg-primary-600 text-white rounded-full text-[9px] font-black uppercase tracking-[0.3em] hover:brightness-110 transition-all shadow-[0_10px_30px_-10px_rgba(var(--primary-h),var(--primary-s),var(--primary-l),0.4)] group/btn shrink-0"
+                            className="ml-4 px-10 h-12 flex items-center bg-primary-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.3em] hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/20 group/btn shrink-0"
                         >
                             Acceso
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-3 transition-transform duration-700 ml-3" />
