@@ -15,8 +15,11 @@ import { useSearchParams } from 'next/navigation';
 
 function formatDate(dateStr: string) {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
+    const match = dateStr.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return String(dateStr);
+    const [_, year, month, day] = match;
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${day} ${months[parseInt(month) - 1]} ${year}`;
 }
 
 function EventoCard({ evento, index }: { evento: any; index: number }) {
