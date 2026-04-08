@@ -42,10 +42,18 @@ const FALLBACK_IMG = 'https://images.unsplash.com/photo-1541829070764-84a7d30dee
 
 function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
   if (!dateStr) return '';
-  const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString('es-BO', options || { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dateObj = typeof dateStr === 'string' ? dateStr : (dateStr as any).toISOString?.() || String(dateStr);
+  const parts = dateObj.split('T')[0].split('-');
+  if (parts.length < 3) return '';
+
+  const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+  
+  return d.toLocaleDateString('es-BO', options || { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
 }
 
 
@@ -516,11 +524,11 @@ export default function LandingPage() {
               <div className="flex flex-col lg:flex-row items-end justify-between gap-12 mb-20 border-b border-slate-100 dark:border-white/5 pb-16">
                 <div className="space-y-6 max-w-4xl">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary-600 flex items-center justify-center text-white shadow-xl"><Landmark className="w-6 h-6" /></div>
-                    <span className="text-primary-600 font-black text-[10px] uppercase tracking-[0.5em]">GOBERNANZA PLURINACIONAL</span>
+                    <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center text-white"><Landmark className="w-6 h-6" /></div>
+                    <span className="text-primary-500 font-bold text-[10px] uppercase tracking-[0.5em]">GOBERNANZA PLURINACIONAL</span>
                   </div>
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-950 dark:text-white leading-tight uppercase tracking-tighter">
-                    Cargos <span className="text-primary-600 font-serif italic lowercase tracking-normal">Jerárquico.</span>
+                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-950 dark:text-white leading-tight uppercase tracking-tighter">
+                    Cargos <span className="text-primary-500 font-serif italic lowercase tracking-normal">Jerárquico.</span>
                   </h2>
                 </div>
                 <div className="flex flex-col lg:items-end gap-4">
@@ -552,7 +560,7 @@ export default function LandingPage() {
                         <h4 className="text-base sm:text-lg font-black text-slate-950 dark:text-white uppercase tracking-tighter group-hover:text-primary-600 transition-colors">
                           {person ? `${person.nombre} ${person.apellidos}` : cargo.nombre}
                         </h4>
-                        <p className="text-[9px] font-black text-primary-600 uppercase tracking-widest">{cargo.nombre}</p>
+                        <p className="text-[9px] font-bold text-primary-500 uppercase tracking-widest">{cargo.nombre}</p>
                       </div>
                     </motion.div>
                   );

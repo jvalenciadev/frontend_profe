@@ -39,11 +39,17 @@ function getTipoColor(nombre?: string) {
 
 function formatDate(dateStr: string) {
     if (!dateStr) return '—';
-    // Split to avoid timezone shifts: "2026-04-27" -> [2026, 04, 27]
-    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
-    if (isNaN(year) || isNaN(month) || isNaN(day)) return '—';
-    const d = new Date(year, month - 1, day);
-    return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
+    const dateObj = typeof dateStr === 'string' ? dateStr : (dateStr as any).toISOString?.() || String(dateStr);
+    const parts = dateObj.split('T')[0].split('-');
+    if (parts.length < 3) return '—';
+
+    const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+    return d.toLocaleDateString('es-BO', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC'
+    });
 }
 
 export default function EventosPage() {
