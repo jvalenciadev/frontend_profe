@@ -1,14 +1,7 @@
-/**
- * Lista maestra de Sujetos (Subjects) para el sistema de Roles y Permisos.
- * Basada en los modelos de la base de datos (Prisma).
- */
-/**
- * Lista maestra de Sujetos (Subjects) para el sistema de Roles y Permisos.
- * Basada en los modelos de la base de datos (Prisma).
- */
 export const AVAILABLE_SUBJECTS = [
     { label: 'Acceso Total', value: 'all' },
     { label: 'Usuarios', value: 'User' },
+    { label: 'Suplantar Identidad', value: 'Impersonate' },
     { label: 'Roles', value: 'Role' },
     { label: 'Permisos', value: 'Permission' },
     { label: 'Logs de Auditoría', value: 'AuditLog' },
@@ -24,7 +17,7 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Unidades Educativas', value: 'UnidadEducativa' },
     { label: 'Galerías', value: 'Galeria' },
 
-    // Académico
+    // Académico (Estructura)
     { label: 'Programas (Maestría)', value: 'Programa' },
     { label: 'Programas (Ofertas)', value: 'ProgramaDos' },
     { label: 'Inscripciones de Programas', value: 'ProgramaInscripcion' },
@@ -39,6 +32,21 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Turnos', value: 'ProgramaTurno' },
     { label: 'Bauchers / Pagos', value: 'ProgramaBaucher' },
     { label: 'Facilitadores', value: 'ProgramaDosFacilitador' },
+    { label: 'Turnos de Oferta', value: 'ProgramaDosTurno' },
+
+    // Aula Virtual / LMS (FALTABAN)
+    { label: 'LMS - Asistencias', value: 'ModAsistencia' },
+    { label: 'LMS - Tareas', value: 'ModTarea' },
+    { label: 'LMS - Entregas de Estudiantes', value: 'ModEntrega' },
+    { label: 'LMS - Foros', value: 'ModForo' },
+    { label: 'LMS - Posts de Foro', value: 'ModForoPost' },
+    { label: 'LMS - Recursos/Materiales', value: 'ModRecurso' },
+    { label: 'LMS - Enlaces Externos', value: 'ModEnlace' },
+    { label: 'LMS - Calificaciones', value: 'ModNotaActividad' },
+    { label: 'LMS - Actas Finales', value: 'ModNotaFinal' },
+    { label: 'LMS - Insignias/Logros', value: 'ModInsignia' },
+    { label: 'LMS - Notificaciones', value: 'ModNotificacion' },
+    { label: 'LMS - Seguimiento Cuestionarios', value: 'EventoCuestionarioIntento' },
 
     // Comunicación
     { label: 'Blogs', value: 'Blog' },
@@ -66,6 +74,14 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Criterios de Evaluación', value: 'EvaluacionCriterio' },
     { label: 'Periodos de Evaluación', value: 'EvaluacionPeriodo' },
     { label: 'Puntajes de Evaluación', value: 'EvaluacionPuntaje' },
-] as const;
 
-export type SubjectValue = typeof AVAILABLE_SUBJECTS[number]['value'];
+    // Configuración Técnica
+    { label: 'Configuración de Archivos', value: 'UploadConfig' },
+    { label: 'Configuración Global', value: 'Configuration' },
+    { label: 'Seguridad / Dispositivos', value: 'TokenDispositivo' },
+
+    // Adicionales (Faltantes)
+    { label: 'Certificados / Diplomas', value: 'Certificado' },
+    { label: 'Campos Extra de Eventos', value: 'EventoCampoExtra' },
+    { label: 'Asistencia de Eventos', value: 'EventoAsistencia' },
+] as const;
