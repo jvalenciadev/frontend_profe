@@ -36,6 +36,14 @@ export const authService = {
     },
 
     /**
+     * Suplantar identidad de otro usuario (Solo Admins)
+     */
+    async impersonate(userId: string): Promise<AuthResponse> {
+        const { data } = await api.post<AuthResponse>(`/auth/impersonate/${userId}`);
+        return data;
+    },
+
+    /**
      * Logout (limpieza en cliente)
      */
     logout(): void {

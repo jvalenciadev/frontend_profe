@@ -21,10 +21,13 @@ const IMG = (src?: string | null) => {
     return src.startsWith('http') ? src : `${API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
 };
 
-const fmt = (d?: string | Date | null) => {
-    if (!d) return '—';
+const fmt = (dStr?: string | Date | null) => {
+    if (!dStr) return '—';
     try {
-        return new Date(d).toLocaleDateString('es-BO', {
+        const dateStr = typeof dStr === 'string' ? dStr.split('T')[0] : dStr.toISOString().split('T')[0];
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleDateString('es-BO', {
             day: '2-digit', month: 'long', year: 'numeric'
         });
     } catch { return '—'; }
@@ -185,9 +188,10 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {programa.turnos.map((t: any) => {
                                         const inscritos = t._count?.inscripciones || 0;
-                                        const capacidad = t.cupo || 100;
-                                        const porcentaje = Math.min((inscritos / capacidad) * 100, 100);
-                                        const isFull = inscritos >= capacidad;
+                                        const capacidad = t.cupo || 0;
+                                        const porcentaje = capacidad > 0 ? Math.min((inscritos / capacidad) * 100, 100) : 0;
+                                        const isFull = capacidad > 0 && inscritos >= capacidad;
+                                        const isUnlimited = capacidad === 0;
 
                                         return (
                                             <div key={t.id} className="p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-sm space-y-6 relative overflow-hidden">
@@ -197,8 +201,8 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estado</p>
-                                                        <span className={cn("text-[11px] font-black uppercase px-3 py-1 rounded-full border", isFull ? "text-rose-500 border-rose-500/20 bg-rose-500/5" : "text-emerald-500 border-emerald-500/20 bg-emerald-500/5")}>
-                                                            {isFull ? 'Cupos Agotados' : 'Vacantes Disponibles'}
+                                                        <span className={cn("text-[11px] font-black uppercase px-3 py-1 rounded-full border", isUnlimited ? "text-indigo-500 border-indigo-500/20 bg-indigo-500/5" : isFull ? "text-rose-500 border-rose-500/20 bg-rose-500/5" : "text-emerald-500 border-emerald-500/20 bg-emerald-500/5")}>
+                                                            {isUnlimited ? 'Cupos Ilimitados' : isFull ? 'Cupos Agotados' : 'Vacantes Disponibles'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -216,13 +220,13 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/5 relative z-10">
                                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
                                                         <span className="text-slate-400">Cupos Reservados</span>
-                                                        <span className={isFull ? "text-rose-500" : "text-primary"}>{inscritos} / {capacidad}</span>
+                                                        <span className={isFull ? "text-rose-500" : "text-primary text-xs"}>{inscritos} / {isUnlimited ? '∞' : capacidad}</span>
                                                     </div>
                                                     <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                                                         <motion.div 
                                                             initial={{ width: 0 }} 
-                                                            animate={{ width: `${porcentaje}%` }} 
-                                                            className={cn("h-full rounded-full", isFull ? "bg-rose-500" : "bg-primary")} 
+                                                            animate={{ width: isUnlimited ? '15%' : `${porcentaje}%` }} 
+                                                            className={cn("h-full rounded-full", isFull ? "bg-rose-500" : isUnlimited ? "bg-indigo-500 opacity-50" : "bg-primary")} 
                                                         />
                                                     </div>
                                                 </div>
@@ -410,6 +414,22 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
         }
     }, [currentProgram]);
 
+    // CAMPOS EXTRA
+    const [camposExtra, setCamposExtra] = useState<any[]>([]);
+    const [userExtraResponses, setUserExtraResponses] = useState<{ [key: string]: string }>({});
+
+    useEffect(() => {
+        const fetchExtras = async () => {
+            try {
+                const data = await publicService.getCamposExtra();
+                setCamposExtra(data);
+            } catch (error) {
+                console.error("Error fetching extra fields");
+            }
+        };
+        fetchExtras();
+    }, []);
+
     const handleSearch = async () => {
         if (!ci || !fechaNacimiento) return toast.error('Complete la identificación');
         setIsSearching(true);
@@ -447,6 +467,16 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                 nombre: data.nombre || '',
                 apellidos: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' ')
             }));
+
+            // Populate extra responses if user exists
+            if (data.mod_campos_extra_regs) {
+                const responses: { [key: string]: string } = {};
+                data.mod_campos_extra_regs.forEach((reg: any) => {
+                    responses[reg.campoExtraId] = reg.valor;
+                });
+                setUserExtraResponses(responses);
+            }
+
             toast.success('Identidad verificada correctamente');
             setStep(2);
         } catch (err) { toast.error('Error al verificar identidad'); } finally { setIsSearching(false); }
@@ -483,7 +513,8 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                     apellidos: manualData.apellidos,
                     correo: manualData.correo,
                     celular: manualData.celular,
-                }
+                },
+                mod_campos_extra_regs: userExtraResponses
             });
             if (res.success) setStep(7);
         } catch { toast.error('Error al procesar inscripción'); } finally { setIsLoading(false); }
@@ -571,6 +602,42 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 </div>
                             )}
 
+                            {/* Dynamic Extra Fields */}
+                            {camposExtra.length > 0 && (
+                                <div className="pt-6 border-t border-slate-100 dark:border-white/5 space-y-6">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Información Adicional Requerida</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {camposExtra.map((campo) => (
+                                            <div key={campo.id} className="space-y-2">
+                                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">
+                                                    {campo.label} {campo.esObligatorio && <span className="text-rose-500">*</span>}
+                                                </label>
+                                                {campo.tipo === 'SINGLE_SELECT' ? (
+                                                    <select
+                                                        value={userExtraResponses[campo.id] || ''}
+                                                        onChange={(e) => setUserExtraResponses(prev => ({ ...prev, [campo.id]: e.target.value }))}
+                                                        className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm outline-none focus:border-primary transition-all"
+                                                    >
+                                                        <option value="">Seleccione...</option>
+                                                        {(campo.opciones || []).map((opt: string) => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type={campo.tipo === 'BOOLEAN' ? 'checkbox' : 'text'}
+                                                        value={userExtraResponses[campo.id] || ''}
+                                                        onChange={(e) => setUserExtraResponses(prev => ({ ...prev, [campo.id]: e.target.value }))}
+                                                        className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm outline-none focus:border-primary transition-all"
+                                                        placeholder={campo.label}
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {isEmailSent && (
                                 <div className="pt-4 space-y-3">
                                     <p className="text-center text-[10px] font-black uppercase tracking-widest text-primary">Ingresa el código enviado a tu correo</p>
@@ -640,19 +707,22 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                             {currentProgram.turnos.map((t: any) => {
                                                 const isActive = String(selectedTurnoId) === String(t.id);
                                                 const inscritos = t._count?.inscripciones || 0;
-                                                const capacidad = t.cupo || 100;
-                                                const porcentaje = Math.min((inscritos / capacidad) * 100, 100);
+                                                const capacidad = t.cupo || 0;
+                                                const isUnlimited = capacidad === 0;
+                                                const porcentaje = capacidad > 0 ? Math.min((inscritos / capacidad) * 100, 100) : 0;
                                                 const colorClase = porcentaje > 90 ? 'bg-rose-500' : porcentaje > 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
                                                 return (
                                                     <button
                                                         key={t.id}
                                                         onClick={() => setSelectedTurnoId(t.id)}
+                                                        disabled={!isUnlimited && inscritos >= capacidad}
                                                         className={cn(
                                                             "group p-6 rounded-[2.5rem] text-left border-2 transition-all flex flex-col gap-5 relative overflow-hidden",
                                                             isActive 
                                                                 ? "bg-white dark:bg-slate-800 border-primary shadow-2xl shadow-primary/10 scale-[1.02]" 
-                                                                : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20"
+                                                                : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20",
+                                                            (!isUnlimited && inscritos >= capacidad) && "opacity-40 grayscale pointer-events-none"
                                                         )}
                                                     >
                                                         <div className="flex items-center justify-between w-full">
@@ -660,8 +730,8 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                                                 <Clock className="w-6 h-6" />
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isActive ? "text-primary" : "text-slate-400")}>Cupos Libres</p>
-                                                                <p className="text-sm font-black">{capacidad - inscritos}</p>
+                                                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isActive ? "text-primary" : "text-slate-400")}>{isUnlimited ? 'Cupos' : 'Cupos Libres'}</p>
+                                                                <p className="text-sm font-black">{isUnlimited ? '∞' : capacidad - inscritos}</p>
                                                             </div>
                                                         </div>
 
@@ -677,11 +747,11 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
                                                             <div className="space-y-2">
                                                                 <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
-                                                                    <span className="text-slate-400">Progreso</span>
-                                                                    <span className={cn(isActive ? "text-primary" : "text-slate-400")}>{inscritos} / {capacidad} inscritos</span>
+                                                                    <span className="text-slate-400">{isUnlimited ? 'Participantes' : 'Progreso'}</span>
+                                                                    <span className={cn(isActive ? "text-primary" : "text-slate-400")}>{inscritos} / {isUnlimited ? '∞' : capacidad}</span>
                                                                 </div>
                                                                 <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${porcentaje}%` }} transition={{ duration: 1, ease: "easeOut" }} className={cn("h-full rounded-full transition-all", isActive ? colorClase : "bg-slate-300 dark:bg-white/20")} />
+                                                                    <motion.div initial={{ width: 0 }} animate={{ width: isUnlimited ? '15%' : `${porcentaje}%` }} transition={{ duration: 1, ease: "easeOut" }} className={cn("h-full rounded-full transition-all", isActive ? (isUnlimited ? 'bg-indigo-500' : colorClase) : "bg-slate-300 dark:bg-white/20")} />
                                                                 </div>
                                                             </div>
                                                         </div>

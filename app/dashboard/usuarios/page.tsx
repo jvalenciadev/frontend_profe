@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { userService } from '@/services/userService';
+import { authService } from '@/services/authService';
 import { roleService } from '@/services/roleService';
 import { departmentService } from '@/services/departmentService';
 import { sedeService } from '@/services/sedeService';
@@ -47,7 +49,9 @@ import {
     Book,
     FileText,
     Download,
-    Settings2
+    Settings2,
+    Award,
+    Briefcase
 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -57,7 +61,8 @@ import { useProfe } from '@/contexts/ProfeContext';
 import { StatusBadge } from '@/components/StatusBadge';
 
 export default function UsuariosPage() {
-    const { user: currentUser } = useAuth();
+    const router = useRouter();
+    const { user: currentUser, login } = useAuth();
     const { config: profe } = useProfe();
 
     const IMG = (src: string | null) => {
@@ -301,6 +306,32 @@ export default function UsuariosPage() {
         }
     };
 
+    const handleImpersonate = async (user: User, mode: 'dashboard' | 'aula' = 'dashboard') => {
+        const loadingToast = toast.loading(`Generando acceso mágico para ${user.username}...`);
+        try {
+            const { access_token, user: impersonatedUser } = await authService.impersonate(user.id);
+
+            if (mode === 'aula') {
+                // Abrir en nueva pestaña con el token
+                toast.dismiss(loadingToast);
+                const url = `/aula/login?token=${access_token}`;
+                window.open(url, '_blank');
+                toast.success(`Aula abierta como ${user.nombre}`);
+            } else {
+                // Loguear en la misma pestaña
+                login(access_token, impersonatedUser);
+                toast.dismiss(loadingToast);
+                toast.success(`Ahora eres: ${user.nombre}`);
+                router.push('/dashboard');
+                // Forzar recarga ligera para limpiar contextos
+                setTimeout(() => window.location.reload(), 500);
+            }
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            toast.error('Error al generar acceso de suplantación');
+        }
+    };
+
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -520,7 +551,23 @@ export default function UsuariosPage() {
                                                     <StatusBadge status={u.estado || (u.activo ? 'OPERATIVO' : 'BLOQUEADO')} showIcon={false} />
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-end gap-2">
+                                                    <div className="flex items-center justify-end gap-2 text-right">
+                                                        <div className="flex items-center gap-1 pr-2 border-r border-border/50">
+                                                            <button
+                                                                onClick={() => handleImpersonate(u, 'dashboard')}
+                                                                className="h-8 px-2 rounded-lg bg-pink-500/5 text-pink-500 hover:bg-pink-500 hover:text-white transition-all flex items-center gap-1 text-[8px] font-black uppercase"
+                                                                title="Acceder como Administrador"
+                                                            >
+                                                                <Zap className="w-3.5 h-3.5" /> Admin
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleImpersonate(u, 'aula')}
+                                                                className="h-8 px-2 rounded-lg bg-indigo-500/5 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all flex items-center gap-1 text-[8px] font-black uppercase"
+                                                                title="Acceder como Estudiante (Nueva Pestaña)"
+                                                            >
+                                                                <GraduationCap className="w-3.5 h-3.5" /> Aula
+                                                            </button>
+                                                        </div>
                                                         <button onClick={() => handleViewUser(u)} className="p-2 rounded-xl bg-blue-500/5 text-blue-500 hover:bg-blue-500 hover:text-white transition-all" title="Ver"><Eye className="w-4 h-4" /></button>
                                                         <Can action="update" subject="User">
                                                             <button onClick={() => handleOpenModal(u)} className="p-2 rounded-xl bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all" title="Editar"><Edit2 className="w-4 h-4" /></button>

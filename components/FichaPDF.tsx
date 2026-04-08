@@ -282,6 +282,14 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
     // Color Institucional Dinámico
     const instColor = profe?.color || '#1e3a8a';
 
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+        if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleDateString('es-BO');
+    };
+
     return (
         <Document>
             <Page size="LETTER" style={styles.page}>
@@ -447,7 +455,7 @@ export const FichaPDF: React.FC<FichaPDFProps> = ({ ficha, config, profe }) => {
                                 <View key={i} style={[styles.posgradoItem, { borderLeftColor: instColor }]}>
                                     <Text style={styles.posgradoTitle}>{p.titulo}</Text>
                                     <Text style={styles.posgradoSubtitle}>
-                                        {p.tipoPosgrado?.nombre} • {new Date(p.fecha).toLocaleDateString()}
+                                        {p.tipoPosgrado?.nombre} • {formatDate(p.fecha)}
                                     </Text>
                                 </View>
                             ))}

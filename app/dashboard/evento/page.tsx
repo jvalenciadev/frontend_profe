@@ -39,7 +39,10 @@ function getTipoColor(nombre?: string) {
 
 function formatDate(dateStr: string) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    // Split to avoid timezone shifts: "2026-04-27" -> [2026, 04, 27]
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return '—';
+    const d = new Date(year, month - 1, day);
     return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -144,7 +147,7 @@ export default function EventosPage() {
             setIsLoading(true);
             const payload = {
                 ...formData,
-                fecha: new Date(formData.fecha).toISOString(),
+                fecha: formData.fecha, // Send as YYYY-MM-DD string
                 totalInscritos: Number(formData.totalInscritos),
                 tenantId: formData.tenantId || null,
                 camposExtras: formData.camposExtras.map(f => ({

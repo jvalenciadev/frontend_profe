@@ -40,6 +40,14 @@ interface ExtendedLandingPageData extends LandingPageData {
 const IMG = (url?: string) => getImageUrl(url);
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1541829070764-84a7d30dee63?auto=format&fit=crop&q=80';
 
+function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString('es-BO', options || { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 
 
 
@@ -49,6 +57,8 @@ export default function LandingPage() {
   const router = useRouter();
   const pathname = usePathname();
   const tenantParam = searchParams?.get('tenant') ?? undefined;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const [data, setData] = useState<ExtendedLandingPageData | null>(null);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
@@ -236,8 +246,10 @@ export default function LandingPage() {
                 <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4, duration: 0.8 }}
                   className="order-1 lg:order-2">
                   {(() => {
-                    const today = new Date();
-                    const featured = (data?.eventos || []).find((e: any) => new Date(e.fecha) >= today) || (data?.eventos || [])[0];
+                    const featured = (data?.eventos || []).find((e: any) => {
+                      const [y, m, d] = e.fecha.split('T')[0].split('-').map(Number);
+                      return new Date(y, m - 1, d) >= today;
+                    }) || (data?.eventos || [])[0];
                     const nextTwo = (data?.eventos || []).filter((e: any) => e.id !== featured?.id).slice(0, 3);
                     if (!featured) {
                       return (
@@ -247,9 +259,10 @@ export default function LandingPage() {
                         </div>
                       );
                     }
-                    const evtDate = new Date(featured.fecha);
-                    const isToday = evtDate.toDateString() === today.toDateString();
-                    const isFuture = evtDate > today;
+                    const [y, m, d] = featured.fecha.split('T')[0].split('-').map(Number);
+                    const evtDateRaw = new Date(y, m - 1, d);
+                    const isToday = evtDateRaw.toDateString() === today.toDateString();
+                    const isFuture = evtDateRaw > today;
                     return (
                       <div className="space-y-3">
                         {/* Frame card */}
@@ -288,8 +301,8 @@ export default function LandingPage() {
                               <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
                                 <div className="flex items-center gap-2 mb-2">
                                   <div className="w-10 h-10 bg-white rounded-xl flex flex-col items-center justify-center shadow-lg shrink-0">
-                                    <span className="text-sm font-black text-slate-900 leading-none">{evtDate.getDate()}</span>
-                                    <span className="text-[6px] font-black text-primary-600 uppercase">{evtDate.toLocaleDateString('es-ES', { month: 'short' })}</span>
+                                    <span className="text-sm font-black text-slate-900 leading-none">{d}</span>
+                                    <span className="text-[6px] font-black text-primary-600 uppercase">{formatDate(featured.fecha, { month: 'short' })}</span>
                                   </div>
                                   {featured.tipo?.nombre && (
                                     <span className="px-2 py-1 rounded-lg bg-primary-600 text-white text-[7px] font-black uppercase tracking-widest">{featured.tipo.nombre}</span>
@@ -332,8 +345,8 @@ export default function LandingPage() {
                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" alt={evt.nombre} />
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                                   <div className="absolute top-2 left-2 w-7 h-7 rounded-lg bg-white flex flex-col items-center justify-center shadow">
-                                    <span className="text-[10px] font-black text-slate-900 leading-none">{new Date(evt.fecha).getDate()}</span>
-                                    <span className="text-[5px] font-black text-primary-600 uppercase">{new Date(evt.fecha).toLocaleDateString('es-ES', { month: 'short' })}</span>
+                                    <span className="text-[10px] font-black text-slate-900 leading-none">{evt.fecha.split('T')[0].split('-')[2]}</span>
+                                    <span className="text-[5px] font-black text-primary-600 uppercase">{formatDate(evt.fecha, { month: 'short' })}</span>
                                   </div>
                                   <div className="absolute bottom-1.5 left-2 right-2">
                                     <p className="text-white text-[7px] font-black uppercase leading-tight line-clamp-2">{evt.nombre}</p>
@@ -674,7 +687,7 @@ export default function LandingPage() {
                             </div>
                           </div>
                           <div className="space-y-6 text-center">
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{new Date(featured.fecha).toLocaleDateString()}</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{formatDate(featured.fecha)}</span>
                             <h3 className="text-4xl md:text-5xl font-black text-slate-950 dark:text-white leading-[1] uppercase tracking-tighter font-fraunces">{featured.titulo}</h3>
                             <div className="w-16 h-1 bg-slate-900 mx-auto" style={{ backgroundColor: brandColor }} />
                             <p className="text-lg text-slate-500 font-serif line-clamp-2 max-w-sm mx-auto">{featured.subtitulo}</p>
@@ -744,8 +757,8 @@ export default function LandingPage() {
                   >
                     <div className="sm:w-24 flex flex-col items-center justify-center shrink-0">
                       <div className="w-20 h-20 rounded-[1.8rem] bg-slate-50 dark:bg-primary-950/50 border-2 border-slate-100 dark:border-primary-600/20 flex flex-col items-center justify-center text-slate-950 dark:text-white group-hover:bg-primary-600 group-hover:text-white transition-all shadow-md">
-                        <span className="text-2xl font-black leading-none">{new Date(evt.fecha).getDate()}</span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.1em]">{new Date(evt.fecha).toLocaleDateString('es-ES', { month: 'short' })}</span>
+                        <span className="text-2xl font-black leading-none">{evt.fecha.split('T')[0].split('-')[2]}</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.1em]">{formatDate(evt.fecha, { month: 'short' })}</span>
                       </div>
                     </div>
 
@@ -753,7 +766,7 @@ export default function LandingPage() {
                       <div className="flex flex-wrap items-center gap-4">
                         <span className="px-3 py-1 rounded-full bg-primary-600/10 text-primary-600 text-[8px] font-black uppercase tracking-widest">{evt.tipo?.nombre || 'Académico'}</span>
                         <div className="flex items-center gap-2 text-slate-400 text-[9px] font-bold uppercase tracking-widest"><MapPin className="w-3.5 h-3.5" /> {evt.lugar || 'Virtual'}</div>
-                        <div className="flex items-center gap-2 text-slate-400 text-[9px] font-bold uppercase tracking-widest"><Clock className="w-3.5 h-3.5" /> {new Date(evt.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="flex items-center gap-2 text-slate-400 text-[9px] font-bold uppercase tracking-widest"><Clock className="w-3.5 h-3.5" /> {evt.fecha.includes('T') ? new Date(evt.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '00:00'}</div>
                       </div>
                       <h4 className="text-xl sm:text-2xl font-black text-slate-950 dark:text-white uppercase tracking-tight group-hover:text-primary-600 transition-colors leading-tight">{evt.nombre}</h4>
                     </div>

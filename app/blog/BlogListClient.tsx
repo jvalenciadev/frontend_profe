@@ -10,6 +10,14 @@ import {
 import Link from 'next/link';
 import { getImageUrl } from '@/lib/utils';
 
+function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('es-BO', options || { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 // --- TYPES ---
 interface BlogPost {
     id: string;
@@ -145,7 +153,7 @@ export default function BlogListClient({ initialBlogs, profe }: BlogListClientPr
                                     <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                         <span style={{ color: brandColor }}>{TIPO_MAP[filteredBlogs[0].tipo?.toLowerCase() || 'default'].label}</span>
                                         <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                                        <span>{new Date(filteredBlogs[0].fecha).toLocaleDateString()}</span>
+                                        <span>{formatDate(filteredBlogs[0].fecha)}</span>
                                     </div>
                                     <h1 className="text-4xl md:text-5xl font-black text-slate-950 leading-tight uppercase font-fraunces tracking-tight hover:opacity-80 transition-opacity">
                                         {filteredBlogs[0].titulo}
@@ -170,7 +178,7 @@ export default function BlogListClient({ initialBlogs, profe }: BlogListClientPr
                                 {filteredBlogs.slice(activeType === 'Todos' && !searchQuery ? 1 : 0, 8).map((post) => (
                                     <Link key={post.id} href={`/blog/${post.id}`} className="group block space-y-2 pb-6 border-b border-slate-200 last:border-0 last:pb-0">
                                         <div className="flex items-center justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                                            <span>{new Date(post.fecha).toLocaleDateString()}</span>
+                                            <span>{formatDate(post.fecha)}</span>
                                             <span style={{ color: brandColor }}>{TIPO_MAP[post.tipo?.toLowerCase() || 'default'].label}</span>
                                         </div>
                                         <h4 className="text-sm font-bold text-slate-900 leading-snug group-hover:opacity-70 font-fraunces uppercase">
@@ -194,7 +202,7 @@ export default function BlogListClient({ initialBlogs, profe }: BlogListClientPr
                                     </div>
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                                            <span>{new Date(post.fecha).toLocaleDateString()}</span>
+                                            <span>{formatDate(post.fecha)}</span>
                                             <span style={{ color: brandColor }}>{TIPO_MAP[post.tipo?.toLowerCase() || 'default'].label}</span>
                                         </div>
                                         <h3 className="text-xl font-bold text-slate-900 leading-tight uppercase font-fraunces group-hover:opacity-70 transition-opacity line-clamp-2">

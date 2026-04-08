@@ -180,6 +180,18 @@ export const publicService = {
         } catch (error) {
             return null;
         }
+    },
+
+    /**
+     * Obtiene los campos extra activos para el registro público
+     */
+    async getCamposExtra(): Promise<any[]> {
+        try {
+            const { data } = await api.get('/public/campos-extra');
+            return data;
+        } catch (error) {
+            return [];
+        }
     }
 };
 

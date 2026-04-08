@@ -39,6 +39,14 @@ function extractYouTubeId(url: string): string {
     return url;
 }
 
+function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('es-BO', options || { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 // Hook de online/offline
 function shuffleArray<T>(array: T[]): T[] {
     const newArr = [...array];
@@ -255,7 +263,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
     <div class="field"><div class="label">Cédula de Identidad</div><div class="value mono">${persona?.ci || ''}</div></div>
     <div class="field"><div class="label">Evento</div><div class="value">${evento?.nombre || ''}</div></div>
     <div class="field"><div class="label">Categoría de Evento</div><div class="value" style="color: ${config.printHex}; font-weight: 900;">${evento?.tipo?.nombre || 'Evento'}</div></div>
-    <div class="field"><div class="label">Fecha del evento</div><div class="value">${evento?.fecha ? new Date(evento.fecha).toLocaleDateString('es-BO') : ''}</div></div>
+    <div class="field"><div class="label">Fecha del evento</div><div class="value">${formatDate(evento?.fecha)}</div></div>
     ${resultado && !resultado.offline ? `
     <div class="field"><div class="label">Puntaje / Desempeño</div><div class="value mono">${resultado.puntaje} de ${resultado.puntajeMaximo} puntos</div></div>
     <div class="field"><div class="label">Nota Final</div><div class="value" style="font-size: 20px; font-weight: 900;">${resultado.nota} / 100</div></div>
@@ -333,7 +341,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
 
                     <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
                         <span className="text-[10px] font-black uppercase text-muted-foreground">Fecha del evento</span>
-                        <p className="font-bold text-foreground text-sm">{new Date(evento?.fecha).toLocaleDateString('es-BO')}</p>
+                        <p className="font-bold text-foreground text-sm">{formatDate(evento?.fecha)}</p>
                     </div>
 
                     {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
@@ -1013,7 +1021,7 @@ export default function EventoPublicoPage() {
 
     if (!evento) return null;
 
-    const fechaEvento = new Date(evento.fecha).toLocaleDateString('es-BO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const fechaEvento = formatDate(evento.fecha, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     return (
         <>

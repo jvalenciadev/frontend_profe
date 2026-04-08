@@ -3,6 +3,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { authService } from '@/services/authService';
 import { aulaService } from '@/services/aulaService';
 import { LogoAula } from '@/components/aula/LogoAula';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,8 +37,31 @@ export default function AulaLoginPage() {
         setMounted(true);
         if (isAuthenticated) {
             router.push('/aula');
+            return;
+        }
+
+        // Check for Magic Token (Impersonation)
+        const params = new URLSearchParams(window.location.search);
+        const magicToken = params.get('token');
+        if (magicToken) {
+            handleMagicLogin(magicToken);
         }
     }, [isAuthenticated, router]);
+
+    const handleMagicLogin = async (token: string) => {
+        setIsLoading(true);
+        try {
+            const user = await authService.getProfile(token);
+            login(token, user);
+            toast.success(`Acceso administrativo activo: ${user.nombre}`);
+            router.push('/aula');
+        } catch (err) {
+            toast.error('Token de acceso directo expirado o inválido');
+            router.replace('/aula/login');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();

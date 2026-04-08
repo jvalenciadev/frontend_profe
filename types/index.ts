@@ -53,6 +53,7 @@ export interface User {
     idiomas?: string;
     licUniversitaria?: string;
     licMescp?: string;
+    mod_campos_extra_regs?: any[];
 }
 
 // Tipos de Permisos

@@ -9,6 +9,14 @@ import {
     PlayCircle, Bell
 } from 'lucide-react';
 import { getImageUrl } from '@/lib/utils';
+
+function formatDate(dateStr: string, options?: Intl.DateTimeFormatOptions) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('es-BO', options || { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 import Link from 'next/link';
 
 interface BlogDetailClientProps {
@@ -86,7 +94,7 @@ export default function BlogDetailClient({ post: initialPost, profe }: BlogDetai
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="h-4 w-px bg-slate-200 mx-2" />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{new Date(post.fecha).toLocaleDateString()}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{formatDate(post.fecha)}</span>
             </nav>
 
             {/* --- ADAPTIVE HEADER: BOLDER & MORE PROMINENT --- */}
