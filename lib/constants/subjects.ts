@@ -21,6 +21,7 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Programas (Maestría)', value: 'Programa' },
     { label: 'Programas (Ofertas)', value: 'ProgramaDos' },
     { label: 'Inscripciones de Programas', value: 'ProgramaInscripcion' },
+    { label: 'Inscripción Estados', value: 'ProgramaInscripcionEstado' },
     { label: 'Módulos Maestros', value: 'ModuloMaestro' },
     { label: 'Módulos de Oferta', value: 'ProgramaModulo' },
     { label: 'Módulos por Versión', value: 'ProgramaModuloVersion' },

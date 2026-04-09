@@ -13,6 +13,11 @@ import {
 import { publicService } from '@/services/publicService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { InscripcionPDF } from '@/components/academico/InscripcionPDF';
+
+import dynamic from 'next/dynamic';
+const PDFDownloadLink = dynamic<any>(() => import('@react-pdf/renderer').then(mod => mod.PDFDownloadLink), { ssr: false });
+const PDFViewer = dynamic<any>(() => import('@react-pdf/renderer').then(mod => mod.PDFViewer), { ssr: false });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -41,7 +46,7 @@ interface Props {
 export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
     const router = useRouter();
     const [programa, setPrograma] = useState(initialPrograma);
-    const [showModal, setShowModal] = useState(false);
+    const [showModal, setShowModal] = useState(true);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => { setMounted(true); }, []);
@@ -223,10 +228,10 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
                                                         <span className={isFull ? "text-rose-500" : "text-primary text-xs"}>{inscritos} / {isUnlimited ? '∞' : capacidad}</span>
                                                     </div>
                                                     <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                                                        <motion.div 
-                                                            initial={{ width: 0 }} 
-                                                            animate={{ width: isUnlimited ? '15%' : `${porcentaje}%` }} 
-                                                            className={cn("h-full rounded-full", isFull ? "bg-rose-500" : isUnlimited ? "bg-indigo-500 opacity-50" : "bg-primary")} 
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: isUnlimited ? '15%' : `${porcentaje}%` }}
+                                                            className={cn("h-full rounded-full", isFull ? "bg-rose-500" : isUnlimited ? "bg-indigo-500 opacity-50" : "bg-primary")}
                                                         />
                                                     </div>
                                                 </div>
@@ -367,11 +372,19 @@ export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
 // ─────────────────────────────────────────────────────────────────────────────
 function InscripcionModal({ programa, onClose, brandColor }: { programa: any; onClose: () => void; brandColor: string }) {
     const [step, setStep] = useState(1);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [isConfirmed, setIsConfirmed] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [persona, setPersona] = useState<any>(null);
     const [personaFound, setPersonaFound] = useState<boolean | null>(null);
     const [personaSource, setPersonaSource] = useState<'map_persona' | 'admins' | null>(null);
+    const [isClient, setIsClient] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Identificación
     const [ci, setCi] = useState('');
@@ -414,6 +427,12 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
         }
     }, [currentProgram]);
 
+    useEffect(() => {
+        if (persona?.alreadyEnrolled?.estadoNombre === 'CONFIRMADO') {
+            setIsConfirmed(true);
+        }
+    }, [persona]);
+
     // CAMPOS EXTRA
     const [camposExtra, setCamposExtra] = useState<any[]>([]);
     const [userExtraResponses, setUserExtraResponses] = useState<{ [key: string]: string }>({});
@@ -435,14 +454,14 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
         setIsSearching(true);
         try {
             const data = await publicService.checkPersonaByDate(ci.trim(), fechaNacimiento, complemento.trim() || undefined, programa.id);
-            
+
             if (data?.alreadyEnrolled) {
                 // REDIRECCIÓN A ÉXITO (MODO COMPROBANTE)
                 setPersona(data);
                 setPersonaFound(true);
-                setManualData(p => ({ 
-                    ...p, 
-                    correo: data.correo || '', 
+                setManualData(p => ({
+                    ...p,
+                    correo: data.correo || '',
                     celular: data.celular || '',
                     nombre: data.nombre || '',
                     apellidos: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' ')
@@ -459,10 +478,10 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
             setPersona(data);
             setPersonaFound(true);
             setPersonaSource(data.source || null);
-            setManualData(p => ({ 
-                ...p, 
-                correo: data.correo || '', 
-                correoConfirmacion: data.correo || '', 
+            setManualData(p => ({
+                ...p,
+                correo: data.correo || '',
+                correoConfirmacion: data.correo || '',
                 celular: data.celular || '',
                 nombre: data.nombre || '',
                 apellidos: [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(' ')
@@ -525,25 +544,24 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={onClose} />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col"
             >
-                <div className="p-8 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm">
+                <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm">
                     <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-xl font-black uppercase tracking-tight">Registro Académico</h3>
+                            <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight">Registro Académico</h3>
                             <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest">{currentProgram.modalidad?.nombre}</span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[400px]">
+                        <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[400px]">
                             {currentProgram.version?.numero ? `VERSIÓN ${currentProgram.version.numero} (${currentProgram.version.gestion})` : 'VERSIÓN ÚNICA'} • {currentProgram.nombre}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-3 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-all text-slate-400 shrink-0"><X className="w-5 h-5" /></button>
+                    <button onClick={onClose} className="p-2 sm:p-3 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-all text-slate-400 shrink-0"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 lg:p-12">
-
+                <div className="flex-1 overflow-y-auto px-5 sm:px-8 pt-4 pb-8 lg:px-12 lg:pt-2 lg:pb-12">
                     {/* Stepper Moderno */}
                     {step < 7 && (
                         <div className="flex gap-2 mb-10">
@@ -665,19 +683,19 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                         </h4>
                                         <span className="text-[9px] font-black uppercase text-primary px-3 py-1 bg-primary/5 rounded-full border border-primary/10">{(programa.sedesDisponibles?.length || 0) > 1 ? `${programa.sedesDisponibles.length} sedes disponibles` : 'Sede única habilitada'}</span>
                                     </div>
-                                    
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {(programa.sedesDisponibles || [programa]).map((s: any) => {
                                             const isActive = String(selectedSedeId) === String(s.id);
                                             const dep = s.sede?.departamento?.nombre || s.sede?.dep?.nombre || '';
                                             return (
-                                                <button 
-                                                    key={s.id} 
-                                                        onClick={() => setSelectedSedeId(s.id)} 
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setSelectedSedeId(s.id)}
                                                     className={cn(
                                                         "group p-5 rounded-[2rem] text-left border-2 transition-all relative overflow-hidden",
-                                                        isActive 
-                                                            ? "bg-primary border-primary text-white shadow-2xl shadow-primary/20 scale-[1.02]" 
+                                                        isActive
+                                                            ? "bg-primary border-primary text-white shadow-2xl shadow-primary/20 scale-[1.02]"
                                                             : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20 hover:scale-[1.01]"
                                                     )}
                                                 >
@@ -719,8 +737,8 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                                         disabled={!isUnlimited && inscritos >= capacidad}
                                                         className={cn(
                                                             "group p-6 rounded-[2.5rem] text-left border-2 transition-all flex flex-col gap-5 relative overflow-hidden",
-                                                            isActive 
-                                                                ? "bg-white dark:bg-slate-800 border-primary shadow-2xl shadow-primary/10 scale-[1.02]" 
+                                                            isActive
+                                                                ? "bg-white dark:bg-slate-800 border-primary shadow-2xl shadow-primary/10 scale-[1.02]"
                                                                 : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20",
                                                             (!isUnlimited && inscritos >= capacidad) && "opacity-40 grayscale pointer-events-none"
                                                         )}
@@ -773,9 +791,9 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 <button onClick={() => setStep(2)} className="h-20 px-10 rounded-[2rem] bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition-all flex items-center gap-3">
                                     <ArrowLeft className="w-4 h-4" /> Atrás
                                 </button>
-                                <button 
-                                    onClick={() => setStep(Number(currentProgram.costo) > 0 ? 4 : 5)} 
-                                    disabled={(!selectedTurnoId && currentProgram.turnos?.length > 0)} 
+                                <button
+                                    onClick={() => setStep(Number(currentProgram.costo) > 0 ? 4 : 5)}
+                                    disabled={(!selectedTurnoId && currentProgram.turnos?.length > 0)}
                                     className="flex-1 h-20 rounded-[2rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-20 flex items-center justify-center gap-3"
                                 >
                                     Siguiente Paso <ArrowRight className="w-4 h-4" />
@@ -905,34 +923,34 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
                     {/* Step 7: Éxito o Comprobante de Ya Inscrito */}
                     {step === 7 && (
-                        <div className="py-8 space-y-8 animate-in zoom-in">
-                            <div className="text-center space-y-6">
-                                <div className="w-24 h-24 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto text-white shadow-2xl shadow-emerald-500/20 rotate-12">
-                                    <CheckCircle2 className="h-12 w-12" />
-                                </div>
-                                <div className="space-y-3">
-                                    <h2 className="text-3xl font-black uppercase tracking-tighter">
-                                        {persona?.alreadyEnrolled ? 'Usted ya está registrado' : '¡Registro Exitoso!'}
-                                    </h2>
-                                    <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto leading-relaxed text-sm">
-                                        {persona?.alreadyEnrolled 
-                                            ? 'A continuación se muestran los detalles de su inscripción vigente.' 
-                                            : 'Tu solicitud ha sido registrada correctamente en el sistema.'}
-                                    </p>
+                        <div className="py-0 space-y-2 animate-in zoom-in">
+                            <div className="text-center space-y-4">
+                                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 max-w-sm mx-auto">
+                                    <div className="flex items-center gap-4 text-left">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                            <AlertTriangle size={20} />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="font-black text-[10px] uppercase tracking-widest text-amber-600">Registro Detectado</p>
+                                            <p className="text-[11px] text-slate-500 leading-tight font-bold">
+                                                Usted ya se encuentra registrado en este programa académico.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* COMPROBANTE DE INSCRIPCIÓN */}
-                            <div className="bg-slate-50 dark:bg-white/5 rounded-[2rem] p-8 border border-slate-100 dark:border-white/10 space-y-8 relative overflow-hidden">
+                            <div className="bg-slate-50 dark:bg-white/5 rounded-[2rem] p-5 sm:p-8 border border-slate-100 dark:border-white/10 space-y-6 sm:space-y-8 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-5">
                                     <ShieldCheck className="w-32 h-32" />
                                 </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 relative z-10">
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 relative z-10">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Postulante</p>
                                         <p className="font-black text-sm uppercase truncate">
-                                            {manualData.nombre} {manualData.apellidos}
+                                            {persona?.alreadyEnrolled?.persona?.nombre} {persona?.alreadyEnrolled?.persona?.apellidos}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
@@ -948,31 +966,151 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Sede de Estudios</p>
                                         <p className="font-black text-sm uppercase">
-                                            {persona?.alreadyEnrolled 
-                                                ? `${persona.alreadyEnrolled.departamento || ''} - ${persona.alreadyEnrolled.sede || 'Sede Central'}` 
+                                            {persona?.alreadyEnrolled
+                                                ? `${persona.alreadyEnrolled.departamento || ''} - ${persona.alreadyEnrolled.sede || 'Sede Central'}`
                                                 : `${currentProgram.sede?.departamento?.nombre || ''} - ${currentProgram.sede?.nombre || 'Sede Central'}`}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Turno Habilitado</p>
                                         <p className="font-black text-sm uppercase tracking-widest">
-                                            {persona?.alreadyEnrolled 
-                                                ? persona.alreadyEnrolled.turno || 'ÚNICO' 
+                                            {persona?.alreadyEnrolled
+                                                ? persona.alreadyEnrolled.turno || 'ÚNICO'
                                                 : currentProgram.turnos?.find((x: any) => String(x.id) === String(selectedTurnoId))?.turnoConfig?.nombre || 'ÚNICO'}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Contacto Registrado</p>
-                                        <p className="font-black text-sm uppercase tracking-tight">{manualData.celular} • {manualData.correo}</p>
+                                        <p className="font-black text-sm uppercase tracking-tight">
+                                            {persona?.alreadyEnrolled?.persona?.celular || manualData.celular} • {persona?.alreadyEnrolled?.persona?.correo || manualData.correo}
+                                        </p>
                                     </div>
                                 </div>
+
+                                {persona?.alreadyEnrolled && (
+                                    <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-6">
+                                        {!isConfirmed && (
+                                            <div
+                                                className="flex items-start gap-4 p-5 rounded-2xl bg-primary/5 border border-primary/10 hover:border-primary/30 transition-all cursor-pointer select-none group"
+                                                onClick={() => setAcceptedTerms(!acceptedTerms)}
+                                            >
+                                                <div className={cn(
+                                                    "mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+                                                    acceptedTerms ? "bg-primary border-primary shadow-lg shadow-primary/20" : "border-slate-300 dark:border-white/20"
+                                                )}>
+                                                    {acceptedTerms && <Check size={14} className="text-white" />}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-black leading-tight text-slate-800 dark:text-slate-200">
+                                                        Acepto las condiciones establecidas en el Formulario de Compromiso de Permanencia y Conclusión
+                                                    </p>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Obligatorio para finalizar su inscripción.</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            {!isConfirmed ? (
+                                                <button
+                                                    disabled={!acceptedTerms || isLoading}
+                                                    onClick={async () => {
+                                                        try {
+                                                            setIsLoading(true);
+                                                            await publicService.confirmarInscripcion(persona.alreadyEnrolled.id);
+                                                            setIsConfirmed(true);
+                                                            toast.success('Compromiso confirmado correctamente');
+                                                        } catch (e) {
+                                                            toast.error('Error al confirmar compromiso');
+                                                        } finally {
+                                                            setIsLoading(false);
+                                                        }
+                                                    }}
+                                                    className="flex-1 h-14 rounded-xl bg-emerald-600 text-white font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                                                >
+                                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                                                    Confirmar Inscripción
+                                                </button>
+                                            ) : (
+                                                <div className="flex-1 flex flex-col gap-4">
+                                                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
+                                                        <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                                        <p className="text-[10px] font-bold text-amber-800 dark:text-amber-400 leading-tight">
+                                                            DEBE DESCARGAR, IMPRIMIR Y ENTREGAR ESTE COMPROMISO FIRMADO EN LA <span className="uppercase">{persona.alreadyEnrolled.sede || 'Sede Central'}</span>.
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="flex gap-4">
+                                                        <button
+                                                            onClick={() => setShowPreview(true)}
+                                                            className="flex-1 h-14 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-white/20 transition-all"
+                                                        >
+                                                            <Search className="w-4 h-4" />
+                                                            Previsualizar
+                                                        </button>
+
+                                                        {isClient && (
+                                                            <PDFDownloadLink
+                                                                document={<InscripcionPDF inscripcion={persona.alreadyEnrolled} />}
+                                                                fileName={`Inscripcion_${persona.alreadyEnrolled.id}.pdf`}
+                                                                className="flex-1 h-14 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                                            >
+                                                                {({ loading }: any) => (
+                                                                    <>
+                                                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 rotate-180" />}
+                                                                        Descargar PDF
+                                                                    </>
+                                                                )}
+                                                            </PDFDownloadLink>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <button onClick={onClose} className="w-full h-16 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all">Cerrar Ventana de Registro</button>
+                                <button 
+                                    onClick={onClose} 
+                                    className="w-full h-14 sm:h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                                >
+                                    {isConfirmed ? 'Finalización Exitosa' : 'Cerrar Ventana'}
+                                </button>
                         </div>
                     )}
-
                 </div>
+
+                <AnimatePresence>
+                    {showPreview && isClient && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setShowPreview(false)}
+                                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="relative w-full max-w-5xl h-[85vh] bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-2xl"
+                            >
+                                <div className="h-16 border-b flex items-center justify-between px-8 bg-slate-50">
+                                    <h4 className="font-black uppercase tracking-widest text-xs text-slate-800">Vista Previa de Compromiso</h4>
+                                    <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="flex-1 w-full bg-slate-200">
+                                    <PDFViewer width="100%" height="100%" showToolbar={true}>
+                                        <InscripcionPDF inscripcion={persona.alreadyEnrolled} />
+                                    </PDFViewer>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
             </motion.div>
         </div>
     );

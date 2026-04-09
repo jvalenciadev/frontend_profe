@@ -192,6 +192,13 @@ export const publicService = {
         } catch (error) {
             return [];
         }
+    },
+    /**
+     * Confirma una inscripción existente (Compromiso de permanencia)
+     */
+    async confirmarInscripcion(inscripcionId: string): Promise<any> {
+        const { data } = await api.patch(`/public/confirmar-inscripcion/${inscripcionId}`);
+        return data;
     }
 };
 

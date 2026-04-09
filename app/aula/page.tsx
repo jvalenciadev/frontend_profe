@@ -2,12 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { aulaService } from '@/services/aulaService';
+import { InscripcionPDF } from '@/components/academico/InscripcionPDF';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, GraduationCap, ArrowRight, ShieldCheck, Timer, Award, User as UserIcon, Calendar, Bell, ChevronRight, Activity, Zap, Search, ChevronLeft, Users, Clock, Lock } from 'lucide-react';
+import {
+    BookOpen, GraduationCap, ArrowRight, ShieldCheck, Timer, Award,
+    User as UserIcon, Calendar, Bell, ChevronRight, Activity, Zap,
+    Search, ChevronLeft, Users, Clock, Lock, CheckCircle2, Download,
+    FileText, X, AlertTriangle, Check, Loader2
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn, getImageUrl } from '@/lib/utils';
 import { useAula } from '@/contexts/AulaContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+
+const PDFDownloadLink = dynamic<any>(() => import('@react-pdf/renderer').then(mod => mod.PDFDownloadLink), { ssr: false });
+const PDFViewer = dynamic<any>(() => import('@react-pdf/renderer').then(mod => mod.PDFViewer), { ssr: false });
 
 export default function AulaMainPage() {
     const { theme, isFacilitator } = useAula();
@@ -16,6 +27,10 @@ export default function AulaMainPage() {
     const [selectedProgram, setSelectedProgram] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [confirmingInscripcion, setConfirmingInscripcion] = useState<any>(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const [acceptedCommitment, setAcceptedCommitment] = useState(false);
+    const [isProcessingConfirmation, setIsProcessingConfirmation] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -261,10 +276,16 @@ export default function AulaMainPage() {
                                             course={item}
                                             theme={theme}
                                             isModule={!!selectedProgram}
+                                            onConfirm={() => setConfirmingInscripcion(item)}
                                             onClick={() => {
                                                 if (selectedProgram) {
                                                     router.push(`/aula/curso/${item.id}`);
                                                 } else {
+                                                    // Si es PREINSCRITO, obligar a confirmar
+                                                    if (item.statusName === 'PREINSCRITO') {
+                                                        setConfirmingInscripcion(item);
+                                                        return;
+                                                    }
                                                     setSelectedProgram(item);
                                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                                 }
@@ -273,6 +294,183 @@ export default function AulaMainPage() {
                                     ))}
                                 </div>
                             )}
+
+                            {/* MODAL DE CONFIRMACIÓN DE COMPROMISO */}
+                            <AnimatePresence>
+                                {confirmingInscripcion && (
+                                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            onClick={() => !isProcessingConfirmation && !showPreview && setConfirmingInscripcion(null)}
+                                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                                        />
+                                        <motion.div
+                                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                            className={cn(
+                                                "relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] shadow-2xl border flex flex-col",
+                                                theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
+                                            )}
+                                        >
+                                            <div className="p-8 md:p-12 space-y-8">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-2">
+                                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest">
+                                                            Acción Requerida
+                                                        </div>
+                                                        <h3 className={cn("text-3xl font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                            Confirmación de Inscripción
+                                                        </h3>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setConfirmingInscripcion(null)}
+                                                        className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-slate-600 transition-colors"
+                                                    >
+                                                        <X size={20} />
+                                                    </button>
+                                                </div>
+
+                                                {confirmingInscripcion.statusName !== 'CONFIRMADO' ? (
+                                                    <div className="space-y-8">
+                                                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                                            <AlertTriangle size={20} />
+                                                        </div>
+                                                        <div className="space-y-0.5">
+                                                            <p className="font-black text-[10px] uppercase tracking-widest text-amber-600">Registro Detectado</p>
+                                                            <p className="text-[11px] text-slate-500 leading-tight font-bold">
+                                                                Ya te encuentras registrado en el programa <span className="text-slate-900 dark:text-white uppercase">"{confirmingInscripcion.nombre}"</span>.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                        <div 
+                                                            className="flex items-start gap-4 p-5 rounded-2xl bg-primary/5 border border-primary/10 hover:border-primary/30 transition-all cursor-pointer select-none"
+                                                            onClick={() => setAcceptedCommitment(prev => !prev)}
+                                                        >
+                                                            <div className={cn(
+                                                                "mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+                                                                acceptedCommitment ? "bg-primary border-primary shadow-lg shadow-primary/20" : "border-slate-300 dark:border-white/20"
+                                                            )}>
+                                                                {acceptedCommitment && <Check size={14} className="text-white" />}
+                                                            </div>
+                                                            <div className="flex-1 space-y-1">
+                                                                <p className={cn("text-xs font-black leading-tight", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
+                                                                    Acepto las condiciones establecidas en el Formulario de Compromiso de Permanencia y Conclusión
+                                                                </p>
+                                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Es obligatorio para finalizar su inscripción oficial.</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex gap-4">
+                                                            <button
+                                                                disabled={!acceptedCommitment || isProcessingConfirmation}
+                                                                onClick={async () => {
+                                                                    setIsProcessingConfirmation(true);
+                                                                    try {
+                                                                        await aulaService.confirmarInscripcion(confirmingInscripcion.inscripcionId);
+                                                                        toast.success('Inscripción confirmada. ¡Bienvenido!');
+                                                                        const data = await aulaService.getMisCursos();
+                                                                        setCourses(data);
+                                                                        setConfirmingInscripcion({ ...confirmingInscripcion, statusName: 'CONFIRMADO' });
+                                                                    } catch (e) {
+                                                                        toast.error('Error al confirmar inscripción');
+                                                                    } finally {
+                                                                        setIsProcessingConfirmation(false);
+                                                                    }
+                                                                }}
+                                                                className="flex-1 h-16 rounded-2xl bg-emerald-600 text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-emerald-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                                            >
+                                                                {isProcessingConfirmation ? <Loader2 className="animate-spin w-5 h-5" /> : <ShieldCheck size={20} />}
+                                                                Confirmar Compromiso
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-8">
+                                                        <div className="p-6 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                                                                    <Check size={24} />
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <p className="font-black text-sm uppercase tracking-tight text-emerald-600">Inscripción Confirmada</p>
+                                                                    <p className="text-[10px] text-slate-500 leading-relaxed font-bold uppercase">
+                                                                        DEBE DESCARGAR E IMPRIMIR ESTE DOCUMENTO Y PRESENTARLO EN LA SEDE <span className="text-emerald-700">"{confirmingInscripcion.sede || 'CENTRAL'}"</span>.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <button
+                                                                onClick={() => setShowPreview(true)}
+                                                                className="h-16 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <Search size={18} />
+                                                                Previsualizar
+                                                            </button>
+
+                                                            <PDFDownloadLink
+                                                                document={<InscripcionPDF inscripcion={confirmingInscripcion} />}
+                                                                fileName={`Comprobante_${confirmingInscripcion.id}.pdf`}
+                                                                className="h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                {({ loading }: any) => loading ? <Loader2 className="animate-spin w-4 h-4" /> : <Download size={18} />}
+                                                                Descargar PDF
+                                                            </PDFDownloadLink>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => setConfirmingInscripcion(null)}
+                                                            className="w-full h-14 rounded-2xl border-2 border-slate-200 dark:border-white/10 text-slate-400 font-black uppercase tracking-widest text-[9px] hover:bg-slate-50 transition-all"
+                                                        >
+                                                            Cerrar y Continuar al Aula
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    </div>
+                                )}
+                            </AnimatePresence>
+
+                            <AnimatePresence>
+                                {showPreview && confirmingInscripcion && (
+                                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            onClick={() => setShowPreview(false)}
+                                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                                        />
+                                        <motion.div
+                                            initial={{ scale: 0.9, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            exit={{ scale: 0.9, opacity: 0 }}
+                                            className="relative w-full max-w-5xl h-[90vh] bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-2xl"
+                                        >
+                                            <div className="h-16 border-b flex items-center justify-between px-8 bg-slate-50">
+                                                <h4 className="font-black uppercase tracking-widest text-[10px] text-slate-800">Vista Previa: Carta de Compromiso</h4>
+                                                <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                                    <X className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            <div className="flex-1 w-full bg-slate-200">
+                                                <PDFViewer width="100%" height="100%" showToolbar={true}>
+                                                    <InscripcionPDF inscripcion={confirmingInscripcion} />
+                                                </PDFViewer>
+                                            </div>
+                                        </motion.div>
+                                    </div>
+                                )}
+                            </AnimatePresence>
                         </section>
 
                         {isFacilitator && !selectedProgram && (
@@ -410,6 +608,11 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
         (course.fechaFin && new Date(new Date(course.fechaFin).setHours(23, 59, 59, 999)) < now)
     );
 
+    const [isClient, setIsClient] = useState(false);
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
     const handleCardClick = () => {
         if (isLocked) return;
         onClick();
@@ -514,13 +717,23 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
                     theme === 'dark' ? "border-slate-800 bg-slate-800/20" : "border-slate-100 bg-slate-50/50"
                 )}>
                     <div className="flex items-center gap-2">
-                        <div className={cn("w-7 h-7 rounded-lg text-white flex items-center justify-center", isLocked ? "bg-slate-400" : "bg-primary")}>
-                            {isLocked ? <Lock size={14} /> : <ArrowRight size={14} />}
+                        <div className={cn("w-7 h-7 rounded-lg text-white flex items-center justify-center",
+                            isLocked ? "bg-slate-400" : course.statusName === 'PREINSCRITO' ? "bg-amber-500" : "bg-primary")}>
+                            {isLocked ? <Lock size={14} /> : course.statusName === 'PREINSCRITO' ? <AlertTriangle size={14} /> : <ArrowRight size={14} />}
                         </div>
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                            {isLocked ? 'Bloqueado' : 'Gestionar'}
+                            {isLocked ? 'Bloqueado' : course.statusName === 'PREINSCRITO' ? 'Pendiente' : 'Gestionar'}
                         </span>
                     </div>
+                    {isClient && course.statusName === 'CONFIRMADO' && (
+                        <PDFDownloadLink
+                            document={<InscripcionPDF inscripcion={course} />}
+                            fileName={`Comprobante_${course.id}.pdf`}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-primary transition-all"
+                        >
+                            {({ loading }: any) => loading ? <Clock size={14} className="animate-pulse" /> : <Download size={14} />}
+                        </PDFDownloadLink>
+                    )}
                     {isLocked && course.fechaInicio && new Date(course.fechaInicio) > now && (
                         <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-sm">
                             Disponible el {new Date(course.fechaInicio).toLocaleDateString()}

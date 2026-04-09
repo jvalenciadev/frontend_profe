@@ -26,6 +26,11 @@ export const aulaService = {
         return response.data;
     },
 
+    confirmarInscripcion: async (inscripcionId: string) => {
+        const response = await aulaApi.patch(`/confirmar-inscripcion/${inscripcionId}`);
+        return response.data;
+    },
+
     actualizarPerfil: async (data: any) => {
         const response = await aulaApi.patch('/perfil', data);
         return response.data;
@@ -43,7 +48,7 @@ export const aulaService = {
     },
 
     guardarRespuestasCamposExtra: async (respuestas: { campoExtraId: string; valor: string }[]) => {
-        const response = await aulaApi.post('/perfil/campos-extra', respuestas);
+        const response = await aulaApi.post('/perfil/campos-extra', { respuestas });
         return response.data;
     },
 

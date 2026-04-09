@@ -140,144 +140,83 @@ interface Props {
 }
 
 export const InscripcionPDF: React.FC<Props> = ({ inscripcion: ins, profe }) => {
-    const totalPagado = (ins.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0);
-    const saldo = (ins.programa?.costo || 0) - totalPagado;
+    // Buscar respuestas extras para los espacios punteados
+    const extra = ins.respuestasExtra || [];
+    const getExtraVal = (labelPart: string) => {
+        const found = extra.find((e: any) => e.campoExtra?.mod_ce_label?.toLowerCase().includes(labelPart.toLowerCase()));
+        return found ? found.valor : '................................';
+    };
+
+    const ue = getExtraVal('unidad educativa');
+    const gestion = getExtraVal('gestión');
+    const domicilio = ins.persona?.direccion || '................................';
+    const ciudad = ins.sede?.nombre || 'La Paz';
 
     return (
         <Document>
-            {/* PAGINA 1: COMPROBANTE DE INSCRIPCIÓN Y PAGOS */}
+            {/* PAGINA 1: CARTA DE COMPROMISO */}
             <Page size="LETTER" style={styles.page}>
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.title}>Comprobante de Inscripción</Text>
-                        <Text style={styles.subtitle}>{profe?.nombre || 'PROGRAMA DE FORMACIÓN ESPECIALIZADA'}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 10, fontWeight: 'bold' }}>Nº REG: {ins.id?.substring(0, 8).toUpperCase()}</Text>
-                        <Text style={{ fontSize: 8, color: '#94a3b8' }}>Fecha: {new Date().toLocaleDateString()}</Text>
-                    </View>
-                </View>
+                {/* Fondo de Hoja Completa */}
+                <Image 
+                    src="/fondo_doc.jpg" 
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                    }} 
+                />
 
-                {/* DATOS DEL PARTICIPANTE */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Datos del Participante</Text>
-                    <View style={styles.grid}>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Nombres y Apellidos</Text>
-                            <Text style={styles.value}>{ins.persona?.nombre} {ins.persona?.apellidos}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Cédula de Identidad</Text>
-                            <Text style={styles.value}>{ins.persona?.nroDocumento} {ins.persona?.expedido}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Celular / Contacto</Text>
-                            <Text style={styles.value}>{ins.persona?.celular || 'N/A'}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Correo Electrónico</Text>
-                            <Text style={styles.value}>{ins.persona?.email || 'N/A'}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* DETALLE ACADÉMICO */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Detalle de Inscripción</Text>
-                    <View style={styles.grid}>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Programa</Text>
-                            <Text style={styles.value}>{ins.programa?.nombre}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Código / Gestión</Text>
-                            <Text style={styles.value}>{ins.programa?.codigo} / {ins.programa?.version?.gestion}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Sede</Text>
-                            <Text style={styles.value}>{ins.sede?.nombre || 'Central'}</Text>
-                        </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Turno</Text>
-                            <Text style={styles.value}>{ins.turno?.turnoConfig?.nombre || 'Único'}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* ESTADO DE PAGOS */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Estado de Cuentas y Pagos</Text>
-                    <View style={styles.table}>
-                        <View style={styles.tableHeader}>
-                            <Text style={styles.col1}>Referencia / Depósito</Text>
-                            <Text style={styles.col2}>Fecha</Text>
-                            <Text style={styles.col3}>Monto (Bs.)</Text>
-                        </View>
-                        {(ins.baucher || []).map((b: any, idx: number) => (
-                            <View key={idx} style={styles.tableRow}>
-                                <Text style={styles.col1}>{b.nroDeposito} {b.confirmado ? '✓' : '(Pendiente)'}</Text>
-                                <Text style={styles.col2}>{new Date(b.createdAt).toLocaleDateString()}</Text>
-                                <Text style={styles.col3}>{Number(b.monto).toFixed(2)}</Text>
-                            </View>
-                        ))}
+                <View style={{ position: 'relative' }}>
+                    <View style={{ textAlign: 'center', marginBottom: 15, marginTop: 30 }}>
+                        <Text style={{ fontSize: 11, marginBottom: 3 }}>FORMULARIO DE COMPROMISO DE PERMANENCIA Y CONCLUSIÓN</Text>
+                        <Text style={{ fontSize: 11 }}>PROGRAMA PUENTE "NIVELACIÓN PARA EL FUTURO"</Text>
                     </View>
 
-                    <View style={styles.summary}>
-                        <View style={styles.total}>
-                            <View>
-                                <Text style={styles.label}>Costo Total</Text>
-                                <Text style={[styles.value, { color: '#1e3a8a' }]}>Bs. {Number(ins.programa?.costo || 0).toFixed(2)}</Text>
-                            </View>
-                            <View>
-                                <Text style={styles.label}>Total Pagado</Text>
-                                <Text style={[styles.value, { color: '#059669' }]}>Bs. {totalPagado.toFixed(2)}</Text>
-                            </View>
-                            <View>
-                                <Text style={styles.label}>Saldo Pendiente</Text>
-                                <Text style={[styles.value, { color: saldo > 0 ? '#dc2626' : '#059669' }]}>Bs. {saldo.toFixed(2)}</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.signatures}>
-                    <View style={styles.signatureLine}>
-                        <Text style={styles.signatureText}>Firma del Participante</Text>
-                    </View>
-                    <View style={styles.signatureLine}>
-                        <Text style={styles.signatureText}>Sello Recepción PROFE</Text>
-                    </View>
-                </View>
-            </Page>
-
-            {/* PAGINA 2: DOCUMENTO DE COMPROMISO */}
-            <Page size="LETTER" style={styles.page}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>Documento de Compromiso</Text>
-                </View>
-
-                <View style={styles.commitment}>
-                    <Text style={styles.commitmentTitle}>ACTA DE COMPROMISO DEL PARTICIPANTE</Text>
-                    <Text style={styles.commitmentText}>
-                        Yo, {ins.persona?.nombre} {ins.persona?.apellidos}, con C.I. {ins.persona?.nroDocumento}, legalmente inscrito en el programa "{ins.programa?.nombre}",
-                        me comprometo formalmente a cumplir con las siguientes disposiciones establecidas por el Programa de Formación Especializada (PROFE):{"\n\n"}
-                        1. ASISTENCIA Y PUNTUALIDAD: Me comprometo a asistir puntualmente a todas las sesiones (presenciales o virtuales) programadas, cumpliendo con el mínimo del 80% de asistencia para habilitar mi evaluación.{"\n\n"}
-                        2. RENDIMIENTO ACADÉMICO: Acepto la responsabilidad de realizar todas las actividades, tareas, foros y exámenes dentro de los plazos establecidos en la plataforma virtual, alcanzando la nota mínima de aprobación exigida por el reglamento.{"\n\n"}
-                        3. COMPROMISO ECONÓMICO: Me comprometo a cancelar la totalidad del costo del programa (Bs. {ins.programa?.costo}) según el cronograma de pagos establecido, entendiendo que la falta de pago inhabilitará mi acceso a la plataforma y certificación final.{"\n\n"}
-                        4. ÉTICA PROFESIONAL: Me comprometo a mantener una conducta ética, respetando los derechos de autor y evitando cualquier forma de plagio en mis trabajos académicos.{"\n\n"}
-                        Al firmar este documento, declaro conocer y aceptar la normativa vigente del Ministerio de Educación y del Programa PROFE.
+                    <Text style={{ fontSize: 9, lineHeight: 1.25, textAlign: 'justify', marginBottom: 8 }}>
+                        Yo, {ins.persona?.nombre} {ins.persona?.apellidos}, con Cédula de Identidad N° {ins.persona?.nroDocumento}, expedido en {ins.persona?.expedido || '.......'}, bachiller de la unidad educativa/centro de educación alternativa {ue} gestión {gestion}, domiciliado en {domicilio}, número de celular {ins.persona?.celular || '.......'} y correo electrónico {ins.persona?.email || '.......'}.
                     </Text>
-                </View>
 
-                <View style={[styles.signatures, { marginTop: 100 }]}>
-                    <View style={styles.signatureLine}>
-                        <Text style={styles.signatureText}>{ins.persona?.nombre} {ins.persona?.apellidos}</Text>
-                        <Text style={styles.signatureText}>C.I. {ins.persona?.nroDocumento}</Text>
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 8 }}>
+                        En pleno uso de mis facultades y habiendo sido informada(o) de las características, requisitos y exigencias del Programa Puente "Nivelación para el Futuro", manifiesto mi voluntad de participar en el mismo y asumo los siguientes COMPROMISOS:
+                    </Text>
+
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 6 }}>
+                        PRIMERO (Asistencia y Permanencia), me comprometo a asistir de manera puntual y regular a la totalidad de las sesiones del programa, tanto a las actividades presenciales como a las virtuales, durante las 16 semanas de duración. Entiendo que la inasistencia injustificada a más del 50% de las sesiones dará lugar a mi exclusión automática del programa.
+                    </Text>
+
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 6 }}>
+                        SEGUNDO (Dedicación y Aprovechamiento), me comprometo a dedicar el tiempo y el esfuerzo necesarios para cumplir con las 240 horas pedagógicas del programa. Esto incluye la participación activa en clases, la realización de tareas, trabajos prácticos y evaluaciones en las áreas de Lenguaje y Matemática, con el objetivo de fortalecer mis competencias académicas.
+                    </Text>
+
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 6 }}>
+                        TERCERO (Recursos y Conectividad), declaro que cuento con un dispositivo móvil inteligente o computadora y con acceso a internet (móvil o wifi) que me permitirán participar sin inconvenientes en las actividades virtuales del programa, siendo consciente de que la falta de estos no será una excusa válida para el incumplimiento.
+                    </Text>
+
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 6 }}>
+                        CUARTO (Normas de Convivencia), me comprometo a mantener un comportamiento respetuoso, ético y colaborativo con mis Facilitadores, Tutores y Compañeros, tanto en los espacios presenciales como en las Plataformas virtuales, contribuyendo a un ambiente de aprendizaje propositivo, proactivo y participativo.
+                    </Text>
+
+                    <Text style={{ fontSize: 9, lineHeight: 1.2, textAlign: 'justify', marginBottom: 8 }}>
+                        QUINTO (Veracidad de la Información), afirmo que los datos proporcionados en mi ficha de inscripción son verídicos y que no me encuentro cursando actualmente ninguna carrera en educación superior, cumpliendo así con uno de los requisitos de participación.
+                    </Text>
+
+                    <Text style={{ fontSize: 9, marginBottom: 20 }}>
+                        Para constancia y en señal de conformidad, firmo el presente compromiso en la ciudad de {ciudad}, a los {new Date().getDate()} días del mes de {new Date().toLocaleString('es-ES', { month: 'long' })} de 2026.
+                    </Text>
+
+                    <View style={{ marginTop: 25, alignItems: 'center' }}>
+                        <View style={{ width: 180, borderTopWidth: 1, borderTopColor: '#000', paddingTop: 4, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 9 }}>Firma del Estudiante</Text>
+                            <Text style={{ fontSize: 8 }}>Nombres y apellidos: {ins.persona?.nombre} {ins.persona?.apellidos}</Text>
+                            <Text style={{ fontSize: 8 }}>CI: {ins.persona?.nroDocumento} {ins.persona?.expedido}</Text>
+                        </View>
                     </View>
-                </View>
 
-                <View style={{ marginTop: 50, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 8, color: '#94a3b8' }}>Documento generado el {new Date().toLocaleDateString()} a las {new Date().toLocaleTimeString()}</Text>
+                    <View style={{ marginTop: 25 }}>
+                        <Text style={{ fontSize: 8, fontStyle: 'italic', textAlign: 'center' }}>El presente documento tiene carácter de declaración jurada</Text>
+                    </View>
                 </View>
             </Page>
         </Document>
