@@ -466,7 +466,10 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                         </span>
                                         <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">{currentP.puntaje} pts</span>
                                     </div>
-                                    <div className={cn("text-xl md:text-3xl font-semibold leading-tight tracking-tight prose prose-xl dark:prose-invert max-w-none", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                    <div className={cn(
+                                        "quiz-question-container",
+                                        theme === 'dark' ? "text-white" : "text-slate-900"
+                                    )}>
                                         <MathRenderer text={currentP.texto} />
                                     </div>
                                 </div>

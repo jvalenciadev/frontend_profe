@@ -357,12 +357,44 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
+/* FUERZA BRUTA PARA CUESTIONARIOS (Ignora etiquetas internas) */
+.quiz-question-container,
+.quiz-question-container * {
+  font-size: 1.4rem !important;
+  line-height: 1.4 !important;
+}
+
+.quiz-question-container h2 {
+  font-size: 2.2rem !important;
+  font-weight: 900 !important;
+  color: var(--primary) !important;
+  margin-bottom: 2rem !important;
+  display: block !important;
+}
+
+.quiz-question-container p {
+  margin-bottom: 1.5rem !important;
+}
+
+.quiz-question-container b,
+.quiz-question-container strong {
+  font-weight: 900 !important;
+}
+
 /* Dark mode overrides for prose */
 .dark .prose {
   color: var(--muted-foreground);
 }
 
-.dark .prose h1, 
+.dark .prose h1,
 .dark .prose h2 {
   color: var(--foreground);
+}
+
+.dark .prose-quiz h2 {
+  color: white;
+}
+
+.dark .prose-quiz p {
+  color: #cbd5e1;
 }
