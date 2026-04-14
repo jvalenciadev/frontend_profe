@@ -10,8 +10,7 @@ import {
     ToggleLeft, ToggleRight, Copy, ExternalLink, AlertCircle,
     BarChart3, RefreshCw, Timer, BookOpen,
     CircleDot, CheckSquare, Settings2, AlignLeft, Trophy,
-    Mail, Phone, Play, PieChart as PieChartIcon, BarChart as BarChartIcon,
-    QrCode, QrCode as QrIcon
+    Mail, Phone, Play, QrCode, QrCode as QrIcon
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsPDF from 'jspdf';
@@ -38,7 +37,17 @@ export default function EventoOperativoPage() {
     const eventoId = params.eventoId as string;
 
     const [evento, setEvento] = useState<any>(null);
+    // ── Inscripciones server-side ───────────────────────────────────────────────
     const [inscripciones, setInscripciones] = useState<any[]>([]);
+    const [insTotal, setInsTotal] = useState(0);
+    const [insPage, setInsPage] = useState(1);
+    const [insSearch, setInsSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const [insLoading, setInsLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    // Stats separadas (COUNT query, ultra rápido)
+    const [stats, setStats] = useState<any>(null);
+    const [statsLoading, setStatsLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<'cuestionarios' | 'inscripciones' | 'estadisticas'>('cuestionarios');
     const [search, setSearch] = useState('');
@@ -84,29 +93,24 @@ export default function EventoOperativoPage() {
     });
     const [formPregunta, setFormPregunta] = useState({ texto: '', tipo: 'SINGLE', puntos: 1, obligatorio: true, opciones: [{ texto: '', esCorrecta: false }, { texto: '', esCorrecta: false }] });
 
-    // Paginación inscripciones (Por la gran cantidad de datos previstos - 20k)
-    const [page, setPage] = useState(1);
-    const ITEMS_PER_PAGE = 25;
+    const INS_LIMIT = 100;
 
     useEffect(() => { loadData(); }, [eventoId]);
     useEffect(() => { if (cuestionarioActivo) loadPreguntas(cuestionarioActivo.id); }, [cuestionarioActivo]);
+    useEffect(() => { loadInscripciones(1, insSearch); }, [eventoId]);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const [evtRes, insRes] = await Promise.all([
+            const [evtRes, cuesRes] = await Promise.all([
                 api.get(`/eventos/${eventoId}`),
-                api.get('/eventos-inscripciones', { params: { eventoId } }),
+                api.get('/evento-cuestionarios', { params: { eventoId } }),
             ]);
             setEvento(evtRes.data);
-            setInscripciones(Array.isArray(insRes.data) ? insRes.data : []);
-            // Cargar cuestionarios del evento
-            const cuesRes = await api.get('/evento-cuestionarios', { params: { eventoId } });
             const cues = Array.isArray(cuesRes.data) ? cuesRes.data : [];
             setCuestionarios(cues);
             if (cues.length > 0 && !cuestionarioActivo) setCuestionarioActivo(cues[0]);
         } catch (e) {
-            // fallback
             try {
                 const evtRes = await api.get(`/eventos/${eventoId}`);
                 setEvento(evtRes.data);
@@ -115,6 +119,31 @@ export default function EventoOperativoPage() {
                 if (cuests.length > 0) setCuestionarioActivo(cuests[0]);
             } catch { toast.error('Error cargando el evento'); }
         } finally { setLoading(false); }
+    };
+
+    // Carga paginada server-side de inscripciones
+    const loadInscripciones = async (page: number, search: string) => {
+        setInsLoading(true);
+        try {
+            const res = await api.get('/eventos-inscripciones', {
+                params: { eventoId, page, limit: INS_LIMIT, ...(search ? { search } : {}) }
+            });
+            const payload = res.data;
+            setInscripciones(Array.isArray(payload) ? payload : (payload?.data ?? []));
+            setInsTotal(payload?.total ?? (Array.isArray(payload) ? payload.length : 0));
+            setInsPage(page);
+        } catch { toast.error('Error cargando inscripciones'); }
+        finally { setInsLoading(false); }
+    };
+
+    // Stats ultra-rápidas via COUNT query
+    const loadStats = async () => {
+        setStatsLoading(true);
+        try {
+            const res = await api.get(`/eventos-inscripciones/stats/${eventoId}`);
+            setStats(res.data);
+        } catch { toast.error('Error cargando estadísticas'); }
+        finally { setStatsLoading(false); }
     };
 
     const loadPreguntas = async (cuestionarioId: string) => {
@@ -294,15 +323,13 @@ export default function EventoOperativoPage() {
         } catch { toast.error('Error actualizando código'); }
     };
 
-    const filteredInscripciones = inscripciones.filter((i: any) =>
-        !search ||
-        i.persona?.nombre1?.toLowerCase().includes(search.toLowerCase()) ||
-        i.persona?.apellido1?.toLowerCase().includes(search.toLowerCase()) ||
-        String(i.persona?.ci || '').includes(search)
-    );
+    const totalPages = Math.ceil(insTotal / INS_LIMIT);
 
-    const totalPages = Math.ceil(filteredInscripciones.length / ITEMS_PER_PAGE);
-    const paginatedInscripciones = filteredInscripciones.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    // Búsqueda server-side: dispara loadInscripciones cuando el usuario presiona Enter o el botón
+    const handleSearch = () => {
+        setInsSearch(searchInput);
+        loadInscripciones(1, searchInput);
+    };
 
     const marcarAsistencia = async (inscripcionId: string, valor: boolean) => {
         try {
@@ -312,87 +339,65 @@ export default function EventoOperativoPage() {
         } catch { toast.error('Error'); }
     };
 
-    const exportarExcel = () => {
+    // Exportar Excel: pide TODOS los registros al endpoint de export (sin límite)
+    const exportarExcel = async () => {
+        setExporting(true);
+        const toastId = toast.loading(`Preparando reporte de ${insTotal.toLocaleString()} registros...`);
         try {
-            // 1. Preparar cabeceras base
-            const header = [
-                'CI', 'Nombres', 'Apellidos', 'Celular', 'Correo', 'Asistencia'
+            const res = await api.get(`/eventos-inscripciones/export/${eventoId}`);
+            const allData: any[] = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+
+            const camposExtras = evento?.camposExtras || [];
+            const cuesActivos = cuestionarios.filter(c => c.estado === 'activo');
+
+            const header = ['CI', 'Complemento', 'Nombres', 'Apellidos', 'Celular', 'Correo', 'Asistencia',
+                ...camposExtras.map((c: any) => c.label),
+                ...cuesActivos.map((c: any) => `${c.titulo} (Estado)`),
             ];
 
-            // 2. Cabeceras dinámicas para Campos Extras
-            const camposExtras = evento?.camposExtras || [];
-            camposExtras.forEach((c: any) => header.push(c.label));
-
-            // 3. Cabeceras dinámicas para Cuestionarios
-            const cuesActivos = cuestionarios.filter(c => c.estado === 'activo');
-            cuesActivos.forEach((c: any) => {
-                header.push(`${c.titulo} (Estado)`);
-            });
-
-            // 4. Mapear datos de inscritos
-            const rows = filteredInscripciones.map(i => {
-                const row: any = [
-                    String(i.persona?.ci || 'N/A'),
-                    `${i.persona?.nombre1 || ''} ${i.persona?.nombre2 || ''}`.trim(),
-                    `${i.persona?.apellido1 || ''} ${i.persona?.apellido2 || ''}`.trim(),
-                    i.persona?.celular || 'N/A',
-                    i.persona?.correo || 'N/A',
-                    i.asistencia ? 'PRESENTE' : 'AUSENTE'
-                ];
-
-                // Valores de campos extras
-                camposExtras.forEach((campo: any) => {
+            const rows = allData.map((i: any) => [
+                String(i.persona?.ci || 'N/A'),
+                i.persona?.complemento || '',
+                `${i.persona?.nombre || i.persona?.nombre1 || ''} ${i.persona?.nombre2 || ''}`.trim(),
+                `${i.persona?.apellidos || ''} ${i.persona?.apellido1 || ''} ${i.persona?.apellido2 || ''}`.trim() || 'N/A',
+                i.persona?.celular || 'N/A',
+                i.persona?.correo || 'N/A',
+                i.asistencia ? 'PRESENTE' : 'AUSENTE',
+                ...camposExtras.map((campo: any) => {
                     const resp = i.respuestasExtras?.find((r: any) => r.campoExtraId === campo.id);
-                    row.push(resp?.valor || 'Sin respuesta');
-                });
+                    return resp?.valor || 'Sin respuesta';
+                }),
+                ...cuesActivos.map((c: any) => {
+                    const intents = i.persona?.eventoCuestionarioIntentos || [];
+                    return intents.find((it: any) => it.cuestionarioId === c.id && it.estado === 'finished') ? 'REALIZADO' : 'PENDIENTE';
+                }),
+            ]);
 
-                // Valores de cuestionarios (Solo estado)
-                cuesActivos.forEach((c: any) => {
-                    const personaIntents = i.persona?.eventoCuestionarioIntentos || [];
-                    const intent = personaIntents.find((it: any) => it.cuestionarioId === c.id && it.estado === 'finished');
-                    row.push(intent ? 'REALIZADO' : 'PENDIENTE');
-                });
-
-                return row;
-            });
-
-            // 5. Crear Hoja de Estadísticas (Resumen de las Tortas)
+            // Hoja de estadísticas usando datos del servidor
+            const s = stats;
             const statsRows: any[] = [
                 ['RESUMEN GENERAL DEL EVENTO'],
-                ['Métrica', 'Cantidad'],
-                ['Total Inscritos', totalInscritos],
-                ['Asistentes', totalAsistencia],
-                ['Completaron Todas las Evaluaciones', totalCompletos],
                 [''],
-                ['ANÁLISIS DE DATOS (CAMPOS EXTRAS)']
+                ['Total Inscritos', insTotal],
+                ['Con Asistencia', s?.conAsistencia ?? '—'],
+                ['Sin Asistencia', s?.sinAsistencia ?? '—'],
+                ['% Asistencia', s ? `${s.porcentajeAsistencia}%` : '—'],
             ];
 
-            extraFieldsStats.forEach((stat: any) => {
-                statsRows.push(['']);
-                statsRows.push([stat.label.toUpperCase(), 'Frecuencia']);
-                stat.chartData.forEach((d: any) => {
-                    statsRows.push([d.name, d.value]);
-                });
-            });
-
-            // 6. Crear el libro y las hojas
             const workbook = XLSX.utils.book_new();
-
-            // Hoja 1: Listado Detallado
             const wsInscritos = XLSX.utils.aoa_to_sheet([header, ...rows]);
-            XLSX.utils.book_append_sheet(workbook, wsInscritos, 'Listado Participantes');
-
-            // Hoja 2: Resumen Estadístico
+            // Auto-ancho de columnas
+            wsInscritos['!cols'] = header.map(() => ({ wch: 22 }));
+            XLSX.utils.book_append_sheet(workbook, wsInscritos, 'Participantes');
             const wsStats = XLSX.utils.aoa_to_sheet(statsRows);
-            XLSX.utils.book_append_sheet(workbook, wsStats, 'Resumen Estadístico');
+            XLSX.utils.book_append_sheet(workbook, wsStats, 'Resumen');
 
-            // 7. Generar archivo y descargar
-            XLSX.writeFile(workbook, `Reporte_Completo_${evento?.nombre.replace(/\s+/g, '_')}.xlsx`);
-            toast.success('Excel profesional generado');
+            XLSX.writeFile(workbook, `Reporte_${evento?.nombre?.replace(/\s+/g, '_') || 'Evento'}_${new Date().toLocaleDateString('es-BO').replace(/\//g, '-')}.xlsx`);
+            toast.success(`✅ Excel generado con ${allData.length.toLocaleString()} registros`, { id: toastId });
         } catch (error) {
             console.error(error);
-            toast.error('Error al generar el Excel');
-        }
+            toast.error('Error al generar el Excel', { id: toastId });
+        } finally { setExporting(false); }
     };
 
     const getInscripcionStats = useCallback((i: any) => {
@@ -413,6 +418,9 @@ export default function EventoOperativoPage() {
         return { label: 'Pendiente', count, total, completed, color: 'text-red-500 bg-red-500/10 border-red-500/20' };
     }, [cuestionarios]);
 
+    const totalInscritos = insTotal;
+    const totalAsistencia = stats?.conAsistencia ?? inscripciones.filter(i => i.asistencia).length;
+
     const totalCompletos = useMemo(() => {
         return inscripciones.filter(i => getInscripcionStats(i).completed).length;
     }, [inscripciones, getInscripcionStats]);
@@ -421,41 +429,32 @@ export default function EventoOperativoPage() {
         return cuestionarios.reduce((sum, c) => sum + (c.preguntas?.length || 0), 0);
     }, [cuestionarios]);
 
-    // Estadísticas de Campos Extras
+    // Estadísticas de Campos Extras (PROCESADAS DESDE EL BACKEND stats.porCampoExtra)
     const extraFieldsStats = useMemo(() => {
-        if (!evento?.camposExtras || !inscripciones.length) return [];
+        if (!stats?.porCampoExtra || !evento?.camposExtras) return [];
 
         return evento.camposExtras.map((campo: any) => {
-            const data: Record<string, number> = {};
+            const rawData = stats.porCampoExtra.filter((p: any) => p.campoExtraId === campo.id);
+            const chartData = rawData.map((d: any) => ({
+                name: d.valor || 'Sin respuesta',
+                value: d._count?.valor || d._count || 0
+            }));
 
-            inscripciones.forEach((ins: any) => {
-                const resp = ins.respuestasExtras?.find((r: any) => r.campoExtraId === campo.id);
-                if (resp) {
-                    const val = resp.valor || 'Sin respuesta';
-                    data[val] = (data[val] || 0) + 1;
-                } else {
-                    data['Sin respuesta'] = (data['Sin respuesta'] || 0) + 1;
-                }
-            });
-
-            const chartData = Object.entries(data).map(([name, value]) => ({ name, value }));
+            // Solo mostrar si hay datos
             return {
                 id: campo.id,
                 label: campo.label,
-                tipo: campo.tipo, // SELECCION_SIMPLE, SELECCION_MULTIPLE, BOOLEANO, TEXTO
-                chartData
+                tipo: campo.tipo,
+                chartData: chartData.sort((a: any, b: any) => b.value - a.value)
             };
-        });
-    }, [evento, inscripciones]);
+        }).filter((s: any) => s.chartData.length > 0);
+    }, [stats, evento]);
 
     if (loading) return (
         <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
     );
-
-    const totalInscritos = inscripciones.length;
-    const totalAsistencia = inscripciones.filter(i => i.asistencia).length;
 
     const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -535,10 +534,13 @@ export default function EventoOperativoPage() {
             <div className="flex gap-2 flex-wrap">
                 {[
                     { id: 'cuestionarios', label: 'Cuestionarios', icon: FileText },
-                    { id: 'inscripciones', label: 'Inscripciones', icon: Users },
+                    { id: 'inscripciones', label: `Inscripciones (${insTotal.toLocaleString()})`, icon: Users },
                     { id: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
                 ].map(t => (
-                    <button key={t.id} onClick={() => setTab(t.id as any)}
+                    <button key={t.id} onClick={() => {
+                        setTab(t.id as any);
+                        if (t.id === 'estadisticas' && !stats) loadStats();
+                    }}
                         className={`flex items-center gap-2 h-10 px-5 rounded-xl text-xs font-black uppercase transition-all ${tab === t.id ? 'bg-primary text-white' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
                         <t.icon className="w-3.5 h-3.5" />
                         {t.label}
@@ -730,18 +732,43 @@ export default function EventoOperativoPage() {
             {/* ── TAB INSCRIPCIONES ── */}
             {tab === 'inscripciones' && (
                 <div className="space-y-4">
+                    {/* Alerta informativa */}
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-blue-600 dark:text-blue-400">
+                        <Users className="w-4 h-4 shrink-0" />
+                        <p className="text-[11px] font-bold">
+                            Mostrando los últimos <strong>100</strong> inscritos. Para buscar entre los <strong>{insTotal.toLocaleString()}</strong> registros totales,
+                            ingresa el CI exacto en el buscador.
+                        </p>
+                    </div>
+
                     <div className="flex flex-col md:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                placeholder="Buscar participante por Carnet de Identidad (CI), Nombres o Apellidos..."
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border outline-none text-sm font-bold focus:border-primary transition-all shadow-sm"
-                            />
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <input
+                                    placeholder="Buscar por CI (exacto), Nombre o Apellido..."
+                                    value={searchInput}
+                                    onChange={e => setSearchInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                    className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border outline-none text-sm font-bold focus:border-primary transition-all shadow-sm"
+                                />
+                            </div>
+                            <button onClick={handleSearch} disabled={insLoading}
+                                className="h-12 px-5 rounded-2xl bg-card border border-border text-xs font-black text-muted-foreground hover:text-primary hover:border-primary transition-all flex items-center gap-2">
+                                {insLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                Buscar
+                            </button>
+                            {insSearch && (
+                                <button onClick={() => { setSearchInput(''); setInsSearch(''); loadInscripciones(1, ''); }}
+                                    className="h-12 px-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-black hover:bg-red-500/20 transition-all">
+                                    Limpiar
+                                </button>
+                            )}
                         </div>
-                        <button onClick={exportarExcel} className="h-12 px-6 rounded-2xl bg-primary shadow-lg shadow-primary/20 border border-primary/20 text-xs font-black text-white hover:opacity-90 flex items-center justify-center gap-2 transition-all">
-                            <Download className="w-4 h-4" /> Exportar Súper Excel
+                        <button onClick={exportarExcel} disabled={exporting}
+                            className="h-12 px-6 rounded-2xl bg-green-600 shadow-lg shadow-green-600/20 text-xs font-black text-white hover:opacity-90 flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                            {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            {exporting ? 'Generando...' : `Exportar ${insTotal.toLocaleString()} Registros`}
                         </button>
                     </div>
 
@@ -749,23 +776,24 @@ export default function EventoOperativoPage() {
 
                         {/* CONTROLES DE PAGINACIÓN SUPERIOR */}
                         <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
-                            <div className="flex gap-4">
+                            <div className="flex gap-4 flex-wrap">
                                 <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
-                                    Total Registrados: <span className="text-primary">{filteredInscripciones.length}</span>
+                                    {insSearch ? 'Resultados:' : 'Últimos 100:'} <span className="text-primary">{inscripciones.length}</span>
+                                    {!insSearch && <span className="text-muted-foreground"> de {insTotal.toLocaleString()} total</span>}
                                 </span>
                                 <span className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">
-                                    Han Completado Todo: <span className="text-green-500">{totalCompletos}</span>
+                                    Completaron: <span className="text-green-500">{totalCompletos}</span>
                                 </span>
                             </div>
 
                             {totalPages > 1 && (
                                 <div className="flex items-center gap-2">
-                                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                    <button onClick={() => loadInscripciones(insPage - 1, insSearch)} disabled={insPage === 1 || insLoading}
                                         className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center disabled:opacity-50 hover:bg-muted">
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
-                                    <span className="text-xs font-bold px-2">Pág {page} de {totalPages}</span>
-                                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                                    <span className="text-xs font-bold px-2">Pág {insPage} de {totalPages}</span>
+                                    <button onClick={() => loadInscripciones(insPage + 1, insSearch)} disabled={insPage === totalPages || insLoading}
                                         className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center disabled:opacity-50 hover:bg-muted">
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
@@ -784,10 +812,18 @@ export default function EventoOperativoPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {paginatedInscripciones.length === 0 && (
+                                    {insLoading && (
+                                        <tr><td colSpan={4} className="text-center p-8">
+                                            <div className="flex items-center justify-center gap-3 text-muted-foreground">
+                                                <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                                                <span className="text-sm font-bold">Buscando...</span>
+                                            </div>
+                                        </td></tr>
+                                    )}
+                                    {!insLoading && inscripciones.length === 0 && (
                                         <tr><td colSpan={4} className="text-center p-8 text-muted-foreground text-sm font-medium">No se encontraron inscripciones con ese criterio.</td></tr>
                                     )}
-                                    {paginatedInscripciones.map((i: any) => (
+                                    {!insLoading && inscripciones.map((i: any) => (
                                         <tr key={i.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
@@ -848,30 +884,121 @@ export default function EventoOperativoPage() {
             {/* ── TAB ESTADÍSTICAS ── */}
             {tab === 'estadisticas' && (
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-card border border-border rounded-2xl p-6 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground">Tasa de asistencia</p>
-                            <p className="text-4xl font-black text-foreground">
-                                {totalInscritos ? Math.round((totalAsistencia / totalInscritos) * 100) : 0}%
-                            </p>
-                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${totalInscritos ? (totalAsistencia / totalInscritos) * 100 : 0}%` }} />
+                    {statsLoading && (
+                        <div className="flex items-center justify-center gap-3 p-12 text-muted-foreground">
+                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                            <span className="font-bold">Calculando estadísticas de {insTotal.toLocaleString()} registros...</span>
+                        </div>
+                    )}
+                    {!statsLoading && stats && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {[
+                                { label: 'Total Inscritos', val: insTotal.toLocaleString(), color: 'text-primary', sub: 'Registros totales en BD', icon: Users },
+                                { label: 'Con Asistencia', val: (stats?.conAsistencia ?? 0).toLocaleString(), color: 'text-green-400', sub: `${stats?.porcentajeAsistencia ?? 0}% de asistencia real`, icon: CheckCircle2 },
+                                { label: 'Sin Asistencia', val: (stats?.sinAsistencia ?? 0).toLocaleString(), color: 'text-red-400', sub: 'Pendientes por validar', icon: Clock },
+                                { label: 'Completados (Muestra)', val: totalCompletos.toLocaleString(), color: 'text-blue-400', sub: 'De los últimos 100 cargados', icon: Trophy },
+                            ].map(s => (
+                                <div key={s.label} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm hover:shadow-md transition-all">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{s.label}</p>
+                                        <s.icon className={`w-4 h-4 ${s.color.split(' ')[0]}`} />
+                                    </div>
+                                    <p className={`text-4xl font-black ${s.color}`}>{s.val}</p>
+                                    <div className="space-y-1.5">
+                                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                            <div className="h-full bg-primary/50 rounded-full transition-all duration-1000" style={{ width: stats && s.label === 'Con Asistencia' ? `${stats.porcentajeAsistencia}%` : '100%' }} />
+                                        </div>
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-70 tracking-tighter">{s.sub}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {!statsLoading && extraFieldsStats.length > 0 && (
+                        <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            <div className="flex items-center gap-3 border-b border-border pb-4">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                    <BarChart3 className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight">Análisis Demográfico Global</h2>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Basado en los {insTotal.toLocaleString()} inscritos</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {extraFieldsStats.map((stat: any) => (
+                                    <div key={stat.id} className="group bg-card border border-border rounded-3xl p-6 space-y-6 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500">
+                                        <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                                            <div>
+                                                <h4 className="font-black text-sm uppercase text-foreground tracking-tight group-hover:text-primary transition-colors">{stat.label}</h4>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Frecuencia de respuestas</p>
+                                            </div>
+                                            <span className="text-[9px] font-black bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full uppercase tracking-tighter">
+                                                {stat.tipo?.replace('_', ' ') || 'Dato'}
+                                            </span>
+                                        </div>
+
+                                        <div className="h-72 w-full relative">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                {stat.chartData.length <= 5 ? (
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={stat.chartData}
+                                                            cx="45%"
+                                                            cy="50%"
+                                                            innerRadius={65}
+                                                            outerRadius={85}
+                                                            paddingAngle={5}
+                                                            dataKey="value"
+                                                        >
+                                                            {stat.chartData.map((_: any, index: number) => (
+                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                                            ))}
+                                                        </Pie>
+                                                        <RechartsTooltip
+                                                            contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff' }}
+                                                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                                        />
+                                                        <Legend
+                                                            layout="vertical"
+                                                            verticalAlign="middle"
+                                                            align="right"
+                                                            iconType="circle"
+                                                            formatter={(val) => <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">{val}</span>}
+                                                        />
+                                                    </PieChart>
+                                                ) : (
+                                                    <BarChart data={stat.chartData.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
+                                                        <XAxis type="number" hide />
+                                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                                        <RechartsTooltip
+                                                            cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                                            contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', fontSize: '10px' }}
+                                                        />
+                                                        <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={20}>
+                                                            {stat.chartData.map((_: any, index: number) => (
+                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                            ))}
+                                                        </Bar>
+                                                    </BarChart>
+                                                )}
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground">Inscritos</p>
-                            <p className="text-4xl font-black text-foreground">{totalInscritos}</p>
+                    )}
+
+                    {!statsLoading && !stats && (
+                        <div className="text-center py-8">
+                            <button onClick={loadStats} className="h-12 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 flex items-center gap-2 mx-auto">
+                                <BarChart3 className="w-4 h-4" /> Cargar Estadísticas
+                            </button>
                         </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground">Confirmaron asistencia</p>
-                            <p className="text-4xl font-black text-green-400">{totalAsistencia}</p>
-                        </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground">Completaron Evaluación</p>
-                            <p className="text-4xl font-black text-blue-400">{totalCompletos}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground tracking-tight">Participantes con todos los formularios realizados.</p>
-                        </div>
-                    </div>
+                    )}
 
                     {cuestionarios.map(c => (
                         <div key={c.id} className="group bg-card border border-border rounded-[2rem] p-6 space-y-6 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500">
@@ -941,108 +1068,6 @@ export default function EventoOperativoPage() {
                         </div>
                     ))}
 
-                    {/* ── ESTADÍSTICAS DE CAMPOS EXTRAS ── */}
-                    {extraFieldsStats.length > 0 && (
-                        <div className="space-y-6 pt-4">
-                            <div className="flex items-center gap-3 border-b border-border pb-4">
-                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                                    <PieChartIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-black uppercase tracking-tight">Datos Demográficos y Personalizados</h2>
-                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Análisis de campos extras recolectados</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {extraFieldsStats.map((stat: any) => (
-                                    <div key={stat.id} className="group bg-card border border-border rounded-3xl p-6 space-y-4 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h4 className="font-black text-sm uppercase text-foreground tracking-tight group-hover:text-primary transition-colors">{stat.label}</h4>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Distribución de respuestas</p>
-                                            </div>
-                                            <span className="text-[9px] font-black bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full uppercase">
-                                                {stat.tipo.replace('_', ' ')}
-                                            </span>
-                                        </div>
-
-                                        <div className="h-72 w-full relative">
-                                            {stat.tipo === 'TEXTO' ? (
-                                                <div className="h-full overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
-                                                    {stat.chartData.map((d: any, idx: number) => (
-                                                        <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 hover:bg-muted/50 text-xs border border-border/50 transition-all">
-                                                            <span className="font-bold text-foreground/80 truncate max-w-[70%]">{d.name}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-1.5 w-12 bg-muted rounded-full overflow-hidden hidden sm:block">
-                                                                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, (d.value / totalInscritos) * 100)}%` }} />
-                                                                </div>
-                                                                <span className="font-black text-primary bg-primary/10 px-2 py-0.5 rounded-lg text-[10px]">{d.value}</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    {stat.chartData.length <= 4 ? (
-                                                        <PieChart>
-                                                            <Pie
-                                                                data={stat.chartData}
-                                                                cx="50%"
-                                                                cy="50%"
-                                                                innerRadius={70}
-                                                                outerRadius={90}
-                                                                paddingAngle={8}
-                                                                dataKey="value"
-                                                                animationBegin={0}
-                                                                animationDuration={1500}
-                                                            >
-                                                                {stat.chartData.map((_: any, index: number) => (
-                                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                                                                ))}
-                                                            </Pie>
-                                                            <RechartsTooltip
-                                                                contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                                                                itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                                                                cursor={{ fill: 'transparent' }}
-                                                            />
-                                                            <Legend
-                                                                verticalAlign="bottom"
-                                                                align="center"
-                                                                iconType="circle"
-                                                                formatter={(val) => <span className="text-[10px] font-black uppercase text-muted-foreground ml-1">{val}</span>}
-                                                            />
-                                                        </PieChart>
-                                                    ) : (
-                                                        <BarChart data={stat.chartData} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
-                                                            <defs>
-                                                                <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
-                                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-                                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                                                                </linearGradient>
-                                                            </defs>
-                                                            <XAxis type="number" hide />
-                                                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                                            <Tooltip
-                                                                contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '16px', fontSize: '11px', color: '#fff' }}
-                                                                itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                                                                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                                            />
-                                                            <Bar dataKey="value" fill="url(#colorGradient)" radius={[0, 10, 10, 0]} barSize={20}>
-                                                                {stat.chartData.map((_: any, index: number) => (
-                                                                    <Cell key={`cell-${index}`} fill={index === 0 ? 'url(#colorGradient)' : COLORS[index % COLORS.length]} stroke="none" />
-                                                                ))}
-                                                            </Bar>
-                                                        </BarChart>
-                                                    )}
-                                                </ResponsiveContainer>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
 

@@ -154,7 +154,7 @@ export default function MathEditor({ value, onChange, placeholder, theme, classN
             {/* ── Toolbar ── */}
             <div className={cn('flex items-center justify-between px-4 py-3 border-b shrink-0', isDark ? 'border-slate-700/60 bg-slate-800/40' : 'border-slate-100 bg-slate-50/80')}>
                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-                    
+
                     {/* HTML Format Controls */}
                     <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200 dark:border-slate-700">
                         <ToolbarButton onClick={() => execCommand('formatBlock', '<h1>')} icon={Heading1} label="H1" />
@@ -186,7 +186,7 @@ export default function MathEditor({ value, onChange, placeholder, theme, classN
                         <Sigma size={12} />
                         Fórmulas
                     </button>
-                    
+
                     {label && <span className="ml-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">{label}</span>}
                 </div>
 
@@ -272,7 +272,7 @@ export default function MathEditor({ value, onChange, placeholder, theme, classN
                         isDark ? 'text-slate-100' : 'text-slate-800',
                     )}
                 />
-                
+
                 {!value && !focused && (
                     <div className="absolute top-5 left-6 pointer-events-none text-slate-400 text-sm italic opacity-50 flex items-center gap-2">
                         {placeholder || 'Escribe aquí tu contenido enriquecido...'}
