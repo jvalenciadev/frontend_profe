@@ -357,11 +357,33 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-/* FUERZA BRUTA PARA CUESTIONARIOS (Ignora etiquetas internas) */
+/* FUERZA BRUTA PARA CUESTIONARIOS (Excluye KaTeX para no romper fórmulas) */
 .quiz-question-container,
-.quiz-question-container * {
+.quiz-question-container *:not(.katex, .katex *) {
   font-size: 1.4rem !important;
   line-height: 1.4 !important;
+}
+
+/* Ajuste específico para que las fórmulas no se vean cortadas */
+.quiz-question-container .katex {
+  font-size: 1.15em !important;
+  /* Escala interna */
+  line-height: normal !important;
+  text-rendering: auto;
+}
+
+.quiz-question-container .katex-display {
+  margin: 1.5rem 0 !important;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible !important;
+  /* Evita que se corten exponentes */
+  padding: 0.5rem 0;
+}
+
+/* Forzar que los spans internos de Katex no hereden el line-height del brute force */
+.quiz-question-container .katex * {
+  line-height: normal !important;
 }
 
 .quiz-question-container h2 {

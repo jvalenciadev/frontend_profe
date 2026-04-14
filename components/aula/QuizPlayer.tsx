@@ -499,7 +499,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     )}>
                                                         <span className="font-black text-xs">{String.fromCharCode(65 + currentP.opciones.indexOf(opt))}</span>
                                                     </div>
-                                                    <div className={cn("text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                    <div className={cn("quiz-question-container text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                         <MathRenderer text={opt.texto} />
                                                     </div>
                                                 </div>
@@ -553,7 +553,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     )}>
                                                         <span className="font-black text-xs">{String.fromCharCode(65 + currentP.opciones.indexOf(opt))}</span>
                                                     </div>
-                                                    <div className={cn("text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                    <div className={cn("quiz-question-container text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                         <MathRenderer text={opt.texto} />
                                                     </div>
                                                 </div>
@@ -632,7 +632,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                                     <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-semibold text-sm shrink-0 shadow-lg shadow-rose-500/20">
                                                                         {oIdx + 1}
                                                                     </div>
-                                                                    <div className={cn("text-xl font-semibold flex-1", theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                                    <div className={cn("quiz-question-container text-xl font-semibold flex-1", theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                                         <MathRenderer text={opt.texto} />
                                                                     </div>
                                                                     <ArrowUpDown size={20} className="text-slate-300 shrink-0" />
@@ -800,7 +800,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                 </div>
                                                 <div className="flex-1 space-y-4">
                                                     <div>
-                                                        <div className={cn("font-bold prose dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
+                                                        <div className={cn("quiz-question-container font-bold prose dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
                                                             <MathRenderer text={p.texto} />
                                                         </div>
                                                         <p className={cn("text-[10px] font-black uppercase tracking-widest mt-1", isCorrect ? "text-emerald-500" : "text-rose-500")}>
@@ -834,7 +834,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                                     )}>
                                                                         {opt.esCorrecta && <CheckCircle2 size={12} />}
                                                                     </div>
-                                                                    <MathRenderer text={opt.texto} />
+                                                                    <div className="quiz-question-container flex-1">
+                                                                        <MathRenderer text={opt.texto} />
+                                                                    </div>
                                                                     {wasSelected && <span className="ml-auto text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded bg-rose-500 text-white">Tu respuesta</span>}
                                                                 </div>
                                                             );
