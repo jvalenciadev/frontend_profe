@@ -97,7 +97,6 @@ export default function QuestionnaireEditor({
     const [expandedPregunta, setExpandedPregunta] = useState<number | null>(0);
     const [activeTab, setActiveTab] = useState<Tab>('preguntas');
     const [showTypePicker, setShowTypePicker] = useState(false);
-    const [isMathematical, setIsMathematical] = useState(false);
 
     const isDark = theme === 'dark';
     const puntajeMax = 100;
@@ -256,16 +255,16 @@ export default function QuestionnaireEditor({
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (!Array.isArray(json)) throw new Error('El archivo debe contener una lista de preguntas');
-                
+
                 const newPreguntas = json.map(p => ({
                     ...p,
                     id: undefined,
                     cuestionarioId: cuestionario.id,
-                    opciones: p.opciones?.map((o: any) => ({ 
-                        ...o, 
-                        id: undefined, 
+                    opciones: p.opciones?.map((o: any) => ({
+                        ...o,
+                        id: undefined,
                         preguntaId: undefined,
-                        isNew: true 
+                        isNew: true
                     })) || [],
                     isNew: true
                 }));
@@ -318,41 +317,24 @@ export default function QuestionnaireEditor({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className={cn('flex items-center gap-3 px-4 py-2 rounded-2xl border mr-2 transition-all', isMathematical ? 'bg-primary/5 border-primary/30 ring-4 ring-primary/5' : isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200')}>
-                            <div className="flex items-center gap-2 pr-2 border-r border-slate-200 dark:border-slate-700">
-                                <Sigma size={14} className={cn('transition-all', isMathematical ? 'text-primary' : 'text-slate-400')} />
-                                <span className={cn('text-[9px] font-black uppercase tracking-widest', isMathematical ? 'text-primary' : 'text-slate-500')}>Asistente Matemático</span>
-                            </div>
-                            <button
-                                onClick={() => setIsMathematical(!isMathematical)}
-                                className={cn(
-                                    "w-10 h-5 rounded-full p-1 transition-all relative overflow-hidden",
-                                    isMathematical ? "bg-primary" : "bg-slate-300 dark:bg-slate-700"
-                                )}
-                            >
-                                <div className={cn(
-                                    "w-3 h-3 bg-white rounded-full transition-all transform",
-                                    isMathematical ? "translate-x-5" : "translate-x-0"
-                                )} />
-                            </button>
-                        </div>
+
 
                         <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border mr-2', isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200')}>
-                            <button 
+                            <button
                                 onClick={exportPreguntas}
                                 title="Exportar Preguntas (JSON)"
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:bg-white dark:hover:bg-slate-700 transition-all"
                             >
                                 <Download size={14} />
                             </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={importPreguntas} 
-                                accept=".json" 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={importPreguntas}
+                                accept=".json"
+                                className="hidden"
                             />
-                            <button 
+                            <button
                                 onClick={() => fileInputRef.current?.click()}
                                 title="Importar/Migrar Preguntas"
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 transition-all"
@@ -379,11 +361,11 @@ export default function QuestionnaireEditor({
                                 )}
                             </button>
                         </div>
-                        
+
                         <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-2" />
 
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="group relative w-12 h-12 flex items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm active:scale-95"
                             title="Cerrar Editor"
                         >
@@ -509,26 +491,13 @@ export default function QuestionnaireEditor({
                                                                             <span className="text-[8px] font-black text-slate-400 opacity-50">PTS</span>
                                                                         </div>
                                                                     </div>
-                                                                    {isMathematical ? (
-                                                                        <MathEditor
-                                                                            value={p.texto}
-                                                                            onChange={val => updatePregunta(pIdx, { texto: val })}
-                                                                            placeholder="Escribe el enunciado de la pregunta..."
-                                                                            theme={theme}
-                                                                            rows={2}
-                                                                        />
-                                                                    ) : (
-                                                                        <textarea
-                                                                            value={p.texto}
-                                                                            onChange={e => updatePregunta(pIdx, { texto: e.target.value })}
-                                                                            placeholder="Escribe el enunciado de la pregunta..."
-                                                                            rows={2}
-                                                                            className={cn(
-                                                                                "w-full px-5 py-3 rounded-2xl border-2 transition-all font-medium text-sm outline-none resize-none",
-                                                                                isDark ? "bg-slate-800/30 border-slate-700 focus:border-primary text-white" : "bg-slate-50 border-slate-100 focus:border-primary"
-                                                                            )}
-                                                                        />
-                                                                    )}
+                                                                    <MathEditor
+                                                                        value={p.texto}
+                                                                        onChange={val => updatePregunta(pIdx, { texto: val })}
+                                                                        placeholder="Escribe el enunciado de la pregunta..."
+                                                                        theme={theme}
+                                                                        rows={2}
+                                                                    />
                                                                 </div>
 
                                                                 {/* Tipo */}
@@ -594,27 +563,14 @@ export default function QuestionnaireEditor({
                                                                                     }
                                                                                 </button>
                                                                                 <div className="flex-1 min-w-0">
-                                                                                    {isMathematical ? (
-                                                                                        <MathEditor
-                                                                                            value={opt.texto}
-                                                                                            onChange={val => updateOpcionTexto(pIdx, oIdx, val)}
-                                                                                            placeholder="Texto de la opción..."
-                                                                                            theme={theme}
-                                                                                            rows={1}
-                                                                                            className="border-0 bg-transparent shadow-none"
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={opt.texto}
-                                                                                            onChange={e => updateOpcionTexto(pIdx, oIdx, e.target.value)}
-                                                                                            placeholder="Texto de la opción..."
-                                                                                            className={cn(
-                                                                                                "w-full h-10 px-4 rounded-xl border-2 transition-all font-medium text-sm outline-none",
-                                                                                                isDark ? "bg-slate-800/30 border-slate-700 focus:border-primary text-white" : "bg-slate-50 border-slate-50 focus:border-primary"
-                                                                                            )}
-                                                                                        />
-                                                                                    )}
+                                                                                    <MathEditor
+                                                                                        value={opt.texto}
+                                                                                        onChange={val => updateOpcionTexto(pIdx, oIdx, val)}
+                                                                                        placeholder="Texto de la opción..."
+                                                                                        theme={theme}
+                                                                                        rows={1}
+                                                                                        className="border-0 bg-transparent shadow-none"
+                                                                                    />
                                                                                 </div>
                                                                                 {p.opciones.length > 2 && (
                                                                                     <button
@@ -689,7 +645,7 @@ export default function QuestionnaireEditor({
                                                                             + Añadir Elemento
                                                                         </button>
                                                                     </div>
-                                                                    
+
                                                                     <Reorder.Group axis="y" values={p.opciones} onReorder={(newOrder: any[]) => {
                                                                         const n = [...preguntas];
                                                                         n[pIdx].opciones = newOrder.map((o: any, idx: number) => ({ ...o, orden: idx + 1 }));
@@ -709,27 +665,14 @@ export default function QuestionnaireEditor({
                                                                                 </div>
                                                                                 <GripVertical size={16} className="text-slate-300 shrink-0" />
                                                                                 <div className="flex-1 min-w-0">
-                                                                                    {isMathematical ? (
-                                                                                        <MathEditor
-                                                                                            value={opt.texto}
-                                                                                            onChange={(val: string) => updateOpcionTexto(pIdx, oIdx, val)}
-                                                                                            placeholder="Elemento..."
-                                                                                            theme={theme}
-                                                                                            rows={1}
-                                                                                            className="border-0 bg-transparent shadow-none"
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={opt.texto}
-                                                                                            onChange={e => updateOpcionTexto(pIdx, oIdx, e.target.value)}
-                                                                                            placeholder="Elemento..."
-                                                                                            className={cn(
-                                                                                                "w-full h-10 px-4 rounded-xl border-2 transition-all font-medium text-sm outline-none",
-                                                                                                isDark ? "bg-slate-800/30 border-slate-700 focus:border-primary text-white" : "bg-slate-50 border-slate-50 focus:border-primary"
-                                                                                            )}
-                                                                                        />
-                                                                                    )}
+                                                                                    <MathEditor
+                                                                                        value={opt.texto}
+                                                                                        onChange={(val: string) => updateOpcionTexto(pIdx, oIdx, val)}
+                                                                                        placeholder="Elemento..."
+                                                                                        theme={theme}
+                                                                                        rows={1}
+                                                                                        className="border-0 bg-transparent shadow-none"
+                                                                                    />
                                                                                 </div>
                                                                                 {p.opciones.length > 2 && (
                                                                                     <button
@@ -742,7 +685,7 @@ export default function QuestionnaireEditor({
                                                                             </Reorder.Item>
                                                                         ))}
                                                                     </Reorder.Group>
-                                                                    
+
                                                                     <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest flex items-center gap-2">
                                                                         <AlertTriangle size={10} /> El sistema mostrará los elementos en orden aleatorio al estudiante.
                                                                     </p>

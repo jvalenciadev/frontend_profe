@@ -29,8 +29,7 @@ import {
     ArrowUpDown,
     CheckSquare,
     Calendar,
-    Lock,
-    Sigma
+    Lock
 } from 'lucide-react';
 import { ConfirmModal } from '../ConfirmModal';
 import { toast } from 'sonner';
@@ -56,7 +55,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
     const [timeLeft, setTimeLeft] = useState(0);
     const [view, setView] = useState<'lobby' | 'playing' | 'result'>('lobby');
     const [showConfirmFinish, setShowConfirmFinish] = useState(false);
-    const [isMathematical, setIsMathematical] = useState(false);
+
 
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -430,24 +429,6 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <div className={cn('flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all', isMathematical ? 'bg-primary/5 border-primary/30 ring-4 ring-primary/5' : theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200')}>
-                            <div className="hidden md:flex items-center gap-2 pr-2 border-r border-slate-200 dark:border-slate-700">
-                                <Sigma size={14} className={cn('transition-all', isMathematical ? 'text-primary' : 'text-slate-400')} />
-                                <span className={cn('text-[9px] font-black uppercase tracking-widest', isMathematical ? 'text-primary' : 'text-slate-500')}>Asistente Matemático</span>
-                            </div>
-                            <button
-                                onClick={() => setIsMathematical(!isMathematical)}
-                                className={cn(
-                                    "w-10 h-5 rounded-full p-1 transition-all relative overflow-hidden",
-                                    isMathematical ? "bg-primary" : "bg-slate-300 dark:bg-slate-700"
-                                )}
-                            >
-                                <div className={cn(
-                                    "w-3 h-3 bg-white rounded-full transition-all transform",
-                                    isMathematical ? "translate-x-5" : "translate-x-0"
-                                )} />
-                            </button>
-                        </div>
                         <div className={cn(
                             "px-4 md:px-10 h-10 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center gap-2 md:gap-4 border-2 transition-all shadow-xl font-mono",
                             timeLeft < 60 && cuestionario.duracion > 0
@@ -587,45 +568,20 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
 
                                     {currentP.tipo === 'TEXTO' && (
                                         <div className="space-y-4">
-                                            {isMathematical ? (
-                                                <MathEditor
-                                                    value={respuestas[currentP.id]?.textoLibre || ''}
-                                                    onChange={(val) => {
-                                                        setRespuestas({
-                                                            ...respuestas,
-                                                            [currentP.id]: { ...respuestas[currentP.id], textoLibre: val }
-                                                        });
-                                                        handleAnswer(currentP.id, undefined, val);
-                                                    }}
-                                                    placeholder="Escribe tu respuesta aquí..."
-                                                    theme={theme}
-                                                    rows={8}
-                                                    label="Tu Respuesta"
-                                                />
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-4 px-6">
-                                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Tu Respuesta</label>
-                                                    </div>
-                                                    <textarea
-                                                        value={respuestas[currentP.id]?.textoLibre || ''}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setRespuestas({
-                                                                ...respuestas,
-                                                                [currentP.id]: { ...respuestas[currentP.id], textoLibre: val }
-                                                            });
-                                                            handleAnswer(currentP.id, undefined, val);
-                                                        }}
-                                                        placeholder="Escribe tu respuesta aquí..."
-                                                        rows={8}
-                                                        className={cn(
-                                                            "w-full p-8 h-64 rounded-[3rem] border-2 transition-all font-medium text-lg outline-none resize-none",
-                                                            theme === 'dark' ? "bg-slate-900/50 border-slate-800 focus:border-primary text-white" : "bg-white border-slate-100 focus:border-primary shadow-xl shadow-slate-200/50"
-                                                        )}
-                                                    />
-                                                </div>
-                                            )}
+                                            <MathEditor
+                                                value={respuestas[currentP.id]?.textoLibre || ''}
+                                                onChange={(val) => {
+                                                    setRespuestas({
+                                                        ...respuestas,
+                                                        [currentP.id]: { ...respuestas[currentP.id], textoLibre: val }
+                                                    });
+                                                    handleAnswer(currentP.id, undefined, val);
+                                                }}
+                                                placeholder="Escribe tu respuesta aquí..."
+                                                theme={theme}
+                                                rows={8}
+                                                label="Tu Respuesta"
+                                            />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Tus respuestas se guardan automáticamente.</p>
                                         </div>
                                     )}

@@ -5,11 +5,11 @@ import { toast } from 'sonner';
 
 // Configuración de constantes de entorno
 // Durante SSG/SSR en Node, es imperativo tener URLs absolutas para evitar DEP0169 (url.parse)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
-const VIEWS_API_URL = process.env.NEXT_PUBLIC_VIEWS_API_URL || 'http://localhost:3005';
+const API_URL = typeof window === 'undefined' ? 'http://127.0.0.1:3000' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011');
+const VIEWS_API_URL = typeof window === 'undefined' ? 'http://127.0.0.1:3005' : (process.env.NEXT_PUBLIC_VIEWS_API_URL || 'http://localhost:3005');
 // IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
 const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'qjmwyxYXMqe';
-const LMS_API_URL = process.env.NEXT_PUBLIC_LMS_API_URL || 'http://localhost:3008/api/aula';
+const LMS_API_URL = typeof window === 'undefined' ? 'http://127.0.0.1:3008/api/aula' : (process.env.NEXT_PUBLIC_LMS_API_URL || 'http://localhost:3008/api/aula');
 const LMS_API_SECRET = process.env.NEXT_PUBLIC_LMS_API_SECRET || 'LMS_SEC_key_2024_0bb62283a6691_aula_virtual';
 
 /**

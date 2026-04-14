@@ -30,16 +30,14 @@ import {
     Clock,
     DollarSign,
     RefreshCw,
-    LayoutGrid,
     BookOpen,
     Info,
-    GraduationCap,
     Stamp,
     Printer,
-    FileCheck,
     ArrowRightCircle,
     Tag,
-    ChevronDown
+    ChevronDown,
+    ArrowLeftRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Modal } from '@/components/Modal';
@@ -64,8 +62,11 @@ export default function InscripcionesPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const [camposExtra, setCamposExtra] = useState<any[]>([]);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkDestination, setBulkDestination] = useState({ versionId: '', programaId: '', turnoId: '' });
     const [userExtraResponses, setUserExtraResponses] = useState<{ [key: string]: string }>({});
     const [selectedVersionId, setSelectedVersionId] = useState<string>('');
+    const [filterVersion, setFilterVersion] = useState('');
 
     // Persona Search State
     const [personaSearch, setPersonaSearch] = useState('');
@@ -94,60 +95,6 @@ export default function InscripcionesPage() {
         subsistema: ''
     });
 
-    useEffect(() => {
-        loadItems();
-        loadOfertas();
-        loadSedes();
-        loadEstados();
-        loadCamposExtra();
-    }, []);
-
-    const loadCamposExtra = async () => {
-        try {
-            const data = await userService.getCamposExtra();
-            setCamposExtra(data);
-        } catch (error) {
-            console.error('Error loading extra fields');
-        }
-    };
-
-    const loadSedes = async () => {
-        try {
-            const data = await sedeService.getAll();
-            setSedes(data);
-        } catch (error) {
-            toast.error('Error al cargar sedes');
-        }
-    };
-
-    const loadEstados = async () => {
-        try {
-            const data = await programaInscripcionEstadoService.getAll();
-            setEstadosInscripcion(data);
-        } catch (error) {
-            toast.error('Error al cargar estados');
-        }
-    };
-
-    // Auto-search personas
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (personaSearch.length >= 3 && !formData.personaId) {
-                setPersonaLoading(true);
-                try {
-                    const data = await userService.getAll(personaSearch);
-                    setPersonasFound(data);
-                } catch (error) {
-                    console.error('Error searching personas');
-                } finally {
-                    setPersonaLoading(false);
-                }
-            } else {
-                setPersonasFound([]);
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [personaSearch, formData.personaId]);
 
     const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
@@ -203,6 +150,7 @@ export default function InscripcionesPage() {
 
             const matchesSede = !filterSede || ins.sedeId === filterSede;
             const matchesEstado = !filterEstado || ins.estadoInscripcionId === filterEstado;
+            const matchesVersion = !filterVersion || ins.programa?.versionId === filterVersion;
 
             // Group Filter Logic
             let matchesGroup = true;
@@ -216,9 +164,9 @@ export default function InscripcionesPage() {
                 }
             }
 
-            return matchesSearch && matchesSede && matchesEstado && matchesGroup;
+            return matchesSearch && matchesSede && matchesEstado && matchesVersion && matchesGroup;
         });
-    }, [inscripciones, searchTerm, filterSede, filterEstado, selectedGroup, groupedStats]);
+    }, [inscripciones, searchTerm, filterSede, filterEstado, filterVersion, selectedGroup, groupedStats]);
 
     const stats = useMemo(() => {
         const total = inscripciones.length;
@@ -248,6 +196,71 @@ export default function InscripcionesPage() {
         });
         return Array.from(map.values());
     }, [ofertas]);
+
+    useEffect(() => {
+        loadItems();
+        loadOfertas();
+        loadSedes();
+        loadEstados();
+        loadCamposExtra();
+    }, []);
+
+    // Set default version filter to latest version (not 2025 if possible)
+    useEffect(() => {
+        if (uniqueVersions.length > 0 && !filterVersion) {
+            const latest = [...uniqueVersions].sort((a, b) => b.gestion - a.gestion || b.numero - a.numero)[0];
+            if (latest && latest.gestion !== 2025) {
+                setFilterVersion(latest.id);
+            }
+        }
+    }, [uniqueVersions]);
+
+    const loadCamposExtra = async () => {
+        try {
+            const data = await userService.getCamposExtra();
+            setCamposExtra(data);
+        } catch (error) {
+            console.error('Error loading extra fields');
+        }
+    };
+
+    const loadSedes = async () => {
+        try {
+            const data = await sedeService.getAll();
+            setSedes(data);
+        } catch (error) {
+            toast.error('Error al cargar sedes');
+        }
+    };
+
+    const loadEstados = async () => {
+        try {
+            const data = await programaInscripcionEstadoService.getAll();
+            setEstadosInscripcion(data);
+        } catch (error) {
+            toast.error('Error al cargar estados');
+        }
+    };
+
+    // Auto-search personas
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (personaSearch.length >= 3 && !formData.personaId) {
+                setPersonaLoading(true);
+                try {
+                    const data = await userService.getAll(personaSearch);
+                    setPersonasFound(data);
+                } catch (error) {
+                    console.error('Error searching personas');
+                } finally {
+                    setPersonaLoading(false);
+                }
+            } else {
+                setPersonasFound([]);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [personaSearch, formData.personaId]);
 
     const handleOpenModal = (inscripcion: any = null) => {
         if (inscripcion) {
@@ -366,13 +379,22 @@ export default function InscripcionesPage() {
                     >
                         <Filter className="w-5 h-5" />
                     </button>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-3"
-                    >
-                        <UserPlus className="w-5 h-5" />
-                        Inscribir Nuevo
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setIsBulkModalOpen(true)}
+                            className="h-16 px-8 rounded-3xl bg-amber-500/10 text-amber-600 font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-amber-600 hover:text-white transition-all shadow-xl shadow-amber-500/5 group"
+                        >
+                            <ArrowLeftRight className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                            <span>Migración Masiva</span>
+                        </button>
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="h-16 px-10 rounded-3xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-primary/20 group"
+                        >
+                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                            <span>Inscribir Nuevo</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -499,7 +521,19 @@ export default function InscripcionesPage() {
                         />
                     </div>
                     {showFilters && (
-                        <div className="flex gap-4 animate-in slide-in-from-right-4 duration-300">
+                        <div className="flex flex-wrap gap-4 animate-in slide-in-from-right-4 duration-300">
+                            <select
+                                className="h-14 px-6 rounded-2xl bg-muted/30 border border-border/50 outline-none text-[11px] font-black uppercase tracking-widest"
+                                value={filterVersion}
+                                onChange={(e) => setFilterVersion(e.target.value)}
+                            >
+                                <option value="">Todas las Versiones</option>
+                                {uniqueVersions.map(v => (
+                                    <option key={v.id} value={v.id}>
+                                        {v.nombre} {v.numero} ({v.gestion})
+                                    </option>
+                                ))}
+                            </select>
                             <select
                                 className="h-14 px-6 rounded-2xl bg-muted/30 border border-border/50 outline-none text-[11px] font-black uppercase tracking-widest"
                                 value={filterSede}
@@ -528,19 +562,20 @@ export default function InscripcionesPage() {
                                 <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-center">Inscrito en</th>
                                 <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-center">Estado Académico</th>
                                 <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-right">Balance Económico</th>
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-right">Gestión</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-center">Gestión</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/40">
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={5} className="p-10 h-24 bg-muted/10" />
+                                        <td colSpan={6} className="p-10 h-24 bg-muted/10" />
                                     </tr>
                                 ))
                             ) : filteredInscripciones.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-20 text-center">
+                                    <td colSpan={6} className="p-20 text-center">
                                         <div className="flex flex-col items-center justify-center opacity-30 gap-4">
                                             <Search className="w-16 h-16" />
                                             <p className="text-sm font-black uppercase tracking-[0.3em]">No se encontraron resultados</p>
@@ -562,16 +597,6 @@ export default function InscripcionesPage() {
                                                         <span className="w-1 h-1 rounded-full bg-border" />
                                                         <span className="text-primary/60">ID: {ins.id?.substring(0, 8)}</span>
                                                     </div>
-                                                    {ins.persona?.mod_campos_extra_regs?.length > 0 && (
-                                                        <div className="mt-3 flex flex-wrap gap-2">
-                                                            {ins.persona.mod_campos_extra_regs.map((reg: any) => (
-                                                                <span key={reg.id} className="px-2 py-1 rounded-lg bg-primary/5 dark:bg-primary/10 text-[9px] font-black text-primary uppercase border border-primary/10 shadow-sm flex items-center gap-1">
-                                                                    <Tag className="w-2.5 h-2.5 opacity-50" />
-                                                                    {reg.campoExtra?.label}: <span className="text-foreground">{reg.valor}</span>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -599,17 +624,23 @@ export default function InscripcionesPage() {
                                             </span>
                                         </td>
                                         <td className="p-6">
-                                            <div className="flex flex-col items-end gap-1.5">
-                                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden max-w-[120px]">
+                                            <div className="flex flex-col items-end gap-1.5 text-right">
+                                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden max-w-[120px] ml-auto">
                                                     <div
                                                         className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                                                         style={{ width: `${Math.min(100, ((ins.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0) / (ins.programa?.costo || 1)) * 100)}%` }}
                                                     />
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 justify-end">
                                                     <span className="text-sm font-black text-foreground">Bs. {(ins.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0)}</span>
                                                     <span className="text-[10px] font-bold text-muted-foreground italic">/ Bs. {ins.programa?.costo || 0}</span>
                                                 </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-6 text-center">
+                                            <div className="inline-flex flex-col items-center">
+                                                <span className="text-[11px] font-black text-foreground">{ins.programa?.version?.gestion || '-'}</span>
+                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter opacity-70">{ins.programa?.version?.nombre} {ins.programa?.version?.numero}</span>
                                             </div>
                                         </td>
                                         <td className="p-6">
@@ -1032,7 +1063,7 @@ export default function InscripcionesPage() {
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || !formData.personaId || (currentStep === 2 && !formData.programaId)}
+                            disabled={isSubmitting || !formData.personaId || (currentStep === 2 && (!formData.programaId || !formData.turnoId))}
                             className="h-16 px-12 rounded-3xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] shadow-2xl shadow-primary/30 hover:bg-slate-800 transition-all flex items-center gap-4 group disabled:opacity-50"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
@@ -1052,6 +1083,103 @@ export default function InscripcionesPage() {
                 onClose={() => setIsInscritosModalOpen(false)}
                 oferta={targetOferta}
             />
+
+            {/* Bulk Migration Modal */}
+            <Modal
+                isOpen={isBulkModalOpen}
+                onClose={() => setIsBulkModalOpen(false)}
+                title={undefined}
+                size="2xl"
+            >
+                <div className="flex flex-col bg-slate-50 dark:bg-slate-950">
+                    <div className="p-8 bg-white dark:bg-slate-900 border-b border-border/40">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-xl shadow-amber-500/20">
+                                <ArrowLeftRight className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black uppercase tracking-tighter italic leading-none">
+                                    Migración <span className="text-amber-600">Masiva</span>
+                                </h3>
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Importación de participantes vía Excel/CSV</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-8 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1.5 md:col-span-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Versión de Destino</label>
+                                <select
+                                    className="w-full h-14 px-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-amber-500 outline-none text-xs font-bold"
+                                    value={bulkDestination.versionId}
+                                    onChange={(e) => setBulkDestination({ ...bulkDestination, versionId: e.target.value, programaId: '', turnoId: '' })}
+                                >
+                                    <option value="">Seleccione Versión</option>
+                                    {uniqueVersions.map(v => <option key={v.id} value={v.id}>{v.nombre} {v.numero} ({v.gestion})</option>)}
+                                </select>
+                            </div>
+
+                            {bulkDestination.versionId && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Sede / Modalidad</label>
+                                        <select
+                                            className="w-full h-14 px-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-amber-500 outline-none text-xs font-bold"
+                                            value={bulkDestination.programaId}
+                                            onChange={(e) => {
+                                                const o = ofertas.find(oferta => oferta.id === e.target.value);
+                                                setBulkDestination({ ...bulkDestination, programaId: e.target.value, turnoId: o?.turnos?.[0]?.id || '' });
+                                            }}
+                                        >
+                                            <option value="">Seleccione Sede</option>
+                                            {ofertas.filter(o => o.version?.id === bulkDestination.versionId).map(o => (
+                                                <option key={o.id} value={o.id}>{o.sede?.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Turno</label>
+                                        <select
+                                            className="w-full h-14 px-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-amber-500 outline-none text-xs font-bold"
+                                            value={bulkDestination.turnoId}
+                                            onChange={(e) => setBulkDestination({ ...bulkDestination, turnoId: e.target.value })}
+                                        >
+                                            <option value="">Seleccione Turno</option>
+                                            {ofertas.find(o => o.id === bulkDestination.programaId)?.turnos?.map((t: any) => (
+                                                <option key={t.id} value={t.id}>{t.turnoConfig?.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem] bg-white/50 dark:bg-slate-900/50 flex flex-col items-center justify-center gap-4 hover:border-amber-500/50 transition-all group cursor-pointer">
+                            <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Download className="w-8 h-8" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-black uppercase tracking-tight">Seleccionar Archivo Excel</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Formatos permitidos: .xlsx, .csv</p>
+                            </div>
+                            <input type="file" className="absolute opacity-0 cursor-pointer" accept=".xlsx, .csv" onChange={() => toast.info('Funcionalidad de procesamiento en desarrollo')} />
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex gap-4">
+                            <Info className="w-5 h-5 text-amber-600 shrink-0" />
+                            <p className="text-[9px] font-bold text-amber-900/60 dark:text-amber-200/60 uppercase leading-relaxed tracking-wide">
+                                El archivo debe contener al menos las columnas: ci, nombres, apellidos, correo, celular. El sistema vinculará o creará los usuarios automáticamente.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-8 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-end gap-4">
+                        <button onClick={() => setIsBulkModalOpen(false)} className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
+                        <button className="h-14 px-10 rounded-2xl bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-600/20">Iniciar Migración Masiva</button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

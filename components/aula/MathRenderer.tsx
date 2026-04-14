@@ -70,7 +70,7 @@ export default function MathRenderer({ text, className, blockClassName }: MathRe
                         />
                     );
                 }
-                return <span key={i}>{part.content}</span>;
+                return <span key={i} dangerouslySetInnerHTML={{ __html: part.content }} />;
             })}
         </span>
     );

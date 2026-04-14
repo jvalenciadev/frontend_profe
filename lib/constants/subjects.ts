@@ -18,7 +18,7 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Galerías', value: 'Galeria' },
 
     // Académico (Estructura)
-    { label: 'Programas (Maestría)', value: 'Programa' },
+    { label: 'Programas (Master)', value: 'Programa' },
     { label: 'Programas (Ofertas)', value: 'ProgramaDos' },
     { label: 'Inscripciones de Programas', value: 'ProgramaInscripcion' },
     { label: 'Inscripción Estados', value: 'ProgramaInscripcionEstado' },
