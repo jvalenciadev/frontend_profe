@@ -432,9 +432,9 @@ export default function QuestionnaireEditor({
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={cn('font-black text-sm leading-tight truncate', isDark ? 'text-white' : 'text-slate-900', !p.texto && 'italic text-slate-400')}>
+                                                    <div className={cn('font-semibold text-sm leading-tight truncate', isDark ? 'text-white' : 'text-slate-900', !p.texto && 'italic text-slate-400')}>
                                                         <MathRenderer text={p.texto || 'Sin enunciado...'} />
-                                                    </p>
+                                                    </div>
                                                     <div className="flex items-center gap-3 mt-1.5">
                                                         <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full', tc.bg, tc.color)}>
                                                             {tc.label}

@@ -45,18 +45,18 @@ export default function MathRenderer({ text, className, blockClassName }: MathRe
     }
 
     return (
-        <span className={className}>
+        <div className={cn("math-renderer-root", className)}>
             {parts.map((part, i) => {
                 if (part.type === 'block') {
                     return (
-                        <span key={i} className={blockClassName}>
+                        <div key={i} className={cn("my-4", blockClassName)}>
                             <BlockMath
                                 math={part.content}
                                 renderError={(err) => (
                                     <span className="text-rose-500 text-xs font-mono">{part.content}</span>
                                 )}
                             />
-                        </span>
+                        </div>
                     );
                 }
                 if (part.type === 'inline') {
@@ -72,9 +72,12 @@ export default function MathRenderer({ text, className, blockClassName }: MathRe
                 }
                 return <span key={i} dangerouslySetInnerHTML={{ __html: part.content }} />;
             })}
-        </span>
+        </div>
     );
 }
+
+// Added cn utility import if not present or just use simple template literals
+import { cn } from '@/lib/utils';
 
 function processInline(segment: string, parts: { content: string; type: 'text' | 'inline' | 'block' }[]) {
     const inlineRegex = /(\$[^$\n]+?\$|\\\([^)]*?\\\))/g;

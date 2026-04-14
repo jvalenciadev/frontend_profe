@@ -313,7 +313,7 @@ export default function ActivityDetailPage() {
                     </button>
                     <div>
                         <h1 className={cn("text-2xl font-black tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                            {activity.titulo}
+                            <MathRenderer text={activity.titulo} />
                         </h1>
                         <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--aula-primary)' }}>{activity.tipo} EDUCATIVO</p>
                     </div>
@@ -389,9 +389,9 @@ export default function ActivityDetailPage() {
                                     </div>
                                     <div>
                                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Facilitador a Cargo</p>
-                                        <p className={cn("text-xs font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                            {activity.facilitador || activity.docente || 'Delfor Vargas Urzagaste'}
-                                        </p>
+                                        <div className={cn("text-xs font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                            <MathRenderer text={activity.facilitador || activity.docente || 'Delfor Vargas Urzagaste'} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -701,9 +701,9 @@ export default function ActivityDetailPage() {
                                                                 )}
                                                             </div>
                                                             <div className="md:text-center w-full md:w-48">
-                                                                <h4 className={cn("text-[11px] font-black uppercase tracking-tight leading-tight mb-1", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                                                    {participant.user?.nombre} {participant.user?.apellidos}
-                                                                </h4>
+                                                                <div className={cn("text-[11px] font-black uppercase tracking-tight leading-tight mb-1", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                                    <MathRenderer text={`${participant.user?.nombre} ${participant.user?.apellidos}`} />
+                                                                </div>
                                                                 <div className="px-2 py-0.5 rounded-full inline-block" style={{ backgroundColor: 'color-mix(in srgb, var(--aula-primary), transparent 90%)' }}>
                                                                     <p className="text-[7px] font-black uppercase tracking-widest leading-none" style={{ color: 'var(--aula-primary)' }}>Participante</p>
                                                                 </div>
@@ -740,12 +740,12 @@ export default function ActivityDetailPage() {
                                                                                 ))}
                                                                             </div>
                                                                         ) : (
-                                                                            <p className={cn(
-                                                                                "text-[12px] font-medium leading-normal whitespace-pre-wrap",
+                                                                            <div className={cn(
+                                                                                "text-[12px] font-medium leading-normal",
                                                                                 theme === 'dark' ? "text-slate-300" : "text-slate-600"
                                                                             )}>
-                                                                                {post.mensaje || post.texto || 'Sin mensaje.'}
-                                                                            </p>
+                                                                                <MathRenderer text={post.mensaje || post.texto || 'Sin mensaje.'} />
+                                                                            </div>
                                                                         )}
                                                                         <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800/50 flex items-center justify-between">
                                                                             <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
@@ -772,9 +772,9 @@ export default function ActivityDetailPage() {
                                                                             theme === 'dark' ? "bg-slate-800/30 border-slate-700 text-slate-400" : "bg-emerald-50/30 border-emerald-100 ml-auto"
                                                                         )}>
                                                                             <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--aula-primary)' }}>Retroalimentación:</p>
-                                                                            <p className="text-[12px] italic leading-relaxed text-slate-500 dark:text-slate-400">
-                                                                                "{participant.nota?.observacion || 'Sin comentarios adicionales.'}"
-                                                                            </p>
+                                                                            <div className="text-[12px] italic leading-relaxed text-slate-500 dark:text-slate-400 prose prose-sm dark:prose-invert max-w-none">
+                                                                                <MathRenderer text={participant.nota?.observacion || 'Sin comentarios adicionales.'} />
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1173,10 +1173,10 @@ export default function ActivityDetailPage() {
                                                                                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Contenido Teórico:</p>
                                                                                 </div>
                                                                                 <div className={cn(
-                                                                                    "p-6 rounded-3xl border text-sm leading-relaxed italic",
+                                                                                    "p-6 rounded-3xl border text-sm leading-relaxed italic prose prose-sm dark:prose-invert max-w-none",
                                                                                     theme === 'dark' ? "bg-slate-900/50 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-600 shadow-sm"
                                                                                 )}>
-                                                                                    "{entregas[0].texto}"
+                                                                                    <MathRenderer text={entregas[0].texto} />
                                                                                 </div>
                                                                             </div>
                                                                         )}
@@ -1290,7 +1290,9 @@ export default function ActivityDetailPage() {
                                                             {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(post.createdAt))}
                                                         </span>
                                                     </div>
-                                                    <p className="font-medium italic">"{post.mensaje || post.texto}"</p>
+                                                    <div className="font-medium italic prose prose-sm dark:prose-invert max-w-none">
+                                                        <MathRenderer text={post.mensaje || post.texto} />
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>

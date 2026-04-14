@@ -63,6 +63,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import ActivityEditor from '@/components/aula/ActivityEditor';
 import StudentList from '@/components/aula/StudentList';
+import MathRenderer from '@/components/aula/MathRenderer';
 
 function formatDate(date: string) {
     if (!date) return '—';
@@ -581,9 +582,9 @@ export default function CourseDetailPage() {
                                                 {currentUnit.titulo}
                                             </h2>
                                             {currentUnit.descripcion && (
-                                                <p className="text-xl text-slate-500 font-medium leading-relaxed">
-                                                    {currentUnit.descripcion}
-                                                </p>
+                                                <div className="text-xl text-slate-500 font-medium leading-relaxed prose prose-xl dark:prose-invert max-w-none">
+                                                    <MathRenderer text={currentUnit.descripcion} />
+                                                </div>
                                             )}
                                         </div>
                                     </header>
@@ -996,9 +997,9 @@ function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className 
                     </h4>
                 </div>
 
-                <p className="text-slate-500 text-sm font-medium line-clamp-1 mt-1 opacity-80 italic">
-                    {act.instrucciones || 'Haga clic para ingresar a la actividad académica.'}
-                </p>
+                <div className="text-slate-500 text-sm font-medium line-clamp-1 mt-1 opacity-80 italic prose prose-sm dark:prose-invert max-w-none">
+                    <MathRenderer text={act.instrucciones || 'Haga clic para ingresar a la actividad académica.'} />
+                </div>
 
                 <div className="flex flex-wrap items-center gap-4 mt-2">
                     {/* Fecha de Rango (Solo se muestra si NO ha entregado para incentivar el orden) */}
@@ -1253,9 +1254,9 @@ function ResourceCard({ res, theme, isFac, onDelete, onEdit, onView, className }
                         {res.titulo}
                     </h5>
                     {res.descripcion && (
-                        <p className={cn("text-[11px] font-medium line-clamp-1 opacity-70 italic", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
-                            {res.descripcion}
-                        </p>
+                        <div className={cn("text-[11px] font-medium line-clamp-1 opacity-70 italic prose prose-sm dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                            <MathRenderer text={res.descripcion} />
+                        </div>
                     )}
                 </div>
 

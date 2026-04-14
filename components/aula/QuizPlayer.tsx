@@ -265,122 +265,122 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                 <div className="min-h-full w-full flex flex-col items-center justify-center py-10 px-6">
                     <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-8">
 
-                    <div className={cn(
-                        "md:col-span-3 space-y-6 md:space-y-8 backdrop-blur-xl border p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden transition-all",
-                        theme === 'dark' ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"
-                    )}>
-                        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                            <Rocket size={200} className={theme === 'dark' ? "text-white" : "text-primary"} />
+                        <div className={cn(
+                            "md:col-span-3 space-y-6 md:space-y-8 backdrop-blur-xl border p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden transition-all",
+                            theme === 'dark' ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"
+                        )}>
+                            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                                <Rocket size={200} className={theme === 'dark' ? "text-white" : "text-primary"} />
+                            </div>
+
+                            <header className="space-y-4 relative z-10">
+                                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                                    <FileText size={32} />
+                                </div>
+                                <div>
+                                    <h1 className={cn("text-2xl md:text-4xl font-black leading-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                        {cuestionario?.actividad?.titulo}
+                                    </h1>
+                                    <p className="text-slate-400 font-bold mt-2 text-xs md:text-sm leading-relaxed">{cuestionario?.actividad?.instrucciones}</p>
+                                </div>
+                            </header>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 relative z-10">
+                                {[
+                                    { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion} min`, icon: Timer, color: 'text-primary' },
+                                    { label: 'Intentos', value: `${lobbyData.intentosConsumidos} / ${cuestionario.maxIntentos}`, icon: History, color: 'text-amber-500' },
+                                    { label: 'Preguntas', value: cuestionario.aleatorizar && cuestionario.randomCount ? cuestionario.randomCount : (cuestionario.preguntas?.length || 0), icon: Brain, color: 'text-emerald-500' }
+                                ].map((item, i) => (
+                                    <div key={i} className={cn("p-4 md:p-5 rounded-2xl md:rounded-3xl border transition-all", theme === 'dark' ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-100")}>
+                                        <div className={cn("flex items-center gap-2 mb-2", item.color)}>
+                                            <item.icon size={16} />
+                                            <span className="text-[9px] font-black uppercase tracking-widest">{item.label}</span>
+                                        </div>
+                                        <p className={cn("text-lg md:text-xl font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                            {item.value}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+                                {[
+                                    { label: 'Apertura', value: mounted && cuestionario.actividad?.fechaInicio ? new Date(cuestionario.actividad.fechaInicio).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...', icon: Calendar, color: 'text-indigo-500' },
+                                    { label: 'Cierre', value: mounted && cuestionario.actividad?.fechaFin ? new Date(cuestionario.actividad.fechaFin).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...', icon: Lock, color: 'text-rose-500' },
+                                ].map((item, i) => (
+                                    <div key={i} className={cn("p-4 rounded-2xl border transition-all flex items-center gap-4", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
+                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border shrink-0", theme === 'dark' ? "bg-slate-950 border-slate-800" : "bg-white border-white")}>
+                                            <item.icon size={20} className={item.color} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest leading-none mb-1">{item.label}</p>
+                                            <p className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-white" : "text-slate-900")}>{item.value}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="pt-6 relative z-10">
+                                {(cuestionario?.soloMobile || cuestionario?.mod_cue_solo_mobile) && !isMobile ? (
+                                    <div className="p-8 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-4">
+                                        <AlertTriangle size={36} className="text-amber-500 mx-auto" />
+                                        <div>
+                                            <p className="text-amber-600 font-black text-[11px] uppercase tracking-widest leading-none mb-2">Cuestionario de Alta Seguridad</p>
+                                            <p className={cn("text-sm font-medium", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>Este cuestionario solo puede realizarse desde un dispositivo móvil (celular o tablet). Descarga la aplicación o ingresa desde tu móvil para realizarlo.</p>
+                                        </div>
+                                    </div>
+                                ) : lobbyData.intentosRestantes > 0 || hasActiveIntento ? (
+                                    <button
+                                        onClick={startQuiz}
+                                        disabled={starting}
+                                        className={cn(
+                                            "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
+                                            hasActiveIntento
+                                                ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
+                                                : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
+                                        )}
+                                    >
+                                        {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
+                                        {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
+                                    </button>
+                                ) : (
+                                    <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-center font-black text-xs uppercase tracking-widest">
+                                        Has agotado todos tus intentos
+                                    </div>
+                                )}
+                                <button onClick={onClose} className="w-full mt-4 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-primary transition-colors">Volver al aula</button>
+                            </div>
                         </div>
 
-                        <header className="space-y-4 relative z-10">
-                            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                                <FileText size={32} />
-                            </div>
-                            <div>
-                                <h1 className={cn("text-2xl md:text-4xl font-black leading-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                    {cuestionario?.actividad?.titulo}
-                                </h1>
-                                <p className="text-slate-400 font-bold mt-2 text-xs md:text-sm leading-relaxed">{cuestionario?.actividad?.instrucciones}</p>
-                            </div>
-                        </header>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 relative z-10">
-                            {[
-                                { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion} min`, icon: Timer, color: 'text-primary' },
-                                { label: 'Intentos', value: `${lobbyData.intentosConsumidos} / ${cuestionario.maxIntentos}`, icon: History, color: 'text-amber-500' },
-                                { label: 'Preguntas', value: cuestionario.aleatorizar && cuestionario.randomCount ? cuestionario.randomCount : (cuestionario.preguntas?.length || 0), icon: Brain, color: 'text-emerald-500' }
-                            ].map((item, i) => (
-                                <div key={i} className={cn("p-4 md:p-5 rounded-2xl md:rounded-3xl border transition-all", theme === 'dark' ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-100")}>
-                                    <div className={cn("flex items-center gap-2 mb-2", item.color)}>
-                                        <item.icon size={16} />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">{item.label}</span>
+                        <div className="md:col-span-2 space-y-4 md:space-y-6">
+                            <div className={cn(
+                                "p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border flex flex-col justify-between h-full transition-all",
+                                theme === 'dark' ? "bg-slate-900/30 border-slate-800/50" : "bg-white border-slate-200 shadow-xl"
+                            )}>
+                                <div>
+                                    <h3 className={cn("font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-3", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                        <Trophy size={18} className="text-amber-500" /> Rendimiento
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div className={cn("p-4 md:p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
+                                            <p className="text-slate-500 text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-1">Mejor Calificación</p>
+                                            <p className="text-2xl md:text-3xl font-black text-emerald-500">{lobbyData.mejorPuntaje || 0} <span className="text-xs text-slate-400">pts</span></p>
+                                        </div>
+                                        <div className={cn("p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
+                                            <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1">Resultado de Sincronización</p>
+                                            <p className={cn("text-xs font-bold", theme === 'dark' ? "text-slate-300" : "text-slate-600")}>Todas tus respuestas se guardan encriptadas y en tiempo real.</p>
+                                        </div>
                                     </div>
-                                    <p className={cn("text-lg md:text-xl font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                        {item.value}
+                                </div>
+                                <div className="mt-6 md:mt-10 p-5 md:p-6 rounded-2xl md:rounded-3xl bg-primary/5 border border-primary/10">
+                                    <HelpCircle size={28} className="text-primary/40 mb-2 md:mb-3" />
+                                    <p className="text-[8px] md:text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-widest">
+                                        Si pierdes la conexión, tu progreso se guardará automáticamente y podrás continuar desde el mismo punto.
                                     </p>
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
-                            {[
-                                { label: 'Apertura', value: mounted && cuestionario.actividad?.fechaInicio ? new Date(cuestionario.actividad.fechaInicio).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...', icon: Calendar, color: 'text-indigo-500' },
-                                { label: 'Cierre', value: mounted && cuestionario.actividad?.fechaFin ? new Date(cuestionario.actividad.fechaFin).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '...', icon: Lock, color: 'text-rose-500' },
-                            ].map((item, i) => (
-                                <div key={i} className={cn("p-4 rounded-2xl border transition-all flex items-center gap-4", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
-                                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border shrink-0", theme === 'dark' ? "bg-slate-950 border-slate-800" : "bg-white border-white")}>
-                                        <item.icon size={20} className={item.color} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest leading-none mb-1">{item.label}</p>
-                                        <p className={cn("text-xs font-bold truncate", theme === 'dark' ? "text-white" : "text-slate-900")}>{item.value}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="pt-6 relative z-10">
-                            {(cuestionario?.soloMobile || cuestionario?.mod_cue_solo_mobile) && !isMobile ? (
-                                <div className="p-8 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-4">
-                                    <AlertTriangle size={36} className="text-amber-500 mx-auto" />
-                                    <div>
-                                        <p className="text-amber-600 font-black text-[11px] uppercase tracking-widest leading-none mb-2">Cuestionario de Alta Seguridad</p>
-                                        <p className={cn("text-sm font-medium", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>Este cuestionario solo puede realizarse desde un dispositivo móvil (celular o tablet). Descarga la aplicación o ingresa desde tu móvil para realizarlo.</p>
-                                    </div>
-                                </div>
-                            ) : lobbyData.intentosRestantes > 0 || hasActiveIntento ? (
-                                <button
-                                    onClick={startQuiz}
-                                    disabled={starting}
-                                    className={cn(
-                                        "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
-                                        hasActiveIntento
-                                            ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
-                                            : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
-                                    )}
-                                >
-                                    {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
-                                    {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
-                                </button>
-                            ) : (
-                                <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-center font-black text-xs uppercase tracking-widest">
-                                    Has agotado todos tus intentos
-                                </div>
-                            )}
-                            <button onClick={onClose} className="w-full mt-4 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-primary transition-colors">Volver al aula</button>
-                        </div>
-                    </div>
-
-                    <div className="md:col-span-2 space-y-4 md:space-y-6">
-                        <div className={cn(
-                            "p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border flex flex-col justify-between h-full transition-all",
-                            theme === 'dark' ? "bg-slate-900/30 border-slate-800/50" : "bg-white border-slate-200 shadow-xl"
-                        )}>
-                            <div>
-                                <h3 className={cn("font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-3", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                    <Trophy size={18} className="text-amber-500" /> Rendimiento
-                                </h3>
-                                <div className="space-y-4">
-                                    <div className={cn("p-4 md:p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
-                                        <p className="text-slate-500 text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-1">Mejor Calificación</p>
-                                        <p className="text-2xl md:text-3xl font-black text-emerald-500">{lobbyData.mejorPuntaje || 0} <span className="text-xs text-slate-400">pts</span></p>
-                                    </div>
-                                    <div className={cn("p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
-                                        <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1">Resultado de Sincronización</p>
-                                        <p className={cn("text-xs font-bold", theme === 'dark' ? "text-slate-300" : "text-slate-600")}>Todas tus respuestas se guardan encriptadas y en tiempo real.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-6 md:mt-10 p-5 md:p-6 rounded-2xl md:rounded-3xl bg-primary/5 border border-primary/10">
-                                <HelpCircle size={28} className="text-primary/40 mb-2 md:mb-3" />
-                                <p className="text-[8px] md:text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-widest">
-                                    Si pierdes la conexión, tu progreso se guardará automáticamente y podrás continuar desde el mismo punto.
-                                </p>
                             </div>
                         </div>
-                    </div>
-                </motion.div>
+                    </motion.div>
                 </div>
             </div>
         );
@@ -466,9 +466,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                         </span>
                                         <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">{currentP.puntaje} pts</span>
                                     </div>
-                                    <h3 className={cn("text-xl md:text-3xl font-black leading-tight tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                    <div className={cn("text-xl md:text-3xl font-semibold leading-tight tracking-tight prose prose-xl dark:prose-invert max-w-none", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                         <MathRenderer text={currentP.texto} />
-                                    </h3>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
@@ -496,9 +496,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     )}>
                                                         <span className="font-black text-xs">{String.fromCharCode(65 + currentP.opciones.indexOf(opt))}</span>
                                                     </div>
-                                                    <span className={cn("text-base font-bold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                    <div className={cn("text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                         <MathRenderer text={opt.texto} />
-                                                    </span>
+                                                    </div>
                                                 </div>
                                                 <div className={cn(
                                                     "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
@@ -550,9 +550,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     )}>
                                                         <span className="font-black text-xs">{String.fromCharCode(65 + currentP.opciones.indexOf(opt))}</span>
                                                     </div>
-                                                    <span className={cn("text-base font-bold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                    <div className={cn("text-lg font-semibold text-left", isSelected ? "text-white" : theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                         <MathRenderer text={opt.texto} />
-                                                    </span>
+                                                    </div>
                                                 </div>
                                                 <div className={cn(
                                                     "w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all shrink-0",
@@ -626,12 +626,12 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                                             : "bg-white border-slate-200 hover:border-rose-500/30 shadow-md"
                                                                     )}
                                                                 >
-                                                                    <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-lg shadow-rose-500/20">
+                                                                    <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-semibold text-sm shrink-0 shadow-lg shadow-rose-500/20">
                                                                         {oIdx + 1}
                                                                     </div>
-                                                                    <span className={cn("text-lg font-bold flex-1", theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                                                    <div className={cn("text-xl font-semibold flex-1", theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
                                                                         <MathRenderer text={opt.texto} />
-                                                                    </span>
+                                                                    </div>
                                                                     <ArrowUpDown size={20} className="text-slate-300 shrink-0" />
                                                                 </Reorder.Item>
                                                             ))}
@@ -742,145 +742,147 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                             </h2>
                             <p className="text-slate-400 font-bold text-[8px] md:text-[10px] uppercase tracking-[0.2em] md:tracking-[0.3em]">{aprobado ? 'Has superado la evaluación exitosamente' : 'No has alcanzado el puntaje mínimo requerido'}</p>
                         </div>
-                    {cuestionario.mostrarNota ? (
-                        <div className={cn("p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border backdrop-blur-sm transition-all", theme === 'dark' ? "bg-slate-800/30 border-slate-700/50" : "bg-slate-50 border-slate-100")}>
-                            <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 mb-2 md:mb-3">Puntaje</p>
-                            <div className="flex items-end justify-center gap-1">
-                                <span className={cn("text-5xl md:text-7xl font-black leading-none", aprobado ? "text-emerald-400" : "text-rose-400")}>{intento.puntajeTotal}</span>
-                                <span className="text-xl md:text-2xl font-bold text-slate-400 mb-1">/{totalPosible}</span>
+                        {cuestionario.mostrarNota ? (
+                            <div className={cn("p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border backdrop-blur-sm transition-all", theme === 'dark' ? "bg-slate-800/30 border-slate-700/50" : "bg-slate-50 border-slate-100")}>
+                                <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 mb-2 md:mb-3">Puntaje</p>
+                                <div className="flex items-end justify-center gap-1">
+                                    <span className={cn("text-5xl md:text-7xl font-black leading-none", aprobado ? "text-emerald-400" : "text-rose-400")}>{intento.puntajeTotal}</span>
+                                    <span className="text-xl md:text-2xl font-bold text-slate-400 mb-1">/{totalPosible}</span>
+                                </div>
+                                <div className="w-full h-1 md:h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mt-6 md:mt-8 overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (intento.puntajeTotal / totalPosible) * 100)}%` }} className={cn("h-full rounded-full", aprobado ? "bg-emerald-500" : "bg-rose-500")} />
+                                </div>
                             </div>
-                            <div className="w-full h-1 md:h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mt-6 md:mt-8 overflow-hidden">
-                                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (intento.puntajeTotal / totalPosible) * 100)}%` }} className={cn("h-full rounded-full", aprobado ? "bg-emerald-500" : "bg-rose-500")} />
+                        ) : (
+                            <div className={cn("p-8 rounded-[2.5rem] border bg-indigo-500/10 border-indigo-500/20 text-indigo-500")}>
+                                <HelpCircle size={32} className="mx-auto mb-4 opacity-50" />
+                                <p className="text-xs font-black uppercase tracking-widest leading-relaxed">
+                                    Cuestionario enviado correctamente. Tu calificación será publicada próximamente por tu facilitador.
+                                </p>
                             </div>
-                        </div>
-                    ) : (
-                        <div className={cn("p-8 rounded-[2.5rem] border bg-indigo-500/10 border-indigo-500/20 text-indigo-500")}>
-                            <HelpCircle size={32} className="mx-auto mb-4 opacity-50" />
-                            <p className="text-xs font-black uppercase tracking-widest leading-relaxed">
-                                Cuestionario enviado correctamente. Tu calificación será publicada próximamente por tu facilitador.
-                            </p>
-                        </div>
-                    )}
-                    <button onClick={onClose} className={cn(
-                        "w-full h-20 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] shadow-xl transition-all",
-                        theme === 'dark' ? "bg-white text-slate-950" : "bg-slate-900 text-white shadow-slate-900/20"
-                    )}>
-                        Finalizar y Salir
-                    </button>
-                </motion.div>
+                        )}
+                        <button onClick={onClose} className={cn(
+                            "w-full h-20 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] shadow-xl transition-all",
+                            theme === 'dark' ? "bg-white text-slate-950" : "bg-slate-900 text-white shadow-slate-900/20"
+                        )}>
+                            Finalizar y Salir
+                        </button>
+                    </motion.div>
 
-                {/* Retroalimentación Inmediata */}
-                {cuestionario.retroInmediata && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 40 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="max-w-4xl w-full mt-12 pb-20 space-y-4"
-                    >
-                        <h3 className={cn("text-xl font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                            Revisión de respuestas
-                        </h3>
-                        <div className="grid grid-cols-1 gap-4">
-                            {cuestionario.preguntas.map((p: any, idx: number) => {
-                                const ans = (intento?.respuestas || []).find((r: any) => r.preguntaId === p.id);
-                                const isCorrect = ans?.esCorrecta;
-                                return (
-                                    <div key={p.id} className={cn(
-                                        "p-6 rounded-[2rem] border transition-all",
-                                        theme === 'dark' ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-100 shadow-sm"
-                                    )}>
-                                        <div className="flex items-start gap-4">
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border-2",
-                                                isCorrect ? "bg-emerald-500 border-emerald-400 text-white" : "bg-rose-500 border-rose-400 text-white"
-                                            )}>
-                                                <span className="font-black text-sm">{idx + 1}</span>
-                                            </div>
-                                            <div className="flex-1 space-y-4">
-                                                <div>
-                                                    <p className={cn("font-bold", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>{p.texto}</p>
-                                                    <p className={cn("text-[10px] font-black uppercase tracking-widest mt-1", isCorrect ? "text-emerald-500" : "text-rose-500")}>
-                                                        {isCorrect ? 'Respuesta Correcta' : 'Respuesta Incorrecta'} • {ans?.puntaje || 0} / {p.puntaje} pts
-                                                    </p>
+                    {/* Retroalimentación Inmediata */}
+                    {cuestionario.retroInmediata && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 40 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="max-w-4xl w-full mt-12 pb-20 space-y-4"
+                        >
+                            <h3 className={cn("text-xl font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                Revisión de respuestas
+                            </h3>
+                            <div className="grid grid-cols-1 gap-4">
+                                {cuestionario.preguntas.map((p: any, idx: number) => {
+                                    const ans = (intento?.respuestas || []).find((r: any) => r.preguntaId === p.id);
+                                    const isCorrect = ans?.esCorrecta;
+                                    return (
+                                        <div key={p.id} className={cn(
+                                            "p-6 rounded-[2rem] border transition-all",
+                                            theme === 'dark' ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-100 shadow-sm"
+                                        )}>
+                                            <div className="flex items-start gap-4">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border-2",
+                                                    isCorrect ? "bg-emerald-500 border-emerald-400 text-white" : "bg-rose-500 border-rose-400 text-white"
+                                                )}>
+                                                    <span className="font-black text-sm">{idx + 1}</span>
                                                 </div>
+                                                <div className="flex-1 space-y-4">
+                                                    <div>
+                                                        <div className={cn("font-bold prose dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
+                                                            <MathRenderer text={p.texto} />
+                                                        </div>
+                                                        <p className={cn("text-[10px] font-black uppercase tracking-widest mt-1", isCorrect ? "text-emerald-500" : "text-rose-500")}>
+                                                            {isCorrect ? 'Respuesta Correcta' : 'Respuesta Incorrecta'} • {ans?.puntaje || 0} / {p.puntaje} pts
+                                                        </p>
+                                                    </div>
 
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    {p.tipo !== 'ORDENAR' && p.opciones.map((opt: any) => {
-                                                        const wasSelected = (() => {
-                                                            if (!ans) return false;
-                                                            if (p.tipo === 'MULTIPLE' || p.tipo === 'VF') return ans.opcionId === opt.id;
-                                                            if (p.tipo === 'MULTIPLE_M') {
-                                                                try { return JSON.parse(ans.textoLibre || '[]').includes(opt.id); } catch(e) { return false; }
-                                                            }
-                                                            return false;
-                                                        })();
-                                                        
-                                                        return (
-                                                            <div key={opt.id} className={cn(
-                                                                "p-3 rounded-xl border flex items-center gap-3 text-xs font-medium",
-                                                                opt.esCorrecta 
-                                                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" 
-                                                                    : wasSelected 
-                                                                        ? "bg-rose-500/10 border-rose-500/30 text-rose-600"
-                                                                        : theme === 'dark' ? "bg-slate-800/50 border-slate-700 text-slate-500" : "bg-slate-50 border-slate-100 text-slate-400"
-                                                            )}>
-                                                                <div className={cn(
-                                                                    "w-5 h-5 rounded-md flex items-center justify-center border",
-                                                                    opt.esCorrecta ? "bg-emerald-500 border-transparent text-white" : "border-current opacity-30"
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        {p.tipo !== 'ORDENAR' && p.opciones.map((opt: any) => {
+                                                            const wasSelected = (() => {
+                                                                if (!ans) return false;
+                                                                if (p.tipo === 'MULTIPLE' || p.tipo === 'VF') return ans.opcionId === opt.id;
+                                                                if (p.tipo === 'MULTIPLE_M') {
+                                                                    try { return JSON.parse(ans.textoLibre || '[]').includes(opt.id); } catch (e) { return false; }
+                                                                }
+                                                                return false;
+                                                            })();
+
+                                                            return (
+                                                                <div key={opt.id} className={cn(
+                                                                    "p-3 rounded-xl border flex items-center gap-3 text-xs font-medium",
+                                                                    opt.esCorrecta
+                                                                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+                                                                        : wasSelected
+                                                                            ? "bg-rose-500/10 border-rose-500/30 text-rose-600"
+                                                                            : theme === 'dark' ? "bg-slate-800/50 border-slate-700 text-slate-500" : "bg-slate-50 border-slate-100 text-slate-400"
                                                                 )}>
-                                                                    {opt.esCorrecta && <CheckCircle2 size={12} />}
-                                                                </div>
-                                                                {opt.texto}
-                                                                {wasSelected && <span className="ml-auto text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded bg-rose-500 text-white">Tu respuesta</span>}
-                                                            </div>
-                                                        );
-                                                    })}
-
-                                                    {p.tipo === 'ORDENAR' && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2">
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tu Orden</p>
-                                                                {(() => {
-                                                                    try {
-                                                                        const ids = JSON.parse(ans?.textoLibre || '[]');
-                                                                        return ids.map((id: string, oIdx: number) => {
-                                                                            const opt = p.opciones.find((o: any) => o.id === id);
-                                                                            return (
-                                                                                <div key={id} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border dark:border-slate-700 text-[11px] font-bold flex items-center gap-3">
-                                                                                    <span className="w-5 h-5 rounded-md bg-slate-500 text-white flex items-center justify-center text-[9px]">{oIdx + 1}</span>
-                                                                                    {opt?.texto}
-                                                                                </div>
-                                                                            );
-                                                                        });
-                                                                    } catch(e) { return <p className="text-xs italic opacity-50">Sin respuesta</p>; }
-                                                                })()}
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Orden Correcto</p>
-                                                                {[...p.opciones].sort((a,b) => a.orden - b.orden).map((opt: any, oIdx: number) => (
-                                                                    <div key={opt.id} className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[11px] font-bold flex items-center gap-3">
-                                                                        <span className="w-5 h-5 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[9px]">{oIdx + 1}</span>
-                                                                        {opt.texto}
+                                                                    <div className={cn(
+                                                                        "w-5 h-5 rounded-md flex items-center justify-center border",
+                                                                        opt.esCorrecta ? "bg-emerald-500 border-transparent text-white" : "border-current opacity-30"
+                                                                    )}>
+                                                                        {opt.esCorrecta && <CheckCircle2 size={12} />}
                                                                     </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                                    <MathRenderer text={opt.texto} />
+                                                                    {wasSelected && <span className="ml-auto text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded bg-rose-500 text-white">Tu respuesta</span>}
+                                                                </div>
+                                                            );
+                                                        })}
 
-                                                    {p.tipo === 'TEXTO' && (
-                                                        <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 italic text-xs">
-                                                            <p className="font-bold opacity-50 mb-1">Tu respuesta:</p>
-                                                            {ans?.textoLibre || '—'}
-                                                        </div>
-                                                    )}
+                                                        {p.tipo === 'ORDENAR' && (
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tu Orden</p>
+                                                                    {(() => {
+                                                                        try {
+                                                                            const ids = JSON.parse(ans?.textoLibre || '[]');
+                                                                            return ids.map((id: string, oIdx: number) => {
+                                                                                const opt = p.opciones.find((o: any) => o.id === id);
+                                                                                return (
+                                                                                    <div key={id} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border dark:border-slate-700 text-[11px] font-bold flex items-center gap-3">
+                                                                                        <span className="w-5 h-5 rounded-md bg-slate-500 text-white flex items-center justify-center text-[9px]">{oIdx + 1}</span>
+                                                                                        <MathRenderer text={opt?.texto || ''} />
+                                                                                    </div>
+                                                                                );
+                                                                            });
+                                                                        } catch (e) { return <p className="text-xs italic opacity-50">Sin respuesta</p>; }
+                                                                    })()}
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Orden Correcto</p>
+                                                                    {[...p.opciones].sort((a, b) => a.orden - b.orden).map((opt: any, oIdx: number) => (
+                                                                        <div key={opt.id} className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[11px] font-bold flex items-center gap-3">
+                                                                            <span className="w-5 h-5 rounded-md bg-emerald-500 text-white flex items-center justify-center text-[9px]">{oIdx + 1}</span>
+                                                                            <MathRenderer text={opt.texto} />
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {p.tipo === 'TEXTO' && (
+                                                            <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 italic text-xs">
+                                                                <p className="font-bold opacity-50 mb-1">Tu respuesta:</p>
+                                                                <MathRenderer text={ans?.textoLibre || '—'} />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </motion.div>
-                )}
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
             </div>
         );
