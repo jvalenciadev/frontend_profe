@@ -8,7 +8,8 @@ import {
     Download, Timer, Wifi, WifiOff, ChevronRight, ChevronLeft,
     Trophy, Star, FileText, RefreshCw, User, Hash, ArrowRight, ArrowLeft,
     QrCode, CreditCard, Lock, Unlock, AlertTriangle, Info,
-    ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw
+    ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw,
+    PartyPopper, Zap, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
@@ -414,7 +415,7 @@ export default function EventoPublicoPage() {
     const [evento, setEvento] = useState<Evento | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [step, setStep] = useState<'info' | 'identificacion' | 'inscripcion' | 'asistencia' | 'cuestionario' | 'resultado' | 'descargo'>('info');
+    const [step, setStep] = useState<'info' | 'identificacion' | 'inscripcion' | 'preview' | 'asistencia' | 'cuestionario' | 'resultado' | 'descargo'>('info');
 
     // Formulario identificación
     const [form, setForm] = useState({
@@ -464,6 +465,8 @@ export default function EventoPublicoPage() {
     const videoTimersRef = useRef<Record<string, { totalTime: number, lastStart: number | null }>>({});
     const [videoWarningModal, setVideoWarningModal] = useState(false);
     const [yaRegistradaModal, setYaRegistradaModal] = useState(false);
+    const [isPersonaExistente, setIsPersonaExistente] = useState(false);
+    const [confirmInscripcionModal, setConfirmInscripcionModal] = useState(false);
 
 
     const checkCanStartCuestionario = useCallback((cuestionarioId: string, customProgress?: any[]) => {
@@ -535,9 +538,11 @@ export default function EventoPublicoPage() {
             generoId: '1',
             departamentoId: '',
             modalidadId: '',
-            codigoAsistencia: '',
-            respuestasExtras: {}
+            respuestasExtras: {},
+            codigoAsistencia: ''
         });
+        setIsPersonaExistente(false);
+        setConfirmInscripcionModal(false);
 
         // Limpiar todas las claves relacionadas
         const id = eventoId || evento?.id;
@@ -623,7 +628,7 @@ export default function EventoPublicoPage() {
         if (evento && (step !== 'info' || Object.keys(localVideosVistos).length > 0)) {
             const session = {
                 persona, form, step, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso,
-                inscripcion, resultado, localVideosVistos
+                inscripcion, resultado, localVideosVistos, isPersonaExistente
             };
             localStorage.setItem(`cuestionario_session_${evento.id}`, JSON.stringify(session));
         }
@@ -747,6 +752,7 @@ export default function EventoPublicoPage() {
                     respuestasExtras: {}
                 });
             }
+            setIsPersonaExistente(result.found);
             setStep('inscripcion');
         } catch (error) {
             console.error("Error identificando:", error);
@@ -792,12 +798,23 @@ export default function EventoPublicoPage() {
             return;
         }
 
+        setStep('preview');
+    };
+
+    const handleConfirmarFinalInscripcion = () => {
+        setConfirmInscripcionModal(true);
+    };
+
+    const handleInscribirseAction = async () => {
+        const evt = evento;
+        if (!evt) return;
+        setConfirmInscripcionModal(false);
         setSubmitting(true);
         try {
             // Limpieza de CI por si acaso quedó con guión
             const ciLimpio = form.ci.includes('-') ? form.ci.split('-')[0] : form.ci;
 
-            const result = await eventoPublicoService.inscribirse(evento.id, {
+            const result = await eventoPublicoService.inscribirse(evt.id, {
                 ...form,
                 ci: ciLimpio,
                 departamentoId: form.departamentoId,
@@ -811,7 +828,7 @@ export default function EventoPublicoPage() {
             // Sincronizar videos vistos al inscribirse
             const videosLocales = Object.keys(localVideosVistos);
             for (const cueId of videosLocales) {
-                await eventoPublicoService.marcarVideoVisto(evento.id, cueId, ciLimpio, form.fechaNacimiento).catch(() => { });
+                await eventoPublicoService.marcarVideoVisto(evt.id, cueId, ciLimpio, form.fechaNacimiento).catch(() => { });
             }
 
             if (cuestionarioActivo) {
@@ -859,7 +876,8 @@ export default function EventoPublicoPage() {
     };
 
     const handleEnviarCuestionario = useCallback(async (queuedData?: any) => {
-        if (!evento || !cuestionarioActivo || !persona) return;
+        const evt = evento;
+        if (!evt || !cuestionarioActivo || !persona) return;
         setSubmitting(true);
 
         const payload = queuedData || {
@@ -874,7 +892,7 @@ export default function EventoPublicoPage() {
         if (!online) {
             // Guardar en localStorage para reintento automático
             localStorage.setItem('cuestionario_pendiente', JSON.stringify({
-                eventoId: evento.id,
+                eventoId: evt.id,
                 cuestionarioId: cuestionarioActivo.id,
                 data: payload
             }));
@@ -889,17 +907,17 @@ export default function EventoPublicoPage() {
         }
 
         try {
-            const result = await eventoPublicoService.responderCuestionario(evento.id, cuestionarioActivo.id, payload);
+            const result = await eventoPublicoService.responderCuestionario(evt.id, cuestionarioActivo.id, payload);
             setResultado(result);
             setStep('resultado');
 
             // Actualizar progreso localmente
             try {
-                const prog = await eventoPublicoService.getProgreso(evento.id, form.ci, form.fechaNacimiento);
+                const prog = await eventoPublicoService.getProgreso(evt.id, form.ci, form.fechaNacimiento);
                 setProgreso(prog.progress);
             } catch { }
 
-            localStorage.removeItem(`cuestionario_session_${evento.id}`);
+            localStorage.removeItem(`cuestionario_session_${evt.id}`);
             localStorage.removeItem('cuestionario_pendiente');
             setOfflineQueue(null);
         } catch (e: any) {
@@ -951,6 +969,37 @@ export default function EventoPublicoPage() {
         setResultado(null);
     }, [evento]);
 
+    const handleCompletarSinPreguntas = useCallback(async (cues: any) => {
+        if (!evento || !persona || submitting) return;
+        const prog = progreso.find(p => p.id === cues.id);
+        if (prog?.finalizado) return; // Ya está finalizado, no hacer nada
+
+        setSubmitting(true);
+        try {
+            const payload = {
+                ci: form.ci,
+                fechaNacimiento: form.fechaNacimiento,
+                respuestas: [],
+            };
+            await eventoPublicoService.responderCuestionario(evento.id, cues.id, payload);
+            // Actualizar progreso
+            const progUpdate = await eventoPublicoService.getProgreso(evento.id, form.ci, form.fechaNacimiento);
+            setProgreso(progUpdate.progress);
+            toast.success('¡Contenido completado!');
+        } catch (e: any) {
+            console.error("Error al completar paso sin preguntas:", e);
+            // Si el error es porque ya se envió (403), simplemente refrescamos progreso
+            if (e.response?.status === 403) {
+                const progUpdate = await eventoPublicoService.getProgreso(evento.id, form.ci, form.fechaNacimiento);
+                setProgreso(progUpdate.progress);
+            } else {
+                toast.error('Ocurrió un error al procesar tu solicitud.');
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    }, [evento, persona, form, submitting, progreso]);
+
     const handleReintentar = () => {
         if (!cuestionarioActivo) return;
         const originalCues = evento?.cuestionarios?.find(c => c.id === cuestionarioActivo.id);
@@ -980,7 +1029,9 @@ export default function EventoPublicoPage() {
             const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
             const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
 
-            const isFinished = !!prog?.finalizado && (isPerfect || hasReachedLimit);
+            const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+            // Se considera terminado si el backend dice que está finalizado O si es solo video y ya se vio el video
+            const isFinished = (!!prog?.finalizado && (isPerfect || hasReachedLimit)) || (sinPreguntas && (prog?.videoCompletado || localVideosVistos[c.id]));
 
             // Si es obligatorio y no está terminado, no mostramos los siguientes
             if (c.esObligatorio && !isFinished) {
@@ -988,7 +1039,7 @@ export default function EventoPublicoPage() {
             }
         }
         return result;
-    }, [sortedCuestionarios, progreso]);
+    }, [sortedCuestionarios, progreso, localVideosVistos]);
 
     const cuestionarioVigente = sortedCuestionarios.find(c => {
         const now = new Date();
@@ -1131,32 +1182,112 @@ export default function EventoPublicoPage() {
                                     <div className="text-muted-foreground leading-relaxed italic prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: evento.descripcion }} />
                                 </div>
 
+
+
+
                                 {/* ── PORTAL DE EVALUACIÓN (GATED) ── */}
                                 {(evento.cuestionarios?.length || 0) > 0 && (
-                                    !persona ? (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="p-10 rounded-[3rem] bg-card border-2 border-dashed border-primary/20 flex flex-col items-center text-center gap-6 shadow-2xl shadow-primary/5"
-                                        >
-                                            <div className="w-24 h-24 rounded-[2.5rem] bg-primary/10 flex items-center justify-center">
-                                                <ClipboardList className="w-12 h-12 text-primary" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <h2 className="text-2xl font-black uppercase text-foreground">Portal de Evaluación</h2>
-                                                <p className="text-sm text-muted-foreground max-w-sm">
-                                                    Identifícate para acceder a tus cuestionarios, ver tu progreso y descargar tus comprobantes.
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => setStep('identificacion')}
-                                                className="h-16 px-10 rounded-2xl bg-primary text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.05] transition-all flex items-center gap-4"
+                                    !persona ? (() => {
+                                        const firstCues = sortedCuestionarios[0];
+                                        const firstStart = firstCues ? new Date(firstCues.fechaInicio) : null;
+                                        const isWaiting = firstStart && firstStart > new Date();
+                                        const dateStr = firstStart?.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                                        return (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                className="relative group"
                                             >
-                                                Acceder a mis Evaluaciones
-                                                <ArrowRight className="w-5 h-5" />
-                                            </button>
-                                        </motion.div>
-                                    ) : (
+                                                {/* Decorative background elements (Monochromatic) */}
+                                                <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-[100px] animate-pulse" />
+                                                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] animate-pulse delay-700" />
+
+                                                <div className="relative overflow-hidden p-[2px] rounded-[3.5rem] bg-gradient-to-br from-primary/40 via-primary/5 to-primary/30 shadow-2xl transition-all duration-500 group-hover:shadow-primary/20 group-hover:scale-[1.01]">
+                                                    <div className="relative p-12 rounded-[3.4rem] bg-card/95 backdrop-blur-3xl flex flex-col items-center text-center gap-10">
+
+                                                        {/* Icon Composition (Monochromatic) */}
+                                                        <div className="relative">
+                                                            <motion.div
+                                                                animate={{ rotate: [0, 5, -5, 0] }}
+                                                                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                                                                className="relative z-10 w-28 h-28 rounded-[2.5rem] bg-primary shadow-xl shadow-primary/40 flex items-center justify-center text-white"
+                                                            >
+                                                                <ClipboardList className="w-14 h-14" />
+
+                                                                {/* Floating micro-icons */}
+                                                                <motion.div
+                                                                    animate={{ y: [0, -10, 0] }}
+                                                                    transition={{ duration: 3, repeat: Infinity }}
+                                                                    className="absolute -top-4 -right-4 w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-lg flex items-center justify-center text-primary"
+                                                                >
+                                                                    <Star className="w-5 h-5 fill-current" />
+                                                                </motion.div>
+                                                            </motion.div>
+
+                                                            {/* Background rings */}
+                                                            <div className="absolute inset-0 border-2 border-primary/20 rounded-[2.5rem] scale-125 animate-ping opacity-20" />
+                                                        </div>
+
+                                                        {/* Text Content */}
+                                                        <div className="space-y-6 max-w-lg">
+                                                            <div className="space-y-2">
+                                                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/60">Módulo de Participante</span>
+                                                                <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-foreground leading-none">
+                                                                    Portal de Evaluación
+                                                                </h2>
+                                                            </div>
+
+                                                            <p className="text-base text-muted-foreground font-medium leading-relaxed">
+                                                                Accede a tu panel personalizado para completar cuestionarios, monitorear tu avance en tiempo real y obtener tu certificado oficial.
+                                                            </p>
+
+                                                            {isWaiting && (
+                                                                <div className="relative overflow-hidden px-8 py-4 rounded-3xl bg-primary/5 border border-primary/10 group/alert">
+                                                                    <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                                                                    <div className="flex flex-col items-center gap-1">
+                                                                        <div className="flex items-center gap-2 text-primary/80">
+                                                                            <Clock className="w-4 h-4 animate-spin-slow" />
+                                                                            <span className="text-[11px] font-black uppercase tracking-widest">Apertura Próximamente</span>
+                                                                        </div>
+                                                                        <span className="text-sm font-black text-foreground/80 uppercase">Disponible el {dateStr}</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Action Section */}
+                                                        <div className="w-full max-w-sm space-y-6">
+                                                            <button
+                                                                onClick={() => setStep('identificacion')}
+                                                                className="group/btn relative w-full h-20 rounded-[2.2rem] bg-primary text-white font-black uppercase text-xs tracking-[0.3em] shadow-2xl shadow-primary/40 hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
+                                                            >
+                                                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                <span className="relative flex items-center justify-center gap-4">
+                                                                    Acceder a mis Evaluaciones
+                                                                    <ArrowRight className="w-6 h-6 group-hover/btn:translate-x-2 transition-transform" />
+                                                                </span>
+                                                            </button>
+
+                                                            {/* Trust Badges */}
+                                                            <div className="grid grid-cols-3 gap-4">
+                                                                {[
+                                                                    { icon: CheckCircle2, label: 'Seguro' },
+                                                                    { icon: Zap, label: 'Rápido' },
+                                                                    { icon: ShieldCheck, label: 'Oficial' }
+                                                                ].map((badge, i) => (
+                                                                    <div key={i} className="flex flex-col items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+                                                                        <badge.icon className="w-5 h-5 text-primary" />
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest leading-none">{badge.label}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })() : (
                                         <motion.div
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -1217,7 +1348,7 @@ export default function EventoPublicoPage() {
                                     );
                                 })()}
 
-                                {/* Questionnaires Section */}
+
                                 {persona && (evento.cuestionarios?.length || 0) > 0 && (
                                     <div className="space-y-8 pt-4">
                                         <div className="flex items-center justify-between border-b border-border pb-6">
@@ -1244,7 +1375,7 @@ export default function EventoPublicoPage() {
                                             {/* Timeline line */}
                                             <div className="absolute left-[2.25rem] top-0 bottom-0 w-1 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent hidden md:block" />
 
-                                            {visibleCuestionarios.map((c: any, idx: number) => {
+                                            {visibleCuestionarios.map((c, idx) => {
                                                 const originalIdx = sortedCuestionarios.findIndex(sc => sc.id === c.id);
                                                 const now = new Date();
                                                 const start = new Date(c.fechaInicio);
@@ -1341,18 +1472,6 @@ export default function EventoPublicoPage() {
                                                                             {(prog?.videoCompletado || localVideosVistos[c.id]) ? 'Video Visto ✓' : 'Ver Video Primero'}
                                                                         </div>
                                                                     )}
-                                                                    {c.esAleatorio && (
-                                                                        <div className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 px-3 py-1.5 rounded-xl">
-                                                                            <RefreshCw className="w-3 h-3" />
-                                                                            Preguntas Aleatorias
-                                                                        </div>
-                                                                    )}
-                                                                    {c.cantidadPreguntas && c.cantidadPreguntas > 0 && (
-                                                                        <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1.5 rounded-xl">
-                                                                            <Hash className="w-3 h-3" />
-                                                                            {c.cantidadPreguntas} Preguntas a mostrar
-                                                                        </div>
-                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -1382,14 +1501,10 @@ export default function EventoPublicoPage() {
                                                                             opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
                                                                             onStateChange={(event) => {
                                                                                 const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null };
-
-                                                                                if (event.data === 1) { // PLAYING
-                                                                                    timer.lastStart = Date.now();
-                                                                                } else { // PAUSED, BUFFERING, etc.
-                                                                                    if (timer.lastStart) {
-                                                                                        timer.totalTime += (Date.now() - timer.lastStart) / 1000;
-                                                                                        timer.lastStart = null;
-                                                                                    }
+                                                                                if (event.data === 1) { timer.lastStart = Date.now(); }
+                                                                                else if (timer.lastStart) {
+                                                                                    timer.totalTime += (Date.now() - timer.lastStart) / 1000;
+                                                                                    timer.lastStart = null;
                                                                                 }
                                                                                 videoTimersRef.current[c.id] = timer;
                                                                             }}
@@ -1399,26 +1514,23 @@ export default function EventoPublicoPage() {
                                                                                     timer.totalTime += (Date.now() - timer.lastStart) / 1000;
                                                                                     timer.lastStart = null;
                                                                                 }
-
                                                                                 const duration = event.target.getDuration();
-                                                                                // Validamos que haya visto al menos el 90% del tiempo real
                                                                                 if (timer.totalTime < duration * 0.9) {
                                                                                     setVideoWarningModal(true);
-                                                                                    // Resetear timer para que lo intente de nuevo de forma honesta
                                                                                     videoTimersRef.current[c.id] = { totalTime: 0, lastStart: null };
                                                                                     event.target.seekTo(0);
                                                                                     return;
                                                                                 }
-
                                                                                 setLocalVideosVistos(prev => ({ ...prev, [c.id]: true }));
                                                                                 if (persona && form.ci && form.fechaNacimiento) {
                                                                                     try {
                                                                                         await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
                                                                                         const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                                                                         setProgreso(progUpdate.progress);
+                                                                                        if (!c.preguntas || c.preguntas.length === 0) { await handleCompletarSinPreguntas(c); }
                                                                                     } catch (e) { console.error("Error marking video seen:", e); }
                                                                                 }
-                                                                                toast.success('¡Vídeo completado! Evaluación habilitada.');
+                                                                                toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
                                                                             }}
                                                                         />
                                                                     </div>
@@ -1429,70 +1541,123 @@ export default function EventoPublicoPage() {
                                                                 {(() => {
                                                                     const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
                                                                     const totalPuntosReal = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
-
-                                                                    // Si hay límite de preguntas, el máximo esperado es proporcional (o lo que diga el backend)
                                                                     let maxEsperado = totalPuntosReal;
                                                                     if (c.cantidadPreguntas && c.cantidadPreguntas > 0 && c.preguntas?.length > 0) {
                                                                         const puntosPromedio = totalPuntosReal / c.preguntas.length;
                                                                         maxEsperado = Math.round(puntosPromedio * c.cantidadPreguntas);
                                                                     }
-
                                                                     const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? maxEsperado) || 0);
+                                                                    const nMin = c.notaMinima || (c.esEvaluativo ? Math.ceil(tVal * 0.75) : 0); // Default 75% si es evaluativo
                                                                     const isFinished = !!prog?.finalizado;
-                                                                    const isPerfect = !c.esEvaluativo || (isFinished && (prog?.aprobado || (pVal >= tVal && tVal > 0)));
+                                                                    const isAprobado = !c.esEvaluativo || (isFinished && (prog?.aprobado || pVal >= nMin));
                                                                     const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
                                                                     const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
 
-                                                                    if (isFinished && (isPerfect || hasReachedLimit)) {
+                                                                    // CASO: FINALIZADO Y APROBADO (O SIN INTENTOS)
+                                                                    if (isFinished && (isAprobado || hasReachedLimit)) {
                                                                         return (
                                                                             <div className="flex flex-col gap-3">
-                                                                                <div className="flex items-center justify-center gap-3 py-4 bg-green-500/5 rounded-2xl border border-green-500/10 text-green-500">
-                                                                                    <CheckCircle2 className="w-6 h-6" />
+                                                                                <div className={cn(
+                                                                                    "flex items-center justify-center gap-3 py-4 rounded-2xl border",
+                                                                                    isAprobado ? "bg-green-500/5 border-green-500/10 text-green-500" : "bg-red-500/5 border-red-500/10 text-red-500"
+                                                                                )}>
+                                                                                    {isAprobado ? <CheckCircle2 className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
                                                                                     <span className="text-xs font-black uppercase tracking-widest">
-                                                                                        {isPerfect ? 'Cuestionario Completado' : 'Intentos Finalizados'}
+                                                                                        {isAprobado ? 'Evaluación Aprobada' : 'Intentos Finalizados'}
                                                                                     </span>
                                                                                 </div>
-                                                                                {!isPerfect && (
-                                                                                    <p className="text-[10px] text-center text-muted-foreground font-bold uppercase tracking-widest">
-                                                                                        Siguiente paso desbloqueado
+                                                                                <div className="text-center space-y-1">
+                                                                                    <p className="text-[11px] font-black uppercase tracking-widest text-foreground">
+                                                                                        Puntaje Final: {pVal}/{tVal}
                                                                                     </p>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    }
-
-                                                                    if (isFinished && !isPerfect && hasReachedLimit) {
-                                                                        return (
-                                                                            <div className="flex flex-col items-center gap-3">
-                                                                                <div className="w-16 h-16 rounded-[1.5rem] bg-red-500/10 border-2 border-dashed border-red-500/20 flex items-center justify-center text-red-500">
-                                                                                    <AlertCircle className="w-7 h-7" />
+                                                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
+                                                                                        {isAprobado ? 'Siguiente paso desbloqueado' : 'No alcanzaste la nota mínima'}
+                                                                                    </p>
                                                                                 </div>
-                                                                                <span className="text-[10px] font-black uppercase text-red-500 tracking-widest text-center leading-tight">
-                                                                                    Intentos Agotados<br />
-                                                                                    <span className="opacity-70">Puntaje Final: {pVal}/{tVal}</span>
-                                                                                </span>
                                                                             </div>
                                                                         );
                                                                     }
 
-                                                                    if (isActive && canStart && !hasReachedLimit && (!isFinished || !isPerfect)) {
-                                                                        const videoPendiente = c.urlVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
+                                                                    // CASO: EVALUACIÓN PENDIENTE (Finalizada pero no aprobada, con intentos restantes)
+                                                                    if (isFinished && !isAprobado && !hasReachedLimit) {
                                                                         return (
-                                                                            <button
-                                                                                disabled={!!videoPendiente}
-                                                                                onClick={() => handleEmpezarCuestionario(c)}
-                                                                                className={cn(
-                                                                                    "w-full h-16 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-4",
-                                                                                    videoPendiente
-                                                                                        ? "bg-muted text-muted-foreground border-2 border-dashed border-border shadow-none opacity-50 cursor-not-allowed"
-                                                                                        : isFinished
-                                                                                            ? "bg-amber-500 text-black shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400"
-                                                                                            : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
+                                                                            <div className="flex flex-col gap-4">
+                                                                                <div className="p-6 rounded-[2rem] bg-amber-500/5 border border-amber-500/10 flex flex-col items-center gap-3">
+                                                                                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                                                                                        <AlertCircle className="w-6 h-6" />
+                                                                                    </div>
+                                                                                    <div className="text-center">
+                                                                                        <p className="text-[10px] font-black uppercase text-amber-700 tracking-widest">Evaluación Pendiente</p>
+                                                                                        <p className="text-[16px] font-black text-amber-600 tracking-tight">{pVal} puntos de {tVal}</p>
+                                                                                    </div>
+                                                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center max-w-[240px] leading-relaxed">
+                                                                                        Debes alcanzar al menos {nMin} puntos para aprobar y obtener tu comprobante
+                                                                                    </p>
+                                                                                </div>
+
+                                                                                <button
+                                                                                    onClick={() => handleEmpezarCuestionario(c)}
+                                                                                    className="w-full h-16 rounded-[1.5rem] bg-amber-500 text-black font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400 transition-all flex items-center justify-center gap-4"
+                                                                                >
+                                                                                    Reintentar Evaluación
+                                                                                    <RotateCcw className="w-4 h-4" />
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    if (isActive && canStart && !hasReachedLimit && (!isFinished || !isAprobado)) {
+                                                                        const hasVideo = !!c.urlVideo;
+                                                                        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+                                                                        const videoPendiente = hasVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
+
+                                                                        if (sinPreguntas && hasVideo && videoPendiente) {
+                                                                            return (
+                                                                                <div className="p-6 rounded-3xl bg-primary/[0.03] border border-dashed border-primary/20 flex flex-col items-center text-center gap-4">
+                                                                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3">
+                                                                                        <Video className="w-7 h-7 text-primary" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <p className="text-xs font-black uppercase text-primary tracking-[0.2em]">Video</p>
+                                                                                        <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase leading-relaxed max-w-[200px]">Visualiza el contenido completo para desbloquear el siguiente módulo</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
+                                                                        const showPreview = !hasVideo && !sinPreguntas;
+
+                                                                        return (
+                                                                            <div className="flex flex-col gap-4 w-full">
+                                                                                {showPreview && (
+                                                                                    <div className="p-4 rounded-[1.5rem] bg-muted/20 border border-border/40 flex items-center gap-4">
+                                                                                        <div className="w-10 h-10 rounded-xl bg-background shadow-sm flex items-center justify-center text-primary">
+                                                                                            <FileText className="w-5 h-5" />
+                                                                                        </div>
+                                                                                        <div className="flex-1 text-left">
+                                                                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Resumen de Evaluación</p>
+                                                                                            <p className="text-[11px] font-bold text-foreground/80 uppercase">
+                                                                                                {c.preguntas?.length || 0} Preguntas • {c.limiteIntentos ? `${c.limiteIntentos} Intentos` : 'Intentos Ilimitados'}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </div>
                                                                                 )}
-                                                                            >
-                                                                                {videoPendiente ? 'Mira el video para habilitar' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación')}
-                                                                                {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
-                                                                            </button>
+                                                                                <button
+                                                                                    disabled={!!videoPendiente}
+                                                                                    onClick={() => sinPreguntas ? handleCompletarSinPreguntas(c) : handleEmpezarCuestionario(c)}
+                                                                                    className={cn(
+                                                                                        "w-full h-16 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-4",
+                                                                                        videoPendiente
+                                                                                            ? "bg-muted text-muted-foreground border-2 border-dashed border-border shadow-none opacity-50 cursor-not-allowed"
+                                                                                            : isFinished
+                                                                                                ? "bg-amber-500 text-black shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400"
+                                                                                                : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
+                                                                                    )}
+                                                                                >
+                                                                                    {videoPendiente ? 'Mira el video para habilitar' : (sinPreguntas ? 'Completar Paso' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación'))}
+                                                                                    {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
+                                                                                </button>
+                                                                            </div>
                                                                         );
                                                                     }
 
@@ -1505,9 +1670,6 @@ export default function EventoPublicoPage() {
                                                                                 <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
                                                                                     {!canStart ? "Bloqueado" : isUpcoming ? "Próximamente" : "Finalizado"}
                                                                                 </span>
-                                                                                {!canStart && (
-                                                                                    <p className="text-[9px] text-amber-500/70 font-bold uppercase max-w-[120px] text-center leading-tight">Completa el cuestionario anterior primero</p>
-                                                                                )}
                                                                             </div>
                                                                         );
                                                                     }
@@ -1518,11 +1680,39 @@ export default function EventoPublicoPage() {
                                                     </motion.div>
                                                 );
                                             })}
+
+                                            {(() => {
+                                                const allMandatoryFinished = sortedCuestionarios.every(c => {
+                                                    if (!c.esObligatorio) return true;
+                                                    const prog = progreso.find(p => p.id === c.id);
+                                                    const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+                                                    const isPerfect = !c.esEvaluativo || (!!prog?.finalizado && (prog?.aprobado));
+                                                    const hasReachedLimit = c.limiteIntentos != null && (prog?.numeroIntentos || 0) >= c.limiteIntentos;
+                                                    return (prog?.finalizado && (isPerfect || hasReachedLimit)) || (sinPreguntas && (prog?.videoCompletado || localVideosVistos[c.id]));
+                                                });
+                                                if (allMandatoryFinished && sortedCuestionarios.length > 0) {
+                                                    return (
+                                                        <div className="mt-8 p-8 rounded-[2.5rem] bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border border-green-500/20 relative overflow-hidden group">
+                                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                                <Trophy className="w-24 h-24 text-green-500 -rotate-12" />
+                                                            </div>
+                                                            <div className="relative z-10 flex flex-col items-center text-center gap-4">
+                                                                <div className="w-20 h-20 rounded-[2rem] bg-green-500 shadow-xl shadow-green-500/40 flex items-center justify-center text-white animate-bounce">
+                                                                    <PartyPopper className="w-10 h-10" />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="text-xl font-black uppercase tracking-tighter text-green-600">¡Evento Completado!</h3>
+                                                                    <p className="text-xs text-muted-foreground font-bold mt-1 uppercase max-w-[240px]">Has cumplido con todos los requisitos y evaluaciones del evento.</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </div>
-                                )}
-
-                                {/* Afiche Principal */}
+                                )}{/* Afiche Principal */}
                                 {evento.afiche && (
                                     <div className="space-y-6">
                                         <div className="flex items-center gap-4">
@@ -1899,9 +2089,92 @@ export default function EventoPublicoPage() {
                                     </button>
                                     <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || !form.modalidadId || !form.departamentoId || submitting}
                                         className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2">
-                                        {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                        Confirmar Inscripción
+                                        Vista Previa
+                                        <ArrowRight className="w-4 h-4" />
                                     </button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* ── STEP PREVIEW ── */}
+                        {step === 'preview' && (
+                            <motion.div key="prev" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-card border border-border rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -mr-24 -mt-24" />
+
+                                    <div className="relative z-10 space-y-8">
+                                        <div className="text-center space-y-2">
+                                            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                                                <ClipboardList className="w-8 h-8 text-primary" />
+                                            </div>
+                                            <h2 className="text-2xl font-black uppercase tracking-tight text-foreground">Vista Previa</h2>
+                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Revisa tus datos antes de confirmar</p>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Nombre Completo</span>
+                                                    <p className="font-bold text-foreground uppercase">{form.nombre1} {form.nombre2} {form.apellido1} {form.apellido2}</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Cédula de Identidad</span>
+                                                    <p className="font-bold text-foreground font-mono">{form.ci} {form.complemento ? ` - ${form.complemento}` : ''} {form.expedido}</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Contacto</span>
+                                                    <p className="font-bold text-foreground">{form.celular} • {form.correo || 'S/N'}</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Modalidad</span>
+                                                    <p className="font-bold text-primary">
+                                                        {allModalidades.find(m => m.id === form.modalidadId)?.nombre || 'No seleccionada'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Campos extras preview */}
+                                            {(evento?.camposExtras?.length ?? 0) > 0 && (
+                                                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
+                                                    <h3 className="text-[10px] font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
+                                                        <Info className="w-3 h-3" /> Información Adicional
+                                                    </h3>
+                                                    <div className="space-y-3">
+                                                        {evento?.camposExtras?.map((campo: any) => {
+                                                            const valor = form.respuestasExtras[campo.id];
+                                                            let displayValor = valor;
+                                                            if (Array.isArray(valor)) displayValor = valor.join(', ');
+                                                            if (typeof valor === 'boolean') displayValor = valor ? 'SÍ' : 'NO';
+
+                                                            return (
+                                                                <div key={campo.id} className="flex flex-col border-b border-primary/5 pb-2 last:border-0">
+                                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">{campo.label}</span>
+                                                                    <p className="font-bold text-foreground text-sm uppercase">{displayValor || '—'}</p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            <button
+                                                onClick={() => setStep('inscripcion')}
+                                                className="h-14 px-8 rounded-2xl border-2 border-border font-black uppercase text-xs tracking-widest text-muted-foreground hover:bg-muted/20 transition-all flex items-center justify-center gap-3"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Corregir Datos
+                                            </button>
+                                            <button
+                                                onClick={handleConfirmarFinalInscripcion}
+                                                className="flex-1 h-14 rounded-2xl bg-primary text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4"
+                                            >
+                                                Confirmar y Guardar
+                                                <CheckCircle2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </motion.div>
                         )}
@@ -2176,16 +2449,16 @@ export default function EventoPublicoPage() {
                                             )}>
                                                 {resultado.esEvaluativo === false
                                                     ? '\u00a1Formulario Enviado!'
-                                                    : (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? '\u00a1Excelente! Todo Correcto' : 'Evaluaci\u00f3n Pendiente'}
+                                                    : (resultado.nota ?? 0) >= 75 ? '\u00a1Aprobado!' : 'Evaluaci\u00f3n Pendiente'}
                                             </p>
                                             {resultado.esEvaluativo !== false && (
                                                 <div className="flex flex-col gap-1">
                                                     <p className="text-muted-foreground font-bold font-mono">
                                                         {Math.min(resultado.puntaje ?? 0, (resultado.puntajeMaximo || 1) > 0 ? resultado.puntajeMaximo! : (resultado.puntaje ?? 0))} puntos de {(resultado.puntajeMaximo ?? 0)}
                                                     </p>
-                                                    {(resultado.puntaje ?? 0) < (resultado.puntajeMaximo ?? 0) && (
+                                                    {(resultado.nota ?? 0) < 75 && (
                                                         <p className="text-[11px] text-amber-600 font-black uppercase tracking-tight bg-amber-500/10 py-2 px-4 rounded-xl mt-2 animate-pulse">
-                                                            Debes responder correctamente todas las preguntas para obtener tu comprobante
+                                                            Debes obtener al menos 75/100 puntos para obtener tu comprobante
                                                         </p>
                                                     )}
                                                 </div>
@@ -2197,7 +2470,7 @@ export default function EventoPublicoPage() {
                                             <div className="text-sm text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: cuestionarioActivo?.descripcion || '' }} />
                                         </div>
 
-                                        {resultado.esEvaluativo !== false && (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? (
+                                        {resultado.esEvaluativo !== false && (resultado.nota ?? 0) >= 75 ? (
                                             <button
                                                 onClick={() => setStep('descargo')}
                                                 className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
@@ -2235,7 +2508,7 @@ export default function EventoPublicoPage() {
                                                     onClick={handleReintentar}
                                                     className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-amber-500/20"
                                                 >
-                                                    <RefreshCw className="w-4 h-4" /> Reintentar Evaluación ({(limitValue ?? 0) - (progCues?.numeroIntentos || 0)} restantes)
+                                                    <RefreshCw className="w-4 h-4" /> Reintentar Evaluación {limitValue != null && `(${(limitValue ?? 0) - (progCues?.numeroIntentos || 0)} restantes)`}
                                                 </button>
                                             );
                                         })()}
@@ -2291,6 +2564,63 @@ export default function EventoPublicoPage() {
                             </motion.div>
                         )}
 
+                    </AnimatePresence>
+
+                    {/* ── MODAL: Confirmación de Inscripción ── */}
+                    <AnimatePresence>
+                        {confirmInscripcionModal && (
+                            <motion.div
+                                key="confirm-inscripcion"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+                                onClick={() => setConfirmInscripcionModal(false)}
+                            >
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.85, y: 20 }}
+                                    transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                                    className="bg-card border-2 border-primary/30 rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl shadow-primary/10 space-y-8 text-center"
+                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                >
+                                    <div className="w-20 h-20 rounded-[1.8rem] bg-primary/10 border-2 border-primary/20 flex items-center justify-center mx-auto">
+                                        <AlertTriangle className="w-10 h-10 text-primary" />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <h3 className="text-2xl font-black uppercase tracking-tight text-foreground">
+                                            {isPersonaExistente ? '¿Confirmar Edición?' : '¿Confirmar Inscripción?'}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                            {isPersonaExistente ? (
+                                                <>¿Estás seguro de <strong>{'\u00e9'}ditar</strong> tus datos? Revisa bien antes de continuar por si te equivocaste.</>
+                                            ) : (
+                                                <>¿Estás seguro de confirmar? Una vez finalizado <strong>no se podr{'\u00e1'} editar</strong> posteriormente tus datos personales.</>
+                                            )}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={handleInscribirseAction}
+                                            disabled={submitting}
+                                            className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
+                                        >
+                                            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                            Sí, Confirmar Registro
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmInscripcionModal(false)}
+                                            className="w-full h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all flex items-center justify-center gap-2"
+                                        >
+                                            No, Volver a Revisar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </div>
 

@@ -45,5 +45,9 @@ export const inscripcionService = {
     confirmInscripcion: async (id: string) => {
         const { data } = await api.put<any>(`/inscripciones-clean/${id}/confirmar-inscripcion`);
         return data;
+    },
+    bulkImport: async (payload: any) => {
+        const { data } = await api.post<any>('/inscripciones-clean/bulk', payload);
+        return data;
     }
 };

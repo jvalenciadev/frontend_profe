@@ -29,7 +29,9 @@ import {
     ArrowUpDown,
     CheckSquare,
     Calendar,
-    Lock
+    Lock,
+    List,
+    RefreshCw
 } from 'lucide-react';
 import { ConfirmModal } from '../ConfirmModal';
 import { toast } from 'sonner';
@@ -48,14 +50,18 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
     const [cuestionario, setCuestionario] = useState<any>(null);
     const [intento, setIntento] = useState<any>(null);
     const [currentIdx, setCurrentIdx] = useState(0);
-    const [respuestas, setRespuestas] = useState<Record<string, any>>({});
-    const [loading, setLoading] = useState(true);
-    const [starting, setStarting] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(0);
     const [view, setView] = useState<'lobby' | 'playing' | 'result'>('lobby');
+    const [respuestas, setRespuestas] = useState<Record<string, any>>({});
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [starting, setStarting] = useState(false);
     const [showConfirmFinish, setShowConfirmFinish] = useState(false);
-
+    const [showQuestionGrid, setShowQuestionGrid] = useState(false);
+    const [discapacidad, setDiscapacidad] = useState(false);
+    const [facilitadorPass, setFacilitadorPass] = useState('');
+    const [showPassPrompt, setShowPassPrompt] = useState(false);
+    const [verifyingPass, setVerifyingPass] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -131,7 +137,10 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
         }
         try {
             setStarting(true);
-            const int = await aulaService.iniciarIntento(cuestionario.id);
+            const int = await aulaService.iniciarIntento(cuestionario.id, { 
+                discapacidad, 
+                password: facilitadorPass 
+            });
             setIntento(int);
 
             // Fetch full questions for this attempt
@@ -139,7 +148,11 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
 
             if (int.respuestas && int.respuestas.length > 0) {
                 const pregsIds = int.respuestas.map((r: any) => r.preguntaId);
-                const filteredPreguntas = pregsIds.map((id: string) => fullCue.preguntas.find((p: any) => p.id === id)).filter(Boolean);
+                const filteredPreguntas = pregsIds
+                    .map((id: string) => fullCue.preguntas.find((p: any) => p.id === id))
+                    .filter(Boolean)
+                    // Ordenar por el campo `orden` para respetar el orden configurado por el docente
+                    .sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0));
                 fullCue.preguntas = filteredPreguntas;
             }
             setCuestionario(fullCue);
@@ -158,17 +171,23 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
             setRespuestas(rMap);
 
             if (fullCue.duracion > 0) {
-                const startTime = new Date(int.iniciadoEn).getTime();
-                const now = new Date().getTime();
-                const elapsed = Math.floor((now - startTime) / 1000);
-                const limit = fullCue.duracion * 60;
-                const remaining = Math.max(0, limit - elapsed);
-                setTimeLeft(remaining);
+                /**
+                 * SEGURIDAD DE TIEMPO:
+                 * Usamos `tiempoRestanteSegundos` calculado en el SERVIDOR para evitar
+                 * que un estudiante con el reloj del sistema desconfigurado (adelantado o atrasado)
+                 * pueda alterar el tiempo disponible del cuestionario.
+                 * 
+                 * Si el servidor retorna 0 (tiempo expirado), se finaliza automáticamente.
+                 */
+                const remaining = typeof int.tiempoRestanteSegundos === 'number'
+                    ? int.tiempoRestanteSegundos
+                    : Math.max(0, fullCue.duracion * 60 - Math.floor((Date.now() - new Date(int.iniciadoEn).getTime()) / 1000));
 
-                if (remaining <= 0 && fullCue.duracion > 0) {
+                if (remaining <= 0) {
                     await finalizeDirectly(int.id);
                     return;
                 }
+                setTimeLeft(remaining);
             }
 
             setView('playing');
@@ -246,6 +265,15 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
+    useEffect(() => {
+        if (view === 'playing') {
+            const el = document.getElementById(`nav-dot-${currentIdx}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [currentIdx, view]);
+
     if (loading) return (
         <div className="fixed inset-0 z-[2000] bg-slate-950 flex flex-col items-center justify-center text-white">
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full mb-8" />
@@ -287,7 +315,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 relative z-10">
                                 {[
-                                    { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion} min`, icon: Timer, color: 'text-primary' },
+                                    { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion + (discapacidad ? 30 : 0)} min`, icon: Timer, color: 'text-primary' },
                                     { label: 'Intentos', value: `${lobbyData.intentosConsumidos} / ${cuestionario.maxIntentos}`, icon: History, color: 'text-amber-500' },
                                     { label: 'Preguntas', value: cuestionario.aleatorizar && cuestionario.randomCount ? cuestionario.randomCount : (cuestionario.preguntas?.length || 0), icon: Brain, color: 'text-emerald-500' }
                                 ].map((item, i) => (
@@ -330,19 +358,97 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                         </div>
                                     </div>
                                 ) : lobbyData.intentosRestantes > 0 || hasActiveIntento ? (
-                                    <button
-                                        onClick={startQuiz}
-                                        disabled={starting}
-                                        className={cn(
-                                            "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
-                                            hasActiveIntento
-                                                ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
-                                                : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
+                                    <div className="space-y-4">
+                                        {!hasActiveIntento && (
+                                            <div className={cn("p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4", discapacidad ? "bg-primary/10 border-primary/40 shadow-lg shadow-primary/10" : "bg-slate-50 border-slate-100 dark:bg-slate-800/20 dark:border-slate-800")}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", discapacidad ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-400")}>
+                                                        <CheckCircle2 size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <p className={cn("text-[10px] font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>Modo Accesibilidad</p>
+                                                        <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Persona con discapacidad (+30 min extra)</p>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => {
+                                                    if (!discapacidad) {
+                                                        setShowPassPrompt(true);
+                                                    } else {
+                                                        setDiscapacidad(false);
+                                                        setFacilitadorPass('');
+                                                    }
+                                                }}
+                                                    className={cn("w-12 h-6 rounded-full transition-all relative shrink-0", discapacidad ? "bg-primary" : "bg-slate-300 dark:bg-slate-700")}>
+                                                    <div className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all", discapacidad ? "left-[26px]" : "left-0.5")} />
+                                                </button>
+                                            </div>
                                         )}
-                                    >
-                                        {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
-                                        {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
-                                    </button>
+
+                                        {showPassPrompt && !discapacidad && (
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-5 rounded-2xl bg-primary/5 border-2 border-primary/20 space-y-3">
+                                                <div className="flex items-center gap-2 text-primary">
+                                                    <Lock size={14} />
+                                                    <p className="text-[10px] font-black uppercase tracking-widest">Autorización del Facilitador</p>
+                                                </div>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase leading-tight">El facilitador a cargo debe ingresar su contraseña para autorizar el tiempo extra.</p>
+                                                <div className="flex gap-2">
+                                                    <input 
+                                                        type="password"
+                                                        value={facilitadorPass}
+                                                        onChange={(e) => setFacilitadorPass(e.target.value)}
+                                                        placeholder="Contraseña del docente..."
+                                                        className="flex-1 h-10 px-4 rounded-xl border-2 border-primary/20 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:border-primary transition-all"
+                                                    />
+                                                    <button 
+                                                        disabled={verifyingPass}
+                                                        onClick={async () => {
+                                                            if (!facilitadorPass.trim()) return;
+                                                            try {
+                                                                setVerifyingPass(true);
+                                                                const res = await aulaService.verificarFacilitador(cuestionario.id, facilitadorPass);
+                                                                if (res.isAuthorized) {
+                                                                    setDiscapacidad(true);
+                                                                    setShowPassPrompt(false);
+                                                                    toast.success('Autorización concedida');
+                                                                } else {
+                                                                    toast.error('Contraseña incorrecta o no autorizado');
+                                                                }
+                                                            } catch {
+                                                                toast.error('Error al validar facilitador');
+                                                            } finally {
+                                                                setVerifyingPass(false);
+                                                            }
+                                                        }}
+                                                        className="px-4 h-10 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                                    >
+                                                        {verifyingPass ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Validar'}
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+
+                                        {discapacidad && !hasActiveIntento && (
+                                            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+                                                <AlertTriangle size={16} className="text-rose-500 shrink-0 mt-0.5" />
+                                                <p className="text-[9px] font-black uppercase text-rose-600 leading-tight">
+                                                    ADVERTENCIA: Si declara ser persona con discapacidad sin serlo, su evaluación será ANULADA automáticamente. Esta acción queda registrada.
+                                                </p>
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={startQuiz}
+                                            disabled={starting}
+                                            className={cn(
+                                                "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
+                                                hasActiveIntento
+                                                    ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
+                                                    : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
+                                            )}
+                                        >
+                                            {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
+                                            {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
+                                        </button>
+                                    </div>
                                 ) : (
                                     <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-center font-black text-xs uppercase tracking-widest">
                                         Has agotado todos tus intentos
@@ -429,6 +535,16 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setShowQuestionGrid(true)}
+                            className={cn(
+                                "flex items-center gap-2 px-4 h-10 md:h-16 rounded-xl md:rounded-[1.5rem] border-2 transition-all font-black text-[10px] md:text-xs uppercase tracking-widest hover:scale-[1.02]",
+                                theme === 'dark' ? "border-slate-800 bg-slate-900 text-white" : "border-slate-100 bg-white text-slate-900"
+                            )}
+                        >
+                            <List size={16} />
+                            <span className="hidden sm:inline">Índice</span>
+                        </button>
                         <div className={cn(
                             "px-4 md:px-10 h-10 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center gap-2 md:gap-4 border-2 transition-all shadow-xl font-mono",
                             timeLeft < 60 && cuestionario.duracion > 0
@@ -654,29 +770,53 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                     "px-6 md:px-10 h-20 md:h-28 border-t flex items-center justify-between transition-all",
                     theme === 'dark' ? "bg-slate-950 border-slate-900" : "bg-white border-slate-100"
                 )}>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                         <button
                             onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
                             disabled={currentIdx === 0}
                             className={cn(
-                                "h-16 px-8 rounded-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-20 disabled:hover:scale-100 hover:scale-[1.02] font-black uppercase text-[10px] tracking-widest",
+                                "h-12 md:h-16 px-4 md:px-8 rounded-xl md:rounded-2xl flex items-center justify-center gap-2 md:gap-3 transition-all disabled:opacity-20 disabled:hover:scale-100 hover:scale-[1.02] font-black uppercase text-[8px] md:text-[10px] tracking-widest shrink-0",
                                 theme === 'dark' ? "bg-slate-900 text-slate-300 border border-slate-800" : "bg-slate-50 text-slate-500 border border-slate-100"
                             )}
                         >
-                            <ChevronLeft size={20} />
-                            Anterior
+                            <ChevronLeft size={16} className="md:size-5" />
+                            <span className="hidden sm:inline">Anterior</span>
                         </button>
-                        <div className="flex gap-2 px-4 hidden md:flex">
-                            {cuestionario.preguntas.map((_: any, idx: number) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setCurrentIdx(idx)}
-                                    className={cn(
-                                        "w-3 h-1.5 rounded-full transition-all duration-500",
-                                        idx === currentIdx ? "w-10 bg-primary shadow-lg shadow-primary/20" : (respuestas[cuestionario.preguntas[idx].id] ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800")
-                                    )}
-                                />
-                            ))}
+
+                        {/* Navegación de puntos desplazable */}
+                        <div className="flex-1 relative min-w-0 hidden md:block">
+                            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
+                            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
+                            <div className="flex gap-1.5 px-6 overflow-x-auto no-scrollbar scroll-smooth items-center h-full py-2">
+                                {cuestionario.preguntas.map((_: any, idx: number) => {
+                                    const isCurrent = idx === currentIdx;
+                                    const isAnswered = respuestas[cuestionario.preguntas[idx].id];
+                                    return (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setCurrentIdx(idx)}
+                                            id={`nav-dot-${idx}`}
+                                            className={cn(
+                                                "w-2.5 h-2.5 rounded-full transition-all duration-300 shrink-0",
+                                                isCurrent
+                                                    ? "w-8 bg-primary shadow-lg shadow-primary/30"
+                                                    : isAnswered ? "bg-emerald-500/60" : "bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700"
+                                            )}
+                                            title={`Pregunta ${idx + 1}`}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Indicador móvil simplificado */}
+                        <div className="md:hidden flex flex-col items-center flex-1">
+                            <span className={cn("text-[10px] font-black tracking-widest uppercase", theme === 'dark' ? "text-slate-400" : "text-slate-500")}>
+                                Pregunta
+                            </span>
+                            <span className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                {currentIdx + 1} / {cuestionario.preguntas.length}
+                            </span>
                         </div>
                     </div>
 
@@ -711,8 +851,105 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                     description={`Has respondido ${Object.keys(respuestas).length} de ${cuestionario.preguntas.length} preguntas. ¿Estás seguro de que deseas finalizar y enviar tus respuestas ahora?`}
                     confirmText="Sí, finalizar"
                     cancelText="Revisar preguntas"
-                    variant="info"
+                    variant="primary"
                     loading={saving}
+                />
+
+                <ConfirmModal
+                    isOpen={showQuestionGrid}
+                    onClose={() => setShowQuestionGrid(false)}
+                    onConfirm={() => setShowQuestionGrid(false)}
+                    title="Navegador de Evaluación"
+                    description={
+                        <div className="space-y-8 mt-4">
+                            {/* Dashboard de Progreso */}
+                            <div className={cn("p-6 rounded-[2rem] border transition-all relative overflow-hidden", theme === 'dark' ? "bg-slate-800/40 border-slate-700" : "bg-primary/5 border-primary/10")}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                                            <Trophy size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Progreso Total</p>
+                                            <p className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                {Object.keys(respuestas).length} <span className="text-sm text-slate-400">/ {cuestionario.preguntas.length} completadas</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-black text-primary">
+                                            {Math.round((Object.keys(respuestas).length / cuestionario.preguntas.length) * 100)}%
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${(Object.keys(respuestas).length / cuestionario.preguntas.length) * 100}%` }}
+                                        className="h-full bg-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.5)]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Leyenda */}
+                            <div className="flex flex-wrap gap-4 px-2">
+                                {[
+                                    { label: 'Actual', color: 'bg-primary', border: 'border-primary' },
+                                    { label: 'Respondida', color: 'bg-emerald-500/10', border: 'border-emerald-500/50', text: 'text-emerald-600' },
+                                    { label: 'Pendiente', color: theme === 'dark' ? 'bg-slate-800' : 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-400' }
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <div className={cn("w-3 h-3 rounded-full border", item.color, item.border)} />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Cuadrícula de Preguntas */}
+                            <div className="max-h-[50vh] overflow-y-auto pr-4 no-scrollbar space-y-8">
+                                {Array.from({ length: Math.ceil(cuestionario.preguntas.length / 20) }).map((_, sectionIdx) => (
+                                    <div key={sectionIdx} className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-widest shrink-0">Bloque {sectionIdx * 20 + 1} - {Math.min((sectionIdx + 1) * 20, cuestionario.preguntas.length)}</span>
+                                            <div className="h-px bg-slate-100 dark:bg-slate-800 flex-1" />
+                                        </div>
+                                        <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
+                                            {cuestionario.preguntas.slice(sectionIdx * 20, (sectionIdx + 1) * 20).map((p: any, innerIdx: number) => {
+                                                const idx = sectionIdx * 20 + innerIdx;
+                                                const isAnswered = respuestas[p.id];
+                                                const isCurrent = idx === currentIdx;
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        onClick={() => {
+                                                            setCurrentIdx(idx);
+                                                            setShowQuestionGrid(false);
+                                                        }}
+                                                        className={cn(
+                                                            "w-full aspect-square rounded-2xl flex items-center justify-center font-black text-xs transition-all duration-300 border-2 active:scale-90",
+                                                            isCurrent
+                                                                ? "bg-primary border-primary text-white shadow-xl shadow-primary/20 scale-110"
+                                                                : isAnswered
+                                                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 hover:border-emerald-500"
+                                                                    : theme === 'dark' 
+                                                                        ? "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600 hover:text-white" 
+                                                                        : "bg-white border-slate-100 text-slate-400 hover:border-primary/30 hover:text-primary shadow-sm"
+                                                        )}
+                                                    >
+                                                        {idx + 1}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    }
+                    confirmText="Volver al examen"
+                    cancelText=""
+                    variant="primary"
+                    maxWidth="max-w-4xl"
                 />
             </div>
         );
@@ -766,7 +1003,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                         )}
                         <button onClick={onClose} className={cn(
                             "w-full h-20 rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] shadow-xl transition-all",
-                            theme === 'dark' ? "bg-white text-slate-950" : "bg-slate-900 text-white shadow-slate-900/20"
+                            "bg-primary text-white shadow-primary/20"
                         )}>
                             Finalizar y Salir
                         </button>

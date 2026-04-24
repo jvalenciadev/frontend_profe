@@ -11,11 +11,12 @@ interface ConfirmModalProps {
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    description: string;
+    description: string | React.ReactNode;
     confirmText?: string;
     cancelText?: string;
-    variant?: 'danger' | 'warning' | 'info' | 'success';
+    variant?: 'danger' | 'warning' | 'info' | 'success' | 'primary';
     loading?: boolean;
+    maxWidth?: string;
 }
 
 export function ConfirmModal({
@@ -27,7 +28,8 @@ export function ConfirmModal({
     confirmText = 'Confirmar',
     cancelText = 'Cancelar',
     variant = 'danger',
-    loading = false
+    loading = false,
+    maxWidth = 'max-w-md'
 }: ConfirmModalProps) {
     const [mounted, setMounted] = useState(false);
 
@@ -69,6 +71,12 @@ export function ConfirmModal({
             bg: 'bg-emerald-500/10',
             button: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20',
             title: 'text-emerald-950 dark:text-emerald-100'
+        },
+        primary: {
+            icon: <Info className="w-8 h-8 text-primary" />,
+            bg: 'bg-primary/10',
+            button: 'bg-primary hover:scale-[1.02] shadow-primary/20',
+            title: 'text-slate-900 dark:text-white'
         }
     };
 
@@ -93,7 +101,10 @@ export function ConfirmModal({
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                        className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
+                        className={cn(
+                            "relative w-full bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800",
+                            maxWidth
+                        )}
                     >
                         {/* Header Decoration */}
                         <div className={cn("absolute top-0 left-0 w-full h-1", style.button)} />
@@ -107,9 +118,9 @@ export function ConfirmModal({
                                     <h3 className={cn("text-xl font-black uppercase tracking-tight", style.title)}>
                                         {title}
                                     </h3>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed italic">
+                                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                                         {description}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
 

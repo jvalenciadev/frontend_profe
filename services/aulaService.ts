@@ -285,8 +285,8 @@ export const aulaService = {
         return response.data;
     },
 
-    iniciarIntento: async (cuestionarioId: string) => {
-        const response = await aulaApi.post(`/cuestionarios/${cuestionarioId}/iniciar`);
+    iniciarIntento: async (cuestionarioId: string, data?: any) => {
+        const response = await aulaApi.post(`/cuestionarios/${cuestionarioId}/iniciar`, data);
         return response.data;
     },
 
@@ -297,6 +297,20 @@ export const aulaService = {
 
     finalizarIntento: async (intentoId: string) => {
         const response = await aulaApi.post(`/cuestionarios/intento/${intentoId}/finalizar`);
+        return response.data;
+    },
+
+    buscarIntentoPorCI: async (cuestionarioId: string, ci: string) => {
+        const response = await aulaApi.get(`/cuestionarios/${cuestionarioId}/buscar-intento/${ci}`);
+        return response.data;
+    },
+
+    resetearIntento: async (intentoId: string) => {
+        const response = await aulaApi.post(`/cuestionarios/intento/${intentoId}/reset`);
+        return response.data;
+    },
+    verificarFacilitador: async (cuestionarioId: string, password: string) => {
+        const response = await aulaApi.post(`/cuestionarios/${cuestionarioId}/verificar-facilitador`, { password });
         return response.data;
     },
 

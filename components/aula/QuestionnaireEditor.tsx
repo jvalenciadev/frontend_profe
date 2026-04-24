@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import MathRenderer from './MathRenderer';
 import MathEditor from './MathEditor';
+import { ConfirmModal } from '../ConfirmModal';
 
 /* ─── Tipos de Pregunta ──────────────────────────────────────────── */
 type TipoPregunta = 'MULTIPLE' | 'MULTIPLE_M' | 'VF' | 'TEXTO' | 'ORDENAR';
@@ -83,7 +84,7 @@ interface QuestionnaireEditorProps {
     onClose: () => void;
 }
 
-type Tab = 'preguntas' | 'configuracion' | 'resultados';
+type Tab = 'preguntas' | 'configuracion' | 'resultados' | 'reset';
 
 export default function QuestionnaireEditor({
     actividadId, actividadTitulo, actividadPuntajeMax, theme, onClose
@@ -97,6 +98,14 @@ export default function QuestionnaireEditor({
     const [expandedPregunta, setExpandedPregunta] = useState<number | null>(0);
     const [activeTab, setActiveTab] = useState<Tab>('preguntas');
     const [showTypePicker, setShowTypePicker] = useState(false);
+
+    // Reset de Intentos State
+    const [searchCI, setSearchCI] = useState('');
+    const [foundIntentos, setFoundIntentos] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [reseting, setReseting] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [intentoToReset, setIntentoToReset] = useState<string | null>(null);
 
     const isDark = theme === 'dark';
     const puntajeMax = 100;
@@ -140,7 +149,21 @@ export default function QuestionnaireEditor({
         setShowTypePicker(false);
     };
 
-    const deletePregunta = (idx: number) => setPreguntas(preguntas.filter((_, i) => i !== idx));
+    const deletePregunta = (idx: number) => {
+        const updated = preguntas.filter((_, i) => i !== idx).map((p, i) => ({ ...p, orden: i + 1 }));
+        setPreguntas(updated);
+        setExpandedPregunta(null);
+    };
+
+    const movePregunta = (idx: number, direction: 'up' | 'down') => {
+        const n = [...preguntas];
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= n.length) return;
+        [n[idx], n[targetIdx]] = [n[targetIdx], n[idx]];
+        const recalculated = n.map((p, i) => ({ ...p, orden: i + 1 }));
+        setPreguntas(recalculated);
+        setExpandedPregunta(targetIdx);
+    };
 
     const updatePregunta = (idx: number, data: any) => {
         const n = [...preguntas];
@@ -205,8 +228,10 @@ export default function QuestionnaireEditor({
         if (noEsCien) return toast.error(`El cuestionario debe sumar ${puntajeMax} pts (actualmente ${puntajeSimulado} pts)`);
         try {
             setSaving(true);
+            // Asegurar que el orden es correcto antes de guardar
+            const preguntasConOrden = preguntas.map((p, i) => ({ ...p, orden: i + 1 }));
             await aulaService.updateCuestionario(cuestionario.id, cuestionario);
-            await aulaService.syncPreguntas(cuestionario.id, preguntas);
+            await aulaService.syncPreguntas(cuestionario.id, preguntasConOrden);
             toast.success('Cuestionario guardado correctamente');
             loadData();
         } catch { toast.error('Error al guardar cambios'); }
@@ -224,15 +249,16 @@ export default function QuestionnaireEditor({
 
     const exportPreguntas = () => {
         if (preguntas.length === 0) return toast.error('No hay preguntas para exportar');
-        // Clean data for export (remove local IDs if any, though they are usually from DB)
-        const exportData = preguntas.map(p => ({
+        // Exportar con el orden correcto según posición actual
+        const exportData = preguntas.map((p, idx) => ({
+            orden: idx + 1,
             texto: p.texto,
             tipo: p.tipo,
             puntaje: p.puntaje,
-            opciones: p.opciones.map((o: any) => ({
+            opciones: p.opciones.map((o: any, oIdx: number) => ({
                 texto: o.texto,
                 esCorrecta: o.esCorrecta,
-                orden: o.orden
+                orden: o.orden ?? (oIdx + 1),
             }))
         }));
 
@@ -256,21 +282,28 @@ export default function QuestionnaireEditor({
                 const json = JSON.parse(event.target?.result as string);
                 if (!Array.isArray(json)) throw new Error('El archivo debe contener una lista de preguntas');
 
-                const newPreguntas = json.map(p => ({
-                    ...p,
-                    id: undefined,
-                    cuestionarioId: cuestionario.id,
-                    opciones: p.opciones?.map((o: any) => ({
-                        ...o,
+                // Calcular el offset de orden basado en preguntas ya existentes
+                setPreguntas(prev => {
+                    const offset = prev.length;
+                    const newPreguntas = json.map((p, idx) => ({
+                        ...p,
                         id: undefined,
-                        preguntaId: undefined,
+                        cuestionarioId: cuestionario.id,
+                        // Asignar orden correcto: después de las existentes
+                        orden: offset + idx + 1,
+                        opciones: p.opciones?.map((o: any, oIdx: number) => ({
+                            ...o,
+                            id: undefined,
+                            preguntaId: undefined,
+                            // Si el JSON no trae orden de opción, asignarlo por posición
+                            orden: o.orden ?? (oIdx + 1),
+                            isNew: true
+                        })) || [],
                         isNew: true
-                    })) || [],
-                    isNew: true
-                }));
-
-                setPreguntas(prev => [...prev, ...newPreguntas]);
-                toast.success(`${newPreguntas.length} preguntas importadas correctamente`);
+                    }));
+                    toast.success(`${newPreguntas.length} preguntas importadas correctamente`);
+                    return [...prev, ...newPreguntas];
+                });
             } catch (err: any) {
                 toast.error('Error al importar: ' + err.message);
             }
@@ -279,12 +312,48 @@ export default function QuestionnaireEditor({
         e.target.value = ''; // Reset
     };
 
+
     const tabStyle = (tab: Tab) => cn(
         'px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2',
         activeTab === tab
             ? 'bg-primary text-white shadow-lg shadow-primary/20'
             : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'
     );
+
+    const handleResetIntento = async (intentoId: string) => {
+        setIntentoToReset(intentoId);
+        setShowResetConfirm(true);
+    };
+
+    const confirmResetIntento = async () => {
+        if (!intentoToReset) return;
+        try {
+            setReseting(true);
+            await aulaService.resetearIntento(intentoToReset);
+            toast.success('Intento reseteado con éxito');
+            setShowResetConfirm(false);
+            setIntentoToReset(null);
+            handleSearchCI(); // Refrescar lista
+        } catch {
+            toast.error('Error al resetear intento');
+        } finally {
+            setReseting(false);
+        }
+    };
+
+    const handleSearchCI = async () => {
+        if (!searchCI.trim()) return;
+        try {
+            setSearching(true);
+            const data = await aulaService.buscarIntentoPorCI(cuestionario.id, searchCI);
+            setFoundIntentos(data || []);
+            if (data.length === 0) toast.info('No se encontraron intentos para este CI');
+        } catch {
+            toast.error('Error al buscar estudiante');
+        } finally {
+            setSearching(false);
+        }
+    };
 
     if (loading) return null;
 
@@ -360,6 +429,9 @@ export default function QuestionnaireEditor({
                                     </span>
                                 )}
                             </button>
+                            <button className={tabStyle('reset')} onClick={() => setActiveTab('reset')}>
+                                <RefreshCw size={12} /> Reset
+                            </button>
                         </div>
 
                         <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-2" />
@@ -403,301 +475,349 @@ export default function QuestionnaireEditor({
                                     </span>
                                 </div>
 
-                                {/* Lista de preguntas */}
-                                {preguntas.map((p, pIdx) => {
-                                    const tc = getTipo(p.tipo as TipoPregunta);
-                                    const Icon = tc.icon;
-                                    return (
-                                        <motion.div
-                                            key={pIdx}
-                                            layout
-                                            className={cn(
-                                                'rounded-[2rem] border-2 transition-all overflow-hidden',
-                                                expandedPregunta === pIdx
-                                                    ? `${tc.border} shadow-lg`
-                                                    : isDark ? 'border-slate-800 hover:border-slate-700' : 'border-slate-200 hover:border-slate-300'
-                                            )}
-                                        >
-                                            {/* Header pregunta */}
-                                            <div
-                                                onClick={() => setExpandedPregunta(expandedPregunta === pIdx ? null : pIdx)}
+                                {/* Lista de preguntas con drag & drop */}
+                                <Reorder.Group
+                                    axis="y"
+                                    values={preguntas}
+                                    onReorder={(newOrder: any[]) => {
+                                        const recalculated = newOrder.map((p, i) => ({ ...p, orden: i + 1 }));
+                                        setPreguntas(recalculated);
+                                    }}
+                                    className="space-y-5"
+                                >
+                                    {preguntas.map((p, pIdx) => {
+                                        const tc = getTipo(p.tipo as TipoPregunta);
+                                        const Icon = tc.icon;
+                                        return (
+                                            <Reorder.Item
+                                                key={p.id || `new-${pIdx}`}
+                                                value={p}
                                                 className={cn(
-                                                    'p-5 cursor-pointer flex items-center gap-4 transition-all',
-                                                    expandedPregunta === pIdx ? tc.bg : isDark ? 'bg-slate-800/30' : 'bg-white'
+                                                    'rounded-[2rem] border-2 transition-all overflow-hidden',
+                                                    expandedPregunta === pIdx
+                                                        ? `${tc.border} shadow-lg`
+                                                        : isDark ? 'border-slate-800 hover:border-slate-700' : 'border-slate-200 hover:border-slate-300'
                                                 )}
                                             >
-                                                {/* Badge tipo */}
-                                                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md', tc.badgeBg)}>
-                                                    <Icon size={16} />
-                                                </div>
-
-                                                <div className="flex-1 min-w-0">
-                                                    <div className={cn('font-semibold text-sm leading-tight truncate', isDark ? 'text-white' : 'text-slate-900', !p.texto && 'italic text-slate-400')}>
-                                                        <MathRenderer text={p.texto || 'Sin enunciado...'} />
+                                                {/* Header pregunta */}
+                                                <div
+                                                    onClick={() => setExpandedPregunta(expandedPregunta === pIdx ? null : pIdx)}
+                                                    className={cn(
+                                                        'p-5 cursor-pointer flex items-center gap-4 transition-all',
+                                                        expandedPregunta === pIdx ? tc.bg : isDark ? 'bg-slate-800/30' : 'bg-white'
+                                                    )}
+                                                >
+                                                    {/* Número de orden */}
+                                                    <div className={cn(
+                                                        'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-base select-none',
+                                                        expandedPregunta === pIdx
+                                                            ? `${tc.badgeBg} text-white shadow-md`
+                                                            : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'
+                                                    )}>
+                                                        {pIdx + 1}
                                                     </div>
-                                                    <div className="flex items-center gap-3 mt-1.5">
-                                                        <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full', tc.bg, tc.color)}>
-                                                            {tc.label}
-                                                        </span>
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                                            {p.puntaje} pts
-                                                        </span>
-                                                        {p.opciones?.length > 0 && (
-                                                            <span className="text-[9px] font-bold text-slate-400">
-                                                                {p.opciones.length} opciones
+
+                                                    {/* Icono tipo */}
+                                                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', tc.bg, tc.color)}>
+                                                        <Icon size={15} />
+                                                    </div>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={cn('font-semibold text-sm leading-tight truncate', isDark ? 'text-white' : 'text-slate-900', !p.texto && 'italic text-slate-400')}>
+                                                            <MathRenderer text={p.texto || 'Sin enunciado...'} />
+                                                        </div>
+                                                        <div className="flex items-center gap-3 mt-1.5">
+                                                            <span className={cn('text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full', tc.bg, tc.color)}>
+                                                                {tc.label}
                                                             </span>
-                                                        )}
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                                {p.puntaje} pts
+                                                            </span>
+                                                            {p.opciones?.length > 0 && (
+                                                                <span className="text-[9px] font-bold text-slate-400">
+                                                                    {p.opciones.length} opciones
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {/* Grip para drag */}
+                                                        <div
+                                                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing"
+                                                            title="Arrastrar para reordenar"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            <GripVertical size={14} />
+                                                        </div>
+                                                        {/* Botones ↑ ↓ */}
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <button
+                                                                onClick={e => { e.stopPropagation(); movePregunta(pIdx, 'up'); }}
+                                                                disabled={pIdx === 0}
+                                                                title="Mover arriba"
+                                                                className="w-6 h-5 rounded flex items-center justify-center text-slate-300 hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                                                            >
+                                                                <ChevronUp size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={e => { e.stopPropagation(); movePregunta(pIdx, 'down'); }}
+                                                                disabled={pIdx === preguntas.length - 1}
+                                                                title="Mover abajo"
+                                                                className="w-6 h-5 rounded flex items-center justify-center text-slate-300 hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                                                            >
+                                                                <ChevronDown size={12} />
+                                                            </button>
+                                                        </div>
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); deletePregunta(pIdx); }}
+                                                            className="w-8 h-8 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center"
+                                                            title="Eliminar pregunta"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                        <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center transition-colors', tc.color, expandedPregunta === pIdx ? tc.bg : '')}>
+                                                            {expandedPregunta === pIdx ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        onClick={e => { e.stopPropagation(); deletePregunta(pIdx); }}
-                                                        className="w-8 h-8 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-300 hover:text-rose-500 transition-all flex items-center justify-center"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                    <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center transition-colors', tc.color, expandedPregunta === pIdx ? tc.bg : '')}>
-                                                        {expandedPregunta === pIdx ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                {/* Body expandido */}
+                                                <AnimatePresence>
+                                                    {expandedPregunta === pIdx && (
+                                                        <motion.div
+                                                            initial={{ height: 0 }}
+                                                            animate={{ height: 'auto' }}
+                                                            exit={{ height: 0 }}
+                                                            className={cn('border-t overflow-hidden', isDark ? 'border-slate-700' : 'border-slate-100')}
+                                                        >
+                                                            <div className="p-4 space-y-4">
+                                                                {/* Fila: Enunciado + Config */}
+                                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                                    {/* Enunciado */}
+                                                                    <div className="md:col-span-3 space-y-2">
+                                                                        {/* Puntaje row */}
+                                                                        <div className="flex items-center justify-between mb-1">
+                                                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Enunciado</label>
+                                                                            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                                                <label className="text-[8px] font-black uppercase text-slate-400">Puntaje</label>
+                                                                                <input
+                                                                                    type="number" min="0" max="100" step="0.5"
+                                                                                    value={p.puntaje}
+                                                                                    onChange={e => updatePregunta(pIdx, { puntaje: parseFloat(e.target.value) })}
+                                                                                    className="w-10 bg-transparent font-black text-xs outline-none text-right"
+                                                                                />
+                                                                                <span className="text-[8px] font-black text-slate-400 opacity-50">PTS</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <MathEditor
+                                                                            value={p.texto}
+                                                                            onChange={val => updatePregunta(pIdx, { texto: val })}
+                                                                            placeholder="Escribe el enunciado de la pregunta..."
+                                                                            theme={theme}
+                                                                            rows={2}
+                                                                        />
+                                                                    </div>
 
-                                            {/* Body expandido */}
-                                            <AnimatePresence>
-                                                {expandedPregunta === pIdx && (
-                                                    <motion.div
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: 'auto' }}
-                                                        exit={{ height: 0 }}
-                                                        className={cn('border-t overflow-hidden', isDark ? 'border-slate-700' : 'border-slate-100')}
-                                                    >
-                                                        <div className="p-4 space-y-4">
-                                                            {/* Fila: Enunciado + Config */}
-                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                                {/* Enunciado */}
-                                                                <div className="md:col-span-3 space-y-2">
-                                                                    {/* Puntaje row */}
-                                                                    <div className="flex items-center justify-between mb-1">
-                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Enunciado</label>
-                                                                        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                                                                            <label className="text-[8px] font-black uppercase text-slate-400">Puntaje</label>
-                                                                            <input
-                                                                                type="number" min="0" max="100" step="0.5"
-                                                                                value={p.puntaje}
-                                                                                onChange={e => updatePregunta(pIdx, { puntaje: parseFloat(e.target.value) })}
-                                                                                className="w-10 bg-transparent font-black text-xs outline-none text-right"
-                                                                            />
-                                                                            <span className="text-[8px] font-black text-slate-400 opacity-50">PTS</span>
+                                                                    {/* Tipo */}
+                                                                    <div className="space-y-2">
+                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Naturaleza</label>
+                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                            {TIPOS.map(t => (
+                                                                                <button
+                                                                                    key={t.id}
+                                                                                    onClick={() => changeTipo(pIdx, t.id)}
+                                                                                    title={t.label}
+                                                                                    className={cn(
+                                                                                        'w-8 h-8 rounded-lg border-2 transition-all flex items-center justify-center',
+                                                                                        p.tipo === t.id
+                                                                                            ? `${t.bg} ${t.border} ${t.color}`
+                                                                                            : isDark ? 'border-slate-800 text-slate-600 hover:border-slate-700' : 'border-slate-50 text-slate-300 hover:border-slate-100'
+                                                                                    )}
+                                                                                >
+                                                                                    <t.icon size={14} />
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                        <p className="text-[8px] font-bold text-slate-400 italic mt-1">{tc.label}</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* ── OPCIONES por TIPO ── */}
+
+                                                                {/* MULTIPLE / MULTIPLE_M */}
+                                                                {(p.tipo === 'MULTIPLE' || p.tipo === 'MULTIPLE_M') && (
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                                {p.tipo === 'MULTIPLE' ? '⚪ Marca UNA respuesta correcta' : '☑ Marca TODAS las respuestas correctas'}
+                                                                            </label>
+                                                                            <button onClick={() => addOpcion(pIdx)} className={cn('text-[9px] font-black uppercase hover:underline', tc.color)}>
+                                                                                + Añadir Opción
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                            {p.opciones?.map((opt: any, oIdx: number) => (
+                                                                                <div
+                                                                                    key={oIdx}
+                                                                                    className={cn(
+                                                                                        'flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all group',
+                                                                                        opt.esCorrecta
+                                                                                            ? `${tc.border} ${tc.bg}`
+                                                                                            : isDark ? 'border-slate-700 bg-slate-800/20' : 'border-slate-100 bg-white'
+                                                                                    )}
+                                                                                >
+                                                                                    <button
+                                                                                        onClick={() => toggleCorrecta(pIdx, oIdx)}
+                                                                                        className={cn(
+                                                                                            'w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 border-2',
+                                                                                            opt.esCorrecta
+                                                                                                ? `${tc.badgeBg} border-transparent text-white`
+                                                                                                : isDark ? 'border-slate-600 text-slate-500' : 'border-slate-200 text-slate-300'
+                                                                                        )}
+                                                                                    >
+                                                                                        {p.tipo === 'MULTIPLE'
+                                                                                            ? (opt.esCorrecta ? <CheckCircle2 size={13} /> : <Circle size={13} />)
+                                                                                            : (opt.esCorrecta ? <CheckSquare size={13} /> : <CheckSquare size={13} className="opacity-20" />)
+                                                                                        }
+                                                                                    </button>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <MathEditor
+                                                                                            value={opt.texto}
+                                                                                            onChange={val => updateOpcionTexto(pIdx, oIdx, val)}
+                                                                                            placeholder="Texto de la opción..."
+                                                                                            theme={theme}
+                                                                                            rows={1}
+                                                                                            className="border-0 bg-transparent shadow-none"
+                                                                                        />
+                                                                                    </div>
+                                                                                    {p.opciones.length > 2 && (
+                                                                                        <button
+                                                                                            onClick={() => deleteOpcion(pIdx, oIdx)}
+                                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
+                                                                                        >
+                                                                                            <Trash2 size={13} />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
                                                                     </div>
-                                                                    <MathEditor
-                                                                        value={p.texto}
-                                                                        onChange={val => updatePregunta(pIdx, { texto: val })}
-                                                                        placeholder="Escribe el enunciado de la pregunta..."
-                                                                        theme={theme}
-                                                                        rows={2}
-                                                                    />
-                                                                </div>
+                                                                )}
 
-                                                                {/* Tipo */}
-                                                                <div className="space-y-2">
-                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Naturaleza</label>
-                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                        {TIPOS.map(t => (
-                                                                            <button
-                                                                                key={t.id}
-                                                                                onClick={() => changeTipo(pIdx, t.id)}
-                                                                                title={t.label}
-                                                                                className={cn(
-                                                                                    'w-8 h-8 rounded-lg border-2 transition-all flex items-center justify-center',
-                                                                                    p.tipo === t.id
-                                                                                        ? `${t.bg} ${t.border} ${t.color}`
-                                                                                        : isDark ? 'border-slate-800 text-slate-600 hover:border-slate-700' : 'border-slate-50 text-slate-300 hover:border-slate-100'
-                                                                                )}
-                                                                            >
-                                                                                <t.icon size={14} />
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                    <p className="text-[8px] font-bold text-slate-400 italic mt-1">{tc.label}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* ── OPCIONES por TIPO ── */}
-
-                                                            {/* MULTIPLE / MULTIPLE_M */}
-                                                            {(p.tipo === 'MULTIPLE' || p.tipo === 'MULTIPLE_M') && (
-                                                                <div className="space-y-3">
-                                                                    <div className="flex items-center justify-between">
+                                                                {/* VF */}
+                                                                {p.tipo === 'VF' && (
+                                                                    <div className="space-y-3">
                                                                         <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                            {p.tipo === 'MULTIPLE' ? '⚪ Marca UNA respuesta correcta' : '☑ Marca TODAS las respuestas correctas'}
+                                                                            🟢 Selecciona cuál es la respuesta correcta
                                                                         </label>
-                                                                        <button onClick={() => addOpcion(pIdx)} className={cn('text-[9px] font-black uppercase hover:underline', tc.color)}>
-                                                                            + Añadir Opción
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                        {p.opciones?.map((opt: any, oIdx: number) => (
-                                                                            <div
-                                                                                key={oIdx}
-                                                                                className={cn(
-                                                                                    'flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all group',
-                                                                                    opt.esCorrecta
-                                                                                        ? `${tc.border} ${tc.bg}`
-                                                                                        : isDark ? 'border-slate-700 bg-slate-800/20' : 'border-slate-100 bg-white'
-                                                                                )}
-                                                                            >
-                                                                                <button
-                                                                                    onClick={() => toggleCorrecta(pIdx, oIdx)}
-                                                                                    className={cn(
-                                                                                        'w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 border-2',
-                                                                                        opt.esCorrecta
-                                                                                            ? `${tc.badgeBg} border-transparent text-white`
-                                                                                            : isDark ? 'border-slate-600 text-slate-500' : 'border-slate-200 text-slate-300'
-                                                                                    )}
-                                                                                >
-                                                                                    {p.tipo === 'MULTIPLE'
-                                                                                        ? (opt.esCorrecta ? <CheckCircle2 size={13} /> : <Circle size={13} />)
-                                                                                        : (opt.esCorrecta ? <CheckSquare size={13} /> : <CheckSquare size={13} className="opacity-20" />)
-                                                                                    }
-                                                                                </button>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <MathEditor
-                                                                                        value={opt.texto}
-                                                                                        onChange={val => updateOpcionTexto(pIdx, oIdx, val)}
-                                                                                        placeholder="Texto de la opción..."
-                                                                                        theme={theme}
-                                                                                        rows={1}
-                                                                                        className="border-0 bg-transparent shadow-none"
-                                                                                    />
-                                                                                </div>
-                                                                                {p.opciones.length > 2 && (
+                                                                        <div className="grid grid-cols-2 gap-4">
+                                                                            {(['Verdadero', 'Falso'] as const).map((val, oIdx) => {
+                                                                                const isSelected = p.opciones?.[oIdx]?.esCorrecta;
+                                                                                return (
                                                                                     <button
-                                                                                        onClick={() => deleteOpcion(pIdx, oIdx)}
-                                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
+                                                                                        key={val}
+                                                                                        onClick={() => toggleCorrecta(pIdx, oIdx)}
+                                                                                        className={cn(
+                                                                                            'py-8 rounded-3xl border-2 font-black text-lg tracking-widest transition-all hover:scale-[1.02] active:scale-95',
+                                                                                            isSelected
+                                                                                                ? val === 'Verdadero'
+                                                                                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/20'
+                                                                                                    : 'bg-rose-500 border-rose-500 text-white shadow-xl shadow-rose-500/20'
+                                                                                                : isDark ? 'border-slate-700 bg-slate-800/30 text-slate-500' : 'border-slate-200 bg-white text-slate-300'
+                                                                                        )}
                                                                                     >
-                                                                                        <Trash2 size={13} />
+                                                                                        {val === 'Verdadero' ? '✓ Verdadero' : '✗ Falso'}
                                                                                     </button>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
+                                                                                );
+                                                                            })}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            )}
+                                                                )}
 
-                                                            {/* VF */}
-                                                            {p.tipo === 'VF' && (
-                                                                <div className="space-y-3">
-                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                        🟢 Selecciona cuál es la respuesta correcta
-                                                                    </label>
-                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                        {(['Verdadero', 'Falso'] as const).map((val, oIdx) => {
-                                                                            const isSelected = p.opciones?.[oIdx]?.esCorrecta;
-                                                                            return (
-                                                                                <button
-                                                                                    key={val}
-                                                                                    onClick={() => toggleCorrecta(pIdx, oIdx)}
+                                                                {/* TEXTO */}
+                                                                {p.tipo === 'TEXTO' && (
+                                                                    <div className={cn(
+                                                                        'p-8 rounded-3xl border-2 border-dashed flex flex-col items-center gap-4 text-center',
+                                                                        isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50'
+                                                                    )}>
+                                                                        <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                                                                            <AlignLeft size={28} />
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="text-sm font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Pregunta de Respuesta Abierta</p>
+                                                                            <p className="text-xs text-amber-600/70 dark:text-amber-500/60 font-medium mt-1">
+                                                                                El participante escribirá su respuesta. La calificación se realiza manualmente desde la sección Resultados.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* ORDENAR */}
+                                                                {p.tipo === 'ORDENAR' && (
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                                🔢 Define el orden correcto (arrastra para ordenar)
+                                                                            </label>
+                                                                            <button onClick={() => addOpcion(pIdx)} className="text-[9px] font-black text-rose-600 uppercase hover:underline">
+                                                                                + Añadir Elemento
+                                                                            </button>
+                                                                        </div>
+
+                                                                        <Reorder.Group axis="y" values={p.opciones} onReorder={(newOrder: any[]) => {
+                                                                            const n = [...preguntas];
+                                                                            n[pIdx].opciones = newOrder.map((o: any, idx: number) => ({ ...o, orden: idx + 1 }));
+                                                                            setPreguntas(n);
+                                                                        }} className="space-y-2">
+                                                                            {p.opciones?.map((opt: any, oIdx: number) => (
+                                                                                <Reorder.Item
+                                                                                    key={opt.id || oIdx}
+                                                                                    value={opt}
                                                                                     className={cn(
-                                                                                        'py-8 rounded-3xl border-2 font-black text-lg tracking-widest transition-all hover:scale-[1.02] active:scale-95',
-                                                                                        isSelected
-                                                                                            ? val === 'Verdadero'
-                                                                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/20'
-                                                                                                : 'bg-rose-500 border-rose-500 text-white shadow-xl shadow-rose-500/20'
-                                                                                            : isDark ? 'border-slate-700 bg-slate-800/30 text-slate-500' : 'border-slate-200 bg-white text-slate-300'
+                                                                                        "flex items-center gap-3 p-4 rounded-2xl border-2 transition-all group cursor-grab active:cursor-grabbing",
+                                                                                        isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-100 shadow-sm"
                                                                                     )}
                                                                                 >
-                                                                                    {val === 'Verdadero' ? '✓ Verdadero' : '✗ Falso'}
-                                                                                </button>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                                                    <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center font-black text-sm shrink-0">
+                                                                                        {oIdx + 1}
+                                                                                    </div>
+                                                                                    <GripVertical size={16} className="text-slate-300 shrink-0" />
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <MathEditor
+                                                                                            value={opt.texto}
+                                                                                            onChange={(val: string) => updateOpcionTexto(pIdx, oIdx, val)}
+                                                                                            placeholder="Elemento..."
+                                                                                            theme={theme}
+                                                                                            rows={1}
+                                                                                            className="border-0 bg-transparent shadow-none"
+                                                                                        />
+                                                                                    </div>
+                                                                                    {p.opciones.length > 2 && (
+                                                                                        <button
+                                                                                            onClick={() => deleteOpcion(pIdx, oIdx)}
+                                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
+                                                                                        >
+                                                                                            <Trash2 size={13} />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </Reorder.Item>
+                                                                            ))}
+                                                                        </Reorder.Group>
 
-                                                            {/* TEXTO */}
-                                                            {p.tipo === 'TEXTO' && (
-                                                                <div className={cn(
-                                                                    'p-8 rounded-3xl border-2 border-dashed flex flex-col items-center gap-4 text-center',
-                                                                    isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50'
-                                                                )}>
-                                                                    <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 flex items-center justify-center">
-                                                                        <AlignLeft size={28} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-sm font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Pregunta de Respuesta Abierta</p>
-                                                                        <p className="text-xs text-amber-600/70 dark:text-amber-500/60 font-medium mt-1">
-                                                                            El participante escribirá su respuesta. La calificación se realiza manualmente desde la sección Resultados.
+                                                                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                                                                            <AlertTriangle size={10} /> El sistema mostrará los elementos en orden aleatorio al estudiante.
                                                                         </p>
                                                                     </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* ORDENAR */}
-                                                            {p.tipo === 'ORDENAR' && (
-                                                                <div className="space-y-3">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                            🔢 Define el orden correcto (arrastra para ordenar)
-                                                                        </label>
-                                                                        <button onClick={() => addOpcion(pIdx)} className="text-[9px] font-black text-rose-600 uppercase hover:underline">
-                                                                            + Añadir Elemento
-                                                                        </button>
-                                                                    </div>
-
-                                                                    <Reorder.Group axis="y" values={p.opciones} onReorder={(newOrder: any[]) => {
-                                                                        const n = [...preguntas];
-                                                                        n[pIdx].opciones = newOrder.map((o: any, idx: number) => ({ ...o, orden: idx + 1 }));
-                                                                        setPreguntas(n);
-                                                                    }} className="space-y-2">
-                                                                        {p.opciones?.map((opt: any, oIdx: number) => (
-                                                                            <Reorder.Item
-                                                                                key={opt.id || oIdx}
-                                                                                value={opt}
-                                                                                className={cn(
-                                                                                    "flex items-center gap-3 p-4 rounded-2xl border-2 transition-all group cursor-grab active:cursor-grabbing",
-                                                                                    isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-100 shadow-sm"
-                                                                                )}
-                                                                            >
-                                                                                <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-                                                                                    {oIdx + 1}
-                                                                                </div>
-                                                                                <GripVertical size={16} className="text-slate-300 shrink-0" />
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <MathEditor
-                                                                                        value={opt.texto}
-                                                                                        onChange={(val: string) => updateOpcionTexto(pIdx, oIdx, val)}
-                                                                                        placeholder="Elemento..."
-                                                                                        theme={theme}
-                                                                                        rows={1}
-                                                                                        className="border-0 bg-transparent shadow-none"
-                                                                                    />
-                                                                                </div>
-                                                                                {p.opciones.length > 2 && (
-                                                                                    <button
-                                                                                        onClick={() => deleteOpcion(pIdx, oIdx)}
-                                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all shrink-0"
-                                                                                    >
-                                                                                        <Trash2 size={13} />
-                                                                                    </button>
-                                                                                )}
-                                                                            </Reorder.Item>
-                                                                        ))}
-                                                                    </Reorder.Group>
-
-                                                                    <p className="text-[9px] text-rose-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                                                                        <AlertTriangle size={10} /> El sistema mostrará los elementos en orden aleatorio al estudiante.
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                        </div>{/* /p-4 space-y-4 */}
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </motion.div>
-                                    );
-                                })}
+                                                                )}
+                                                            </div>{/* /p-4 space-y-4 */}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </Reorder.Item>
+                                        );
+                                    })}
+                                </Reorder.Group>
 
                                 {/* ── Picker de tipo o botón agregar ── */}
                                 <AnimatePresence>
@@ -835,6 +955,7 @@ export default function QuestionnaireEditor({
 
                         {/* ─── TAB: RESULTADOS ─── */}
                         {activeTab === 'resultados' && (
+                            // ... (keeping existing results logic but wrapped correctly)
                             <motion.div key="resultados" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-6">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {[
@@ -916,6 +1037,96 @@ export default function QuestionnaireEditor({
                                 )}
                             </motion.div>
                         )}
+
+                        {activeTab === 'reset' && (
+                            <motion.div key="reset" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-8 space-y-6">
+                                <div className="flex flex-col gap-2">
+                                    <h3 className={cn("text-lg font-black uppercase tracking-widest", isDark ? "text-white" : "text-slate-900")}>
+                                        Reset de Intentos
+                                    </h3>
+                                    <p className={cn("text-[10px] font-bold uppercase tracking-widest", isDark ? "text-slate-400" : "text-slate-500")}>
+                                        Busca a un estudiante por su CI o Usuario para habilitar un nuevo intento.
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={searchCI}
+                                            onChange={(e) => setSearchCI(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchCI()}
+                                            placeholder="Ingrese CI o Usuario del participante..."
+                                            className={cn(
+                                                "w-full pl-12 pr-4 h-14 rounded-2xl border-2 font-black text-sm transition-all outline-none",
+                                                isDark
+                                                    ? "bg-slate-800/40 border-slate-700 text-white focus:border-primary"
+                                                    : "bg-white border-slate-200 text-slate-900 focus:border-primary"
+                                            )}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleSearchCI}
+                                        disabled={searching}
+                                        className="px-8 h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-primary/20"
+                                    >
+                                        {searching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                                        Buscar
+                                    </button>
+                                </div>
+
+                                {foundIntentos.length > 0 ? (
+                                    <div className="space-y-4">
+                                        <div className={cn("p-6 rounded-[2rem] border-2 flex items-center gap-4", isDark ? "bg-primary/5 border-primary/20" : "bg-indigo-50 border-indigo-200")}>
+                                            <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-xl">
+                                                {foundIntentos[0].user.nombre[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className={cn("font-black text-lg leading-tight", isDark ? "text-white" : "text-slate-900")}>
+                                                    {foundIntentos[0].user.nombre} {foundIntentos[0].user.apellidos}
+                                                </div>
+                                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                                                    CI: {foundIntentos[0].user.ci?.toString()} • {foundIntentos[0].user.correo}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {foundIntentos.map((int) => (
+                                                <div key={int.id} className={cn('p-5 rounded-2xl border flex items-center gap-4 transition-all', isDark ? 'bg-slate-800/40 border-slate-700 hover:border-rose-500/50' : 'bg-white border-slate-200 hover:border-rose-300')}>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={cn('font-black text-sm uppercase tracking-wider', isDark ? 'text-white' : 'text-slate-900')}>
+                                                            Intento #{int.numero}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 font-medium">
+                                                            {new Date(int.iniciadoEn).toLocaleString('es-ES')}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right mr-4">
+                                                        <p className="font-black text-rose-500 text-lg leading-none">{int.puntajeTotal?.toFixed(1) || '0.0'} pts</p>
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase">{int.estado}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleResetIntento(int.id)}
+                                                        disabled={reseting}
+                                                        className="px-5 h-10 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shrink-0 active:scale-95 disabled:opacity-50"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                        Resetear
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : !searching && searchCI && (
+                                    <div className={cn("py-20 text-center rounded-[2rem] border-2 border-dashed", isDark ? "border-slate-800" : "border-slate-200")}>
+                                        <AlertTriangle size={48} className="mx-auto text-slate-200 mb-4" />
+                                        <p className="text-slate-400 font-bold">No se encontraron intentos para el CI ingresado.</p>
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </div>
 
@@ -942,6 +1153,21 @@ export default function QuestionnaireEditor({
                         </button>
                     </div>
                 </footer>
+
+                <ConfirmModal
+                    isOpen={showResetConfirm}
+                    onClose={() => {
+                        setShowResetConfirm(false);
+                        setIntentoToReset(null);
+                    }}
+                    onConfirm={confirmResetIntento}
+                    title="¿Resetear Intento?"
+                    description="¿Estás seguro de resetear este intento? Se eliminará el progreso y el estudiante podrá realizar un nuevo intento. Esta acción quedará registrada."
+                    confirmText="Sí, resetear"
+                    cancelText="Cancelar"
+                    variant="danger"
+                    loading={reseting}
+                />
             </motion.div>
         </div>
     );

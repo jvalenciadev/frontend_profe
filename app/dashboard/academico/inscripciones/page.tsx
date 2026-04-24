@@ -6,6 +6,8 @@ import { useOfertas } from '@/features/oferta/application/useOfertas';
 import { sedeService } from '@/services/sedeService';
 import { programaInscripcionEstadoService } from '@/services/programaConfigService';
 import { userService } from '@/services/userService';
+import { inscripcionService } from '@/services/inscripcionService';
+import * as XLSX from 'xlsx';
 import {
     Plus,
     Search,
@@ -64,6 +66,11 @@ export default function InscripcionesPage() {
     const [camposExtra, setCamposExtra] = useState<any[]>([]);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [bulkDestination, setBulkDestination] = useState({ versionId: '', programaId: '', turnoId: '' });
+    const [bulkFile, setBulkFile] = useState<File | null>(null);
+    const [bulkData, setBulkData] = useState<any[]>([]);
+    const [isMigrating, setIsMigrating] = useState(false);
+    const [migrationReport, setMigrationReport] = useState<any>(null);
+    const [migrationProgress, setMigrationProgress] = useState(0);
     const [userExtraResponses, setUserExtraResponses] = useState<{ [key: string]: string }>({});
     const [selectedVersionId, setSelectedVersionId] = useState<string>('');
     const [filterVersion, setFilterVersion] = useState('');
@@ -77,6 +84,7 @@ export default function InscripcionesPage() {
     const [filterSede, setFilterSede] = useState('');
     const [filterEstado, setFilterEstado] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [page, setPage] = useState(1);
 
     // Modal view for payments (Eye)
     const [isInscritosModalOpen, setIsInscritosModalOpen] = useState(false);
@@ -97,6 +105,17 @@ export default function InscripcionesPage() {
 
 
     const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+
+    // Re-load items when page or search changes (debounced search would be better, but let's do it simple first)
+    useEffect(() => {
+        const params: any = { page, limit: 50 };
+        if (searchTerm) params.search = searchTerm;
+        if (filterSede) params.sedeId = filterSede;
+        if (filterEstado) params.estadoInscripcionId = filterEstado;
+        if (filterVersion) params.versionId = filterVersion;
+        
+        loadItems(params);
+    }, [page, searchTerm, filterSede, filterEstado, filterVersion]);
 
     // Grouping logic for slots (Cupos)
     const groupedStats = useMemo(() => {
@@ -139,20 +158,11 @@ export default function InscripcionesPage() {
         return flatStats;
     }, [inscripciones, ofertas]);
 
+    // Ya no filtramos localmente lo que ya viene filtrado del servidor (search)
     const filteredInscripciones = useMemo(() => {
         return inscripciones.filter((ins) => {
-            const matchesSearch =
-                ins.persona?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                ins.persona?.apellidos?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (ins.persona?.ci && String(ins.persona?.ci).includes(searchTerm)) ||
-                ins.programa?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                ins.id?.includes(searchTerm);
-
-            const matchesSede = !filterSede || ins.sedeId === filterSede;
-            const matchesEstado = !filterEstado || ins.estadoInscripcionId === filterEstado;
-            const matchesVersion = !filterVersion || ins.programa?.versionId === filterVersion;
-
-            // Group Filter Logic
+            // Los filtros de Sede/Estado/Version ya se aplican en el servidor
+            // Pero el Group Filter sigue siendo local sobre el conjunto actual
             let matchesGroup = true;
             if (selectedGroup) {
                 const group = groupedStats.find(g => g.id === selectedGroup);
@@ -164,9 +174,9 @@ export default function InscripcionesPage() {
                 }
             }
 
-            return matchesSearch && matchesSede && matchesEstado && matchesVersion && matchesGroup;
+            return matchesGroup;
         });
-    }, [inscripciones, searchTerm, filterSede, filterEstado, filterVersion, selectedGroup, groupedStats]);
+    }, [inscripciones, selectedGroup, groupedStats]);
 
     const stats = useMemo(() => {
         const total = inscripciones.length;
@@ -198,7 +208,7 @@ export default function InscripcionesPage() {
     }, [ofertas]);
 
     useEffect(() => {
-        loadItems();
+        // loadItems(); // Removido: el useEffect de paginación lo cargará
         loadOfertas();
         loadSedes();
         loadEstados();
@@ -356,6 +366,92 @@ export default function InscripcionesPage() {
     const confirmDelete = async (id: string) => {
         if (window.confirm('¿Está seguro de eliminar este registro? Esta acción no se puede deshacer.')) {
             await deleteItem(id);
+        }
+    };
+
+    const handleBulkFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setBulkFile(file);
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const bstr = evt.target?.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws);
+            setBulkData(data);
+            toast.success(`${data.length} registros cargados del archivo`);
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const startBulkMigration = async () => {
+        if (!bulkDestination.programaId || !bulkDestination.turnoId || bulkData.length === 0) {
+            toast.warning('Complete todos los campos y suba un archivo');
+            return;
+        }
+
+        setIsMigrating(true);
+        setMigrationReport(null);
+        setMigrationProgress(0);
+
+        try {
+            const rawParticipantes = bulkData.map(row => ({
+                ci: row.ci || row.CI || row.documento || row.DOCUMENTO,
+                nombres: row.nombres || row.NOMBRES || row.nombre || row.NOMBRE,
+                apellidos: row.apellidos || row.APELLIDOS || row.apellido || row.APELLIDO,
+                correo: row.correo || row.CORREO || row.email || row.EMAIL,
+                celular: row.celular || row.CELULAR || row.telefono || row.TELEFONO,
+                password: row.password || row.PASSWORD || row.contraseña || row.CONTRASEÑA,
+                licenciatura: row.licenciatura || row.LICENCIATURA,
+                unidadEducativa: row.unidad_educativa || row.UE,
+                nivel: row.nivel || row.NIVEL,
+                subsistema: row.subsistema || row.SUBSISTEMA
+            })).filter(p => p.ci && p.nombres);
+
+            if (rawParticipantes.length === 0) {
+                toast.error('El archivo no tiene el formato correcto o está vacío');
+                setIsMigrating(false);
+                return;
+            }
+
+            const chunkSize = 50;
+            const chunks = [];
+            for (let i = 0; i < rawParticipantes.length; i += chunkSize) {
+                chunks.push(rawParticipantes.slice(i, i + chunkSize));
+            }
+
+            let totalSuccess = 0;
+            let totalErrors: any[] = [];
+
+            for (let i = 0; i < chunks.length; i++) {
+                const res = await inscripcionService.bulkImport({
+                    ...bulkDestination,
+                    sedeId: ofertas.find(o => o.id === bulkDestination.programaId)?.sedeId,
+                    participantes: chunks[i]
+                });
+
+                totalSuccess += res.success;
+                totalErrors = [...totalErrors, ...res.errors];
+                
+                setMigrationProgress(Math.round(((i + 1) / chunks.length) * 100));
+            }
+
+            const finalReport = { success: totalSuccess, errors: totalErrors };
+            setMigrationReport(finalReport);
+            toast.success(`Migración finalizada: ${totalSuccess} exitosos, ${totalErrors.length} errores`);
+            loadItems(); 
+            
+            if (totalErrors.length === 0) {
+                setTimeout(() => setIsBulkModalOpen(false), 2000);
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
+            toast.error('Error durante la migración masiva');
+        } finally {
+            setIsMigrating(false);
         }
     };
 
@@ -517,7 +613,10 @@ export default function InscripcionesPage() {
                             placeholder="Buscar por Doc., Nombre o Programa..."
                             className="w-full h-14 pl-14 pr-6 rounded-2xl bg-muted/30 border border-border/50 focus:border-primary outline-none text-sm font-bold transition-all shadow-sm"
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setPage(1); // Reset page on search
+                            }}
                         />
                     </div>
                     {showFilters && (
@@ -682,6 +781,29 @@ export default function InscripcionesPage() {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* PAGINATION UI */}
+                <div className="p-6 border-t border-border/40 bg-muted/20 flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Página <span className="text-primary">{page}</span>
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                            disabled={page === 1 || loading}
+                            className="h-10 px-4 rounded-xl border border-border/50 bg-background hover:bg-muted disabled:opacity-50 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                        >
+                            <ChevronLeft className="w-4 h-4" /> Anterior
+                        </button>
+                        <button
+                            onClick={() => setPage(prev => prev + 1)}
+                            disabled={loading || inscripciones.length < 50}
+                            className="h-10 px-4 rounded-xl border border-border/50 bg-background hover:bg-muted disabled:opacity-50 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                        >
+                            Siguiente <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </Card>
 
@@ -1155,28 +1277,118 @@ export default function InscripcionesPage() {
                             )}
                         </div>
 
-                        <div className="p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem] bg-white/50 dark:bg-slate-900/50 flex flex-col items-center justify-center gap-4 hover:border-amber-500/50 transition-all group cursor-pointer">
-                            <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Download className="w-8 h-8" />
+                        <div className="p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem] bg-white/50 dark:bg-slate-900/50 flex flex-col items-center justify-center gap-4 hover:border-amber-500/50 transition-all group cursor-pointer relative overflow-hidden">
+                            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform", bulkFile ? "bg-emerald-500 text-white" : "bg-amber-500/10 text-amber-600")}>
+                                {bulkFile ? <CheckCircle2 className="w-8 h-8" /> : <Download className="w-8 h-8" />}
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-black uppercase tracking-tight">Seleccionar Archivo Excel</p>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Formatos permitidos: .xlsx, .csv</p>
+                                <p className="text-sm font-black uppercase tracking-tight">{bulkFile ? bulkFile.name : 'Seleccionar Archivo Excel'}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{bulkData.length > 0 ? `${bulkData.length} registros detectados` : 'Formatos permitidos: .xlsx, .csv'}</p>
                             </div>
-                            <input type="file" className="absolute opacity-0 cursor-pointer" accept=".xlsx, .csv" onChange={() => toast.info('Funcionalidad de procesamiento en desarrollo')} />
+                            <input 
+                                type="file" 
+                                className="absolute inset-0 opacity-0 cursor-pointer" 
+                                accept=".xlsx, .csv" 
+                                onChange={handleBulkFile} 
+                                disabled={isMigrating}
+                            />
                         </div>
+
+                        {isMigrating && (
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 animate-pulse">Procesando registros...</span>
+                                    <span className="text-[10px] font-black text-amber-600">{migrationProgress}%</span>
+                                </div>
+                                <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <motion.div 
+                                        className="h-full bg-amber-500"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${migrationProgress}%` }}
+                                        transition={{ duration: 0.5 }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {migrationReport && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-slate-900/50 border border-border/40 space-y-6"
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-foreground">Resultado de la Importación</h4>
+                                    <span className="text-[9px] font-bold px-2 py-1 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-border/50">
+                                        Total: {migrationReport.success + migrationReport.errors.length} registros
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-6 rounded-3xl bg-white dark:bg-slate-800 shadow-sm border border-emerald-100 dark:border-emerald-900/30 flex flex-col items-center gap-2">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center"><CheckCircle2 className="w-6 h-6" /></div>
+                                        <p className="text-2xl font-black text-emerald-600">{migrationReport.success}</p>
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600/60">Migrados con Éxito</p>
+                                    </div>
+                                    <div className="p-6 rounded-3xl bg-white dark:bg-slate-800 shadow-sm border border-rose-100 dark:border-rose-900/30 flex flex-col items-center gap-2">
+                                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center"><XCircle className="w-6 h-6" /></div>
+                                        <p className="text-2xl font-black text-rose-600">{migrationReport.errors.length}</p>
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-rose-600/60">Registros con Error</p>
+                                    </div>
+                                </div>
+
+                                {migrationReport.errors.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 px-1">
+                                            <Info className="w-3.5 h-3.5 text-rose-500" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-rose-500">Detalle de errores</span>
+                                        </div>
+                                        <div className="max-h-52 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                            {migrationReport.errors.slice(0, 100).map((err: any, idx: number) => (
+                                                <div key={idx} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/20 flex items-center justify-between group hover:border-rose-500/30 transition-all">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black">CI: {err.ci}</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-rose-500/80 px-3 py-1 bg-rose-500/5 rounded-full uppercase tracking-tight">{err.error}</span>
+                                                </div>
+                                            ))}
+                                            {migrationReport.errors.length > 100 && (
+                                                <p className="text-[9px] text-center font-bold text-muted-foreground p-2 italic">... y {migrationReport.errors.length - 100} errores más</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
 
                         <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex gap-4">
                             <Info className="w-5 h-5 text-amber-600 shrink-0" />
                             <p className="text-[9px] font-bold text-amber-900/60 dark:text-amber-200/60 uppercase leading-relaxed tracking-wide">
-                                El archivo debe contener al menos las columnas: ci, nombres, apellidos, correo, celular. El sistema vinculará o creará los usuarios automáticamente.
+                                Columnas recomendadas: ci, nombres, apellidos, correo, celular, password. Si no se provee contraseña, se usará "AulaProfe*2026".
                             </p>
                         </div>
                     </div>
 
                     <div className="p-8 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-end gap-4">
-                        <button onClick={() => setIsBulkModalOpen(false)} className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
-                        <button className="h-14 px-10 rounded-2xl bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-600/20">Iniciar Migración Masiva</button>
+                        <button 
+                            onClick={() => {
+                                setIsBulkModalOpen(false);
+                                setMigrationReport(null);
+                                setBulkFile(null);
+                                setBulkData([]);
+                            }} 
+                            className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            Cerrar
+                        </button>
+                        <button 
+                            onClick={startBulkMigration}
+                            disabled={isMigrating || bulkData.length === 0 || !bulkDestination.turnoId}
+                            className="h-14 px-10 rounded-2xl bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-600/20 hover:bg-amber-700 transition-all flex items-center gap-3 disabled:opacity-50"
+                        >
+                            {isMigrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeftRight className="w-4 h-4" />}
+                            <span>{isMigrating ? 'Procesando...' : 'Iniciar Migración Masiva'}</span>
+                        </button>
                     </div>
                 </div>
             </Modal>
