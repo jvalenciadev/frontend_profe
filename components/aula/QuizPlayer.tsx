@@ -150,9 +150,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                 const pregsIds = int.respuestas.map((r: any) => r.preguntaId);
                 const filteredPreguntas = pregsIds
                     .map((id: string) => fullCue.preguntas.find((p: any) => p.id === id))
-                    .filter(Boolean)
-                    // Ordenar por el campo `orden` para respetar el orden configurado por el docente
-                    .sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0));
+                    .filter(Boolean);
                 fullCue.preguntas = filteredPreguntas;
             }
             setCuestionario(fullCue);
@@ -468,10 +466,17 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                         <Trophy size={18} className="text-amber-500" /> Rendimiento
                                     </h3>
                                     <div className="space-y-4">
-                                        <div className={cn("p-4 md:p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
-                                            <p className="text-slate-500 text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-1">Mejor Calificación</p>
-                                            <p className="text-2xl md:text-3xl font-black text-emerald-500">{lobbyData.mejorPuntaje || 0} <span className="text-xs text-slate-400">pts</span></p>
-                                        </div>
+                                        {cuestionario?.mostrarNota !== false ? (
+                                            <div className={cn("p-4 md:p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
+                                                <p className="text-slate-500 text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-1">Mejor Calificación</p>
+                                                <p className="text-2xl md:text-3xl font-black text-emerald-500">{lobbyData.mejorPuntaje || 0} <span className="text-xs text-slate-400">pts</span></p>
+                                            </div>
+                                        ) : (
+                                            <div className={cn("p-4 md:p-5 rounded-2xl border transition-all flex flex-col items-center justify-center text-center", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
+                                                <Shield size={24} className="text-primary/40 mb-2" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Evaluación Confidencial</p>
+                                            </div>
+                                        )}
                                         <div className={cn("p-5 rounded-2xl border transition-all", theme === 'dark' ? "bg-white/5 border-white/5" : "bg-slate-50 border-slate-100")}>
                                             <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1">Resultado de Sincronización</p>
                                             <p className={cn("text-xs font-bold", theme === 'dark' ? "text-slate-300" : "text-slate-600")}>Todas tus respuestas se guardan encriptadas y en tiempo real.</p>
@@ -994,11 +999,28 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                 </div>
                             </div>
                         ) : (
-                            <div className={cn("p-8 rounded-[2.5rem] border bg-indigo-500/10 border-indigo-500/20 text-indigo-500")}>
-                                <HelpCircle size={32} className="mx-auto mb-4 opacity-50" />
-                                <p className="text-xs font-black uppercase tracking-widest leading-relaxed">
-                                    Cuestionario enviado correctamente. Tu calificación será publicada próximamente por tu facilitador.
-                                </p>
+                            <div className={cn("p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border bg-gradient-to-br from-indigo-500/10 via-primary/5 to-transparent border-primary/20 text-primary relative group")}>
+                                <div className="absolute inset-0 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="relative z-10 space-y-6">
+                                    <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                                        <Shield size={40} className="text-primary animate-pulse" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-black uppercase tracking-[0.3em] leading-relaxed">
+                                            Procesamiento de Resultados
+                                        </p>
+                                        <div className="h-1 w-20 bg-primary/30 mx-auto rounded-full overflow-hidden">
+                                            <motion.div 
+                                                animate={{ x: [-40, 40] }} 
+                                                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                                                className="h-full w-10 bg-primary"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className={cn("text-xs font-bold leading-relaxed max-w-[280px] mx-auto", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                                        Tu evaluación ha sido guardada en la bóveda de seguridad. Las calificaciones finales serán validadas y publicadas por el facilitador asignado.
+                                    </p>
+                                </div>
                             </div>
                         )}
                         <button onClick={onClose} className={cn(
