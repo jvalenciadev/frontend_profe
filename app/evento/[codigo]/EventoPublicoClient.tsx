@@ -1388,7 +1388,7 @@ export default function EventoPublicoPage() {
                                             {/* Timeline line */}
                                             <div className="absolute left-[2.25rem] top-0 bottom-0 w-1 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent hidden md:block" />
 
-                                            {visibleCuestionarios.map((c, idx) => {
+                                            {visibleCuestionarios.map((c: any, idx: number) => {
                                                 const originalIdx = sortedCuestionarios.findIndex(sc => sc.id === c.id);
                                                 const now = new Date();
                                                 const start = new Date(c.fechaInicio);
@@ -1619,9 +1619,22 @@ export default function EventoPublicoPage() {
                                                                                     Reintentar Evaluación
                                                                                     <RotateCcw className="w-4 h-4" />
                                                                                 </button>
-                                                                            </div>
-                                                                        );
-                                                                    }
+                                                                {/* Senior UX: Botón para saltar al siguiente paso si este ya terminó */}
+                                                                {idx < sortedCuestionarios.length - 1 && isStepFinished(sortedCuestionarios[idx + 1].id) === false && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const nextEl = document.getElementById(`step-${sortedCuestionarios[idx + 1].id}`);
+                                                                            nextEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                        }}
+                                                                        className="mt-4 w-full h-12 rounded-2xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                                                                    >
+                                                                        Continuar al siguiente paso
+                                                                        <ArrowRight className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
 
                                                                     if (isActive && canStart && !hasReachedLimit && (!isFinished || !isAprobado)) {
                                                                         const hasVideo = !!c.urlVideo;
@@ -1671,7 +1684,9 @@ export default function EventoPublicoPage() {
                                                                                                 : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
                                                                                     )}
                                                                                 >
-                                                                                    {videoPendiente ? 'Mira el video para habilitar' : (sinPreguntas ? 'Completar Paso' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación'))}
+                                                                                    {videoPendiente 
+                                                                                        ? (sinPreguntas ? 'Ver video para avanzar' : 'Ver video para evaluar') 
+                                                                                        : (sinPreguntas ? 'Completar este paso' : (isFinished ? 'Reintentar Evaluación' : 'Realizar Evaluación'))}
                                                                                     {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
                                                                                 </button>
                                                                             </div>
