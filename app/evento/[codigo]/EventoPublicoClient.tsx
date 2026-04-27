@@ -472,6 +472,29 @@ export default function EventoPublicoPage() {
     const [confirmInscripcionModal, setConfirmInscripcionModal] = useState(false);
 
 
+    // Helper centralizado para determinar si un paso está completado (Senior Pattern: Single Source of Truth)
+    const isStepFinished = useCallback((cId: string) => {
+        const c = evento?.cuestionarios.find((x: any) => x.id === cId);
+        if (!c) return false;
+        const p = progreso?.find((x: any) => x.id === cId);
+        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+        
+        // Un paso se considera terminado si:
+        // 1. El backend dice que está finalizado
+        // 2. O es solo video y ya se vio localmente
+        const isFinishedBackend = !!p?.finalizado;
+        const isVideoFinished = (p?.videoCompletado || localVideosVistos[cId]);
+        
+        if (sinPreguntas) return isVideoFinished || isFinishedBackend;
+        
+        // Si tiene preguntas, verificamos si está aprobado o alcanzó el límite
+        const isAprobado = !!p?.aprobado;
+        const isPerfect = (p?.nota ?? 0) >= 100 || isAprobado;
+        const hasReachedLimit = c.limiteIntentos != null && (p?.numeroIntentos || 0) >= c.limiteIntentos;
+        
+        return isFinishedBackend && (isPerfect || hasReachedLimit || !c.esEvaluativo);
+    }, [evento, progreso, localVideosVistos]);
+
     const checkCanStartCuestionario = useCallback((cuestionarioId: string, customProgress?: any[]) => {
         const prog = customProgress || progreso;
         if (!evento?.cuestionarios) return true;
@@ -483,31 +506,12 @@ export default function EventoPublicoPage() {
         for (let i = 0; i < index; i++) {
             const prev = evento.cuestionarios[i];
             if (prev.esObligatorio) {
-                const p = prog.find((x: any) => x.id === prev.id);
-                const sinPreguntas = !prev.preguntas || prev.preguntas.length === 0;
-                const isFinished = !!p?.finalizado || (sinPreguntas && (p?.videoCompletado || localVideosVistos[prev.id]));
-
-                if (!isFinished) return false;
-
-                // Si es evaluativo, debe sacar 100% O agotar sus intentos para pasar al siguiente
-                if (prev.esEvaluativo) {
-                    const pVal = Number(p.puntaje ?? p.puntos ?? p.score ?? 0);
-                    const tVal = Number((p.puntajeMaximo ?? p.puntosMaximo ?? prev.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0)) || 0);
-                    const isPerfect = pVal >= tVal && tVal > 0;
-
-                    if (!isPerfect) {
-                        const limit = p.limiteIntentos ?? prev.limiteIntentos;
-                        const attempts = p.numeroIntentos || 0;
-                        const hasAttemptsLeft = limit == null || attempts < limit;
-
-                        // Si no es perfecto Y todavía tiene intentos, lo obligamos a reintentar antes de pasar
-                        if (hasAttemptsLeft) return false;
-                    }
-                }
+                if (!isStepFinished(prev.id)) return false;
             }
         }
         return true;
-    }, [evento, progreso, localVideosVistos]);
+    }, [evento, isStepFinished]);
+    
     const generos = [
         { id: '1', nombre: 'MASCULINO' },
         { id: '2', nombre: 'FEMENINO' }
@@ -917,7 +921,7 @@ export default function EventoPublicoPage() {
         // Intento de envío con reintento (Senior pattern)
         let attempt = 0;
         const maxAttempts = 3;
-        
+
         while (attempt < maxAttempts) {
             try {
                 const result = await eventoPublicoService.responderCuestionario(evt.id, cuestionarioActivo.id, payload);
@@ -938,7 +942,7 @@ export default function EventoPublicoPage() {
             } catch (e: any) {
                 attempt++;
                 console.error(`Error enviando cuestionario (Intento ${attempt}):`, e);
-                
+
                 if (e?.response?.status === 409 || e?.response?.status === 403 || attempt >= maxAttempts) {
                     setLastSavedStatus('error');
                     if (e?.response?.status === 409) {
@@ -1041,26 +1045,14 @@ export default function EventoPublicoPage() {
         for (let i = 0; i < sortedCuestionarios.length; i++) {
             const c = sortedCuestionarios[i];
             result.push(c);
-
-            const prog = progreso.find(p => p.id === c.id);
-            const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
-            const totalPuntos = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
-            const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? totalPuntos) || 0);
-            const isPerfect = !c.esEvaluativo || (!!prog?.finalizado && (prog?.aprobado || (pVal >= tVal && tVal > 0)));
-            const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
-            const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
-
-            const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
-            // Se considera terminado si el backend dice que está finalizado O si es solo video y ya se vio el video
-            const isFinished = (!!prog?.finalizado && (isPerfect || hasReachedLimit)) || (sinPreguntas && (prog?.videoCompletado || localVideosVistos[c.id]));
-
+            
             // Si es obligatorio y no está terminado, no mostramos los siguientes
-            if (c.esObligatorio && !isFinished) {
+            if (c.esObligatorio && !isStepFinished(c.id)) {
                 break;
             }
         }
         return result;
-    }, [sortedCuestionarios, progreso, localVideosVistos]);
+    }, [sortedCuestionarios, isStepFinished]);
 
     const cuestionarioVigente = sortedCuestionarios.find(c => {
         const now = new Date();
@@ -1385,7 +1377,7 @@ export default function EventoPublicoPage() {
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Progreso Total</p>
                                                         <p className="text-[11px] font-black uppercase tracking-widest text-primary">
-                                                            {progreso.filter(p => p.finalizado).length} de {evento.cuestionarios.length} Pasos
+                                                            {evento.cuestionarios.filter(c => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1423,9 +1415,9 @@ export default function EventoPublicoPage() {
                                                         {/* Step indicator */}
                                                         <div className={cn(
                                                             "absolute left-6 top-8 w-6 h-6 rounded-full border-4 border-background hidden md:flex items-center justify-center z-10",
-                                                            (prog?.finalizado && (pVal >= tVal || hasReachedLimit)) ? "bg-green-500" : isActive && canStart ? "bg-primary animate-pulse" : "bg-muted"
+                                                            isStepFinished(c.id) ? "bg-green-500" : isActive && canStart ? "bg-primary animate-pulse" : "bg-muted"
                                                         )}>
-                                                            {(prog?.finalizado && (pVal >= tVal || hasReachedLimit)) && <Check className="w-3 h-3 text-white" />}
+                                                            {isStepFinished(c.id) && <Check className="w-3 h-3 text-white" />}
                                                         </div>
 
                                                         <div className={cn(
@@ -1632,6 +1624,20 @@ export default function EventoPublicoPage() {
                                                                         const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
                                                                         const videoPendiente = hasVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
 
+                                                                        if (sinPreguntas && hasVideo && videoPendiente) {
+                                                                            return (
+                                                                                <div className="p-6 rounded-3xl bg-primary/[0.03] border border-dashed border-primary/20 flex flex-col items-center text-center gap-4">
+                                                                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3">
+                                                                                        <Video className="w-7 h-7 text-primary" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <p className="text-xs font-black uppercase text-primary tracking-[0.2em]">Video</p>
+                                                                                        <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase leading-relaxed max-w-[200px]">Visualiza el contenido completo para desbloquear el siguiente módulo</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
                                                                         const showPreview = !hasVideo && !sinPreguntas;
 
                                                                         return (
@@ -1661,7 +1667,7 @@ export default function EventoPublicoPage() {
                                                                                                 : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
                                                                                     )}
                                                                                 >
-                                                                                    {videoPendiente ? (sinPreguntas ? 'Siguiente Paso (Bloqueado)' : 'Realizar Cuestionario (Bloqueado)') : (sinPreguntas ? 'Siguiente Paso' : (isFinished ? 'Reintentar Evaluación' : 'Realizar Cuestionario'))}
+                                                                                    {videoPendiente ? 'Mira el video para habilitar' : (sinPreguntas ? 'Completar Paso' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación'))}
                                                                                     {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
                                                                                 </button>
                                                                             </div>
@@ -2270,13 +2276,7 @@ export default function EventoPublicoPage() {
                                             );
                                             const prog = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                             setProgreso(prog.progress);
-                                            
-                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
-                                                await handleCompletarSinPreguntas(cuestionarioActivo);
-                                                setStep('info');
-                                            } else {
-                                                toast.success('¡Video completado! Ya puedes responder el cuestionario.');
-                                            }
+                                            toast.success('¡Video completado! Ya puedes responder el cuestionario.');
                                         } catch (e) {
                                             console.error('Error marcando video visto:', e);
                                         }
@@ -2323,23 +2323,8 @@ export default function EventoPublicoPage() {
                                     const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
                                     const videoVisto = !cuestionarioActivo.urlVideo || progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
                                     if (!videoVisto) return (
-                                        <div className="space-y-6">
-                                            <div className="p-10 rounded-[2.5rem] bg-muted/20 border-2 border-dashed border-border flex flex-col items-center text-center gap-4">
-                                                <div className="w-16 h-16 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground/30">
-                                                    <Lock className="w-8 h-8" />
-                                                </div>
-                                                <p className="text-xs font-black uppercase text-muted-foreground tracking-[0.2em]">Contenido Bloqueado</p>
-                                                <p className="text-[10px] text-muted-foreground font-bold uppercase leading-relaxed max-w-[240px]">
-                                                    Finaliza la visualización del video para habilitar la evaluación y continuar con el evento.
-                                                </p>
-                                            </div>
-                                            <button
-                                                disabled
-                                                className="w-full h-20 rounded-[2.2rem] bg-muted text-muted-foreground/50 border-2 border-dashed border-border font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-4 cursor-not-allowed opacity-50"
-                                            >
-                                                Realizar Cuestionario (Bloqueado)
-                                                <Lock className="w-5 h-5" />
-                                            </button>
+                                        <div className="text-center py-10 text-muted-foreground font-bold text-sm">
+                                            Termina de ver el video de arriba para acceder a las preguntas.
                                         </div>
                                     );
                                     return null;
