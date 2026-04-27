@@ -1540,7 +1540,11 @@ export default function EventoPublicoPage() {
                                                                                         await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
                                                                                         const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                                                                         setProgreso(progUpdate.progress);
-                                                                                        if (!c.preguntas || c.preguntas.length === 0) { await handleCompletarSinPreguntas(c); }
+                                                                                        
+                                                                                        // Si es solo video, lo completamos automáticamente
+                                                                                        if (!c.preguntas || c.preguntas.length === 0) {
+                                                                                            await handleCompletarSinPreguntas(c);
+                                                                                        }
                                                                                     } catch (e) { console.error("Error marking video seen:", e); }
                                                                                 }
                                                                                 toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
@@ -2276,7 +2280,14 @@ export default function EventoPublicoPage() {
                                             );
                                             const prog = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                             setProgreso(prog.progress);
-                                            toast.success('¡Video completado! Ya puedes responder el cuestionario.');
+                                            
+                                            // Lógica Senior: Si no hay preguntas, el paso se completa al ver el video
+                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
+                                                await handleCompletarSinPreguntas(cuestionarioActivo);
+                                                setStep('info'); // Regresar a la lista con el siguiente paso desbloqueado
+                                            } else {
+                                                toast.success('¡Video completado! Ya puedes responder el cuestionario.');
+                                            }
                                         } catch (e) {
                                             console.error('Error marcando video visto:', e);
                                         }
