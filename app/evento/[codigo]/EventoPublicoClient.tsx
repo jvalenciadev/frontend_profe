@@ -1630,20 +1630,6 @@ export default function EventoPublicoPage() {
                                                                         const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
                                                                         const videoPendiente = hasVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
 
-                                                                        if (sinPreguntas && hasVideo && videoPendiente) {
-                                                                            return (
-                                                                                <div className="p-6 rounded-3xl bg-primary/[0.03] border border-dashed border-primary/20 flex flex-col items-center text-center gap-4">
-                                                                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3">
-                                                                                        <Video className="w-7 h-7 text-primary" />
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <p className="text-xs font-black uppercase text-primary tracking-[0.2em]">Video</p>
-                                                                                        <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase leading-relaxed max-w-[200px]">Visualiza el contenido completo para desbloquear el siguiente módulo</p>
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        }
-
                                                                         const showPreview = !hasVideo && !sinPreguntas;
 
                                                                         return (
@@ -1673,7 +1659,7 @@ export default function EventoPublicoPage() {
                                                                                                 : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
                                                                                     )}
                                                                                 >
-                                                                                    {videoPendiente ? 'Mira el video para habilitar' : (sinPreguntas ? 'Completar Paso' : (isFinished ? 'Intentar de nuevo' : 'Iniciar Evaluación'))}
+                                                                                    {videoPendiente ? (sinPreguntas ? 'Siguiente Paso (Bloqueado)' : 'Realizar Cuestionario (Bloqueado)') : (sinPreguntas ? 'Siguiente Paso' : (isFinished ? 'Reintentar Evaluación' : 'Realizar Cuestionario'))}
                                                                                     {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
                                                                                 </button>
                                                                             </div>
@@ -2282,7 +2268,13 @@ export default function EventoPublicoPage() {
                                             );
                                             const prog = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                             setProgreso(prog.progress);
-                                            toast.success('¡Video completado! Ya puedes responder el cuestionario.');
+                                            
+                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
+                                                await handleCompletarSinPreguntas(cuestionarioActivo);
+                                                setStep('info');
+                                            } else {
+                                                toast.success('¡Video completado! Ya puedes responder el cuestionario.');
+                                            }
                                         } catch (e) {
                                             console.error('Error marcando video visto:', e);
                                         }
@@ -2329,8 +2321,23 @@ export default function EventoPublicoPage() {
                                     const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
                                     const videoVisto = !cuestionarioActivo.urlVideo || progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
                                     if (!videoVisto) return (
-                                        <div className="text-center py-10 text-muted-foreground font-bold text-sm">
-                                            Termina de ver el video de arriba para acceder a las preguntas.
+                                        <div className="space-y-6">
+                                            <div className="p-10 rounded-[2.5rem] bg-muted/20 border-2 border-dashed border-border flex flex-col items-center text-center gap-4">
+                                                <div className="w-16 h-16 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground/30">
+                                                    <Lock className="w-8 h-8" />
+                                                </div>
+                                                <p className="text-xs font-black uppercase text-muted-foreground tracking-[0.2em]">Contenido Bloqueado</p>
+                                                <p className="text-[10px] text-muted-foreground font-bold uppercase leading-relaxed max-w-[240px]">
+                                                    Finaliza la visualización del video para habilitar la evaluación y continuar con el evento.
+                                                </p>
+                                            </div>
+                                            <button
+                                                disabled
+                                                className="w-full h-20 rounded-[2.2rem] bg-muted text-muted-foreground/50 border-2 border-dashed border-border font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-4 cursor-not-allowed opacity-50"
+                                            >
+                                                Realizar Cuestionario (Bloqueado)
+                                                <Lock className="w-5 h-5" />
+                                            </button>
                                         </div>
                                     );
                                     return null;
