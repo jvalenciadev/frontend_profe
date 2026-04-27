@@ -1377,7 +1377,7 @@ export default function EventoPublicoPage() {
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Progreso Total</p>
                                                         <p className="text-[11px] font-black uppercase tracking-widest text-primary">
-                                                            {evento.cuestionarios.filter(c => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
+                                                            {evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1389,13 +1389,14 @@ export default function EventoPublicoPage() {
                                             <div className="absolute left-[2.25rem] top-0 bottom-0 w-1 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent hidden md:block" />
 
                                             {visibleCuestionarios.map((c: any, idx: number) => {
-                                                const originalIdx = sortedCuestionarios.findIndex(sc => sc.id === c.id);
+                                                const originalIdx = sortedCuestionarios.findIndex((sc: any) => sc.id === c.id);
                                                 const now = new Date();
                                                 const start = new Date(c.fechaInicio);
                                                 const end = new Date(c.fechaFin);
-                                                const isActive = c.estado === 'activo' && start <= now && end >= now;
+                                                const prog = progreso.find((p: any) => p.id === c.id);
+                                                const hasProgress = !!(prog?.videoCompletado || localVideosVistos[c.id] || (prog?.numeroIntentos ?? 0) > 0);
+                                                const isActive = c.estado === 'activo' && (hasProgress || (start <= now && end >= now));
                                                 const isUpcoming = start > now;
-                                                const prog = progreso.find(p => p.id === c.id);
                                                 const canStart = checkCanStartCuestionario(c.id);
 
                                                 const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
