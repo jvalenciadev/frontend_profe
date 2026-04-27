@@ -1409,8 +1409,11 @@ export default function EventoPublicoPage() {
                                                 const end = new Date(c.fechaFin);
                                                 const prog = progreso.find((p: any) => p.id === c.id);
                                                 const hasProgress = !!(prog?.videoCompletado || localVideosVistos[c.id] || (prog?.numeroIntentos ?? 0) > 0);
-                                                const isActive = c.estado === 'activo' && (hasProgress || (start <= now && end >= now));
-                                                const isUpcoming = start > now;
+                                                
+                                                // LOGICA SENIOR RADICAL: Si el estado es activo, el paso está disponible.
+                                                // Las fechas son solo informativas para el usuario.
+                                                const isActive = c.estado === 'activo';
+                                                const isUpcoming = start > now && !hasProgress;
                                                 const canStart = checkCanStartCuestionario(c.id);
 
                                                 const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
