@@ -615,14 +615,23 @@ export default function EventoPublicoPage() {
                     const session = JSON.parse(saved);
                     setPersona(session.persona);
                     setForm({ ...session.form, respuestasExtras: session.form?.respuestasExtras || {} });
-                    // No restauramos el Step para que siempre inicie en 'info' (detalle)
-                    // setStep(session.step);
                     setCuestionarioActivo(session.cuestionarioActivo);
                     setRespuestas(session.respuestas || {});
                     setPreguntaIdx(session.preguntaIdx || 0);
                     setStartTime(session.startTime);
-                    setProgreso(session.progreso || []);
                     setInscripcion(session.inscripcion || null);
+
+                    // LOGICA SENIOR: Refrescar progreso desde el servidor inmediatamente
+                    if (session.persona?.ci && session.persona?.fechaNacimiento) {
+                        eventoPublicoService.getProgreso(evt.id, session.persona.ci, session.persona.fechaNacimiento)
+                            .then(progUpdate => {
+                                setProgreso(progUpdate.progress);
+                                console.log("[Senior Sync] Progreso refrescado satisfactoriamente.");
+                            })
+                            .catch(err => console.error("[Senior Sync] Error al refrescar progreso:", err));
+                    } else {
+                        setProgreso(session.progreso || []);
+                    }
                     setResultado(session.resultado || null);
                     if (session.localVideosVistos) setLocalVideosVistos(session.localVideosVistos);
 
