@@ -477,7 +477,7 @@ export default function EventoPublicoPage() {
         const c = evento?.cuestionarios.find((x: any) => x.id === cId);
         if (!c) return false;
         const p = progreso?.find((x: any) => x.id === cId);
-        const sinPreguntas = !c.cantidadPreguntas || c.cantidadPreguntas === 0;
+        const sinPreguntas = (!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0);
         
         // Un paso se considera terminado si:
         // 1. El backend dice que está finalizado
@@ -1538,7 +1538,7 @@ export default function EventoPublicoPage() {
                                                                                 setLocalVideosVistos(prev => ({ ...prev, [c.id]: true }));
                                                                                 
                                                                                 try {
-                                                                                    if (!c.cantidadPreguntas || c.cantidadPreguntas === 0) {
+                                                                                    if ((!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0)) {
                                                                                         await handleCompletarSinPreguntas(c);
                                                                                     } else {
                                                                                         await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
