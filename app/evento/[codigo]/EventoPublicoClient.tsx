@@ -413,6 +413,12 @@ export default function EventoPublicoPage() {
     const online = useOnlineStatus();
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSavedStatus, setLastSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [timeOffset, setTimeOffset] = useState(0);
+
+    // Reloj sincronizado con el servidor
+    const getSyncNow = useCallback(() => {
+        return new Date(Date.now() + timeOffset);
+    }, [timeOffset]);
 
     // States
     const [evento, setEvento] = useState<Evento | null>(null);
@@ -580,6 +586,14 @@ export default function EventoPublicoPage() {
             setEvento(evt);
             setDepartamentos(deps);
             setAllModalidades(mods);
+
+            // Calcular desfase con el servidor
+            if (evt.serverTime) {
+                const sTime = new Date(evt.serverTime).getTime();
+                const lTime = Date.now();
+                setTimeOffset(sTime - lTime);
+                console.log(`[Senior Debug] Clock Sync: Offset de ${sTime - lTime}ms con el servidor.`);
+            }
             // Pre-seleccionar el departamento del evento si existe
             if (evt.tenantId) setForm(fp => ({ ...fp, departamentoId: evt.tenantId }));
 
@@ -1390,7 +1404,7 @@ export default function EventoPublicoPage() {
 
                                             {visibleCuestionarios.map((c: any, idx: number) => {
                                                 const originalIdx = sortedCuestionarios.findIndex((sc: any) => sc.id === c.id);
-                                                const now = new Date();
+                                                const now = getSyncNow();
                                                 const start = new Date(c.fechaInicio);
                                                 const end = new Date(c.fechaFin);
                                                 const prog = progreso.find((p: any) => p.id === c.id);
