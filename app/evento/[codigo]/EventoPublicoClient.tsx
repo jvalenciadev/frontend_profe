@@ -1570,71 +1570,77 @@ export default function EventoPublicoPage() {
                                                                     const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
                                                                     const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
 
-                                                                    // CASO: FINALIZADO Y APROBADO (O SIN INTENTOS)
-                                                                    if (isFinished && (isAprobado || hasReachedLimit)) {
+                                                                    // ==========================================
+                                                                    // BLOQUE MAESTRO: PASO FINALIZADO (Video o Cuestionario)
+                                                                    // ==========================================
+                                                                    if (isFinished) {
+                                                                        const isAprobado = !!prog?.aprobado;
+                                                                        const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
+                                                                        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+                                                                        const nMin = 75; // Nota mínima estándar
+
                                                                         return (
-                                                                            <div className="flex flex-col gap-3">
+                                                                            <div className="flex flex-col gap-4">
                                                                                 <div className={cn(
-                                                                                    "flex items-center justify-center gap-3 py-4 rounded-2xl border",
-                                                                                    isAprobado ? "bg-green-500/5 border-green-500/10 text-green-500" : "bg-red-500/5 border-red-500/10 text-red-500"
+                                                                                    "p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3",
+                                                                                    sinPreguntas || isAprobado 
+                                                                                        ? "bg-green-500/5 border-green-500/10 text-green-500" 
+                                                                                        : "bg-amber-500/5 border-amber-500/10 text-amber-600"
                                                                                 )}>
-                                                                                    {isAprobado ? <CheckCircle2 className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
-                                                                                    <span className="text-xs font-black uppercase tracking-widest">
-                                                                                        {isAprobado ? 'Evaluación Aprobada' : 'Intentos Finalizados'}
-                                                                                    </span>
+                                                                                    <div className={cn(
+                                                                                        "w-14 h-14 rounded-2xl flex items-center justify-center",
+                                                                                        sinPreguntas || isAprobado ? "bg-green-500/10" : "bg-amber-500/10"
+                                                                                    )}>
+                                                                                        {sinPreguntas || isAprobado ? <CheckCircle2 className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
+                                                                                    </div>
+                                                                                    
+                                                                                    <div className="text-center space-y-1">
+                                                                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                                                                                            {sinPreguntas ? 'Paso Completado' : (isAprobado ? 'Evaluación Aprobada' : 'Evaluación Pendiente')}
+                                                                                        </p>
+                                                                                        {!sinPreguntas && (
+                                                                                            <p className="text-xl font-black tracking-tight">
+                                                                                                {pVal} puntos de {tVal}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {!sinPreguntas && !isAprobado && !hasReachedLimit && (
+                                                                                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 text-center max-w-[200px]">
+                                                                                            Necesitas {nMin} puntos para aprobar. Tienes intentos disponibles.
+                                                                                        </p>
+                                                                                    )}
                                                                                 </div>
-                                                                                <div className="text-center space-y-1">
-                                                                                    <p className="text-[11px] font-black uppercase tracking-widest text-foreground">
-                                                                                        Puntaje Final: {pVal}/{tVal}
-                                                                                    </p>
-                                                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
-                                                                                        {isAprobado ? 'Siguiente paso desbloqueado' : 'No alcanzaste la nota mínima'}
-                                                                                    </p>
+
+                                                                                {/* Acciones para pasos finalizados */}
+                                                                                <div className="flex flex-col gap-3">
+                                                                                    {!sinPreguntas && !isPerfect && !hasReachedLimit && (
+                                                                                        <button
+                                                                                            onClick={() => handleEmpezarCuestionario(c)}
+                                                                                            className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400 transition-all flex items-center justify-center gap-3"
+                                                                                        >
+                                                                                            <RotateCcw className="w-4 h-4" />
+                                                                                            Reintentar Evaluación
+                                                                                        </button>
+                                                                                    )}
+
+                                                                                    {/* Botón de navegación al siguiente paso (Siempre visible si está terminado) */}
+                                                                                    {idx < sortedCuestionarios.length - 1 && (
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                const nextEl = document.getElementById(`step-${sortedCuestionarios[idx + 1].id}`);
+                                                                                                nextEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                                            }}
+                                                                                            className="w-full h-14 rounded-2xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                                                                                        >
+                                                                                            Continuar al siguiente paso
+                                                                                            <ArrowRight className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    )}
                                                                                 </div>
                                                                             </div>
                                                                         );
                                                                     }
-
-                                                                    // CASO: EVALUACIÓN PENDIENTE (Finalizada pero no aprobada, con intentos restantes)
-                                                                    if (isFinished && !isAprobado && !hasReachedLimit) {
-                                                                        return (
-                                                                            <div className="flex flex-col gap-4">
-                                                                                <div className="p-6 rounded-[2rem] bg-amber-500/5 border border-amber-500/10 flex flex-col items-center gap-3">
-                                                                                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-                                                                                        <AlertCircle className="w-6 h-6" />
-                                                                                    </div>
-                                                                                    <div className="text-center">
-                                                                                        <p className="text-[10px] font-black uppercase text-amber-700 tracking-widest">Evaluación Pendiente</p>
-                                                                                        <p className="text-[16px] font-black text-amber-600 tracking-tight">{pVal} puntos de {tVal}</p>
-                                                                                    </div>
-                                                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center max-w-[240px] leading-relaxed">
-                                                                                        Debes alcanzar al menos {nMin} puntos para aprobar y obtener tu comprobante
-                                                                                    </p>
-                                                                                </div>
-
-                                                                                <button
-                                                                                    onClick={() => handleEmpezarCuestionario(c)}
-                                                                                    className="w-full h-16 rounded-[1.5rem] bg-amber-500 text-black font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400 transition-all flex items-center justify-center gap-4"
-                                                                                >
-                                                                                    Reintentar Evaluación
-                                                                                    <RotateCcw className="w-4 h-4" />
-                                                                                </button>
-                                                                {/* Senior UX: Botón para saltar al siguiente paso si este ya terminó */}
-                                                                {idx < sortedCuestionarios.length - 1 && isStepFinished(sortedCuestionarios[idx + 1].id) === false && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const nextEl = document.getElementById(`step-${sortedCuestionarios[idx + 1].id}`);
-                                                                            nextEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                        }}
-                                                                        className="mt-4 w-full h-12 rounded-2xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
-                                                                    >
-                                                                        Continuar al siguiente paso
-                                                                        <ArrowRight className="w-4 h-4" />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    }
 
                                                                     // PRIORIDAD SENIOR: Si es el paso activo y se puede empezar, MOSTRAR BOTÓN SIEMPRE
                                                                     if (isActive && canStart && !hasReachedLimit) {
