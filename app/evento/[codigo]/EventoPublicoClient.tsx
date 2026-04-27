@@ -1002,9 +1002,15 @@ export default function EventoPublicoPage() {
         
         try {
             setLoading(true);
-            // Sincronización Senior: Primero marcamos el video y luego completamos el paso
+            // Sincronización Senior: Primero marcamos el video y luego completamos el paso enviando un cuestionario vacío
             await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
-            await eventoPublicoService.completarPasoSinPreguntas(evento!.id, c.id, form.ci, form.fechaNacimiento);
+            
+            const payload = {
+                ci: form.ci,
+                fechaNacimiento: form.fechaNacimiento,
+                respuestas: [],
+            };
+            await eventoPublicoService.responderCuestionario(evento!.id, c.id, payload);
             
             // Forzamos la actualización del progreso global
             const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
@@ -1528,7 +1534,9 @@ export default function EventoPublicoPage() {
                                                                                     event.target.seekTo(0);
                                                                                     return;
                                                                                 }
+                                                                                
                                                                                 setLocalVideosVistos(prev => ({ ...prev, [c.id]: true }));
+                                                                                
                                                                                 try {
                                                                                     if (!c.preguntas || c.preguntas.length === 0) {
                                                                                         await handleCompletarSinPreguntas(c);
@@ -1536,8 +1544,11 @@ export default function EventoPublicoPage() {
                                                                                         await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
                                                                                         const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                                                                         setProgreso(progUpdate.progress);
-                                                                                    } catch (e) { console.error("Error marking video seen:", e); }
+                                                                                    }
+                                                                                } catch (e) {
+                                                                                    console.error("Error marking video seen:", e);
                                                                                 }
+                                                                                
                                                                                 toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
                                                                             }}
                                                                         />
