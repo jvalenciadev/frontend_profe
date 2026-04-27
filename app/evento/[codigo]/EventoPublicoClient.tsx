@@ -1636,7 +1636,8 @@ export default function EventoPublicoPage() {
                                                         );
                                                     }
 
-                                                                    if (isActive && canStart && !hasReachedLimit && (!isFinished || !isAprobado)) {
+                                                                    // PRIORIDAD SENIOR: Si es el paso activo y se puede empezar, MOSTRAR BOTÓN SIEMPRE
+                                                                    if (isActive && canStart && !hasReachedLimit) {
                                                                         const hasVideo = !!c.urlVideo;
                                                                         const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
                                                                         const videoPendiente = hasVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
