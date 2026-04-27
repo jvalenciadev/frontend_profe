@@ -994,36 +994,30 @@ export default function EventoPublicoPage() {
         setResultado(null);
     }, [evento]);
 
-    const handleCompletarSinPreguntas = useCallback(async (cues: any) => {
-        if (!evento || !persona || submitting) return;
-        const prog = progreso.find(p => p.id === cues.id);
-        if (prog?.finalizado) return; // Ya está finalizado, no hacer nada
-
-        setSubmitting(true);
-        try {
-            const payload = {
-                ci: form.ci,
-                fechaNacimiento: form.fechaNacimiento,
-                respuestas: [],
-            };
-            await eventoPublicoService.responderCuestionario(evento.id, cues.id, payload);
-            // Actualizar progreso
-            const progUpdate = await eventoPublicoService.getProgreso(evento.id, form.ci, form.fechaNacimiento);
-            setProgreso(progUpdate.progress);
-            toast.success('¡Contenido completado!');
-        } catch (e: any) {
-            console.error("Error al completar paso sin preguntas:", e);
-            // Si el error es porque ya se envió (403), simplemente refrescamos progreso
-            if (e.response?.status === 403) {
-                const progUpdate = await eventoPublicoService.getProgreso(evento.id, form.ci, form.fechaNacimiento);
-                setProgreso(progUpdate.progress);
-            } else {
-                toast.error('Ocurrió un error al procesar tu solicitud.');
-            }
-        } finally {
-            setSubmitting(false);
+    const handleCompletarSinPreguntas = async (c: any) => {
+        if (!form.ci || !form.fechaNacimiento) {
+            toast.error("Debes identificarte para guardar tu progreso");
+            return;
         }
-    }, [evento, persona, form, submitting, progreso]);
+        
+        try {
+            setLoading(true);
+            // Sincronización Senior: Primero marcamos el video y luego completamos el paso
+            await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
+            await eventoPublicoService.completarPasoSinPreguntas(evento!.id, c.id, form.ci, form.fechaNacimiento);
+            
+            // Forzamos la actualización del progreso global
+            const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
+            setProgreso(progUpdate.progress);
+            
+            toast.success(`¡Paso "${c.titulo}" completado con éxito!`);
+        } catch (e) {
+            console.error("Error al completar paso sin preguntas:", e);
+            toast.error("No se pudo guardar el progreso. Inténtalo de nuevo.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleReintentar = () => {
         if (!cuestionarioActivo) return;
@@ -1535,16 +1529,13 @@ export default function EventoPublicoPage() {
                                                                                     return;
                                                                                 }
                                                                                 setLocalVideosVistos(prev => ({ ...prev, [c.id]: true }));
-                                                                                if (persona && form.ci && form.fechaNacimiento) {
-                                                                                    try {
+                                                                                try {
+                                                                                    if (!c.preguntas || c.preguntas.length === 0) {
+                                                                                        await handleCompletarSinPreguntas(c);
+                                                                                    } else {
                                                                                         await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
                                                                                         const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                                                                         setProgreso(progUpdate.progress);
-                                                                                        
-                                                                                        // Si es solo video, lo completamos automáticamente
-                                                                                        if (!c.preguntas || c.preguntas.length === 0) {
-                                                                                            await handleCompletarSinPreguntas(c);
-                                                                                        }
                                                                                     } catch (e) { console.error("Error marking video seen:", e); }
                                                                                 }
                                                                                 toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
@@ -1565,8 +1556,9 @@ export default function EventoPublicoPage() {
                                                                     }
                                                                     const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? maxEsperado) || 0);
                                                                     const nMin = c.notaMinima || (c.esEvaluativo ? Math.ceil(tVal * 0.75) : 0); // Default 75% si es evaluativo
-                                                                    const isFinished = !!prog?.finalizado;
-                                                                    const isAprobado = !c.esEvaluativo || (isFinished && (prog?.aprobado || pVal >= nMin));
+                                                                    const isFinished = isStepFinished(c.id);
+                                                                    const isAprobado = !!prog?.aprobado;
+                                                                    const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
                                                                     const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
                                                                     const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
 
