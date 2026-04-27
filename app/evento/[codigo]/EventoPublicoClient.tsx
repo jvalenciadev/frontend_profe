@@ -59,6 +59,7 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 function useOnlineStatus() {
+    // ─── UTILS ───
     const [online, setOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
     useEffect(() => {
         const on = () => setOnline(true);
@@ -410,6 +411,8 @@ export default function EventoPublicoPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const online = useOnlineStatus();
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [lastSavedStatus, setLastSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
     // States
     const [evento, setEvento] = useState<Evento | null>(null);
@@ -631,6 +634,7 @@ export default function EventoPublicoPage() {
                 inscripcion, resultado, localVideosVistos, isPersonaExistente
             };
             localStorage.setItem(`cuestionario_session_${evento.id}`, JSON.stringify(session));
+            setLastSavedStatus('saved');
         }
     }, [evento, step, persona, form, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso, inscripcion, resultado, localVideosVistos]);
 
@@ -879,6 +883,7 @@ export default function EventoPublicoPage() {
         const evt = evento;
         if (!evt || !cuestionarioActivo || !persona) return;
         setSubmitting(true);
+        setLastSavedStatus('saving');
 
         const payload = queuedData || {
             ci: form.ci,
@@ -903,46 +908,60 @@ export default function EventoPublicoPage() {
                 mensaje: 'Sin conexión. Tus respuestas se han guardado localmente y se enviarán automáticamente cuando recuperes la señal.'
             });
             setSubmitting(false);
+            setLastSavedStatus('error');
             return;
         }
 
-        try {
-            const result = await eventoPublicoService.responderCuestionario(evt.id, cuestionarioActivo.id, payload);
-            setResultado(result);
-            setStep('resultado');
-
-            // Actualizar progreso localmente
+        // Intento de envío con reintento (Senior pattern)
+        let attempt = 0;
+        const maxAttempts = 3;
+        
+        while (attempt < maxAttempts) {
             try {
-                const prog = await eventoPublicoService.getProgreso(evt.id, form.ci, form.fechaNacimiento);
-                setProgreso(prog.progress);
-            } catch { }
+                const result = await eventoPublicoService.responderCuestionario(evt.id, cuestionarioActivo.id, payload);
+                setResultado(result);
+                setStep('resultado');
+                setLastSavedStatus('saved');
 
-            localStorage.removeItem(`cuestionario_session_${evt.id}`);
-            localStorage.removeItem('cuestionario_pendiente');
-            setOfflineQueue(null);
-        } catch (e: any) {
-            console.error("Error enviando cuestionario:", e);
-            if (e?.response?.status === 409) {
-                // Ya lo respondió anteriormente — reset para nueva persona
-                handleReset();
-                toast.error('Ya has respondido este cuestionario con esta persona.');
-            } else if (e?.response?.status === 403) {
-                const msg = e?.response?.data?.message || 'Has superado el límite de intentos permitidos.';
-                toast.error(msg);
-                setStep('info'); // Mandar a la lista para que vea sus intentos agotados
-            } else {
-                // Si falla por otra cosa y estamos online, lo guardamos para reintentar luego
-                localStorage.setItem('cuestionario_pendiente', JSON.stringify({
-                    eventoId: evento.id,
-                    cuestionarioId: cuestionarioActivo.id,
-                    data: payload
-                }));
-                setOfflineQueue(payload);
-                alert("Hubo un problema al conectar con el servidor. Tus respuestas se han guardado localmente e intentaremos enviarlas de nuevo en un momento.");
+                // Actualizar progreso localmente
+                try {
+                    const prog = await eventoPublicoService.getProgreso(evt.id, form.ci, form.fechaNacimiento);
+                    setProgreso(prog.progress);
+                } catch { }
+
+                localStorage.removeItem(`cuestionario_session_${evt.id}`);
+                localStorage.removeItem('cuestionario_pendiente');
+                setOfflineQueue(null);
+                break; // Éxito
+            } catch (e: any) {
+                attempt++;
+                console.error(`Error enviando cuestionario (Intento ${attempt}):`, e);
+                
+                if (e?.response?.status === 409 || e?.response?.status === 403 || attempt >= maxAttempts) {
+                    setLastSavedStatus('error');
+                    if (e?.response?.status === 409) {
+                        handleReset();
+                        toast.error('Ya has respondido este cuestionario con esta persona.');
+                    } else if (e?.response?.status === 403) {
+                        const msg = e?.response?.data?.message || 'Has superado el límite de intentos permitidos.';
+                        toast.error(msg);
+                        setStep('info');
+                    } else {
+                        localStorage.setItem('cuestionario_pendiente', JSON.stringify({
+                            eventoId: evento.id,
+                            cuestionarioId: cuestionarioActivo.id,
+                            data: payload
+                        }));
+                        setOfflineQueue(payload);
+                        alert("Hubo un problema al conectar con el servidor. Tus respuestas se han guardado localmente e intentaremos enviarlas de nuevo en un momento.");
+                    }
+                    break;
+                }
+                // Esperar antes de reintentar
+                await new Promise(r => setTimeout(r, 1000 * attempt));
             }
-        } finally {
-            setSubmitting(false);
         }
+        setSubmitting(false);
     }, [evento, cuestionarioActivo, persona, respuestas, form, online]);
 
     const handleEmpezarCuestionario = useCallback((cues: any) => {
@@ -2369,32 +2388,57 @@ export default function EventoPublicoPage() {
                                                 </div>
 
                                                 {/* Navegación */}
-                                                <div className="flex items-center justify-between pt-4 border-t border-border">
-                                                    <button onClick={() => setPreguntaIdx(i => Math.max(0, i - 1))} disabled={preguntaIdx === 0}
-                                                        className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 font-bold text-xs uppercase transition-all">
-                                                        <ChevronLeft className="w-4 h-4" /> Anterior
-                                                    </button>
-
-                                                    {/* Progress dots */}
-                                                    <div className="flex gap-1.5">
-                                                        {cuestionarioActivo.preguntas.map((_, i) => (
-                                                            <button key={i} onClick={() => setPreguntaIdx(i)}
-                                                                className={`w-2.5 h-2.5 rounded-full transition-all ${i === preguntaIdx ? 'bg-primary w-5' : respuestas[cuestionarioActivo.preguntas[i].id] ? 'bg-primary/40' : 'bg-muted'}`} />
-                                                        ))}
+                                                <div className="flex flex-col gap-6 pt-4 border-t border-border">
+                                                    {/* Sync Status Mobile/Desktop */}
+                                                    <div className="flex items-center justify-between px-4 py-2 rounded-2xl bg-muted/30">
+                                                        <div className="flex items-center gap-2">
+                                                            {lastSavedStatus === 'saved' ? (
+                                                                <>
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Respuestas seguras en este dispositivo</span>
+                                                                </>
+                                                            ) : lastSavedStatus === 'saving' ? (
+                                                                <>
+                                                                    <RefreshCw size={10} className="text-primary animate-spin" />
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Sincronizando...</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500/80">Esperando cambios...</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Local Storage Active</span>
                                                     </div>
 
-                                                    {preguntaIdx < cuestionarioActivo.preguntas.length - 1 ? (
-                                                        <button onClick={() => setPreguntaIdx(i => i + 1)}
-                                                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-primary text-white font-bold text-xs uppercase hover:opacity-90 transition-all">
-                                                            Siguiente <ChevronRight className="w-4 h-4" />
+                                                    <div className="flex items-center justify-between">
+                                                        <button onClick={() => setPreguntaIdx(i => Math.max(0, i - 1))} disabled={preguntaIdx === 0}
+                                                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 font-bold text-xs uppercase transition-all">
+                                                            <ChevronLeft className="w-4 h-4" /> Anterior
                                                         </button>
-                                                    ) : (
-                                                        <button onClick={() => handleEnviarCuestionario()} disabled={submitting}
-                                                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-green-600 text-white font-black text-xs uppercase hover:opacity-90 disabled:opacity-40 transition-all">
-                                                            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                            Enviar Respuestas
-                                                        </button>
-                                                    )}
+
+                                                        {/* Progress dots */}
+                                                        <div className="hidden sm:flex gap-1.5">
+                                                            {cuestionarioActivo.preguntas.map((_, i) => (
+                                                                <button key={i} onClick={() => setPreguntaIdx(i)}
+                                                                    className={`w-2.5 h-2.5 rounded-full transition-all ${i === preguntaIdx ? 'bg-primary w-5' : respuestas[cuestionarioActivo.preguntas[i].id] ? 'bg-primary/40' : 'bg-muted'}`} />
+                                                            ))}
+                                                        </div>
+
+                                                        {preguntaIdx < cuestionarioActivo.preguntas.length - 1 ? (
+                                                            <button onClick={() => setPreguntaIdx(i => i + 1)}
+                                                                className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-primary text-white font-bold text-xs uppercase hover:opacity-90 transition-all">
+                                                                Siguiente <ChevronRight className="w-4 h-4" />
+                                                            </button>
+                                                        ) : (
+                                                            <button onClick={() => handleEnviarCuestionario()} disabled={submitting}
+                                                                className="flex items-center gap-2 h-14 md:h-12 px-8 rounded-2xl bg-green-600 text-white font-black text-xs uppercase hover:opacity-90 disabled:opacity-40 transition-all shadow-lg shadow-green-600/20">
+                                                                {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                                Enviar Todo
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );

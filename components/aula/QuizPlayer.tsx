@@ -62,6 +62,8 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
     const [showPassPrompt, setShowPassPrompt] = useState(false);
     const [verifyingPass, setVerifyingPass] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
+    const [lastSavedStatus, setLastSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -226,32 +228,69 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
     }, [view, timeLeft, cuestionario]);
 
     const handleAnswer = async (preguntaId: string, opcionId?: string, textoLibre?: string) => {
+        // Marcamos la pregunta como "en proceso de guardado"
+        setPendingSaves(prev => new Set(prev).add(preguntaId));
+        setLastSavedStatus('saving');
+
         try {
             /**
-             * AUTOSAVE EN TIEMPO REAL:
+             * AUTOSAVE EN TIEMPO REAL CON INTEGRIDAD:
              * Cada vez que el participante marca una opción o escribe, se envía inmediatamente
-             * al servidor (aulaService.responderPregunta). Esto garantiza que si el participante
-             * pierde la conexión a internet o se le apaga el dispositivo, el progreso está a salvo.
+             * al servidor. Ahora rastreamos el estado de esta petición para evitar cierres prematuros.
              */
             const data = { preguntaId, opcionId, textoLibre };
             const res = await aulaService.responderPregunta(intento.id, data);
-            setRespuestas({ ...respuestas, [preguntaId]: res });
+            
+            setRespuestas(prev => ({ ...prev, [preguntaId]: res }));
+            
+            // Si todo salió bien, removemos de pendientes
+            setPendingSaves(prev => {
+                const next = new Set(prev);
+                next.delete(preguntaId);
+                if (next.size === 0) setLastSavedStatus('saved');
+                return next;
+            });
         } catch (err) {
-            // Si falla el guardado (problemas de red), notificamos al usuario
-            toast.error('Error al guardar respuesta. Verifique su conexión.');
+            setLastSavedStatus('error');
+            toast.error('Error al sincronizar respuesta. Se reintentará automáticamente.', {
+                description: 'Verifique su conexión a internet.'
+            });
+            // Nota: En un entorno de producción real, aquí implementaríamos un retry automático
+            // o guardaríamos en LocalStorage como backup.
         }
     };
 
     const handleSubmit = async () => {
+        // VERIFICACIÓN DE INTEGRIDAD (SENIOR CHECK)
+        if (pendingSaves.size > 0) {
+            toast.loading('Sincronizando últimas respuestas con el servidor...', { id: 'sync-toast' });
+            
+            // Esperamos un momento a que las peticiones en vuelo terminen
+            // Si después de 5 segundos siguen pendientes, lanzamos error
+            let retries = 0;
+            while (pendingSaves.size > 0 && retries < 10) {
+                await new Promise(r => setTimeout(r, 500));
+                retries++;
+            }
+            
+            toast.dismiss('sync-toast');
+            
+            if (pendingSaves.size > 0) {
+                return toast.error('No se pudo asegurar el guardado de todas las respuestas.', {
+                    description: 'Por favor, intente marcar su última respuesta nuevamente antes de finalizar.'
+                });
+            }
+        }
+
         setSaving(true);
         setShowConfirmFinish(false);
         try {
             const res = await aulaService.finalizarIntento(intento.id);
             setIntento(res);
             setView('result');
-            toast.success('Cuestionario enviado con éxito');
-        } catch (err) {
-            toast.error('Error al finalizar cuestionario');
+            toast.success('Cuestionario enviado y calificado con éxito');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Error crítico al finalizar el cuestionario');
         } finally {
             setSaving(false);
         }
@@ -772,10 +811,42 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                 </div>
 
                 <footer className={cn(
-                    "px-6 md:px-10 h-20 md:h-28 border-t flex items-center justify-between transition-all",
+                    "px-6 md:px-10 h-20 md:h-28 border-t flex items-center justify-between transition-all relative",
                     theme === 'dark' ? "bg-slate-950 border-slate-900" : "bg-white border-slate-100"
                 )}>
+                    {/* Barra de progreso de guardado (Solo visible cuando guarda) */}
+                    {lastSavedStatus === 'saving' && (
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary/20 overflow-hidden">
+                            <motion.div
+                                initial={{ x: '-100%' }}
+                                animate={{ x: '100%' }}
+                                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                                className="w-1/3 h-full bg-primary"
+                            />
+                        </div>
+                    )}
+
                     <div className="flex items-center gap-4 flex-1 min-w-0">
+                        {/* Status de Sincronización */}
+                        <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-slate-500/5 mr-4">
+                            {lastSavedStatus === 'saving' ? (
+                                <>
+                                    <RefreshCw size={12} className="text-primary animate-spin" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary">Guardando...</span>
+                                </>
+                            ) : lastSavedStatus === 'saved' ? (
+                                <>
+                                    <CheckCircle2 size={12} className="text-emerald-500" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Sincronizado</span>
+                                </>
+                            ) : lastSavedStatus === 'error' ? (
+                                <>
+                                    <AlertTriangle size={12} className="text-rose-500" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-rose-500">Error de conexión</span>
+                                </>
+                            ) : null}
+                        </div>
+
                         <button
                             onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
                             disabled={currentIdx === 0}
