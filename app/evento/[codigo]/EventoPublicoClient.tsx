@@ -445,6 +445,18 @@ export default function EventoPublicoPage() {
         respuestasExtras: {} as Record<string, any>
     });
 
+    const [localVideosVistos, setLocalVideosVistos] = useState<Record<string, boolean>>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('local_videos_vistos');
+            return saved ? JSON.parse(saved) : {};
+        }
+        return {};
+    });
+
+    useEffect(() => {
+        localStorage.setItem('local_videos_vistos', JSON.stringify(localVideosVistos));
+    }, [localVideosVistos]);
+
     // Handle query params
     useEffect(() => {
         const stepParam = searchParams.get('step');
@@ -470,7 +482,6 @@ export default function EventoPublicoPage() {
     const [offlineQueue, setOfflineQueue] = useState<any>(null); // guardado offline
     const [departamentos, setDepartamentos] = useState<any[]>([]);
     const [allModalidades, setAllModalidades] = useState<any[]>([]);
-    const [localVideosVistos, setLocalVideosVistos] = useState<Record<string, boolean>>({});
     const videoTimersRef = useRef<Record<string, { totalTime: number, lastStart: number | null }>>({});
     const [videoWarningModal, setVideoWarningModal] = useState(false);
     const [yaRegistradaModal, setYaRegistradaModal] = useState(false);
@@ -1553,7 +1564,11 @@ export default function EventoPublicoPage() {
                                                                                     return;
                                                                                 }
                                                                                 
-                                                                                setLocalVideosVistos(prev => ({ ...prev, [c.id]: true }));
+                                                                                setLocalVideosVistos(prev => {
+                                                                                    const next = { ...prev, [c.id]: true };
+                                                                                    localStorage.setItem('local_videos_vistos', JSON.stringify(next));
+                                                                                    return next;
+                                                                                });
                                                                                 
                                                                                 try {
                                                                                     if ((!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0)) {
@@ -1834,8 +1849,14 @@ export default function EventoPublicoPage() {
                                             <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                                                 <User className="w-10 h-10 text-primary" />
                                             </div>
-                                            <h2 className="text-3xl font-black uppercase tracking-tight text-foreground">Inscripción</h2>
-                                            <p className="text-muted-foreground max-w-md mx-auto">Valida tus datos para continuar con la inscripción.</p>
+                                            <h2 className="text-3xl font-black uppercase tracking-tight text-foreground">
+                                                {evento?.inscripcionAbierta ? 'Identificación' : 'Evaluación'}
+                                            </h2>
+                                            <p className="text-muted-foreground max-w-md mx-auto">
+                                                {evento?.inscripcionAbierta 
+                                                    ? 'Valida tus datos para continuar con la inscripción o evaluación.' 
+                                                    : 'Ingresa tus datos para acceder a tus evaluaciones.'}
+                                            </p>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
