@@ -484,8 +484,10 @@ export default function EventoPublicoPage() {
             const prev = evento.cuestionarios[i];
             if (prev.esObligatorio) {
                 const p = prog.find((x: any) => x.id === prev.id);
-                // Si ni siquiera lo ha empezado, bloqueado
-                if (!p || !p.finalizado) return false;
+                const sinPreguntas = !prev.preguntas || prev.preguntas.length === 0;
+                const isFinished = !!p?.finalizado || (sinPreguntas && (p?.videoCompletado || localVideosVistos[prev.id]));
+
+                if (!isFinished) return false;
 
                 // Si es evaluativo, debe sacar 100% O agotar sus intentos para pasar al siguiente
                 if (prev.esEvaluativo) {
@@ -505,7 +507,7 @@ export default function EventoPublicoPage() {
             }
         }
         return true;
-    }, [evento, progreso]);
+    }, [evento, progreso, localVideosVistos]);
     const generos = [
         { id: '1', nombre: 'MASCULINO' },
         { id: '2', nombre: 'FEMENINO' }
