@@ -1,15 +1,17 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar, MapPin, Clock, Users, CheckCircle2, AlertCircle,
-    Download, Timer, Wifi, WifiOff, ChevronRight, ChevronLeft,
+    Timer, Wifi, WifiOff, ChevronRight, ChevronLeft,
     Trophy, Star, FileText, RefreshCw, User, Hash, ArrowRight, ArrowLeft,
     QrCode, CreditCard, Lock, Unlock, AlertTriangle, Info,
     ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw,
-    PartyPopper, Zap, ShieldCheck
+    PartyPopper, Zap, ShieldCheck,
+    Edit2, LogOut, ExternalLink, Award, Download,
+    Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
@@ -120,7 +122,7 @@ function Timer_Cuestionario({ segundos, startTime, onExpire }: { segundos: numbe
 }
 
 // ─── DESCARGO COMPONENT CON QR Y BARCODE ────────────────────────────────────
-function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
+function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionarioActivo }: any) {
     const qrCanvasRef = useRef<HTMLCanvasElement>(null);
     const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
     const fecha = new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -347,18 +349,20 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId }: any) {
                     </div>
 
                     {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
-                        <>
-                            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-1">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground">Puntaje / Respuestas</span>
-                                <p className="font-black text-2xl text-primary">{Math.min(resultado.puntaje ?? 0, resultado.puntajeMaximo ?? 0)} / {resultado.puntajeMaximo} pts</p>
+                        <div className="md:col-span-2 p-6 rounded-[2rem] bg-primary/5 border-2 border-primary/10 flex flex-col items-center gap-2 text-center">
+                            <div className="mb-2">
+                                <span className="text-[9px] font-black uppercase text-primary/50 tracking-[0.2em]">Cuestionario:</span>
+                                <p className="text-xs font-black uppercase text-primary tracking-tight">{resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}</p>
                             </div>
-                            <div className="p-4 rounded-2xl bg-slate-500/5 border border-slate-500/20 space-y-1">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground">Nota de Evaluación</span>
-                                <p className="font-black text-2xl text-slate-600 dark:text-slate-400">
-                                    {Math.min(resultado.nota ?? 0, 100)}/100
-                                </p>
+                            <span className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de Evaluación</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-4xl font-black text-primary">{Math.min(resultado.nota ?? 0, 100)}</span>
+                                <span className="text-xl font-bold text-primary/40">/ 100</span>
                             </div>
-                        </>
+                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                                {resultado.puntaje} puntos obtenidos de un total de {resultado.puntajeMaximo}
+                            </p>
+                        </div>
                     )}
 
                     <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
@@ -419,6 +423,27 @@ export default function EventoPublicoPage() {
     const getSyncNow = useCallback(() => {
         return new Date(Date.now() + timeOffset);
     }, [timeOffset]);
+
+    const formatTimeRemaining = useCallback((endDate: Date) => {
+        if (!endDate || isNaN(endDate.getTime())) return null;
+        const now = getSyncNow();
+        const diff = endDate.getTime() - now.getTime();
+
+        // Si ya pasó la fecha pero el estado sigue activo, no mostramos cuenta regresiva negativa
+        if (diff <= 0) return { text: 'Cerrado', full: 'Plazo vencido', priority: 'high' };
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (days > 0) {
+            return { text: `${days} d`, full: `${days} día${days > 1 ? 's' : ''}`, priority: 'low' };
+        }
+        if (hours > 0) {
+            return { text: `${hours}h`, full: `${hours} hrs`, priority: 'medium' };
+        }
+        return { text: `${minutes}m`, full: `${minutes} min`, priority: 'high' };
+    }, [getSyncNow]);
 
     // States
     const [evento, setEvento] = useState<Evento | null>(null);
@@ -487,6 +512,7 @@ export default function EventoPublicoPage() {
     const [yaRegistradaModal, setYaRegistradaModal] = useState(false);
     const [isPersonaExistente, setIsPersonaExistente] = useState(false);
     const [confirmInscripcionModal, setConfirmInscripcionModal] = useState(false);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
 
 
     // Helper centralizado para determinar si un paso está completado (Senior Pattern: Single Source of Truth)
@@ -495,20 +521,20 @@ export default function EventoPublicoPage() {
         if (!c) return false;
         const p = progreso?.find((x: any) => x.id === cId);
         const sinPreguntas = (!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0);
-        
+
         // Un paso se considera terminado si:
         // 1. El backend dice que está finalizado
         // 2. O es solo video y ya se vio localmente
         const isFinishedBackend = !!p?.finalizado;
         const isVideoFinished = (p?.videoCompletado || localVideosVistos[cId]);
-        
+
         if (sinPreguntas) return isVideoFinished || isFinishedBackend;
-        
+
         // Si tiene preguntas, verificamos si está aprobado o alcanzó el límite
         const isAprobado = !!p?.aprobado;
         const isPerfect = (p?.nota ?? 0) >= 100 || isAprobado;
         const hasReachedLimit = c.limiteIntentos != null && (p?.numeroIntentos || 0) >= c.limiteIntentos;
-        
+
         return isFinishedBackend && (isPerfect || hasReachedLimit || !c.esEvaluativo);
     }, [evento, progreso, localVideosVistos]);
 
@@ -528,7 +554,7 @@ export default function EventoPublicoPage() {
         }
         return true;
     }, [evento, isStepFinished]);
-    
+
     const generos = [
         { id: '1', nombre: 'MASCULINO' },
         { id: '2', nombre: 'FEMENINO' }
@@ -814,26 +840,29 @@ export default function EventoPublicoPage() {
         // Validar campos base
         if (!form.nombre1) nuevosErrores.nombre1 = true;
         if (!form.apellido1) nuevosErrores.apellido1 = true;
-        if (!form.modalidadId) nuevosErrores.modalidadId = true;
-        if (!form.departamentoId) nuevosErrores.departamentoId = true;
+        if (!isEditingProfile) {
+            if (!form.modalidadId) nuevosErrores.modalidadId = true;
+            if (!form.departamentoId) nuevosErrores.departamentoId = true;
+        }
 
-        // Validar campos extras
-        const missingExtras = (evento.camposExtras || []).filter(campo => {
-            if (!campo.esObligatorio) return false;
-            const valor = form.respuestasExtras[campo.id];
+        // Validar campos extras (solo si no es edición)
+        if (!isEditingProfile) {
+            (evento.camposExtras || []).forEach(campo => {
+                if (!campo.esObligatorio) return;
+                const valor = form.respuestasExtras[campo.id];
 
-            let esVacio = false;
-            if (campo.tipo === 'MULTIPLE_SELECT') {
-                esVacio = !valor || valor.length === 0;
-            } else if (campo.tipo === 'BOOLEAN') {
-                esVacio = valor === undefined || valor === null;
-            } else {
-                esVacio = !valor || String(valor).trim() === '';
-            }
+                let esVacio = false;
+                if (campo.tipo === 'MULTIPLE_SELECT') {
+                    esVacio = !valor || valor.length === 0;
+                } else if (campo.tipo === 'BOOLEAN') {
+                    esVacio = valor === undefined || valor === null;
+                } else {
+                    esVacio = !valor || String(valor).trim() === '';
+                }
 
-            if (esVacio) nuevosErrores[campo.id] = true;
-            return esVacio;
-        });
+                if (esVacio) nuevosErrores[campo.id] = true;
+            });
+        }
 
         setErrores(nuevosErrores);
 
@@ -863,7 +892,8 @@ export default function EventoPublicoPage() {
                 ci: ciLimpio,
                 departamentoId: form.departamentoId,
                 modalidadId: form.modalidadId,
-                respuestasExtras: Object.entries(form.respuestasExtras).map(([campoId, valor]) => ({ campoId, valor }))
+                respuestasExtras: Object.entries(form.respuestasExtras).map(([campoId, valor]) => ({ campoId, valor })),
+                isEditingProfile
             });
 
             setPersona(result.persona);
@@ -875,13 +905,14 @@ export default function EventoPublicoPage() {
                 await eventoPublicoService.marcarVideoVisto(evt.id, cueId, ciLimpio, form.fechaNacimiento).catch(() => { });
             }
 
-            if (cuestionarioActivo) {
+            if (cuestionarioActivo && !isEditingProfile) {
                 handleEmpezarCuestionario(cuestionarioActivo);
                 toast.success('¡Inscripción exitosa! Iniciando evaluación...');
             } else {
                 setStep('info');
-                toast.success('¡Registro completado con éxito! Ya puedes realizar tus evaluaciones.');
+                toast.success(isEditingProfile ? '¡Tus datos han sido actualizados con éxito!' : '¡Registro completado con éxito! Ya puedes realizar tus evaluaciones.');
             }
+            if (isEditingProfile) setIsEditingProfile(false);
         } catch (e: any) {
             if (e?.response?.data?.message?.includes('inscrito')) {
                 // Ya inscrito
@@ -1033,23 +1064,23 @@ export default function EventoPublicoPage() {
             toast.error("Debes identificarte para guardar tu progreso");
             return;
         }
-        
+
         try {
             setLoading(true);
             // Sincronización Senior: Primero marcamos el video y luego completamos el paso enviando un cuestionario vacío
             await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
-            
+
             const payload = {
                 ci: form.ci,
                 fechaNacimiento: form.fechaNacimiento,
                 respuestas: [],
             };
             await eventoPublicoService.responderCuestionario(evento!.id, c.id, payload);
-            
+
             // Forzamos la actualización del progreso global
             const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
             setProgreso(progUpdate.progress);
-            
+
             toast.success(`¡Paso "${c.titulo}" completado con éxito!`);
         } catch (e) {
             console.error("Error al completar paso sin preguntas:", e);
@@ -1070,7 +1101,9 @@ export default function EventoPublicoPage() {
 
 
 
-    const sortedCuestionarios = [...(evento?.cuestionarios || [])].sort((a, b) => a.orden - b.orden);
+    const sortedCuestionarios = [...(evento?.cuestionarios || [])]
+        .filter(c => c.estado !== 'eliminado')
+        .sort((a, b) => a.orden - b.orden);
 
     const visibleCuestionarios = useMemo(() => {
         const result: any[] = [];
@@ -1079,7 +1112,7 @@ export default function EventoPublicoPage() {
         for (let i = 0; i < sortedCuestionarios.length; i++) {
             const c = sortedCuestionarios[i];
             result.push(c);
-            
+
             // Si es obligatorio y no está terminado, no mostramos los siguientes
             if (c.esObligatorio && !isStepFinished(c.id)) {
                 break;
@@ -1351,8 +1384,33 @@ export default function EventoPublicoPage() {
                                             </div>
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <button
-                                                    onClick={() => setStep('descargo')}
+                                                    onClick={() => {
+                                                        setForm(prev => ({
+                                                            ...prev,
+                                                            nombre1: persona.nombre1 || '',
+                                                            nombre2: persona.nombre2 || '',
+                                                            apellido1: persona.apellido1 || '',
+                                                            apellido2: persona.apellido2 || '',
+                                                            correo: persona.correo || '',
+                                                            celular: persona.celular || '',
+                                                            ci: persona.ci || prev.ci,
+                                                            fechaNacimiento: persona.fechaNacimiento || prev.fechaNacimiento,
+                                                            departamentoId: persona.departamentoId || prev.departamentoId,
+                                                            modalidadId: inscripcion?.modalidadId || prev.modalidadId,
+                                                        }));
+                                                        setIsPersonaExistente(true);
+                                                        setIsEditingProfile(true);
+                                                        setStep('inscripcion');
+                                                        toast.info('Modifica tus datos personales y haz clic en "Vista Previa".');
+                                                    }}
                                                     className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20"
+                                                >
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                    Editar Datos
+                                                </button>
+                                                <button
+                                                    onClick={() => setStep('descargo')}
+                                                    className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200"
                                                 >
                                                     <Download className="w-3.5 h-3.5" />
                                                     Descargar Comprobante
@@ -1406,13 +1464,42 @@ export default function EventoPublicoPage() {
                                                 Tus Evaluaciones
                                             </h2>
                                             {progreso.length > 0 && (
-                                                <div className="flex items-center gap-3 bg-primary/5 px-6 py-3 rounded-2xl border border-primary/20">
-                                                    <Trophy className="w-5 h-5 text-amber-500" />
-                                                    <div>
-                                                        <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Progreso Total</p>
-                                                        <p className="text-[11px] font-black uppercase tracking-widest text-primary">
-                                                            {evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
-                                                        </p>
+                                                <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
+                                                    {(() => {
+                                                        const ultimaFechaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
+                                                            const end = new Date(c.fechaFin);
+                                                            return end > max ? end : max;
+                                                        }, new Date(0));
+                                                        const generalTimeLeft = formatTimeRemaining(ultimaFechaFin);
+
+                                                        if (!generalTimeLeft || isNaN(ultimaFechaFin.getTime())) return null;
+
+                                                        return (
+                                                            <div className={cn(
+                                                                "flex items-center gap-3 px-6 py-3 rounded-2xl border-2 shadow-lg transition-all",
+                                                                generalTimeLeft.priority === 'high' ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" :
+                                                                    generalTimeLeft.priority === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-500" :
+                                                                        "bg-primary/10 border-primary/30 text-primary"
+                                                            )}>
+                                                                <Clock className={cn("w-5 h-5", generalTimeLeft.priority === 'high' ? "animate-spin-slow" : "")} />
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">Cierre General del Evento:</span>
+                                                                    <span className="text-sm font-black uppercase tracking-tight leading-none">
+                                                                        {generalTimeLeft.full}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+
+                                                    <div className="flex items-center gap-3 bg-primary/5 px-6 py-3 rounded-2xl border border-primary/20">
+                                                        <Trophy className="w-5 h-5 text-amber-500" />
+                                                        <div>
+                                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Progreso Total</p>
+                                                            <p className="text-[11px] font-black uppercase tracking-widest text-primary">
+                                                                {evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -1427,14 +1514,17 @@ export default function EventoPublicoPage() {
                                                 const now = getSyncNow();
                                                 const start = new Date(c.fechaInicio);
                                                 const end = new Date(c.fechaFin);
+                                                const timeLeft = formatTimeRemaining(end);
                                                 const prog = progreso.find((p: any) => p.id === c.id);
                                                 const hasProgress = !!(prog?.videoCompletado || localVideosVistos[c.id] || (prog?.numeroIntentos ?? 0) > 0);
-                                                
+
+                                                const isActive = c.estado === 'activo';
+                                                const isProloga = c.estado === 'prologa';
+
                                                 // LOGICA SENIOR RADICAL: Si el estado es activo, el paso está disponible.
                                                 // Las fechas son solo informativas para el usuario.
-                                                const isActive = c.estado === 'activo';
-                                                const isUpcoming = start > now && !hasProgress;
-                                                const canStart = checkCanStartCuestionario(c.id);
+                                                const isUpcoming = isProloga || (start > now && !hasProgress);
+                                                const canStart = isActive && checkCanStartCuestionario(c.id);
 
                                                 const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
                                                 const totalPuntos = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
@@ -1460,7 +1550,9 @@ export default function EventoPublicoPage() {
 
                                                         <div className={cn(
                                                             "p-8 rounded-[2.5rem] border-2 transition-all flex flex-col gap-8 group",
-                                                            isActive && canStart ? "bg-card border-primary/20 shadow-2xl shadow-primary/5 hover:border-primary/40" : "bg-muted/10 border-border/50 opacity-80"
+                                                            isProloga ? "bg-muted/5 border-dashed border-border/60 opacity-70 grayscale-[0.3]" :
+                                                                isActive && canStart ? "bg-card border-primary/20 shadow-2xl shadow-primary/5 hover:border-primary/40" :
+                                                                    "bg-muted/10 border-border/50 opacity-80 shadow-none"
                                                         )}>
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center flex-wrap gap-3">
@@ -1475,7 +1567,11 @@ export default function EventoPublicoPage() {
                                                                                 {c.esEvaluativo ? `Puntaje: ${Math.min(pVal, tVal > 0 ? tVal : pVal)}/${tVal}` : "Completado ✓"}
                                                                             </div>
                                                                         );
-                                                                    })() : isActive && canStart ? (
+                                                                    })() : isProloga ? (
+                                                                        <span className="px-4 py-1.5 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest border border-border flex items-center gap-2">
+                                                                            <Clock className="w-3 h-3" /> Próximamente
+                                                                        </span>
+                                                                    ) : isActive && canStart ? (
                                                                         <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 animate-pulse">Disponible</span>
                                                                     ) : c.esObligatorio && (
                                                                         <span className="px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-2">
@@ -1499,6 +1595,22 @@ export default function EventoPublicoPage() {
                                                                             {end.toLocaleString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                                                         </div>
                                                                     </div>
+                                                                    {isActive && !isStepFinished(c.id) && (
+                                                                        <div className={cn(
+                                                                            "flex items-center gap-2 px-4 py-2 rounded-2xl border-2 transition-all",
+                                                                            timeLeft?.priority === 'high' ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" :
+                                                                                timeLeft?.priority === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-500" :
+                                                                                    "bg-primary/10 border-primary/30 text-primary"
+                                                                        )}>
+                                                                            <Clock className={cn("w-4 h-4", timeLeft?.priority === 'high' ? "animate-spin-slow" : "")} />
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">Disponible hasta:</span>
+                                                                                <span className="text-xs font-black uppercase tracking-tight leading-none">
+                                                                                    {timeLeft ? timeLeft.full : (isNaN(end.getTime()) ? 'Próximamente' : end.toLocaleDateString('es-BO', { day: 'numeric', month: 'long' }))}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                     {prog?.limiteIntentos != null && (
                                                                         <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border",
                                                                             (prog?.numeroIntentos || 0) >= prog.limiteIntentos
@@ -1572,13 +1684,13 @@ export default function EventoPublicoPage() {
                                                                                     event.target.seekTo(0);
                                                                                     return;
                                                                                 }
-                                                                                
+
                                                                                 setLocalVideosVistos(prev => {
                                                                                     const next = { ...prev, [c.id]: true };
                                                                                     localStorage.setItem('local_videos_vistos', JSON.stringify(next));
                                                                                     return next;
                                                                                 });
-                                                                                
+
                                                                                 try {
                                                                                     if ((!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0)) {
                                                                                         await handleCompletarSinPreguntas(c);
@@ -1590,7 +1702,7 @@ export default function EventoPublicoPage() {
                                                                                 } catch (e) {
                                                                                     console.error("Error marking video seen:", e);
                                                                                 }
-                                                                                
+
                                                                                 toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
                                                                             }}
                                                                         />
@@ -1628,8 +1740,8 @@ export default function EventoPublicoPage() {
                                                                             <div className="flex flex-col gap-4">
                                                                                 <div className={cn(
                                                                                     "p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3",
-                                                                                    sinPreguntas || isAprobado 
-                                                                                        ? "bg-green-500/5 border-green-500/10 text-green-500" 
+                                                                                    sinPreguntas || isAprobado
+                                                                                        ? "bg-green-500/5 border-green-500/10 text-green-500"
                                                                                         : "bg-amber-500/5 border-amber-500/10 text-amber-600"
                                                                                 )}>
                                                                                     <div className={cn(
@@ -1638,7 +1750,7 @@ export default function EventoPublicoPage() {
                                                                                     )}>
                                                                                         {sinPreguntas || isAprobado ? <CheckCircle2 className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
                                                                                     </div>
-                                                                                    
+
                                                                                     <div className="text-center space-y-1">
                                                                                         <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
                                                                                             {sinPreguntas ? 'Paso Completado' : (isAprobado ? 'Evaluación Aprobada' : 'Evaluación Pendiente')}
@@ -1736,8 +1848,8 @@ export default function EventoPublicoPage() {
                                                                                                 : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
                                                                                     )}
                                                                                 >
-                                                                                    {videoPendiente 
-                                                                                        ? (sinPreguntas ? 'Ver video para avanzar' : 'Ver video para evaluar') 
+                                                                                    {videoPendiente
+                                                                                        ? (sinPreguntas ? 'Ver video para avanzar' : 'Ver video para evaluar')
                                                                                         : (sinPreguntas ? 'Completar este paso' : (isFinished ? 'Reintentar Evaluación' : 'Realizar Evaluación'))}
                                                                                     {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
                                                                                 </button>
@@ -1749,10 +1861,10 @@ export default function EventoPublicoPage() {
                                                                         return (
                                                                             <div className="flex flex-col items-center gap-3">
                                                                                 <div className="w-16 h-16 rounded-[1.5rem] bg-muted/50 border-2 border-dashed border-border flex items-center justify-center text-muted-foreground/30">
-                                                                                    {!canStart ? <Lock className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
+                                                                                    {isProloga || isUpcoming ? <Clock className="w-7 h-7" /> : !canStart ? <Lock className="w-7 h-7" /> : <ArrowRight className="w-7 h-7" />}
                                                                                 </div>
                                                                                 <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
-                                                                                    {!canStart ? "Bloqueado" : isUpcoming ? "Próximamente" : "Finalizado"}
+                                                                                    {isProloga ? "Próximamente" : !canStart ? "Bloqueado" : isUpcoming ? "Próximamente" : "Finalizado"}
                                                                                 </span>
                                                                             </div>
                                                                         );
@@ -1787,6 +1899,42 @@ export default function EventoPublicoPage() {
                                                                 <div>
                                                                     <h3 className="text-xl font-black uppercase tracking-tighter text-green-600">¡Evento Completado!</h3>
                                                                     <p className="text-xs text-muted-foreground font-bold mt-1 uppercase max-w-[240px]">Has cumplido con todos los requisitos y evaluaciones del evento.</p>
+                                                                </div>
+
+                                                                <div className="w-full mt-4 space-y-4">
+                                                                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5 text-left relative overflow-hidden group/cert shadow-inner">
+                                                                        <div className="relative z-10 flex gap-4 items-start">
+                                                                            <div className="w-12 h-12 rounded-xl bg-primary shadow-lg shadow-primary/30 flex items-center justify-center shrink-0">
+                                                                                <ExternalLink className="w-6 h-6 text-white" />
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <h4 className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">
+                                                                                    Portal de Certificación
+                                                                                </h4>
+                                                                                <p className="text-[11px] text-muted-foreground font-bold leading-relaxed uppercase">
+                                                                                    Tu certificado se habilitará en <span className="text-primary">20 días</span> calendario tras la clausura del evento.
+                                                                                </p>
+                                                                                <a
+                                                                                    href="https://certificados.minedu.gob.bo"
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="mt-4 inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.05] hover:bg-primary/90 active:scale-95 transition-all group"
+                                                                                >
+                                                                                    <Globe className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                                                                                    certificados.minedu.gob.bo
+                                                                                    <ExternalLink className="w-3 h-3 opacity-50" />
+                                                                                </a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="p-4 rounded-2xl bg-muted/20 border-2 border-dashed border-border flex flex-col items-center gap-2 opacity-60">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                                                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Documento en Proceso</span>
+                                                                        </div>
+                                                                        <p className="text-[9px] font-bold text-muted-foreground/60 uppercase">Estará disponible próximamente en el portal oficial</p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1862,8 +2010,8 @@ export default function EventoPublicoPage() {
                                                 {evento?.inscripcionAbierta ? 'Identificación' : 'Evaluación'}
                                             </h2>
                                             <p className="text-muted-foreground max-w-md mx-auto">
-                                                {evento?.inscripcionAbierta 
-                                                    ? 'Valida tus datos para continuar con la inscripción o evaluación.' 
+                                                {evento?.inscripcionAbierta
+                                                    ? 'Valida tus datos para continuar con la inscripción o evaluación.'
                                                     : 'Ingresa tus datos para acceder a tus evaluaciones.'}
                                             </p>
                                         </div>
@@ -1939,8 +2087,8 @@ export default function EventoPublicoPage() {
                             <motion.div key="insc" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="bg-card border border-border rounded-3xl p-8 space-y-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-2xl font-black uppercase tracking-tight text-foreground">Datos del Participante</h2>
-                                        <p className="text-sm text-muted-foreground mt-1">{persona ? 'Tus datos fueron encontrados. Verifica o actualiza.' : 'Completa tus datos para inscribirte.'}</p>
+                                        <h2 className="text-2xl font-black uppercase tracking-tight text-foreground">{isEditingProfile ? 'Actualizar Datos' : 'Datos del Participante'}</h2>
+                                        <p className="text-sm text-muted-foreground mt-1">{isEditingProfile ? 'Modifica tu información de contacto y nombres.' : (persona ? 'Tus datos fueron encontrados. Verifica o actualiza.' : 'Completa tus datos para inscribirte.')}</p>
                                     </div>
                                     <div className="px-4 py-2 rounded-2xl bg-primary/5 border border-primary/20 text-right">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground">Identificación</p>
@@ -1986,32 +2134,36 @@ export default function EventoPublicoPage() {
                                             className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground uppercase transition-all" />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Género</label>
-                                        <select value={form.generoId} onChange={e => setForm(p => ({ ...p, generoId: e.target.value }))}
-                                            className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all">
-                                            {generos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-                                        </select>
-                                    </div>
+                                    {!isEditingProfile && (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Género</label>
+                                                <select value={form.generoId} onChange={e => setForm(p => ({ ...p, generoId: e.target.value }))}
+                                                    className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all">
+                                                    {generos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+                                                </select>
+                                            </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Participación <span className="text-red-500">*</span></label>
-                                        <select value={form.modalidadId}
-                                            onChange={e => {
-                                                setForm(p => ({ ...p, modalidadId: e.target.value }));
-                                                if (errores.modalidadId) setErrores(prev => ({ ...prev, modalidadId: false }));
-                                            }}
-                                            className={cn(
-                                                "w-full h-14 px-6 rounded-2xl bg-primary/5 border-2 focus:border-primary outline-none font-bold text-primary transition-all",
-                                                errores.modalidadId ? "border-red-500 bg-red-500/5" : "border-primary/20"
-                                            )}>
-                                            <option value="">Seleccionar modalidad...</option>
-                                            {allModalidades
-                                                .filter(m => (evento?.modalidadIds || '').includes(m.id))
-                                                .map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)
-                                            }
-                                        </select>
-                                    </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Participación <span className="text-red-500">*</span></label>
+                                                <select value={form.modalidadId}
+                                                    onChange={e => {
+                                                        setForm(p => ({ ...p, modalidadId: e.target.value }));
+                                                        if (errores.modalidadId) setErrores(prev => ({ ...prev, modalidadId: false }));
+                                                    }}
+                                                    className={cn(
+                                                        "w-full h-14 px-6 rounded-2xl bg-primary/5 border-2 focus:border-primary outline-none font-bold text-primary transition-all",
+                                                        errores.modalidadId ? "border-red-500 bg-red-500/5" : "border-primary/20"
+                                                    )}>
+                                                    <option value="">Seleccionar modalidad...</option>
+                                                    {allModalidades
+                                                        .filter(m => (evento?.modalidadIds || '').includes(m.id))
+                                                        .map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)
+                                                    }
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
 
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Correo electrónico</label>
@@ -2026,24 +2178,26 @@ export default function EventoPublicoPage() {
                                             className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all" />
                                     </div>
 
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento origen (Inscripción) <span className="text-red-500">*</span></label>
-                                        <select value={form.departamentoId}
-                                            onChange={e => {
-                                                setForm(p => ({ ...p, departamentoId: e.target.value }));
-                                                if (errores.departamentoId) setErrores(prev => ({ ...prev, departamentoId: false }));
-                                            }}
-                                            className={cn(
-                                                "w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 outline-none font-bold text-foreground transition-all",
-                                                errores.departamentoId ? "border-red-500 bg-red-500/5" : "border-transparent focus:border-primary"
-                                            )}>
-                                            <option value="">Seleccionar departamento...</option>
-                                            {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                                        </select>
-                                    </div>
+                                    {!isEditingProfile && (
+                                        <div className="md:col-span-2 space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento origen (Inscripción) <span className="text-red-500">*</span></label>
+                                            <select value={form.departamentoId}
+                                                onChange={e => {
+                                                    setForm(p => ({ ...p, departamentoId: e.target.value }));
+                                                    if (errores.departamentoId) setErrores(prev => ({ ...prev, departamentoId: false }));
+                                                }}
+                                                className={cn(
+                                                    "w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 outline-none font-bold text-foreground transition-all",
+                                                    errores.departamentoId ? "border-red-500 bg-red-500/5" : "border-transparent focus:border-primary"
+                                                )}>
+                                                <option value="">Seleccionar departamento...</option>
+                                                {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
 
                                     {/* CAMPOS EXTRAS */}
-                                    {evento.camposExtras?.map((campo: any) => (
+                                    {!isEditingProfile && evento.camposExtras?.map((campo: any) => (
                                         <div key={campo.id} className="md:col-span-2 space-y-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -2174,10 +2328,20 @@ export default function EventoPublicoPage() {
                                     ))}
                                 </div>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setStep('identificacion')} className="h-14 px-6 rounded-2xl text-xs font-black uppercase text-muted-foreground hover:text-foreground transition-all">
-                                        Volver
+                                    <button
+                                        onClick={() => {
+                                            if (isEditingProfile) {
+                                                setIsEditingProfile(false);
+                                                setStep('info');
+                                            } else {
+                                                setStep('identificacion');
+                                            }
+                                        }}
+                                        className="h-14 px-6 rounded-2xl text-xs font-black uppercase text-muted-foreground hover:text-foreground transition-all"
+                                    >
+                                        {isEditingProfile ? 'Cancelar' : 'Volver'}
                                     </button>
-                                    <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || !form.modalidadId || !form.departamentoId || submitting}
+                                    <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || (!isEditingProfile && (!form.modalidadId || !form.departamentoId)) || submitting}
                                         className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2">
                                         Vista Previa
                                         <ArrowRight className="w-4 h-4" />
@@ -2209,22 +2373,24 @@ export default function EventoPublicoPage() {
                                                 </div>
                                                 <div className="p-4 rounded-2xl bg-muted/30 border border-border">
                                                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Cédula de Identidad</span>
-                                                    <p className="font-bold text-foreground font-mono">{form.ci} {form.complemento ? ` - ${form.complemento}` : ''} {form.expedido}</p>
+                                                    <p className="font-bold text-foreground font-mono">{form.ci}{form.complemento ? `-${form.complemento}` : ''}</p>
                                                 </div>
                                                 <div className="p-4 rounded-2xl bg-muted/30 border border-border">
                                                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Contacto</span>
                                                     <p className="font-bold text-foreground">{form.celular} • {form.correo || 'S/N'}</p>
                                                 </div>
-                                                <div className="p-4 rounded-2xl bg-muted/30 border border-border">
-                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Modalidad</span>
-                                                    <p className="font-bold text-primary">
-                                                        {allModalidades.find(m => m.id === form.modalidadId)?.nombre || 'No seleccionada'}
-                                                    </p>
-                                                </div>
+                                                {!isEditingProfile && (
+                                                    <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Modalidad</span>
+                                                        <p className="font-bold text-primary">
+                                                            {allModalidades.find(m => m.id === form.modalidadId)?.nombre || 'No seleccionada'}
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Campos extras preview */}
-                                            {(evento?.camposExtras?.length ?? 0) > 0 && (
+                                            {!isEditingProfile && (evento?.camposExtras?.length ?? 0) > 0 && (
                                                 <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
                                                     <h3 className="text-[10px] font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
                                                         <Info className="w-3 h-3" /> Información Adicional
@@ -2353,7 +2519,7 @@ export default function EventoPublicoPage() {
                                             );
                                             const prog = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
                                             setProgreso(prog.progress);
-                                            
+
                                             // Lógica Senior: Si no hay preguntas, el paso se completa al ver el video
                                             if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
                                                 await handleCompletarSinPreguntas(cuestionarioActivo);
@@ -2560,28 +2726,45 @@ export default function EventoPublicoPage() {
                                                     <AlertTriangle className="w-10 h-10 text-amber-500" />
                                                 )}
                                             </div>
-                                            <h2 className="text-4xl font-black text-foreground">
-                                                {resultado.esEvaluativo === false ? 'Completado' : `${Math.min(resultado.nota ?? 0, 100)}/100`}
-                                            </h2>
-                                            <p className={cn(
-                                                "text-xl font-black uppercase tracking-widest",
-                                                resultado.esEvaluativo === false
-                                                    ? "text-primary"
-                                                    : (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? "text-primary" : "text-amber-500"
-                                            )}>
-                                                {resultado.esEvaluativo === false
-                                                    ? '\u00a1Formulario Enviado!'
-                                                    : (resultado.nota ?? 0) >= 75 ? '\u00a1Aprobado!' : 'Evaluaci\u00f3n Pendiente'}
-                                            </p>
+                                            <div className="space-y-2">
+                                                <div className="space-y-1 mb-4">
+                                                    <p className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de Evaluación de:</p>
+                                                    <h3 className="text-sm font-black uppercase text-foreground tracking-tight line-clamp-1">{cuestionarioActivo?.titulo}</h3>
+                                                </div>
+                                                <h2 className="text-5xl font-black text-foreground tracking-tighter">
+                                                    {resultado.esEvaluativo === false ? '¡LISTO!' : `${Math.min(resultado.nota ?? 0, 100)}`}
+                                                    {resultado.esEvaluativo !== false && <span className="text-2xl opacity-20 ml-1">/100</span>}
+                                                </h2>
+                                                <p className={cn(
+                                                    "text-sm font-black uppercase tracking-[0.3em]",
+                                                    resultado.esEvaluativo === false
+                                                        ? "text-primary"
+                                                        : (resultado.nota ?? 0) >= 75 ? "text-primary" : "text-amber-500"
+                                                )}>
+                                                    {resultado.esEvaluativo === false
+                                                        ? 'Formulario Enviado'
+                                                        : (resultado.nota ?? 0) >= 75 ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
+                                                </p>
+                                            </div>
+
                                             {resultado.esEvaluativo !== false && (
-                                                <div className="flex flex-col gap-1">
-                                                    <p className="text-muted-foreground font-bold font-mono">
-                                                        {Math.min(resultado.puntaje ?? 0, (resultado.puntajeMaximo || 1) > 0 ? resultado.puntajeMaximo! : (resultado.puntaje ?? 0))} puntos de {(resultado.puntajeMaximo ?? 0)}
+                                                <div className="space-y-4 pt-2">
+                                                    <div className="w-full h-3 bg-muted rounded-full overflow-hidden border border-border shadow-inner">
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${Math.min(resultado.nota ?? 0, 100)}%` }}
+                                                            className={cn("h-full rounded-full transition-all duration-1000", (resultado.nota ?? 0) >= 75 ? "bg-primary" : "bg-amber-500")}
+                                                        />
+                                                    </div>
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                        Has obtenido {resultado.puntaje} de {resultado.puntajeMaximo} puntos posibles
                                                     </p>
                                                     {(resultado.nota ?? 0) < 75 && (
-                                                        <p className="text-[11px] text-amber-600 font-black uppercase tracking-tight bg-amber-500/10 py-2 px-4 rounded-xl mt-2 animate-pulse">
-                                                            Debes obtener al menos 75/100 puntos para obtener tu comprobante
-                                                        </p>
+                                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+                                                            <p className="text-[10px] text-amber-600 font-black uppercase tracking-tight leading-relaxed">
+                                                                Necesitas al menos 75/100 para aprobar y obtener tu certificado.
+                                                            </p>
+                                                        </div>
                                                     )}
                                                 </div>
                                             )}
@@ -2597,7 +2780,7 @@ export default function EventoPublicoPage() {
                                                 onClick={() => setStep('descargo')}
                                                 className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                                             >
-                                                <Download className="w-4 h-4" /> Descargar Comprobante
+                                                <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
                                             </button>
                                         ) : resultado.esEvaluativo === false ? (
                                             // Formulario no evaluativo completado exitosamente
@@ -2605,7 +2788,7 @@ export default function EventoPublicoPage() {
                                                 onClick={() => setStep('descargo')}
                                                 className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                                             >
-                                                <Download className="w-4 h-4" /> Descargar Comprobante
+                                                <Download className="w-4 h-4" /> Descargar Comprobante de Formulario
                                             </button>
                                         ) : (() => {
                                             const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo?.id);
@@ -2660,6 +2843,7 @@ export default function EventoPublicoPage() {
                                     evento={evento}
                                     resultado={resultado}
                                     inscripcionId={inscripcion?.id}
+                                    cuestionarioActivo={cuestionarioActivo}
                                 />
                                 <div className="flex flex-col gap-3 mt-6">
                                     <button

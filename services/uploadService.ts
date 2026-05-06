@@ -24,7 +24,7 @@ class UploadService {
 
         const response = await api.post<UploadResponse>(`/upload/${tableName}`, formData, {
             headers: {
-                'Content-Type': 'multipart/form-data',
+                'Content-Type': undefined, // Lógica Senior: Anular el JSON global para permitir que Axios detecte el FormData
             },
         });
 

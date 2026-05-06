@@ -76,17 +76,9 @@ lmsApi.interceptors.request.use(
 
 // Manejo Global de Errores para ambas APIs
 const handleResponseSuccess = (response: any) => {
-    const isSilent = (response.config as any)._silent;
-    if (isSilent) return response;
-
-    const method = response.config?.method?.toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '')) {
-        if (response.status === 201) {
-            toast.success('¡Registro exitoso!', { className: 'bg-emerald-500 text-white' });
-        } else if (response.status === 200 && method !== 'GET') {
-            toast.success('¡Operación exitosa!', { className: 'bg-emerald-600 text-white' });
-        }
-    }
+    // Ya no disparamos toasts automáticos aquí porque
+    // cada vista y custom hook (ej. useUsers, EventoPublicoClient)
+    // lanza sus propios mensajes personalizados, evitando duplicados molestos.
     return response;
 };
 

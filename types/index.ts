@@ -27,6 +27,7 @@ export interface User {
     facebook?: string;
     tiktok?: string;
     cargo?: string;
+    cargoStr?: string;
     cargoPostulacionId?: string;
     celular?: number;
     tenantId?: string;

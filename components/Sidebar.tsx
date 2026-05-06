@@ -30,7 +30,8 @@ import {
     ClipboardCheck,
     Settings,
     Star,
-    Database
+    Database,
+    Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -84,6 +85,16 @@ const menuItems: MenuItem[] = [
             { title: 'Eventos', href: '/dashboard/evento', icon: Calendar, permission: { action: 'read', subject: 'Evento' }, },
             { title: 'Blogs', href: '/dashboard/blogs', icon: LayoutGrid, permission: { action: 'read', subject: 'Blog' }, },
             { title: 'Comunicados', href: '/dashboard/comunicados', icon: Bell, permission: { action: 'read', subject: 'Comunicado' }, },
+        ]
+    },
+    {
+        title: 'Correspondencia',
+        href: '/dashboard/correspondencia',
+        icon: Mail,
+        children: [
+            { title: 'Seguimiento de CITE', href: '/dashboard/correspondencia/seguimiento' },
+            { title: 'Nueva Nota/Informe', href: '/dashboard/correspondencia/nuevo' },
+            { title: 'Mi Bandeja', href: '/dashboard/correspondencia/bandeja' },
         ]
     },
     {

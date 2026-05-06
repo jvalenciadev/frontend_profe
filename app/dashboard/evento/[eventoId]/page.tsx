@@ -1005,8 +1005,14 @@ export default function EventoOperativoPage() {
                             <div className="flex items-center justify-between border-b border-border/50 pb-4">
                                 <h3 className="font-black text-foreground text-xl uppercase tracking-tight group-hover:text-primary transition-colors">{c.titulo}</h3>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${c.estado === 'activo' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                        {c.estado === 'activo' ? 'Publicado' : 'Borrador'}
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                        c.estado === 'activo' ? 'bg-green-500/10 text-green-500' : 
+                                        c.estado === 'prologa' ? 'bg-blue-500/10 text-blue-500' :
+                                        'bg-red-500/10 text-red-500'
+                                    }`}>
+                                        {c.estado === 'activo' ? 'Publicado' : 
+                                         c.estado === 'prologa' ? 'Próximamente' :
+                                         'Borrador'}
                                     </span>
                                 </div>
                             </div>
@@ -1172,7 +1178,8 @@ export default function EventoOperativoPage() {
                     <select value={formCues.estado} onChange={e => setFormCues(p => ({ ...p, estado: e.target.value }))}
                         className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary outline-none text-sm font-bold text-foreground transition-all">
                         <option value="activo">Activo</option>
-                        <option value="inactivo">Inactivo</option>
+                        <option value="prologa">Prólogo (Próximamente)</option>
+                        <option value="inactivo">Inactivo (Borrador)</option>
                     </select>
                     <div className="flex gap-3 pt-2">
                         <button onClick={() => setModalCues(false)} className="flex-1 h-12 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all">Cancelar</button>
