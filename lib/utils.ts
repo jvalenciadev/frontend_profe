@@ -11,28 +11,26 @@ export function getImageUrl(path: string | null | undefined): string {
         return path;
     }
 
-    // Usar la URL de la API configurada (puerto 3000 por defecto para recursos compartidos)
+    // Lógica Senior: Si estamos en el navegador, usamos rutas relativas.
+    // El proxy configurado en next.config.ts se encargará de redirigir a la API.
+    if (typeof window !== 'undefined') {
+        let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        if (!normalizedPath.toLowerCase().startsWith('/uploads/') && !normalizedPath.toLowerCase().startsWith('uploads/')) {
+            normalizedPath = `/uploads${normalizedPath}`;
+        }
+        return normalizedPath;
+    }
+
+    // Lógica para SSR (Servidor)
     let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+    if (baseUrl.toLowerCase().endsWith('/api')) baseUrl = baseUrl.slice(0, -4);
 
-    // Limpiar la URL base (quitar diagonal final si existe)
-    if (baseUrl.endsWith('/')) {
-        baseUrl = baseUrl.slice(0, -1);
-    }
-
-    // Si la URL base termina en /api, lo quitamos para los recursos estáticos (uploads)
-    if (baseUrl.toLowerCase().endsWith('/api')) {
-        baseUrl = baseUrl.slice(0, -4);
-    }
-
-    // Normalizar el path: asegurar que empiece con /
     let normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-    // Si el path no incluye /uploads/ ni uploads/, lo añadimos
     if (!normalizedPath.toLowerCase().startsWith('/uploads/') && !normalizedPath.toLowerCase().startsWith('uploads/')) {
         normalizedPath = `/uploads${normalizedPath}`;
     }
 
-    // Evitar dobles diagonales al unir
     return `${baseUrl}${normalizedPath}`;
 }
 

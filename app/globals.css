@@ -364,6 +364,13 @@
   line-height: 1.4 !important;
 }
 
+@media (max-width: 768px) {
+  .quiz-question-container,
+  .quiz-question-container *:not(.katex, .katex *) {
+    font-size: 1.1rem !important;
+  }
+}
+
 /* Ajuste específico para que las fórmulas no se vean cortadas */
 .quiz-question-container .katex {
   font-size: 1.15em !important;
@@ -419,4 +426,21 @@
 
 .dark .prose-quiz p {
   color: #cbd5e1;
+}
+
+/* ===== Tiptap Editor Styles (Correspondencia) ===== */
+.tiptap-content { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; }
+.tiptap-content p { margin: 0.3em 0; }
+.tiptap-content h1 { font-size: 16pt; font-weight: 700; margin: 0.8em 0 0.4em; }
+.tiptap-content h2 { font-size: 13pt; font-weight: 700; margin: 0.6em 0 0.3em; }
+.tiptap-content h3 { font-size: 11pt; font-weight: 700; margin: 0.5em 0 0.2em; }
+.tiptap-content ul { list-style-type: disc; padding-left: 1.5em; margin: 0.4em 0; }
+.tiptap-content ol { list-style-type: decimal; padding-left: 1.5em; margin: 0.4em 0; }
+.tiptap-content li { margin: 0.2em 0; }
+.tiptap-content strong { font-weight: 700; }
+.tiptap-content em { font-style: italic; }
+.tiptap-content u { text-decoration: underline; }
+.tiptap-content p.is-editor-empty:first-child::before {
+  color: #adb5bd; content: attr(data-placeholder);
+  float: left; height: 0; pointer-events: none;
 }

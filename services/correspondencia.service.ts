@@ -44,6 +44,10 @@ export interface CorDocumento {
     createdAt: string;
     participantes: CorParticipante[];
     seguimientos: CorSeguimiento[];
+    archivoPdf: string | null;
+    diasMora?: number;
+    alerta?: boolean;
+    nivelAlerta?: 'NORMAL' | 'MORA' | 'CRITICO';
 }
 
 export interface CreateCorrespondenciaPayload {

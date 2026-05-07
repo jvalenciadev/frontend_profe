@@ -36,6 +36,15 @@ const nextConfig: NextConfig = {
     // Elimina console.error en producción para evitar que el warning se muestre
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
+  async rewrites() {
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/api$/, '');
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: `${apiUrl}/uploads/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

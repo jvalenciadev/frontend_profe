@@ -10,7 +10,7 @@ import {
     ArrowRight, Info, Layers, Calendar, Hash,
     Download, Upload, FileUp, Monitor, ShieldCheck
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import {
     crearCorrespondencia,
     buscarUsuarios,
@@ -53,6 +53,7 @@ export default function NuevaNotaPage() {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (user && remitentes.length === 0) {
@@ -105,99 +106,138 @@ export default function NuevaNotaPage() {
         } finally { setConfirming(false); }
     };
 
-    const downloadWord = () => {
-        const logoUrl = window.location.origin + "/fondo_doc.jpg";
+    const downloadWord = async () => {
         const citeFinal = success?.cite || `${PREFIJOS[tipo]}/PROFE Nro. #/${currentYear}`;
         const hrFinal = success?.hr || hr || 'S/N';
 
-        const header = `
-            <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-                <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-                <!--[if gte mso 9]>
-                <xml>
-                    <w:WordDocument>
-                        <w:View>Print</w:View>
-                        <w:Zoom>100</w:Zoom>
-                        <w:DoNotOptimizeForBrowser/>
-                    </w:WordDocument>
-                </xml>
-                <![endif]-->
-                <style>
-                    @page Section1 {
-                        size: 21.59cm 27.94cm;
-                        margin: 4.5cm 2cm 2cm 3cm;
-                        mso-header: h1;
-                        mso-footer: f1;
-                        mso-header-margin: 0pt;
-                        mso-footer-margin: 0pt;
-                    }
-                    div.Section1 { page: Section1; }
-                    
-                    /* Estilos de Elementos MSO */
-                    p.MsoHeader, p.MsoFooter { margin: 0in; }
-                    #h1 { mso-element: header; }
-                    #f1 { mso-element: footer; }
+        // Lógica Senior: Obtener Base64 real para MHTML
+        let base64Image = "";
+        try {
+            const response = await fetch("/fondo_doc.jpg");
+            const blob = await response.blob();
+            const rawBase64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            });
+            base64Image = rawBase64.split(',')[1];
+        } catch (e) {
+            console.error("Error cargando fondo:", e);
+        }
 
-                    body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; }
-                    .header-title { font-size: 16pt; font-weight: bold; text-align: center; }
-                    .meta-table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
-                    .meta-label { width: 60pt; font-weight: bold; vertical-align: top; font-size: 10pt; text-transform: uppercase; padding: 3pt 0; }
-                    .meta-value { vertical-align: top; padding: 3pt 0; font-size: 10pt; }
-                    .line-separator { border-top: 2.25pt solid black; margin-top: 5pt; width: 100%; }
-                </style>
-            </head>
-            <body>
-                <!-- CAPA DE INFRAESTRUCTURA (ENCABEZADO) -->
-                <div style='mso-element:header' id=h1>
-                    <p class=MsoHeader>
-                        <!--[if gte mso 9]>
-                        <v:shape id="FullPageBackground" o:spid="_x0000_s1025" type="#_x0000_t75" 
-                            style="position:absolute;visibility:visible;width:21.59cm;height:27.94cm;z-index:-251658240;
-                            mso-position-horizontal:left;mso-position-horizontal-relative:page;
-                            mso-position-vertical:top;mso-position-vertical-relative:page;">
-                            <v:imagedata src="${logoUrl}" o:title="Fondo Institucional"/>
-                        </v:shape>
-                        <![endif]-->
-                    </p>
-                </div>
+        // Estructura MHTML de Nivel Senior: Header/Footer con Anclaje VML
+        const boundary = "----=_NextPart_01D9F1B2.B8E1B3E0";
+        const imageCid = "institucional_bg_001";
 
-                <!-- CAPA DE INFRAESTRUCTURA (PIE DE PAGINA) -->
-                <div style='mso-element:footer' id=f1>
-                    <p class=MsoFooter></p>
-                </div>
+        const htmlBody = `
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="utf-8">
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>100</w:Zoom>
+            <w:DisplayBackgroundShape/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+    <!--[if gte vml 1]>
+    <v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" stroked="f" filled="f">
+        <v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/><v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/><v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/><v:f eqn="sum @10 21600 0"/></v:formulas>
+        <v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/>
+    </v:shapetype>
+    <![endif]-->
+    <style>
+        @page Section1 {
+            size: 21.59cm 27.94cm;
+            margin: 4.5cm 2.5cm 3cm 3cm;
+            mso-header: h1;
+            mso-footer: f1;
+            mso-header-margin: 0pt;
+            mso-footer-margin: 0pt;
+        }
+        div.Section1 { page: Section1; }
+        body { font-family: 'Arial', sans-serif; font-size: 11pt; }
+        
+        /* Soporte Tiptap */
+        h1 { font-size: 14pt; font-weight: bold; margin-top: 12pt; }
+        h2 { font-size: 12pt; font-weight: bold; margin-top: 10pt; }
+        ul, ol { margin-left: 25pt; }
+        
+        .header-title { font-size: 16pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 5pt; }
+        .meta-table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
+        .meta-label { width: 60pt; font-weight: bold; vertical-align: top; }
+        .meta-value { vertical-align: top; }
+        .content-body { margin-top: 10pt; text-align: justify; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="Section1">
+        <div class="header-title">${tipo.replace('_', ' ')}</div>
+        <div style="text-align: center; font-weight: bold; font-size: 11pt; margin-bottom: 20pt;">
+            HR: ${hrFinal}<br>CITE: ${citeFinal}
+        </div>
+        
+        <table class="meta-table" style="font-family: 'Arial'; font-size: 11pt;">
+            ${destinatarios.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'A:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            ${vias.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'Vía:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            ${remitentes.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'De:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            <tr><td class="meta-label" style="padding-bottom: 8pt;">Ref.:</td><td class="meta-value" style="padding-bottom: 8pt;"><b>${(referencia || 'SIN REFERENCIA').toUpperCase()}</b></td></tr>
+            <tr><td class="meta-label" style="padding-bottom: 8pt;">Fecha:</td><td class="meta-value" style="padding-bottom: 8pt;">La Paz, ${currentDateFormatted}</td></tr>
+        </table>
+        
+        <table border=0 cellspacing=0 cellpadding=0 width="100%" style='border-collapse:collapse; margin-top:0pt;'>
+            <tr><td style='border-top:solid black 2.25pt; mso-border-top-alt:solid black 2.25pt; padding:0cm 0cm 0cm 0cm;'>&nbsp;</td></tr>
+        </table>
+        <div class="content-body">${contenido || '---'}</div>
+    </div>
+    
+    <!-- Capas Oficiales de Word (Posicionadas fuera del flujo para evitar duplicados) -->
+    <div style='mso-element:header; position:absolute; top:-1000px;' id=h1>
+        <p class="MsoHeader" style='margin:0;'>
+            <!--[if gte mso 9]>
+            <v:shape id="WordHeaderBg" o:spid="_x0000_s1025" type="#_x0000_t75" 
+                style='position:absolute;left:0;top:0;width:21.59cm;height:27.94cm;z-index:-251658240;
+                mso-position-horizontal:left;mso-position-horizontal-relative:page;
+                mso-position-vertical:top;mso-position-vertical-relative:page'>
+                <v:imagedata src="cid:${imageCid}" />
+            </v:shape>
+            <![endif]-->
+        </p>
+    </div>
+</body>
+</html>`.trim();
 
-                <div class="Section1">
-                    <div class="header-title">${tipo.replace('_', ' ')}</div>
-                    <div style="text-align: center; font-weight: bold; font-size: 10pt; margin-bottom: 15pt;">
-                        HR: ${hrFinal}<br>
-                        CITE: ${citeFinal}
-                    </div>
+        const mhtmlContent = [
+            'MIME-Version: 1.0',
+            `Content-Type: multipart/related; boundary="${boundary}"`,
+            '',
+            `--${boundary}`,
+            'Content-Type: text/html; charset="utf-8"',
+            'Content-Location: document.html',
+            '',
+            htmlBody,
+            '',
+            `--${boundary}`,
+            'Content-Type: image/jpeg',
+            'Content-Transfer-Encoding: base64',
+            `Content-ID: <${imageCid}>`,
+            'Content-Location: fondo_doc.jpg',
+            'Content-Disposition: inline; filename="fondo_doc.jpg"',
+            '',
+            base64Image,
+            '',
+            `--${boundary}--`
+        ].join('\r\n');
 
-                    <table class="meta-table">
-                        ${destinatarios.map((u, i) => `<tr><td class="meta-label">${i === 0 ? 'A:' : ''}</td><td class="meta-value"><b>${u.nombre} ${u.apellidos}</b><br><span style="font-size: 9pt; text-transform: uppercase;">${u.cargoLiteral || ''}</span></td></tr>`).join('')}
-                        ${vias.length > 0 ? vias.map((u, i) => `<tr><td class="meta-label">${i === 0 ? 'VÍA:' : ''}</td><td class="meta-value"><b>${u.nombre} ${u.apellidos}</b><br><span style="font-size: 9pt; text-transform: uppercase;">${u.cargoLiteral || ''}</span></td></tr>`).join('') : ''}
-                        ${remitentes.map((u, i) => `<tr><td class="meta-label">${i === 0 ? 'DE:' : ''}</td><td class="meta-value"><b>${u.nombre} ${u.apellidos}</b><br><span style="font-size: 9pt; text-transform: uppercase;">${u.cargoLiteral || ''}</span></td></tr>`).join('')}
-                        <tr><td class="meta-label">REF.:</td><td class="meta-value"><b><u>${referencia.toUpperCase()}</u></b></td></tr>
-                        <tr><td class="meta-label">FECHA:</td><td class="meta-value">La Paz, ${currentDateFormatted}</td></tr>
-                    </table>
-
-                    <div class="line-separator"></div>
-                    
-                    <div style="margin-top: 15pt; text-align: justify;">
-                        ${contenido ? contenido.replace(/\n/g, '<br>') : '<!-- REDACTAR AQUÍ EL CONTENIDO -->'}
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        const blob = new Blob([header], { type: 'application/msword' });
+        const blob = new Blob([mhtmlContent], { type: 'application/msword' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `${tipo.replace('_', '')}_${citeFinal.replace(/\//g, '_')}.doc`;
         link.click();
     };
+
 
     const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!success || !e.target.files?.[0]) return;
@@ -213,16 +253,15 @@ export default function NuevaNotaPage() {
 
         setUploading(true);
         try {
+            // Generar URL local para previsualización inmediata (evita errores de IP/Conexión)
+            const localUrl = URL.createObjectURL(file);
+            setPreviewUrl(localUrl);
+
             const response = await uploadService.uploadFile(file, 'correspondencia');
+            const relativePath = response.data.path;
 
-            // Lógica Senior: Construir URL absoluta sin doble barra
-            const baseUrl = api.defaults.baseURL?.replace(/\/$/, '') || '';
-            const relativePath = response.data.path.replace(/^\//, '').replace(/\\/g, '/');
-            const fullUrl = `${baseUrl}/${relativePath}`;
-
-            await subirPdf(success.id, fullUrl);
-
-            setPdfUrl(fullUrl);
+            await subirPdf(success.id, relativePath);
+            setPdfUrl(relativePath);
             setShowPreview(true);
             toast.success('PDF subido y procesado correctamente');
         } catch (err: any) {
@@ -237,11 +276,24 @@ export default function NuevaNotaPage() {
             const savedId = localStorage.getItem('profe_current_cor_id');
             if (savedId && !success) {
                 try {
-                    // Buscar por ID para recuperar (podemos usar el buscador por CITE o añadir uno por ID)
-                    const data = await api.get(`/correspondencia/buscar-id/${savedId}`);
-                    if (data.data && data.data.estado === 'ELABORACION') {
-                        setSuccess(data.data);
-                        if (data.data.archivoPdf) setPdfUrl(data.data.archivoPdf);
+                    const { data } = await api.get(`/correspondencia/buscar-id/${savedId}`);
+                    if (data && data.estado === 'ELABORACION') {
+                        setTipo(data.tipo);
+                        setReferencia(data.referencia || '');
+                        setContenido(data.contenido || '');
+
+                        // Reconstruir participantes (mapeo Senior con cargos literales)
+                        const parts = data.participantes || [];
+                        const dests = parts.filter((p: any) => p.rol === 'DESTINATARIO').map((p: any) => ({ ...p.usuario, cargoLiteral: p.cargoLiteral || p.usuario?.cargoStr || '' }));
+                        const vs = parts.filter((p: any) => p.rol === 'VIA').map((p: any) => ({ ...p.usuario, cargoLiteral: p.cargoLiteral || p.usuario?.cargoStr || '' }));
+                        const rems = parts.filter((p: any) => p.rol === 'REMITENTE').map((p: any) => ({ ...p.usuario, cargoLiteral: p.cargoLiteral || p.usuario?.cargoStr || '' }));
+
+                        setDestinatarios(dests);
+                        setVias(vs);
+                        setRemitentes(rems);
+
+                        if (data.archivoPdf) setPdfUrl(data.archivoPdf);
+                        setSuccess(data); // Al final para disparar el renderizado completo
                     }
                 } catch (e) {
                     localStorage.removeItem('profe_current_cor_id');
@@ -301,7 +353,7 @@ export default function NuevaNotaPage() {
                                     <button onClick={() => setShowPreview(false)} className="w-10 h-10 rounded-xl hover:bg-muted transition-colors flex items-center justify-center"><X className="w-6 h-6" /></button>
                                 </div>
                                 <div className="flex-1 bg-muted/10 p-0 overflow-hidden">
-                                    <embed src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full h-full" />
+                                    <embed src={`${previewUrl || getImageUrl(pdfUrl)}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full h-full" />
                                 </div>
                                 <div className="p-6 bg-card border-t border-border flex justify-end gap-4">
                                     <button onClick={() => setShowPreview(false)} className="px-8 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all">Cancelar</button>
@@ -333,7 +385,7 @@ export default function NuevaNotaPage() {
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 <div className="lg:col-span-8">
-                    <div className="bg-white text-black rounded-[2.5rem] shadow-2xl min-h-[1000px] relative overflow-hidden" style={{ backgroundImage: 'url("/fondo_doc.jpg")', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat' }}>
+                    <div className="bg-white text-black rounded-[2.5rem] shadow-2xl min-h-[1000px] relative overflow-hidden border border-border/50">
                         <div className="p-16 pt-32 space-y-8">
                             <div className="text-center font-bold text-xl space-y-1 mb-8">
                                 <p className="uppercase">{tipo.replace('_', ' ')}</p>
@@ -351,7 +403,19 @@ export default function NuevaNotaPage() {
                                 <div className="flex gap-10"><span className="w-16 font-black uppercase text-xs">Fecha:</span><div className="flex-1 font-bold text-gray-800">La Paz, {currentDateFormatted}</div></div>
                             </div>
                             <div className="h-[2.5pt] bg-black w-full" />
-                            <div className="space-y-4"><p className="text-[10px] font-black uppercase tracking-widest text-primary/40">Cuerpo del Documento</p><textarea value={contenido} onChange={e => setContenido(e.target.value)} placeholder="De mi consideración:..." className="w-full bg-transparent border-none text-base leading-relaxed placeholder:text-gray-200 focus:ring-0 min-h-[400px] resize-none outline-none" /></div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-[10px] font-black text-primary/40 uppercase tracking-widest px-1">
+                                    <span>Contenido del Documento</span>
+                                    <span>{contenido.length}/150</span>
+                                </div>
+                                <textarea
+                                    value={contenido}
+                                    onChange={e => setContenido(e.target.value.slice(0, 150))}
+                                    placeholder="De mi consideración:..."
+                                    maxLength={150}
+                                    className="w-full bg-transparent min-h-[400px] outline-none resize-none font-serif text-lg leading-relaxed"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -373,7 +437,7 @@ function UserSelectorBlock({ label, list }: { label: string, list: any[] }) {
             <span className="w-16 font-black uppercase text-xs pt-1">{label}</span>
             <div className="flex-1 space-y-2">
                 {list.length === 0 && <span className="text-gray-300 italic">Seleccione...</span>}
-                {list.map(u => (<div key={u.id}><p className="font-bold leading-tight">{u.nombre} {u.apellidos}</p><p className="uppercase text-[9px] font-black opacity-60">{u.cargoLiteral}</p></div>))}
+                {list.map(u => (<div key={u.id}><p className="font-bold leading-tight">{u.nombre} {u.apellidos}</p><p className="uppercase text-[11px] font-black opacity-80 text-primary">{u.cargoLiteral || u.cargoStr || 'Personal PROFE'}</p></div>))}
             </div>
         </div>
     );

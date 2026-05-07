@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Inbox, Search, FileText, Clock, 
+    Inbox, Search, FileText, Clock,
     ArrowUpRight, CheckCircle2, Calendar,
     User, RefreshCw, ChevronRight, Loader2, AlertCircle,
-    Send, Archive, Hash, X, ShieldCheck, Download, ArrowRight
+    Send, Archive, Hash, X, ShieldCheck, Download, ArrowRight,
+    FileUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -21,6 +22,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { uploadService } from '@/services/uploadService';
+import { getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
 const TABS = [
@@ -77,8 +79,8 @@ export default function BandejaPage() {
         setAvanzando(true);
         try {
             await avanzarEstado(
-                doc.id, 
-                accion, 
+                doc.id,
+                (accion === 'RECEPCION' && nuevoDest) ? 'DERIVACION' : accion,
                 detalle || `Acción "${accion}" registrada desde la bandeja.`,
                 archivoUrl || undefined,
                 nuevoDest?.id || undefined
@@ -109,10 +111,8 @@ export default function BandejaPage() {
         setUploading(true);
         try {
             const res = await uploadService.uploadFile(file, 'correspondencia');
-            // Construir URL absoluta
-            const baseUrl = api.defaults.baseURL?.replace(/\/$/, '') || '';
-            const path = res.data.path.replace(/^\//, '').replace(/\\/g, '/');
-            setArchivoUrl(`${baseUrl}/${path}`);
+            // Guardamos solo el path relativo, el componente usará getImageUrl
+            setArchivoUrl(res.data.path);
             toast.success('Archivo adjunto listo');
         } catch (err) {
             toast.error('Fallo al subir archivo');
@@ -125,7 +125,7 @@ export default function BandejaPage() {
     const renderActions = (doc: CorDocumento) => {
         const miParticipacion = doc.participantes.find(p => p.userId === user?.id);
         const rol = miParticipacion?.rol;
-        
+
         if (accionSeleccionada) {
             return (
                 <div className="space-y-6 mt-4 p-6 rounded-[2rem] bg-accent/30 border border-accent/50 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -136,9 +136,11 @@ export default function BandejaPage() {
                         </button>
                     </div>
 
-                    {accionSeleccionada === 'DERIVACION' && (
+                    {(accionSeleccionada === 'DERIVACION' || accionSeleccionada === 'RECEPCION') && (
                         <div className="space-y-4">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">¿A quién derivar?</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                {accionSeleccionada === 'DERIVACION' ? '¿A quién derivar?' : 'Derivar a (Opcional - Envío Directo)'}
+                            </p>
                             <UserSearchInline onSelect={setNuevoDest} selected={nuevoDest} />
                         </div>
                     )}
@@ -155,6 +157,11 @@ export default function BandejaPage() {
                                 <span className="text-[10px] font-black uppercase">{uploading ? 'Subiendo...' : archivoUrl ? 'Archivo Listo' : 'Subir Respuesta PDF'}</span>
                             </div>
                         </div>
+                        {archivoUrl && (
+                            <div className="rounded-xl overflow-hidden border border-border h-48 bg-muted/50 animate-in fade-in slide-in-from-top-2">
+                                <embed src={`${getImageUrl(archivoUrl)}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full h-full" />
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -173,28 +180,45 @@ export default function BandejaPage() {
         }
 
         const actions = [];
-        
-        // El REMITENTE solo puede enviar si está en ELABORACION
+
+        // 1. El REMITENTE solo puede enviar si está en ELABORACION
         if (doc.estado === 'ELABORACION' && rol === 'REMITENTE') {
             actions.push({ accion: 'ENVIO', label: 'Enviar Oficialmente', color: 'bg-primary text-white shadow-primary/20' });
         }
-        
-        // DESTINATARIOS y VIAS solo pueden recibir si está ENVIADO
-        if (doc.estado === 'ENVIADO' && (rol === 'DESTINATARIO' || rol === 'VIA')) {
+
+        // 2. DESTINATARIOS y VIAS solo pueden recibir si está ENVIADO o EN_TRAMITE (derivado)
+        if ((doc.estado === 'ENVIADO' || doc.estado === 'EN_TRAMITE') && (rol === 'DESTINATARIO' || rol === 'VIA')) {
             actions.push({ accion: 'RECEPCION', label: 'Confirmar Recepción', color: 'bg-emerald-500 text-white shadow-emerald-500/20' });
         }
-        
-        // Una vez RECIBIDO, pueden derivar o archivar
+
+        // 3. Una vez RECIBIDO, pueden derivar o archivar
         if (doc.estado === 'RECIBIDO' && (rol === 'DESTINATARIO' || rol === 'VIA')) {
             actions.push({ accion: 'DERIVACION', label: 'Derivar / Tramitar', color: 'bg-purple-500 text-white shadow-purple-500/20' });
             actions.push({ accion: 'ARCHIVADO', label: 'Finalizar y Archivar', color: 'bg-muted text-muted-foreground' });
         }
 
-        if (actions.length === 0) return (
+        // Lógica de Custodia Senior: 
+        // Aunque el rol coincida, verificamos si el usuario es el poseedor físico actual.
+        const ultimoMovimiento = doc.seguimientos?.[0];
+        const soyElDeLaUltimaAccion = ultimoMovimiento?.usuario.id === user?.id;
+
+        let tieneCustodia = true;
+        if (doc.estado !== 'ELABORACION') {
+            if (ultimoMovimiento?.accion === 'RECEPCION') {
+                // Si ya se recibió, solo el que lo recibió lo tiene
+                tieneCustodia = soyElDeLaUltimaAccion;
+            } else if (ultimoMovimiento?.accion === 'ENVIO' || ultimoMovimiento?.accion === 'DERIVACION') {
+                // Si se envió o derivó, el emisor ya NO lo tiene
+                tieneCustodia = !soyElDeLaUltimaAccion;
+            }
+        }
+
+        if (actions.length === 0 || !tieneCustodia) return (
             <div className="flex flex-col items-center gap-3 p-6 bg-muted/20 rounded-3xl border border-dashed border-border/50">
                 <AlertCircle className="w-6 h-6 text-muted-foreground opacity-40" />
                 <p className="text-[10px] font-bold text-muted-foreground italic text-center uppercase tracking-widest leading-relaxed">
-                    No tienes la custodia actual para realizar acciones.<br/>El documento está en trámite en otra oficina.
+                    {!tieneCustodia ? 'No tienes la custodia actual' : 'Sin acciones disponibles'}<br />
+                    {doc.estado === 'EN_TRAMITE' && !tieneCustodia ? 'El documento ha sido derivado a otra oficina.' : 'El documento está en trámite en otra oficina.'}
                 </p>
             </div>
         );
@@ -217,7 +241,7 @@ export default function BandejaPage() {
         const [q, setQ] = useState('');
         const [results, setResults] = useState<CorUsuario[]>([]);
         const [open, setOpen] = useState(false);
-        
+
         const search = async (val: string) => {
             if (!val.trim()) { setResults([]); return; }
             const data = await buscarUsuarios(val);
@@ -386,13 +410,26 @@ export default function BandejaPage() {
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <span className={cn(
-                                                    'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border',
-                                                    ESTADO_LABELS[doc.estado]?.color ?? 'bg-muted text-muted-foreground border-border'
-                                                )}>
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-current" />
-                                                    {ESTADO_LABELS[doc.estado]?.label ?? doc.estado}
-                                                </span>
+                                                <div className="flex flex-col gap-2">
+                                                    <span className={cn(
+                                                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border',
+                                                        ESTADO_LABELS[doc.estado]?.color ?? 'bg-muted text-muted-foreground border-border'
+                                                    )}>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                                                        {ESTADO_LABELS[doc.estado]?.label ?? doc.estado}
+                                                    </span>
+                                                    
+                                                    {doc.diasMora > 0 && tab === 'recibidos' && (
+                                                        <span className={cn(
+                                                            "text-[8px] font-black uppercase tracking-widest flex items-center gap-1",
+                                                            doc.nivelAlerta === 'CRITICO' ? "text-red-600 animate-pulse" : 
+                                                            doc.nivelAlerta === 'MORA' ? "text-orange-600" : "text-muted-foreground"
+                                                        )}>
+                                                            <Clock className="w-2.5 h-2.5" />
+                                                            {doc.diasMora} Días en Custodia {doc.alerta && "⚠️ MORA"}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <div className="flex items-center justify-end gap-2">
@@ -440,6 +477,52 @@ export default function BandejaPage() {
                                         <span className="text-muted-foreground">Tu Rol:</span>
                                         <span className="uppercase">{selected.participantes.find(p => p.userId === user?.id)?.rol}</span>
                                     </div>
+                                    {selected.seguimientos?.[0] && (
+                                        <div className="pt-3 border-t border-border/30">
+                                            <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Último Movimiento</p>
+                                            <p className="text-[11px] font-bold text-primary italic">
+                                                {selected.seguimientos[0].usuario.nombre} {selected.seguimientos[0].usuario.apellidos} - {selected.seguimientos[0].accion}
+                                            </p>
+                                            {selected.seguimientos[0].detalle && (
+                                                <div className="mt-2 p-2 rounded-lg bg-primary/5 border-l-2 border-primary/20">
+                                                    <p className="text-[10px] text-muted-foreground font-medium italic leading-tight">
+                                                        "{selected.seguimientos[0].detalle}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {selected.alerta && (
+                                        <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 animate-bounce">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <AlertCircle className="w-4 h-4 text-destructive" />
+                                                <span className="text-[10px] font-black uppercase text-destructive tracking-widest">Alerta de Plazo Vencido</span>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-destructive/80 leading-tight">
+                                                Este trámite lleva {selected.diasMora} días sin gestión. Supere el límite institucional de 10 días.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Destinatarios Oficiales */}
+                                    {selected.participantes?.filter(p => p.rol === 'DESTINATARIO').length > 0 && (
+                                        <div className="pt-3 border-t border-border/30">
+                                            <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Dirigido A (Destinatario Final)</p>
+                                            <div className="space-y-1">
+                                                {selected.participantes.filter(p => p.rol === 'DESTINATARIO').map(p => (
+                                                    <div key={p.id} className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        <p className="text-[11px] font-bold leading-tight">
+                                                            {p.usuario.nombre} {p.usuario.apellidos}
+                                                            <br />
+                                                            <span className="text-[8px] opacity-60 uppercase font-black">{p.usuario.cargoStr}</span>
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -451,11 +534,11 @@ export default function BandejaPage() {
                             </div>
 
                             {selected.archivoPdf && (
-                                <div className="p-6 rounded-3xl bg-primary/5 border border-primary/20">
-                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Resguardo Digital</p>
-                                    <a href={selected.archivoPdf} target="_blank" rel="noreferrer"
+                                <div className="p-6 rounded-3xl bg-primary/5 border border-primary/20 animate-in zoom-in-95 duration-500">
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Resguardo Digital (PDF)</p>
+                                    <a href={getImageUrl(selected.archivoPdf)} target="_blank" rel="noreferrer"
                                         className="w-full h-12 rounded-xl bg-white border border-primary/20 flex items-center justify-center gap-3 text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all shadow-sm">
-                                        <Download className="w-4 h-4" /> Ver PDF Escaneado
+                                        <FileText className="w-4 h-4" /> Visualizar Documento
                                     </a>
                                 </div>
                             )}

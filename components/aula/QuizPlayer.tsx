@@ -148,13 +148,22 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
             // Fetch full questions for this attempt
             const fullCue = await aulaService.getCuestionarioByActividad(actividadId);
 
-            if (int.respuestas && int.respuestas.length > 0) {
+            // Determinamos si debemos seguir el orden del intento (aleatorio) o el orden natural
+            const debeRespetarOrdenIntento = fullCue.aleatorizar || (fullCue.randomCount && fullCue.randomCount > 0);
+
+            if (debeRespetarOrdenIntento && int.respuestas && int.respuestas.length > 0) {
                 const pregsIds = int.respuestas.map((r: any) => r.preguntaId);
                 const filteredPreguntas = pregsIds
                     .map((id: string) => fullCue.preguntas.find((p: any) => p.id === id))
                     .filter(Boolean);
                 fullCue.preguntas = filteredPreguntas;
+            } else if (int.respuestas && int.respuestas.length > 0) {
+                // Si no es aleatorio, simplemente filtramos las preguntas que pertenecen al intento
+                // pero mantenemos el orden natural (orden: asc) que ya viene en fullCue.preguntas
+                const attemptPregsIds = new Set(int.respuestas.map((r: any) => r.preguntaId));
+                fullCue.preguntas = fullCue.preguntas.filter((p: any) => attemptPregsIds.has(p.id));
             }
+
             setCuestionario(fullCue);
 
             /**
@@ -567,13 +576,13 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                         )}>
                             <ChevronLeft size={20} />
                         </button>
-                        <div>
-                            <h2 className={cn("font-black text-xs md:text-sm uppercase tracking-[0.2em] mb-0.5", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                        <div className="flex flex-col justify-center">
+                            <h2 className={cn("font-black text-[10px] md:text-sm uppercase tracking-[0.2em] mb-0.5 truncate max-w-[140px] md:max-w-none", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                 {cuestionario.actividad?.titulo || 'Evaluación'}
                             </h2>
                             <div className="flex items-center gap-2 md:gap-3">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                <p className="text-slate-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest truncate max-w-[120px] md:max-w-none">Intento {intento.numero} • Pr. {currentIdx + 1}/{cuestionario?.preguntas?.length}</p>
+                                <span className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                                <p className="text-slate-500 text-[7px] md:text-[10px] font-black uppercase tracking-widest truncate max-w-[120px] md:max-w-none">Intento {intento.numero} • Pr. {currentIdx + 1}/{cuestionario?.preguntas?.length}</p>
                             </div>
                         </div>
                     </div>
@@ -590,13 +599,13 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                             <span className="hidden sm:inline">Índice</span>
                         </button>
                         <div className={cn(
-                            "px-4 md:px-10 h-10 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center gap-2 md:gap-4 border-2 transition-all shadow-xl font-mono",
+                            "px-3 md:px-10 h-10 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center gap-2 md:gap-4 border-2 transition-all shadow-xl font-mono shrink-0",
                             timeLeft < 60 && cuestionario.duracion > 0
                                 ? "border-rose-500/50 bg-rose-500/10 text-rose-500 animate-pulse"
                                 : theme === 'dark' ? "border-slate-800 bg-slate-900 text-white" : "border-slate-100 bg-white text-slate-900"
                         )}>
-                            <Clock size={16} className={timeLeft < 60 && cuestionario.duracion > 0 ? "text-rose-500" : "text-primary"} />
-                            <span className="font-black text-sm md:text-xl">{cuestionario.duracion === 0 ? '--:--' : formatTime(timeLeft)}</span>
+                            <Clock size={14} className={timeLeft < 60 && cuestionario.duracion > 0 ? "text-rose-500" : "text-primary"} />
+                            <span className="font-black text-xs md:text-xl">{cuestionario.duracion === 0 ? '--:--' : formatTime(timeLeft)}</span>
                         </div>
                     </div>
                 </header>
@@ -859,11 +868,11 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                             <span className="hidden sm:inline">Anterior</span>
                         </button>
 
-                        {/* Navegación de puntos desplazable */}
-                        <div className="flex-1 relative min-w-0 hidden md:block">
-                            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
-                            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
-                            <div className="flex gap-1.5 px-6 overflow-x-auto no-scrollbar scroll-smooth items-center h-full py-2">
+                        {/* Navegación de puntos desplazable - Ahora visible en móvil con scroll horizontal */}
+                        <div className="flex-1 relative min-w-0 flex items-center h-full">
+                            <div className="absolute left-0 top-0 bottom-0 w-4 md:w-8 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
+                            <div className="absolute right-0 top-0 bottom-0 w-4 md:w-8 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none opacity-50" />
+                            <div className="flex gap-2 md:gap-1.5 px-4 md:px-6 overflow-x-auto no-scrollbar scroll-smooth items-center h-full py-2">
                                 {cuestionario.preguntas.map((_: any, idx: number) => {
                                     const isCurrent = idx === currentIdx;
                                     const isAnswered = respuestas[cuestionario.preguntas[idx].id];
@@ -873,9 +882,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                             onClick={() => setCurrentIdx(idx)}
                                             id={`nav-dot-${idx}`}
                                             className={cn(
-                                                "w-2.5 h-2.5 rounded-full transition-all duration-300 shrink-0",
+                                                "w-3 h-3 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 shrink-0",
                                                 isCurrent
-                                                    ? "w-8 bg-primary shadow-lg shadow-primary/30"
+                                                    ? "w-8 md:w-8 bg-primary shadow-lg shadow-primary/30"
                                                     : isAnswered ? "bg-emerald-500/60" : "bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700"
                                             )}
                                             title={`Pregunta ${idx + 1}`}
@@ -885,13 +894,13 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                             </div>
                         </div>
 
-                        {/* Indicador móvil simplificado */}
-                        <div className="md:hidden flex flex-col items-center flex-1">
-                            <span className={cn("text-[10px] font-black tracking-widest uppercase", theme === 'dark' ? "text-slate-400" : "text-slate-500")}>
-                                Pregunta
+                        {/* Indicador móvil simplificado - Solo visible en pantallas muy pequeñas */}
+                        <div className="xs:hidden flex flex-col items-center shrink-0">
+                            <span className={cn("text-[8px] font-black tracking-widest uppercase", theme === 'dark' ? "text-slate-400" : "text-slate-500")}>
+                                Pr.
                             </span>
-                            <span className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                {currentIdx + 1} / {cuestionario.preguntas.length}
+                            <span className={cn("text-xs font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                {currentIdx + 1}/{cuestionario.preguntas.length}
                             </span>
                         </div>
                     </div>
@@ -909,11 +918,11 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                         <button
                             onClick={() => setCurrentIdx(prev => prev + 1)}
                             className={cn(
-                                "h-12 md:h-16 pl-8 md:pl-12 pr-6 md:pr-10 rounded-xl md:rounded-[1.5rem] font-black text-[10px] md:text-sm uppercase tracking-[0.2em] md:tracking-[0.3em] flex items-center gap-3 md:gap-6 shadow-xl hover:scale-[1.05] transition-all group",
+                                "h-12 md:h-16 pl-6 md:pl-12 pr-4 md:pr-10 rounded-xl md:rounded-[1.5rem] font-black text-[10px] md:text-sm uppercase tracking-[0.2em] md:tracking-[0.3em] flex items-center gap-2 md:gap-6 shadow-xl hover:scale-[1.05] transition-all group",
                                 theme === 'dark' ? "bg-white text-slate-950" : "bg-slate-900 text-white"
                             )}
                         >
-                            Siguiente
+                            <span className="hidden xs:inline">Siguiente</span>
                             <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                         </button>
                     )}
