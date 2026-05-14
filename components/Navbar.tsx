@@ -172,13 +172,13 @@ export default function Navbar() {
                         ))}
 
                         {/* Portal Entry */}
-                        <Link
+                        {/* <Link
                             href="/login"
                             className="ml-4 px-10 h-12 flex items-center bg-primary-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.3em] hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/20 group/btn shrink-0"
                         >
                             Acceso
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-3 transition-transform duration-700 ml-3" />
-                        </Link>
+                        </Link> */}
 
                         {/* Theme Mode Swapper */}
                         <button
