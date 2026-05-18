@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -513,6 +513,7 @@ export default function EventoPublicoPage() {
     const [isPersonaExistente, setIsPersonaExistente] = useState(false);
     const [confirmInscripcionModal, setConfirmInscripcionModal] = useState(false);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [inscripcionCerradaModal, setInscripcionCerradaModal] = useState(false);
 
 
     // Helper centralizado para determinar si un paso está completado (Senior Pattern: Single Source of Truth)
@@ -778,6 +779,11 @@ export default function EventoPublicoPage() {
                 return;
             }
 
+            if (!evento?.inscripcionAbierta) {
+                setInscripcionCerradaModal(true);
+                return;
+            }
+
             // Si intenta hacer cuestionario sin estar inscrito
             if (cuestionarioActivo) {
                 toast.error('Debes estar inscrito para realizar esta evaluación.');
@@ -918,6 +924,9 @@ export default function EventoPublicoPage() {
                 // Ya inscrito
                 setInscripcion({ id: 'existente' });
                 setStep('descargo');
+            } else if (e?.response?.data?.message?.includes('cerrada') || e?.response?.status === 403) {
+                // La inscripción está cerrada
+                setInscripcionCerradaModal(true);
             } else {
                 alert(e?.response?.data?.message || 'Error al inscribirse');
             }
@@ -2922,6 +2931,54 @@ export default function EventoPublicoPage() {
                                             className="w-full h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all flex items-center justify-center gap-2"
                                         >
                                             No, Volver a Revisar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* ── MODAL: Inscripción Cerrada ── */}
+                    <AnimatePresence>
+                        {inscripcionCerradaModal && (
+                            <motion.div
+                                key="inscripcion-cerrada"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+                                onClick={() => setInscripcionCerradaModal(false)}
+                            >
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.85, y: 20 }}
+                                    transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                                    className="bg-card border-2 border-red-500/30 rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl shadow-red-500/10 space-y-8 text-center"
+                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                >
+                                    <div className="w-20 h-20 rounded-[1.8rem] bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center mx-auto">
+                                        <Lock className="w-10 h-10 text-red-500" />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <h3 className="text-2xl font-black uppercase tracking-tight text-foreground">
+                                            La inscripción está cerrada
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                            Lo sentimos, el período de inscripción para este evento ha finalizado. No es posible registrar nuevos participantes en este momento.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={() => {
+                                                setInscripcionCerradaModal(false);
+                                                handleReset();
+                                            }}
+                                            className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                                        >
+                                            Entendido, Volver al Evento
                                         </button>
                                     </div>
                                 </motion.div>
