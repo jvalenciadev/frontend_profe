@@ -25,7 +25,7 @@ type TipoPreg = 'SINGLE' | 'MULTIPLE' | 'TRUE_FALSE' | 'TEXTO';
 
 interface Opcion { id: string; texto: string; }
 interface Pregunta { id: string; texto: string; tipo: TipoPreg; puntos: number; obligatorio: boolean; opciones: Opcion[]; }
-interface Cuestionario { id: string; titulo: string; descripcion: string; fechaInicio: string; fechaFin: string; tiempoMaximo: number | null; puntosMaximos: number | null; estado: string; preguntas: Pregunta[]; orden: number; esObligatorio: boolean; esEvaluativo: boolean; urlVideo?: string | null; limiteIntentos?: number | null; esAleatorio?: boolean; cantidadPreguntas?: number | null; }
+interface Cuestionario { id: string; titulo: string; descripcion: string; fechaInicio: string; fechaFin: string; tiempoMaximo: number | null; puntosMaximos: number | null; estado: string; preguntas: Pregunta[]; orden: number; esObligatorio: boolean; esEvaluativo: boolean; urlVideo?: string | null; limiteIntentos?: number | null; esAleatorio?: boolean; cantidadPreguntas?: number | null; puntajeMinimo?: number; }
 interface Evento { id: string; nombre: string; codigo: string; descripcion: string; banner: string; afiche: string; fecha: string; lugar: string; inscripcionAbierta: boolean; asistencia: boolean | null; codigoAsistencia: string | null; tipo: any; cuestionarios: Cuestionario[]; modalidadIds: string; camposExtras: any[]; tenantId?: string; urlVideo?: string | null; }
 
 // ─── YOUTUBE HELPER ─────────────────────────────────────────────────────────
@@ -1729,7 +1729,8 @@ export default function EventoPublicoPage() {
                                                                         maxEsperado = Math.round(puntosPromedio * c.cantidadPreguntas);
                                                                     }
                                                                     const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? maxEsperado) || 0);
-                                                                    const nMin = c.notaMinima || (c.esEvaluativo ? Math.ceil(tVal * 0.75) : 0); // Default 75% si es evaluativo
+                                                                    const nMinPercentage = c.puntajeMinimo || 75;
+                                                                    const nMin = c.esEvaluativo ? Math.ceil(tVal * (nMinPercentage / 100)) : 0;
                                                                     const isFinished = isStepFinished(c.id);
                                                                     const isAprobado = !!prog?.aprobado;
                                                                     const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
@@ -1743,7 +1744,6 @@ export default function EventoPublicoPage() {
                                                                         const isAprobado = !!prog?.aprobado;
                                                                         const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
                                                                         const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
-                                                                        const nMin = 75; // Nota mínima estándar
 
                                                                         return (
                                                                             <div className="flex flex-col gap-4">
@@ -2748,11 +2748,11 @@ export default function EventoPublicoPage() {
                                                     "text-sm font-black uppercase tracking-[0.3em]",
                                                     resultado.esEvaluativo === false
                                                         ? "text-primary"
-                                                        : (resultado.nota ?? 0) >= 75 ? "text-primary" : "text-amber-500"
+                                                        : resultado.aprobado ? "text-primary" : "text-amber-500"
                                                 )}>
                                                     {resultado.esEvaluativo === false
                                                         ? 'Formulario Enviado'
-                                                        : (resultado.nota ?? 0) >= 75 ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
+                                                        : resultado.aprobado ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
                                                 </p>
                                             </div>
 
@@ -2762,16 +2762,16 @@ export default function EventoPublicoPage() {
                                                         <motion.div
                                                             initial={{ width: 0 }}
                                                             animate={{ width: `${Math.min(resultado.nota ?? 0, 100)}%` }}
-                                                            className={cn("h-full rounded-full transition-all duration-1000", (resultado.nota ?? 0) >= 75 ? "bg-primary" : "bg-amber-500")}
+                                                            className={cn("h-full rounded-full transition-all duration-1000", resultado.aprobado ? "bg-primary" : "bg-amber-500")}
                                                         />
                                                     </div>
                                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                                         Has obtenido {resultado.puntaje} de {resultado.puntajeMaximo} puntos posibles
                                                     </p>
-                                                    {(resultado.nota ?? 0) < 75 && (
+                                                    {!resultado.aprobado && (
                                                         <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
                                                             <p className="text-[10px] text-amber-600 font-black uppercase tracking-tight leading-relaxed">
-                                                                Necesitas al menos 75/100 para aprobar y obtener tu certificado.
+                                                                Necesitas al menos {cuestionarioActivo?.puntajeMinimo || 75}/100 para aprobar y obtener tu certificado.
                                                             </p>
                                                         </div>
                                                     )}
@@ -2784,7 +2784,7 @@ export default function EventoPublicoPage() {
                                             <div className="text-sm text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: cuestionarioActivo?.descripcion || '' }} />
                                         </div>
 
-                                        {resultado.esEvaluativo !== false && (resultado.nota ?? 0) >= 75 ? (
+                                        {resultado.esEvaluativo !== false && resultado.aprobado ? (
                                             <button
                                                 onClick={() => setStep('descargo')}
                                                 className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
