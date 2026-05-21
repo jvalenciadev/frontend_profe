@@ -1896,6 +1896,15 @@ export default function EventoPublicoPage() {
                                                     return (prog?.finalizado && (isPerfect || hasReachedLimit)) || (sinPreguntas && (prog?.videoCompletado || localVideosVistos[c.id]));
                                                 });
                                                 if (allMandatoryFinished && sortedCuestionarios.length > 0) {
+                                                    const ultimoCuestionario = sortedCuestionarios[sortedCuestionarios.length - 1];
+                                                    const fechaFinUltimo = ultimoCuestionario?.fechaFin ? new Date(ultimoCuestionario.fechaFin) : null;
+                                                    let fechaCertificacionTexto = "en los próximos días";
+                                                    if (fechaFinUltimo && !isNaN(fechaFinUltimo.getTime())) {
+                                                        const fechaCert = new Date(fechaFinUltimo);
+                                                        fechaCert.setMonth(fechaCert.getMonth() + 1);
+                                                        fechaCertificacionTexto = "el " + fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+                                                    }
+
                                                     return (
                                                         <div className="mt-8 p-8 rounded-[2.5rem] bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border border-green-500/20 relative overflow-hidden group">
                                                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -1921,7 +1930,7 @@ export default function EventoPublicoPage() {
                                                                                     Portal de Certificación
                                                                                 </h4>
                                                                                 <p className="text-[11px] text-muted-foreground font-bold leading-relaxed uppercase">
-                                                                                    Tu certificado se habilitará en <span className="text-primary">20 días</span> calendario tras la clausura del evento.
+                                                                                    Tu certificado se habilitará <span className="text-primary">{fechaCertificacionTexto}</span>.
                                                                                 </p>
                                                                                 <a
                                                                                     href="https://certificados.minedu.gob.bo"
