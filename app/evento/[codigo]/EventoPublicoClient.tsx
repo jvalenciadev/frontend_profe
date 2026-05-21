@@ -1903,7 +1903,7 @@ export default function EventoPublicoPage() {
                                                     if (fechaFinUltimo && !isNaN(fechaFinUltimo.getTime())) {
                                                         const fechaCert = new Date(fechaFinUltimo);
                                                         fechaCert.setMonth(fechaCert.getMonth() + 1);
-                                                        fechaCertificacionTexto = "el " + fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+                                                        fechaCertificacionTexto = fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
                                                     }
 
                                                     return (
@@ -1922,35 +1922,35 @@ export default function EventoPublicoPage() {
 
                                                                 <div className="w-full mt-6 space-y-6">
                                                                     {/* CARD: PORTAL DE CERTIFICACIÓN */}
-                                                                    <div className="bg-gradient-to-br from-primary/15 via-primary/5 to-transparent border-2 border-primary/30 rounded-[2.5rem] p-8 md:p-10 text-left relative overflow-hidden group/cert shadow-2xl shadow-primary/10 transition-all duration-500 hover:border-primary/40">
-                                                                        <div className="absolute -right-8 -top-8 w-40 h-40 bg-primary/15 rounded-full blur-3xl group-hover/cert:bg-primary/25 transition-all duration-500" />
+                                                                    <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-2 border-primary/20 rounded-[2rem] p-8 text-left relative overflow-hidden group/cert shadow-xl shadow-primary/5 hover:border-primary/30 transition-all duration-300">
+                                                                        <div className="absolute -right-8 -top-8 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover/cert:bg-primary/20 transition-all duration-500" />
                                                                         
-                                                                        <div className="relative z-10 flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between">
-                                                                            <div className="flex gap-6 items-start">
-                                                                                <div className="w-20 h-20 rounded-[2.2rem] bg-gradient-to-br from-primary to-primary-hover shadow-2xl shadow-primary/40 flex items-center justify-center shrink-0">
-                                                                                    <Trophy className="w-10 h-10 text-white" />
+                                                                        <div className="relative z-10 flex flex-col xl:flex-row gap-6 items-start xl:items-center justify-between">
+                                                                            <div className="flex gap-5 items-start">
+                                                                                <div className="w-16 h-16 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center shrink-0">
+                                                                                    <Trophy className="w-8 h-8 text-white" />
                                                                                 </div>
-                                                                                <div className="space-y-3">
-                                                                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary/80 bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                                                                                <div className="space-y-2">
+                                                                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">
                                                                                         Ministerio de Educación
                                                                                     </span>
-                                                                                    <h4 className="text-3xl font-black uppercase text-foreground tracking-tight leading-none">
+                                                                                    <h4 className="text-2xl font-black uppercase text-foreground tracking-tight leading-none">
                                                                                         Portal de Certificación
                                                                                     </h4>
                                                                                     <p className="text-lg text-foreground/90 font-bold leading-relaxed max-w-xl">
-                                                                                        Tu certificado se habilitará el <span className="text-primary font-black underline decoration-4 decoration-primary/30 underline-offset-4">{fechaCertificacionTexto}</span>.
+                                                                                        Tu certificado se habilitará <span className="text-primary font-black underline decoration-2 decoration-primary/30 underline-offset-4">{fechaCertificacionTexto}</span>.
                                                                                     </p>
                                                                                     <p className="text-xs text-muted-foreground font-medium leading-relaxed max-w-lg">
-                                                                                        El certificado digital cuenta con validez legal plena bajo la Ley N° 164, incorporando firma digital y código QR para su verificación inmediata a nivel nacional.
+                                                                                        El certificado digital oficial incorpora firma digital autorizada y código QR para su verificación inmediata a nivel nacional.
                                                                                     </p>
 
-                                                                                    <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                                                                        <div className="flex items-center gap-2.5">
-                                                                                            <div className="w-2 h-2 rounded-full bg-primary" />
+                                                                                    <div className="pt-2 flex flex-wrap gap-x-4 gap-y-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                                                                                             <span>Válido con firma digital y QR</span>
                                                                                         </div>
-                                                                                        <div className="flex items-center gap-2.5">
-                                                                                            <div className="w-2 h-2 rounded-full bg-primary" />
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                                                                                             <span>Descarga directa con C.I.</span>
                                                                                         </div>
                                                                                     </div>
@@ -1961,43 +1961,16 @@ export default function EventoPublicoPage() {
                                                                                 href="https://certificados.minedu.gob.bo"
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
-                                                                                className="inline-flex items-center gap-4 px-10 h-20 rounded-[2rem] bg-primary text-white text-sm font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/40 hover:scale-[1.04] hover:bg-primary/95 active:scale-98 transition-all group shrink-0 w-full xl:w-auto justify-center border-2 border-primary/20"
+                                                                                className="inline-flex items-center gap-3 px-8 h-16 rounded-[1.25rem] bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] hover:bg-primary/95 active:scale-95 transition-all group shrink-0 w-full xl:w-auto justify-center border border-primary/20"
                                                                             >
-                                                                                <Globe className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                                                                                <Globe className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                                                                                 certificados.minedu.gob.bo
-                                                                                <ExternalLink className="w-4 h-4 opacity-75 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                                                                <ExternalLink className="w-3.5 h-3.5 opacity-75 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                                                                             </a>
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* SECCIÓN DETALLADA: DOCUMENTO EN PROCESO */}
-                                                                    <div className="p-8 rounded-[2.5rem] bg-muted/10 border-2 border-dashed border-border/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden group/process">
-                                                                        <div className="flex items-start gap-5">
-                                                                            <div className="w-16 h-16 rounded-[1.8rem] bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                                                                                <RefreshCw className="w-7 h-7 animate-spin text-primary" />
-                                                                            </div>
-                                                                            <div className="space-y-1">
-                                                                                <h5 className="text-base font-black uppercase tracking-tight text-foreground flex items-center gap-2">
-                                                                                    Documento en Proceso
-                                                                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                                                                                </h5>
-                                                                                <p className="text-xs text-muted-foreground font-semibold leading-relaxed max-w-xl uppercase">
-                                                                                    Estará disponible próximamente en el portal oficial
-                                                                                </p>
-                                                                                <p className="text-[11px] text-muted-foreground/80 font-medium leading-relaxed max-w-lg mt-1">
-                                                                                    El sistema está procesando tus calificaciones y generando el registro de firmas digitales autorizadas ante la entidad certificadora.
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex flex-col gap-2 w-full md:w-auto shrink-0">
-                                                                            <div className="px-5 py-3 rounded-2xl bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-[0.2em] border border-amber-500/20 text-center md:text-left">
-                                                                                Verificando Requisitos ✓
-                                                                            </div>
-                                                                            <div className="px-5 py-3 rounded-2xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] border border-primary/20 text-center md:text-left">
-                                                                                Generando Certificado...
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
+
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2773,17 +2746,17 @@ export default function EventoPublicoPage() {
                                     <>
                                         <div className={cn(
                                             "p-8 rounded-3xl text-center space-y-4 border-2 transition-all duration-500",
-                                            (resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) || (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1)
+                                            (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1)
                                                 ? "bg-primary/5 border-primary/20 shadow-2xl shadow-primary/5"
                                                 : "bg-amber-500/5 border-amber-500/20"
                                         )}>
                                             <div className={cn(
                                                 "w-20 h-20 rounded-full mx-auto flex items-center justify-center transition-colors",
-                                                (resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0)
+                                                resultado.esEvaluativo === false
                                                     ? "bg-primary/10"
                                                     : (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? "bg-primary/10" : "bg-amber-500/10"
                                             )}>
-                                                {(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) || (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? (
+                                                {(resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? (
                                                     <Trophy className="w-10 h-10 text-primary" />
                                                 ) : (
                                                     <AlertTriangle className="w-10 h-10 text-amber-500" />
@@ -2791,26 +2764,26 @@ export default function EventoPublicoPage() {
                                             </div>
                                             <div className="space-y-2">
                                                 <div className="space-y-1 mb-4">
-                                                    <p className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de:</p>
+                                                    <p className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de Evaluación de:</p>
                                                     <h3 className="text-sm font-black uppercase text-foreground tracking-tight line-clamp-1">{cuestionarioActivo?.titulo}</h3>
                                                 </div>
                                                 <h2 className="text-5xl font-black text-foreground tracking-tighter">
-                                                    {(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) ? '¡LISTO!' : `${Math.min(resultado.nota ?? 0, 100)}`}
-                                                    {!(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) && <span className="text-2xl opacity-20 ml-1">/100</span>}
+                                                    {resultado.esEvaluativo === false ? '¡LISTO!' : `${Math.min(resultado.nota ?? 0, 100)}`}
+                                                    {resultado.esEvaluativo !== false && <span className="text-2xl opacity-20 ml-1">/100</span>}
                                                 </h2>
                                                 <p className={cn(
                                                     "text-sm font-black uppercase tracking-[0.3em]",
-                                                    (resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0)
+                                                    resultado.esEvaluativo === false
                                                         ? "text-primary"
                                                         : resultado.aprobado ? "text-primary" : "text-amber-500"
                                                 )}>
-                                                    {(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0)
+                                                    {resultado.esEvaluativo === false
                                                         ? 'Formulario Enviado'
                                                         : resultado.aprobado ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
                                                 </p>
                                             </div>
 
-                                            {!(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) && (
+                                            {resultado.esEvaluativo !== false && (
                                                 <div className="space-y-4 pt-2">
                                                     <div className="w-full h-3 bg-muted rounded-full overflow-hidden border border-border shadow-inner">
                                                         <motion.div
@@ -2838,14 +2811,14 @@ export default function EventoPublicoPage() {
                                             <div className="text-sm text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: cuestionarioActivo?.descripcion || '' }} />
                                         </div>
 
-                                        {!(resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) && resultado.aprobado ? (
+                                        {resultado.esEvaluativo !== false && resultado.aprobado ? (
                                             <button
                                                 onClick={() => setStep('descargo')}
                                                 className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                                             >
                                                 <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
                                             </button>
-                                        ) : (resultado.esEvaluativo === false || (resultado.puntajeMaximo ?? 0) === 0) ? (
+                                        ) : resultado.esEvaluativo === false ? (
                                             // Formulario no evaluativo completado exitosamente
                                             <button
                                                 onClick={() => setStep('descargo')}
