@@ -507,7 +507,21 @@ export default function EventoPublicoPage() {
     const [offlineQueue, setOfflineQueue] = useState<any>(null); // guardado offline
     const [departamentos, setDepartamentos] = useState<any[]>([]);
     const [allModalidades, setAllModalidades] = useState<any[]>([]);
-    const videoTimersRef = useRef<Record<string, { totalTime: number, lastStart: number | null }>>({});
+    const videoTimersRef = useRef<Record<string, { totalTime: number, lastStart: number | null, lastRate?: number }>>({});
+    const videoPlaybackRef = useRef<Record<string, { maxTime: number, intervalId: any }>>({});
+
+    useEffect(() => {
+        return () => {
+            if (videoPlaybackRef.current) {
+                Object.values(videoPlaybackRef.current).forEach((record: any) => {
+                    if (record?.intervalId) {
+                        clearInterval(record.intervalId);
+                    }
+                });
+            }
+        };
+    }, []);
+
     const [videoWarningModal, setVideoWarningModal] = useState(false);
     const [yaRegistradaModal, setYaRegistradaModal] = useState(false);
     const [isPersonaExistente, setIsPersonaExistente] = useState(false);
@@ -532,7 +546,7 @@ export default function EventoPublicoPage() {
         if (sinPreguntas) return isVideoFinished || isFinishedBackend;
 
         // Si tiene preguntas, verificamos si está aprobado o alcanzó el límite
-        const isAprobado = !!p?.aprobado;
+        const isAprobado = !!p?.aprobado || (p?.nota !== null && p?.nota !== undefined && p?.nota >= (c.puntajeMinimo || 75));
         const isPerfect = (p?.nota ?? 0) >= 100 || isAprobado;
         const hasReachedLimit = c.limiteIntentos != null && (p?.numeroIntentos || 0) >= c.limiteIntentos;
 
@@ -1672,24 +1686,81 @@ export default function EventoPublicoPage() {
                                                                             iframeClassName="w-full h-full"
                                                                             opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
                                                                             onStateChange={(event) => {
-                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null };
-                                                                                if (event.data === 1) { timer.lastStart = Date.now(); }
-                                                                                else if (timer.lastStart) {
-                                                                                    timer.totalTime += (Date.now() - timer.lastStart) / 1000;
-                                                                                    timer.lastStart = null;
+                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                const currentRate = event.target.getPlaybackRate() || 1;
+                                                                                if (event.data === 1) {
+                                                                                    timer.lastStart = Date.now();
+                                                                                    timer.lastRate = currentRate;
+
+                                                                                    if (videoPlaybackRef.current[c.id]?.intervalId) {
+                                                                                        clearInterval(videoPlaybackRef.current[c.id].intervalId);
+                                                                                    }
+
+                                                                                    const isAlreadyWatched = !!(prog?.videoCompletado || localVideosVistos[c.id]);
+
+                                                                                    const intervalId = setInterval(() => {
+                                                                                        const player = event.target;
+                                                                                        const currentTime = player.getCurrentTime();
+                                                                                        const playbackRecord = videoPlaybackRef.current[c.id] || { maxTime: 0, intervalId: null };
+
+                                                                                        if (!isAlreadyWatched) {
+                                                                                            if (currentTime > playbackRecord.maxTime + 3) {
+                                                                                                player.seekTo(playbackRecord.maxTime, true);
+                                                                                                toast.warning('No está permitido adelantar el video.');
+                                                                                            } else {
+                                                                                                playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                            }
+                                                                                        } else {
+                                                                                            playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                        }
+
+                                                                                        videoPlaybackRef.current[c.id] = {
+                                                                                            ...playbackRecord,
+                                                                                            intervalId
+                                                                                        };
+                                                                                    }, 500);
+
+                                                                                    videoPlaybackRef.current[c.id] = {
+                                                                                        maxTime: videoPlaybackRef.current[c.id]?.maxTime || 0,
+                                                                                        intervalId
+                                                                                    };
+                                                                                } else {
+                                                                                    if (timer.lastStart) {
+                                                                                        timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                        timer.lastStart = null;
+                                                                                    }
+                                                                                    if (videoPlaybackRef.current[c.id]?.intervalId) {
+                                                                                        clearInterval(videoPlaybackRef.current[c.id].intervalId);
+                                                                                        videoPlaybackRef.current[c.id].intervalId = null;
+                                                                                    }
                                                                                 }
                                                                                 videoTimersRef.current[c.id] = timer;
                                                                             }}
-                                                                            onEnd={async (event) => {
-                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null };
+                                                                            onPlaybackRateChange={(event) => {
+                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                const newRate = event.data;
                                                                                 if (timer.lastStart) {
-                                                                                    timer.totalTime += (Date.now() - timer.lastStart) / 1000;
+                                                                                    timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                    timer.lastStart = Date.now();
+                                                                                }
+                                                                                timer.lastRate = newRate;
+                                                                                videoTimersRef.current[c.id] = timer;
+                                                                            }}
+                                                                            onEnd={async (event) => {
+                                                                                if (videoPlaybackRef.current[c.id]?.intervalId) {
+                                                                                    clearInterval(videoPlaybackRef.current[c.id].intervalId);
+                                                                                    videoPlaybackRef.current[c.id].intervalId = null;
+                                                                                }
+
+                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                if (timer.lastStart) {
+                                                                                    timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
                                                                                     timer.lastStart = null;
                                                                                 }
                                                                                 const duration = event.target.getDuration();
                                                                                 if (timer.totalTime < duration * 0.9) {
                                                                                     setVideoWarningModal(true);
-                                                                                    videoTimersRef.current[c.id] = { totalTime: 0, lastStart: null };
+                                                                                    videoTimersRef.current[c.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
                                                                                     event.target.seekTo(0);
                                                                                     return;
                                                                                 }
@@ -1732,7 +1803,7 @@ export default function EventoPublicoPage() {
                                                                     const nMinPercentage = c.puntajeMinimo || 75;
                                                                     const nMin = c.esEvaluativo ? Math.ceil(tVal * (nMinPercentage / 100)) : 0;
                                                                     const isFinished = isStepFinished(c.id);
-                                                                    const isAprobado = !!prog?.aprobado;
+                                                                    const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
                                                                     const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
                                                                     const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
                                                                     const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
@@ -1741,7 +1812,7 @@ export default function EventoPublicoPage() {
                                                                     // BLOQUE MAESTRO: PASO FINALIZADO (Video o Cuestionario)
                                                                     // ==========================================
                                                                     if (isFinished) {
-                                                                        const isAprobado = !!prog?.aprobado;
+                                                                        const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
                                                                         const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
                                                                         const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
                                                                         const isGraded = c.esEvaluativo !== false && tVal > 0;
@@ -1924,7 +1995,7 @@ export default function EventoPublicoPage() {
                                                                     {/* CARD: PORTAL DE CERTIFICACIÓN */}
                                                                     <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-2 border-primary/20 rounded-[2rem] p-8 text-left relative overflow-hidden group/cert shadow-xl shadow-primary/5 hover:border-primary/30 transition-all duration-300">
                                                                         <div className="absolute -right-8 -top-8 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover/cert:bg-primary/20 transition-all duration-500" />
-                                                                        
+
                                                                         <div className="relative z-10 flex flex-col xl:flex-row gap-6 items-start xl:items-center justify-between">
                                                                             <div className="flex gap-5 items-start">
                                                                                 <div className="w-16 h-16 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center shrink-0">
@@ -2590,8 +2661,95 @@ export default function EventoPublicoPage() {
                                                     videoId={ytId}
                                                     className="absolute inset-0 w-full h-full"
                                                     iframeClassName="w-full h-full"
-                                                    opts={{ height: '100%', width: '100%', playerVars: { rel: 0 } }}
-                                                    onEnd={handleVideoEnd}
+                                                    opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
+                                                    onStateChange={(event) => {
+                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                        const currentRate = event.target.getPlaybackRate() || 1;
+                                                        if (event.data === 1) {
+                                                            timer.lastStart = Date.now();
+                                                            timer.lastRate = currentRate;
+
+                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                            }
+
+                                                            const isAlreadyWatched = !!(progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id]);
+
+                                                            const intervalId = setInterval(() => {
+                                                                const player = event.target;
+                                                                const currentTime = player.getCurrentTime();
+                                                                const playbackRecord = videoPlaybackRef.current[cuestionarioActivo.id] || { maxTime: 0, intervalId: null };
+
+                                                                if (!isAlreadyWatched) {
+                                                                    if (currentTime > playbackRecord.maxTime + 3) {
+                                                                        player.seekTo(playbackRecord.maxTime, true);
+                                                                        toast.warning('No está permitido adelantar el video.');
+                                                                    } else {
+                                                                        playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                    }
+                                                                } else {
+                                                                    playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                }
+
+                                                                videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                    ...playbackRecord,
+                                                                    intervalId
+                                                                };
+                                                            }, 500);
+
+                                                            videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                maxTime: videoPlaybackRef.current[cuestionarioActivo.id]?.maxTime || 0,
+                                                                intervalId
+                                                            };
+                                                        } else {
+                                                            if (timer.lastStart) {
+                                                                timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                timer.lastStart = null;
+                                                            }
+                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                            }
+                                                        }
+                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                    }}
+                                                    onPlaybackRateChange={(event) => {
+                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                        const newRate = event.data;
+                                                        if (timer.lastStart) {
+                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                            timer.lastStart = Date.now();
+                                                        }
+                                                        timer.lastRate = newRate;
+                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                    }}
+                                                    onEnd={async (event) => {
+                                                        if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                            clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                            videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                        }
+
+                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                        if (timer.lastStart) {
+                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                            timer.lastStart = null;
+                                                        }
+                                                        const duration = event.target.getDuration();
+                                                        if (timer.totalTime < duration * 0.9) {
+                                                            setVideoWarningModal(true);
+                                                            videoTimersRef.current[cuestionarioActivo.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                            event.target.seekTo(0);
+                                                            return;
+                                                        }
+
+                                                        setLocalVideosVistos(prev => {
+                                                            const next = { ...prev, [cuestionarioActivo.id]: true };
+                                                            localStorage.setItem('local_videos_vistos', JSON.stringify(next));
+                                                            return next;
+                                                        });
+
+                                                        await handleVideoEnd();
+                                                    }}
                                                 />
                                             </div>
                                             {!videoVisto && (
@@ -2811,47 +2969,54 @@ export default function EventoPublicoPage() {
                                             <div className="text-sm text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: cuestionarioActivo?.descripcion || '' }} />
                                         </div>
 
-                                        {resultado.esEvaluativo !== false && resultado.aprobado ? (
-                                            <button
-                                                onClick={() => setStep('descargo')}
-                                                className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
-                                            >
-                                                <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
-                                            </button>
-                                        ) : resultado.esEvaluativo === false ? (
-                                            // Formulario no evaluativo completado exitosamente
-                                            <button
-                                                onClick={() => setStep('descargo')}
-                                                className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
-                                            >
-                                                <Download className="w-4 h-4" /> Descargar Comprobante de Formulario
-                                            </button>
-                                        ) : (() => {
+                                        {(() => {
                                             const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo?.id);
-                                            const limitValue = progCues?.limiteIntentos ?? cuestionarioActivo?.limiteIntentos;
-                                            const hasReachedLimit = limitValue != null && (progCues?.numeroIntentos || 0) >= limitValue;
+                                            const isAprobado = !!resultado.aprobado || !!progCues?.aprobado || (resultado.nota !== null && resultado.nota !== undefined && resultado.nota >= (cuestionarioActivo?.puntajeMinimo || 75));
 
-                                            if (hasReachedLimit) {
+                                            if (resultado.esEvaluativo !== false && isAprobado) {
                                                 return (
-                                                    <div className="flex flex-col items-center gap-3 p-6 bg-red-500/5 rounded-2xl border-2 border-dashed border-red-500/20">
-                                                        <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                                                            <AlertCircle className="w-6 h-6" />
-                                                        </div>
-                                                        <span className="text-[10px] font-black uppercase text-red-500 tracking-[0.2em] text-center">
-                                                            Intentos Agotados para esta Evaluación
-                                                        </span>
-                                                    </div>
+                                                    <button
+                                                        onClick={() => setStep('descargo')}
+                                                        className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                                                    >
+                                                        <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
+                                                    </button>
                                                 );
-                                            }
+                                            } else if (resultado.esEvaluativo === false) {
+                                                return (
+                                                    <button
+                                                        onClick={() => setStep('descargo')}
+                                                        className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                                                    >
+                                                        <Download className="w-4 h-4" /> Descargar Comprobante de Formulario
+                                                    </button>
+                                                );
+                                            } else {
+                                                const limitValue = progCues?.limiteIntentos ?? cuestionarioActivo?.limiteIntentos;
+                                                const hasReachedLimit = limitValue != null && (progCues?.numeroIntentos || 0) >= limitValue;
 
-                                            return (
-                                                <button
-                                                    onClick={handleReintentar}
-                                                    className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-amber-500/20"
-                                                >
-                                                    <RefreshCw className="w-4 h-4" /> Reintentar Evaluación {limitValue != null && `(${(limitValue ?? 0) - (progCues?.numeroIntentos || 0)} restantes)`}
-                                                </button>
-                                            );
+                                                if (hasReachedLimit) {
+                                                    return (
+                                                        <div className="flex flex-col items-center gap-3 p-6 bg-red-500/5 rounded-2xl border-2 border-dashed border-red-500/20">
+                                                            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                                                                <AlertCircle className="w-6 h-6" />
+                                                            </div>
+                                                            <span className="text-[10px] font-black uppercase text-red-500 tracking-[0.2em] text-center">
+                                                                Intentos Agotados para esta Evaluación
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <button
+                                                        onClick={handleReintentar}
+                                                        className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-amber-500/20"
+                                                    >
+                                                        <RefreshCw className="w-4 h-4" /> Reintentar Evaluación {limitValue != null && `(${(limitValue ?? 0) - (progCues?.numeroIntentos || 0)} restantes)`}
+                                                    </button>
+                                                );
+                                            };
                                         })()}
                                     </>
                                 )}
