@@ -354,10 +354,10 @@ export default function DashboardPage() {
                         permission={{ action: 'read', subject: 'User' }}
                     />
                     <QuickCard
-                        href="/dashboard/roles"
+                        href="/dashboard/seguridad"
                         icon={ShieldCheck}
-                        label="Roles"
-                        sub="Matriz de privilegios"
+                        label="Seguridad"
+                        sub="Gestión de accesos"
                         colorClass="bg-card hover:bg-foreground border-border/50 text-foreground hover:text-background"
                         permission={{ action: 'read', subject: 'Role' }}
                     />

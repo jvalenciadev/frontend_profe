@@ -17,21 +17,13 @@ export default function AccesosDashboard() {
             border: 'hover:border-blue-200'
         },
         {
-            title: 'Roles del Sistema',
-            description: 'Definición de perfiles de acceso (Admin, Consultor, etc.) y jerarquías.',
-            icon: Shield,
-            href: '/dashboard/roles',
-            color: 'bg-purple-500/10 text-purple-600',
-            border: 'hover:border-purple-200'
+            title: 'Roles & Permisos',
+            description: 'Gestión unificada de roles, capacidades atómicas y matriz de acceso CASL.',
+            icon: ShieldCheck,
+            href: '/dashboard/seguridad',
+            color: 'bg-primary/10 text-primary',
+            border: 'hover:border-primary/30'
         },
-        {
-            title: 'Permisos Atómicos',
-            description: 'Control granular sobre acciones (CRUD) y módulos específicos del sistema.',
-            icon: Key,
-            href: '/dashboard/permisos',
-            color: 'bg-amber-500/10 text-amber-600',
-            border: 'hover:border-amber-200'
-        }
     ];
 
     return (

@@ -11,7 +11,7 @@ import {
     ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw,
     PartyPopper, Zap, ShieldCheck,
     Edit2, LogOut, ExternalLink, Award, Download,
-    Globe
+    Globe, LayoutGrid
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
@@ -499,9 +499,21 @@ export default function EventoPublicoPage() {
     const [progreso, setProgreso] = useState<any[]>([]);
     const [resultado, setResultado] = useState<any>(null);
     const [cuestionarioActivo, setCuestionarioActivo] = useState<Cuestionario | null>(null);
+    const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo?.id);
+    const isAprobado = resultado
+        ? (resultado.aprobado !== undefined
+            ? !!resultado.aprobado
+            : (resultado.nota !== null && resultado.nota !== undefined
+                ? resultado.nota >= (cuestionarioActivo?.puntajeMinimo || 75)
+                : !!progCues?.aprobado))
+        : false;
     const [submitting, setSubmitting] = useState(false);
     const [respuestas, setRespuestas] = useState<Record<string, any>>({});
     const [preguntaIdx, setPreguntaIdx] = useState(0);
+    const [mostrarMapaPreguntas, setMostrarMapaPreguntas] = useState(false);
+    const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
+    const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+    const [mobileTab, setMobileTab] = useState<'modules' | 'content'>('content');
     const [timerExpired, setTimerExpired] = useState(false);
     const [startTime, setStartTime] = useState<number | null>(null);
     const [offlineQueue, setOfflineQueue] = useState<any>(null); // guardado offline
@@ -509,6 +521,8 @@ export default function EventoPublicoPage() {
     const [allModalidades, setAllModalidades] = useState<any[]>([]);
     const videoTimersRef = useRef<Record<string, { totalTime: number, lastStart: number | null, lastRate?: number }>>({});
     const videoPlaybackRef = useRef<Record<string, { maxTime: number, intervalId: any }>>({});
+    const moduleListRef = useRef<HTMLDivElement | null>(null);
+    const moduleItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
     useEffect(() => {
         return () => {
@@ -521,6 +535,54 @@ export default function EventoPublicoPage() {
             }
         };
     }, []);
+
+    // ─── AUTO-SCROLL AL MÓDULO ACTIVO EN LA LISTA ────────────────────────────
+    useEffect(() => {
+        if (!selectedModuleId) return;
+
+        let attempts = 0;
+        const scroll = () => {
+            const el = moduleItemRefs.current[selectedModuleId];
+            const container = moduleListRef.current;
+            if (el && container) {
+                const containerRect = container.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+                const containerHeight = container.clientHeight;
+
+                // If the container or element is hidden or has no size yet, retry later
+                if (containerRect.height === 0 || elRect.height === 0) {
+                    if (attempts < 8) {
+                        attempts++;
+                        setTimeout(scroll, 150);
+                    }
+                    return;
+                }
+
+                const relativeTop = elRect.top - containerRect.top;
+                const scrollTarget = container.scrollTop + relativeTop - (containerHeight / 2) + (elRect.height / 2);
+
+                container.scrollTo({
+                    top: Math.max(0, scrollTarget),
+                    behavior: 'smooth'
+                });
+            }
+        };
+
+        // Run immediately and schedule multiple intervals to handle page rendering and dynamic content loading shifts
+        scroll();
+        const t1 = setTimeout(scroll, 100);
+        const t2 = setTimeout(scroll, 300);
+        const t3 = setTimeout(scroll, 600);
+        const t4 = setTimeout(scroll, 1000);
+
+        return () => {
+            clearTimeout(t1);
+            clearTimeout(t2);
+            clearTimeout(t3);
+            clearTimeout(t4);
+        };
+    }, [selectedModuleId, mobileTab]);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [videoWarningModal, setVideoWarningModal] = useState(false);
     const [yaRegistradaModal, setYaRegistradaModal] = useState(false);
@@ -557,18 +619,33 @@ export default function EventoPublicoPage() {
         const prog = customProgress || progreso;
         if (!evento?.cuestionarios) return true;
 
-        const index = evento.cuestionarios.findIndex((c: any) => c.id === cuestionarioId);
+        const sorted = [...evento.cuestionarios]
+            .filter((c: any) => c.estado !== 'eliminado')
+            .sort((a: any, b: any) => a.orden - b.orden);
+
+        const index = sorted.findIndex((c: any) => c.id === cuestionarioId);
         if (index === -1 || index === 0) return true;
 
-        // Verificar anteriores obligatorios
+        // Verificar anteriores obligatorios usando el progreso proporcionado
         for (let i = 0; i < index; i++) {
-            const prev = evento.cuestionarios[i];
-            if (prev.esObligatorio) {
-                if (!isStepFinished(prev.id)) return false;
+            const prev = sorted[i];
+            if (!prev.esObligatorio) continue;
+
+            const p = prog?.find((x: any) => x.id === prev.id);
+            const sinPreguntas = !prev.preguntas || prev.preguntas.length === 0;
+
+            let prevDone = false;
+            if (sinPreguntas) {
+                prevDone = !!(p?.videoCompletado || p?.finalizado || localVideosVistos[prev.id]);
+            } else {
+                const isAprobado = !!p?.aprobado || (p?.nota !== null && p?.nota !== undefined && p?.nota >= (prev.puntajeMinimo || 75));
+                prevDone = !!(p?.finalizado && (isAprobado || !prev.esEvaluativo));
             }
+
+            if (!prevDone) return false;
         }
         return true;
-    }, [evento, isStepFinished]);
+    }, [evento, progreso, localVideosVistos]);
 
     const generos = [
         { id: '1', nombre: 'MASCULINO' },
@@ -659,6 +736,8 @@ export default function EventoPublicoPage() {
                     setCuestionarioActivo(session.cuestionarioActivo);
                     setRespuestas(session.respuestas || {});
                     setPreguntaIdx(session.preguntaIdx || 0);
+                    if (session.selectedModuleId) setSelectedModuleId(session.selectedModuleId);
+                    else if (session.cuestionarioActivo?.id) setSelectedModuleId(session.cuestionarioActivo.id);
                     setStartTime(session.startTime);
                     setInscripcion(session.inscripcion || null);
 
@@ -712,12 +791,89 @@ export default function EventoPublicoPage() {
         if (evento && (step !== 'info' || Object.keys(localVideosVistos).length > 0)) {
             const session = {
                 persona, form, step, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso,
-                inscripcion, resultado, localVideosVistos, isPersonaExistente
+                inscripcion, resultado, localVideosVistos, isPersonaExistente, selectedModuleId
             };
             localStorage.setItem(`cuestionario_session_${evento.id}`, JSON.stringify(session));
             setLastSavedStatus('saved');
         }
-    }, [evento, step, persona, form, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso, inscripcion, resultado, localVideosVistos]);
+    }, [evento, step, persona, form, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso, inscripcion, resultado, localVideosVistos, selectedModuleId]);
+
+    // Inicializar selectedModuleId con el primer módulo incompleto
+    useEffect(() => {
+        if (evento?.cuestionarios && !selectedModuleId) {
+            const sorted = [...evento.cuestionarios]
+                .filter(c => c.estado !== 'eliminado')
+                .sort((a, b) => a.orden - b.orden);
+            const firstIncomplete = sorted.find(c => !isStepFinished(c.id)) || sorted[0];
+            if (firstIncomplete) {
+                setSelectedModuleId(firstIncomplete.id);
+            }
+        }
+    }, [evento, progreso, isStepFinished, selectedModuleId]);
+
+    // Cargar / preparar automáticamente el módulo seleccionado si está disponible e incompleto
+    useEffect(() => {
+        if (selectedModuleId && evento?.cuestionarios) {
+            const c = evento.cuestionarios.find((x: any) => x.id === selectedModuleId);
+            if (c && !isStepFinished(c.id) && checkCanStartCuestionario(c.id)) {
+                if (cuestionarioActivo?.id !== c.id) {
+                    let pregs = [...c.preguntas];
+                    if (c.esAleatorio) {
+                        pregs = shuffleArray(pregs).map(p => ({
+                            ...p,
+                            opciones: shuffleArray(p.opciones)
+                        }));
+                    }
+                    if (c.cantidadPreguntas && c.cantidadPreguntas > 0) {
+                        pregs = pregs.slice(0, c.cantidadPreguntas);
+                    }
+
+                    const savedRaw = localStorage.getItem(`cuestionario_session_${evento.id}`);
+                    let restoredRespuestas = {};
+                    let restoredPregIdx = -1;
+                    let restoredStartTime = null;
+
+                    if (savedRaw) {
+                        try {
+                            const session = JSON.parse(savedRaw);
+                            if (session.cuestionarioActivo?.id === c.id) {
+                                restoredRespuestas = session.respuestas || {};
+                                restoredPregIdx = session.preguntaIdx;
+                                restoredStartTime = session.startTime;
+                            }
+                        } catch { }
+                    }
+
+                    setCuestionarioActivo({ ...c, preguntas: pregs });
+                    setRespuestas(restoredRespuestas);
+
+                    let hasVideo = false;
+                    let alreadyWatched = false;
+
+                    if (restoredPregIdx !== -1) {
+                        setPreguntaIdx(restoredPregIdx);
+                        hasVideo = !!c.urlVideo;
+                        const progC = progreso?.find((p: any) => p.id === c.id);
+                        alreadyWatched = progC?.videoCompletado || localVideosVistos[c.id];
+                    } else {
+                        hasVideo = !!c.urlVideo;
+                        const hasPreguntas = pregs.length > 0;
+                        const progC = progreso?.find((p: any) => p.id === c.id);
+                        alreadyWatched = progC?.videoCompletado || localVideosVistos[c.id];
+
+                        if (hasVideo && alreadyWatched && hasPreguntas) {
+                            setPreguntaIdx(1);
+                        } else {
+                            setPreguntaIdx(0);
+                        }
+                    }
+                    setTimerExpired(false);
+                    setStartTime(restoredStartTime || null);
+                    setResultado(null);
+                }
+            }
+        }
+    }, [selectedModuleId, evento, progreso, isStepFinished, checkCanStartCuestionario]);
 
     // Auto-envío cuando el timer expira
     useEffect(() => {
@@ -759,14 +915,17 @@ export default function EventoPublicoPage() {
                 setInscripcion(check.inscripcion);
 
                 // Cargar progreso real del backend
+                // ── OBTENER PROGRESO FRESCO (una sola llamada) ────────────────────
+                let progActualizado: any[] = [];
                 try {
                     const prog = await eventoPublicoService.getProgreso(evento!.id, ciLimpio, form.fechaNacimiento);
-                    setProgreso(prog.progress);
+                    progActualizado = prog.progress;
+                    setProgreso(progActualizado);
 
                     // SINCRONIZAR VIDEOS VISTOS LOCALMENTE
                     const videosLocales = Object.keys(localVideosVistos);
                     for (const cueId of videosLocales) {
-                        const yaEnBackend = prog.progress.find((p: any) => p.id === cueId)?.videoCompletado;
+                        const yaEnBackend = progActualizado.find((p: any) => p.id === cueId)?.videoCompletado;
                         if (!yaEnBackend) {
                             await eventoPublicoService.marcarVideoVisto(evento!.id, cueId, ciLimpio, form.fechaNacimiento).catch(() => { });
                         }
@@ -775,21 +934,78 @@ export default function EventoPublicoPage() {
                     console.error("Error cargando progreso:", e);
                 }
 
+                // ── LÓGICA SENIOR DE REANUDACIÓN ─────────────────────────────────
+
+                // 1) Si hay cuestionarioActivo (usuario entró desde un módulo específico), validar y retomar
                 if (cuestionarioActivo) {
-                    // Validar si puede hacer el cuestionario seleccionado
-                    const progCheck = await eventoPublicoService.getProgreso(evento!.id, ciLimpio, form.fechaNacimiento);
-                    const canDo = checkCanStartCuestionario(cuestionarioActivo.id, progCheck.progress);
+                    const canDo = checkCanStartCuestionario(cuestionarioActivo.id, progActualizado);
                     if (canDo) {
-                        handleEmpezarCuestionario(cuestionarioActivo);
-                        toast.success('Identidad verificada. Preparando cuestionario...');
+                        handleEmpezarCuestionario(cuestionarioActivo, progActualizado);
+                        toast.success('Identidad verificada. Reanudando cuestionario...');
                     } else {
                         toast.error('Debes completar los cuestionarios anteriores primero.');
                         setStep('info');
                     }
                 } else {
-                    setStep('info');
-                    toast.success('Bienvenido de nuevo. Aquí puedes ver tu progreso.');
+                    // 2) Sin cuestionarioActivo: buscar dónde se quedó el usuario
+                    //    Primero revisar si localStorage tiene un cuestionario activo guardado
+                    const savedRaw = localStorage.getItem(`cuestionario_session_${evento!.id}`);
+                    let savedCuestionarioId: string | null = null;
+                    if (savedRaw) {
+                        try {
+                            const session = JSON.parse(savedRaw);
+                            // Solo reanudar si era la misma persona
+                            if (session.cuestionarioActivo?.id && session.persona?.ci === ciLimpio) {
+                                savedCuestionarioId = session.cuestionarioActivo.id;
+                            }
+                        } catch { }
+                    }
+
+                    // Buscar el cuestionario candidato
+                    const sorted = [...(evento!.cuestionarios || [])]
+                        .filter((c: any) => c.estado !== 'eliminado')
+                        .sort((a: any, b: any) => a.orden - b.orden);
+
+                    let candidato: any = null;
+
+                    // Helper: determinar si un cuestionario tiene el límite de intentos agotado
+                    const limiteAgotadoPara = (c: any) => {
+                        const progC = progActualizado.find((p: any) => p.id === c.id);
+                        const lim = progC?.limiteIntentos ?? c.limiteIntentos;
+                        return lim != null && (progC?.numeroIntentos || 0) >= lim;
+                    };
+
+                    // Prioridad 1: el cuestionario que tenía activo localmente (si límite no agotado)
+                    if (savedCuestionarioId) {
+                        const saved = sorted.find((c: any) => c.id === savedCuestionarioId);
+                        if (saved && checkCanStartCuestionario(saved.id, progActualizado) && !limiteAgotadoPara(saved)) {
+                            const progSaved = progActualizado.find((p: any) => p.id === saved.id);
+                            if (!progSaved?.finalizado) {
+                                candidato = saved;
+                            }
+                        }
+                    }
+
+                    // Prioridad 2: primer cuestionario incompleto que puede hacer (y no tiene límite agotado)
+                    if (!candidato) {
+                        candidato = sorted.find((c: any) => {
+                            const progC = progActualizado.find((p: any) => p.id === c.id);
+                            const completado = !!progC?.finalizado && (!!progC?.aprobado || !c.esEvaluativo);
+                            return !completado && !limiteAgotadoPara(c) && checkCanStartCuestionario(c.id, progActualizado);
+                        });
+                    }
+
+                    if (candidato) {
+                        setSelectedModuleId(candidato.id);
+                        handleEmpezarCuestionario(candidato, progActualizado);
+                        toast.success('Identidad verificada. Retomando desde donde lo dejaste...');
+                    } else {
+                        // Todo completado o no hay módulos disponibles → ir a info
+                        setStep('info');
+                        toast.success('¡Bienvenido de nuevo! Aquí puedes ver tu progreso.');
+                    }
                 }
+                // ───────────────────────────────────────────────────────────────────
                 return;
             }
 
@@ -996,7 +1212,7 @@ export default function EventoPublicoPage() {
                 data: payload
             }));
             setOfflineQueue(payload);
-            setStep('resultado');
+            setStep('info'); // Mantener en portal unificado
             setResultado({
                 offline: true,
                 mensaje: 'Sin conexión. Tus respuestas se han guardado localmente y se enviarán automáticamente cuando recuperes la señal.'
@@ -1014,7 +1230,7 @@ export default function EventoPublicoPage() {
             try {
                 const result = await eventoPublicoService.responderCuestionario(evt.id, cuestionarioActivo.id, payload);
                 setResultado(result);
-                setStep('resultado');
+                setStep('info'); // Mantener en portal unificado
                 setLastSavedStatus('saved');
 
                 // Actualizar progreso localmente
@@ -1058,7 +1274,7 @@ export default function EventoPublicoPage() {
         setSubmitting(false);
     }, [evento, cuestionarioActivo, persona, respuestas, form, online]);
 
-    const handleEmpezarCuestionario = useCallback((cues: any) => {
+    const handleEmpezarCuestionario = useCallback((cues: any, freshProgress?: any[]) => {
         if (!cues) return;
 
         // PREPARAR PREGUNTAS (Aleatorio y Límite)
@@ -1073,14 +1289,53 @@ export default function EventoPublicoPage() {
             pregs = pregs.slice(0, cues.cantidadPreguntas);
         }
 
+        // Revisar si hay una sesión guardada localmente para este mismo cuestionario
+        const savedRaw = localStorage.getItem(`cuestionario_session_${evento!.id}`);
+        let restoredRespuestas = {};
+        let restoredPregIdx = -1;
+        let restoredStartTime = null;
+
+        if (savedRaw) {
+            try {
+                const session = JSON.parse(savedRaw);
+                if (session.cuestionarioActivo?.id === cues.id) {
+                    restoredRespuestas = session.respuestas || {};
+                    restoredPregIdx = session.preguntaIdx;
+                    restoredStartTime = session.startTime;
+                    console.log("[Senior Resume] Sesión reanudada para cuestionario:", cues.id);
+                }
+            } catch (e) {
+                console.error("Error al restaurar sesión guardada:", e);
+            }
+        }
+
         setCuestionarioActivo({ ...cues, preguntas: pregs });
-        setRespuestas({});
-        setPreguntaIdx(0);
+        setRespuestas(restoredRespuestas);
+
+        if (restoredPregIdx !== -1) {
+            setPreguntaIdx(restoredPregIdx);
+        } else {
+            // Determinar índice inicial estilo presentación
+            const hasVideo = !!cues.urlVideo;
+            const hasPreguntas = pregs.length > 0;
+            // Usar freshProgress si está disponible para evitar closure stale
+            const progToCheck = freshProgress || progreso;
+            const progC = progToCheck?.find((p: any) => p.id === cues.id);
+            const alreadyWatched = progC?.videoCompletado || localVideosVistos[cues.id];
+
+            if (hasVideo && alreadyWatched && hasPreguntas) {
+                setPreguntaIdx(1); // Empezar en Pregunta 1
+            } else {
+                setPreguntaIdx(0); // Empezar en Video o Pregunta 1
+            }
+        }
+
         setTimerExpired(false);
-        setStartTime(Date.now());
-        setStep('cuestionario');
+        setStartTime(restoredStartTime || null);
+        setSelectedModuleId(cues.id);
+        setStep('info');
         setResultado(null);
-    }, [evento]);
+    }, [evento, progreso, localVideosVistos, setSelectedModuleId]);
 
     const handleCompletarSinPreguntas = async (c: any) => {
         if (!form.ci || !form.fechaNacimiento) {
@@ -1191,88 +1446,94 @@ export default function EventoPublicoPage() {
                     )}
                 </AnimatePresence>
 
-                {/* ─── DESKTOP BANNER (Hidden on Mobile) ─── */}
-                <div className="hidden md:block relative h-[35rem] overflow-hidden bg-slate-950 mt-32 rounded-3xl mx-8 mb-8 shadow-2xl">
-                    {evento.banner ? (
-                        <>
-                            <div className="absolute inset-0 scale-110 blur-3xl opacity-40">
-                                <img src={getImageUrl(evento.banner)} alt="" className="w-full h-full object-cover" />
-                            </div>
-                            <img src={getImageUrl(evento.banner)} alt={evento.nombre} className="relative w-full h-full object-contain" />
-                        </>
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary via-primary/80 to-indigo-600" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+                {/* ─── DESKTOP BANNER (Hidden on Mobile / Logged-in) ─── */}
+                {!persona && (
+                    <div className="hidden md:block relative h-[35rem] overflow-hidden bg-slate-950 mt-32 rounded-3xl mx-8 mb-8 shadow-2xl">
+                        {evento.banner ? (
+                            <>
+                                <div className="absolute inset-0 scale-110 blur-3xl opacity-40">
+                                    <img src={getImageUrl(evento.banner)} alt="" className="w-full h-full object-cover" />
+                                </div>
+                                <img src={getImageUrl(evento.banner)} alt={evento.nombre} className="relative w-full h-full object-contain" />
+                            </>
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary via-primary/80 to-indigo-600" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
-                    <button onClick={() => router.back()} className="absolute top-8 left-8 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/80 hover:scale-105 transition-all shadow-2xl">
-                        <ChevronLeft className="w-6 h-6" />
-                    </button>
+                        <button onClick={() => router.back()} className="absolute top-8 left-8 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/80 hover:scale-105 transition-all shadow-2xl">
+                            <ChevronLeft className="w-6 h-6" />
+                        </button>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
-                        <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
-                            {evento.tipo?.nombre || 'Evento'}
-                        </span>
-                        <h1 className="text-5xl lg:text-6xl font-black tracking-tighter text-white mt-4 uppercase leading-[0.9] drop-shadow-2xl">
-                            {evento.nombre}
-                        </h1>
-                    </div>
-                </div>
-
-                {/* ─── MOBILE HEADER (Clean & Professional) ─── */}
-                <div className="md:hidden pt-32 pb-8 px-6 bg-slate-50 dark:bg-slate-900 border-b border-border">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                        <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
+                            <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
                                 {evento.tipo?.nombre || 'Evento'}
                             </span>
-                            <button onClick={() => router.back()} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-foreground active:scale-95 transition-all">
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
+                            <h1 className="text-5xl lg:text-6xl font-black tracking-tighter text-white mt-4 uppercase leading-[0.9] drop-shadow-2xl">
+                                {evento.nombre}
+                            </h1>
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase leading-[1.1]">
-                            {evento.nombre}
-                        </h1>
                     </div>
-                </div>
+                )}
 
-                <div className="max-w-4xl mx-auto px-4 py-12 space-y-12">
+                {/* ─── MOBILE HEADER (Clean & Professional / Logged-in) ─── */}
+                {!persona && (
+                    <div className="md:hidden pt-32 pb-8 px-6 bg-slate-50 dark:bg-slate-900 border-b border-border">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                                    {evento.tipo?.nombre || 'Evento'}
+                                </span>
+                                <button onClick={() => router.back()} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-foreground active:scale-95 transition-all">
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase leading-[1.1]">
+                                {evento.nombre}
+                            </h1>
+                        </div>
+                    </div>
+                )}
+
+                <div className={cn("mx-auto px-4 py-12 space-y-12 transition-all duration-500", persona ? "max-w-[1440px] w-full pt-28 md:pt-36" : "max-w-4xl")}>
                     {/* Info badges */}
-                    <div className="flex flex-wrap gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
-                        <div className="flex items-center gap-3 text-sm text-foreground">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Fecha</p>
-                                <span className="font-bold capitalize">{fechaEvento}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-foreground">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <MapPin className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Lugar</p>
-                                <span className="font-bold">{evento.lugar}</span>
-                            </div>
-                        </div>
-                        {evento.modalidadIds && (
+                    {!persona && (
+                        <div className="flex flex-wrap gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
                             <div className="flex items-center gap-3 text-sm text-foreground">
                                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <Users className="w-5 h-5 text-primary" />
+                                    <Calendar className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Modalidad</p>
-                                    <span className="font-bold">
-                                        {(evento.modalidadIds || '').split(',').map(id => {
-                                            return allModalidades.find(m => m.id === id.trim())?.nombre;
-                                        }).filter(Boolean).join(', ') || evento.modalidadIds}
-                                    </span>
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Fecha</p>
+                                    <span className="font-bold capitalize">{fechaEvento}</span>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                            <div className="flex items-center gap-3 text-sm text-foreground">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <MapPin className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Lugar</p>
+                                    <span className="font-bold">{evento.lugar}</span>
+                                </div>
+                            </div>
+                            {evento.modalidadIds && (
+                                <div className="flex items-center gap-3 text-sm text-foreground">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-none">Modalidad</p>
+                                        <span className="font-bold">
+                                            {(evento.modalidadIds || '').split(',').map(id => {
+                                                return allModalidades.find(m => m.id === id.trim())?.nombre;
+                                            }).filter(Boolean).join(', ') || evento.modalidadIds}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Content switcher */}
                     <AnimatePresence mode="wait">
@@ -1280,10 +1541,12 @@ export default function EventoPublicoPage() {
                         {/* ── STEP INFO ── */}
                         {step === 'info' && (
                             <motion.div key="info" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
-                                <div className="bg-card border border-border rounded-3xl p-8">
-                                    <h2 className="text-lg font-black uppercase text-foreground mb-3">Descripción</h2>
-                                    <div className="text-muted-foreground leading-relaxed italic prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: evento.descripcion }} />
-                                </div>
+                                {!persona && (
+                                    <div className="bg-card border border-border rounded-3xl p-8">
+                                        <h2 className="text-lg font-black uppercase text-foreground mb-3">Descripción</h2>
+                                        <div className="text-muted-foreground leading-relaxed italic prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: evento.descripcion }} />
+                                    </div>
+                                )}
 
 
 
@@ -1451,7 +1714,7 @@ export default function EventoPublicoPage() {
                                 )}
 
                                 {/* Transmisión en Vivo o Video del Evento */}
-                                {evento.urlVideo && (() => {
+                                {!persona && evento.urlVideo && (() => {
                                     const ytId = extractYouTubeId(evento.urlVideo);
                                     return (
                                         <div className="bg-card border-2 border-primary/30 rounded-3xl overflow-hidden">
@@ -1478,581 +1741,1351 @@ export default function EventoPublicoPage() {
 
 
                                 {persona && (evento.cuestionarios?.length || 0) > 0 && (
-                                    <div className="space-y-8 pt-4">
-                                        <div className="flex items-center justify-between border-b border-border pb-6">
+                                    <div className="space-y-6 pt-4">
+                                        <div className="flex items-center justify-between border-b border-border pb-6 flex-wrap gap-4">
                                             <h2 className="text-xl font-black uppercase text-foreground flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
                                                     <FileText className="w-5 h-5 text-primary" />
                                                 </div>
-                                                Tus Evaluaciones
+                                                Portal de Evaluaciones
                                             </h2>
-                                            {progreso.length > 0 && (
-                                                <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
-                                                    {(() => {
-                                                        const ultimaFechaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
-                                                            const end = new Date(c.fechaFin);
-                                                            return end > max ? end : max;
-                                                        }, new Date(0));
-                                                        const generalTimeLeft = formatTimeRemaining(ultimaFechaFin);
-
-                                                        if (!generalTimeLeft || isNaN(ultimaFechaFin.getTime())) return null;
-
-                                                        return (
-                                                            <div className={cn(
-                                                                "flex items-center gap-3 px-6 py-3 rounded-2xl border-2 shadow-lg transition-all",
-                                                                generalTimeLeft.priority === 'high' ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" :
-                                                                    generalTimeLeft.priority === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-500" :
-                                                                        "bg-primary/10 border-primary/30 text-primary"
-                                                            )}>
-                                                                <Clock className={cn("w-5 h-5", generalTimeLeft.priority === 'high' ? "animate-spin-slow" : "")} />
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">Cierre General del Evento:</span>
-                                                                    <span className="text-sm font-black uppercase tracking-tight leading-none">
-                                                                        {generalTimeLeft.full}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })()}
-
-                                                    <div className="flex items-center gap-3 bg-primary/5 px-6 py-3 rounded-2xl border border-primary/20">
-                                                        <Trophy className="w-5 h-5 text-amber-500" />
-                                                        <div>
-                                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Progreso Total</p>
-                                                            <p className="text-[11px] font-black uppercase tracking-widest text-primary">
-                                                                {evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length} de {evento.cuestionarios.length} Pasos
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-6 relative">
-                                            {/* Timeline line */}
-                                            <div className="absolute left-[2.25rem] top-0 bottom-0 w-1 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent hidden md:block" />
-
-                                            {visibleCuestionarios.map((c: any, idx: number) => {
-                                                const originalIdx = sortedCuestionarios.findIndex((sc: any) => sc.id === c.id);
-                                                const now = getSyncNow();
-                                                const start = new Date(c.fechaInicio);
-                                                const end = new Date(c.fechaFin);
-                                                const timeLeft = formatTimeRemaining(end);
-                                                const prog = progreso.find((p: any) => p.id === c.id);
-                                                const hasProgress = !!(prog?.videoCompletado || localVideosVistos[c.id] || (prog?.numeroIntentos ?? 0) > 0);
-
-                                                const isActive = c.estado === 'activo';
-                                                const isProloga = c.estado === 'prologa';
-
-                                                // LOGICA SENIOR RADICAL: Si el estado es activo, el paso está disponible.
-                                                // Las fechas son solo informativas para el usuario.
-                                                const isUpcoming = isProloga || (start > now && !hasProgress);
-                                                const canStart = isActive && checkCanStartCuestionario(c.id);
-
-                                                const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
-                                                const totalPuntos = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
-                                                const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? totalPuntos) || 0);
-                                                const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
-                                                const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
-
-                                                return (
-                                                    <motion.div
-                                                        key={c.id}
-                                                        initial={{ opacity: 0, x: -20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: idx * 0.1 }}
-                                                        className="relative pl-0 md:pl-16"
-                                                    >
-                                                        {/* Step indicator */}
-                                                        <div className={cn(
-                                                            "absolute left-6 top-8 w-6 h-6 rounded-full border-4 border-background hidden md:flex items-center justify-center z-10",
-                                                            isStepFinished(c.id) ? "bg-green-500" : isActive && canStart ? "bg-primary animate-pulse" : "bg-muted"
-                                                        )}>
-                                                            {isStepFinished(c.id) && <Check className="w-3 h-3 text-white" />}
-                                                        </div>
-
-                                                        <div className={cn(
-                                                            "p-8 rounded-[2.5rem] border-2 transition-all flex flex-col gap-8 group",
-                                                            isProloga ? "bg-muted/5 border-dashed border-border/60 opacity-70 grayscale-[0.3]" :
-                                                                isActive && canStart ? "bg-card border-primary/20 shadow-2xl shadow-primary/5 hover:border-primary/40" :
-                                                                    "bg-muted/10 border-border/50 opacity-80 shadow-none"
-                                                        )}>
-                                                            <div className="space-y-4">
-                                                                <div className="flex items-center flex-wrap gap-3">
-                                                                    <span className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Paso {originalIdx + 1}</span>
-                                                                    <h3 className="font-black uppercase text-foreground tracking-tight text-xl">{c.titulo}</h3>
-
-                                                                    {prog?.finalizado ? (() => {
-                                                                        const pVal = Number(prog.puntaje ?? prog.puntos ?? prog.score ?? 0);
-                                                                        const tVal = Number((prog.puntajeMaximo ?? prog.puntosMaximo ?? c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0)) || 0);
-                                                                        return (
-                                                                            <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 flex items-center gap-2">
-                                                                                {c.esEvaluativo ? `Puntaje: ${Math.min(pVal, tVal > 0 ? tVal : pVal)}/${tVal}` : "Completado ✓"}
-                                                                            </div>
-                                                                        );
-                                                                    })() : isProloga ? (
-                                                                        <span className="px-4 py-1.5 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest border border-border flex items-center gap-2">
-                                                                            <Clock className="w-3 h-3" /> Próximamente
-                                                                        </span>
-                                                                    ) : isActive && canStart ? (
-                                                                        <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 animate-pulse">Disponible</span>
-                                                                    ) : c.esObligatorio && (
-                                                                        <span className="px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-2">
-                                                                            <Lock className="w-3 h-3" /> Obligatorio
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: c.descripcion }} />
-
-                                                                {/* Metadata row */}
-                                                                <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-muted-foreground tracking-widest uppercase">
-                                                                    <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-xl border border-border/50">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Calendar className="w-3.5 h-3.5 text-primary/60" />
-                                                                            {start.toLocaleString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                                        </div>
-                                                                        <ArrowRight className="w-3 h-3 opacity-30" />
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Clock className="w-3.5 h-3.5 text-primary/60" />
-                                                                            {end.toLocaleString('es-BO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                                        </div>
-                                                                    </div>
-                                                                    {isActive && !isStepFinished(c.id) && (
-                                                                        <div className={cn(
-                                                                            "flex items-center gap-2 px-4 py-2 rounded-2xl border-2 transition-all",
-                                                                            timeLeft?.priority === 'high' ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" :
-                                                                                timeLeft?.priority === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-500" :
-                                                                                    "bg-primary/10 border-primary/30 text-primary"
-                                                                        )}>
-                                                                            <Clock className={cn("w-4 h-4", timeLeft?.priority === 'high' ? "animate-spin-slow" : "")} />
-                                                                            <div className="flex flex-col">
-                                                                                <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">Disponible hasta:</span>
-                                                                                <span className="text-xs font-black uppercase tracking-tight leading-none">
-                                                                                    {timeLeft ? timeLeft.full : (isNaN(end.getTime()) ? 'Próximamente' : end.toLocaleDateString('es-BO', { day: 'numeric', month: 'long' }))}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    {prog?.limiteIntentos != null && (
-                                                                        <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border",
-                                                                            (prog?.numeroIntentos || 0) >= prog.limiteIntentos
-                                                                                ? "bg-red-500/10 border-red-500/20 text-red-500"
-                                                                                : "bg-muted/30 border-border/50")}>
-                                                                            <RotateCcw className="w-3 h-3" />
-                                                                            {prog?.numeroIntentos || 0}/{prog.limiteIntentos} intentos
-                                                                        </div>
-                                                                    )}
-                                                                    {!prog?.limiteIntentos && (prog?.numeroIntentos || 0) > 0 && (
-                                                                        <div className="flex items-center gap-1.5 bg-muted/30 px-3 py-1.5 rounded-xl border border-border/50">
-                                                                            <RotateCcw className="w-3 h-3" />
-                                                                            {prog?.numeroIntentos || 0} intento{(prog?.numeroIntentos || 0) !== 1 ? 's' : ''}
-                                                                        </div>
-                                                                    )}
-                                                                    {c.urlVideo && (
-                                                                        <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border",
-                                                                            (prog?.videoCompletado || localVideosVistos[c.id])
-                                                                                ? "bg-green-500/10 border-green-500/20 text-green-500"
-                                                                                : "bg-red-500/10 border-red-500/20 text-red-400")}>
-                                                                            <Video className="w-3 h-3" />
-                                                                            {(prog?.videoCompletado || localVideosVistos[c.id]) ? 'Video Visto ✓' : 'Ver Video Primero'}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Video del Cuestionario Embed */}
-                                                            {c.urlVideo && (
-                                                                <div className={cn(
-                                                                    "w-full rounded-2xl overflow-hidden border-2 mb-2 transition-all shadow-lg",
-                                                                    (prog?.videoCompletado || localVideosVistos[c.id]) ? "border-green-500/30" : "border-primary/20"
-                                                                )}>
-                                                                    <div className={cn(
-                                                                        "px-4 py-2 flex items-center justify-between gap-3",
-                                                                        (prog?.videoCompletado || localVideosVistos[c.id]) ? "bg-green-500/10" : "bg-primary/5"
-                                                                    )}>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Video className={cn("w-4 h-4", (prog?.videoCompletado || localVideosVistos[c.id]) ? "text-green-500" : "text-primary")} />
-                                                                            <span className={cn("text-[9px] font-black uppercase tracking-widest", (prog?.videoCompletado || localVideosVistos[c.id]) ? "text-green-500" : "text-primary")}>
-                                                                                {(prog?.videoCompletado || localVideosVistos[c.id]) ? 'Vídeo completado' : 'Mira este vídeo para habilitar la evaluación'}
-                                                                            </span>
-                                                                        </div>
-                                                                        {(prog?.videoCompletado || localVideosVistos[c.id]) && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                                                                    </div>
-                                                                    <div className="relative w-full aspect-video">
-                                                                        <YouTube
-                                                                            videoId={extractYouTubeId(c.urlVideo)}
-                                                                            className="absolute inset-0 w-full h-full"
-                                                                            iframeClassName="w-full h-full"
-                                                                            opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
-                                                                            onStateChange={(event) => {
-                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                                                const currentRate = event.target.getPlaybackRate() || 1;
-                                                                                if (event.data === 1) {
-                                                                                    timer.lastStart = Date.now();
-                                                                                    timer.lastRate = currentRate;
-
-                                                                                    if (videoPlaybackRef.current[c.id]?.intervalId) {
-                                                                                        clearInterval(videoPlaybackRef.current[c.id].intervalId);
-                                                                                    }
-
-                                                                                    const isAlreadyWatched = !!(prog?.videoCompletado || localVideosVistos[c.id]);
-
-                                                                                    const intervalId = setInterval(() => {
-                                                                                        const player = event.target;
-                                                                                        const currentTime = player.getCurrentTime();
-                                                                                        const playbackRecord = videoPlaybackRef.current[c.id] || { maxTime: 0, intervalId: null };
-
-                                                                                        if (!isAlreadyWatched) {
-                                                                                            if (currentTime > playbackRecord.maxTime + 3) {
-                                                                                                player.seekTo(playbackRecord.maxTime, true);
-                                                                                                toast.warning('No está permitido adelantar el video.');
-                                                                                            } else {
-                                                                                                playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
-                                                                                            }
-                                                                                        } else {
-                                                                                            playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
-                                                                                        }
-
-                                                                                        videoPlaybackRef.current[c.id] = {
-                                                                                            ...playbackRecord,
-                                                                                            intervalId
-                                                                                        };
-                                                                                    }, 500);
-
-                                                                                    videoPlaybackRef.current[c.id] = {
-                                                                                        maxTime: videoPlaybackRef.current[c.id]?.maxTime || 0,
-                                                                                        intervalId
-                                                                                    };
-                                                                                } else {
-                                                                                    if (timer.lastStart) {
-                                                                                        timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                                                        timer.lastStart = null;
-                                                                                    }
-                                                                                    if (videoPlaybackRef.current[c.id]?.intervalId) {
-                                                                                        clearInterval(videoPlaybackRef.current[c.id].intervalId);
-                                                                                        videoPlaybackRef.current[c.id].intervalId = null;
-                                                                                    }
-                                                                                }
-                                                                                videoTimersRef.current[c.id] = timer;
-                                                                            }}
-                                                                            onPlaybackRateChange={(event) => {
-                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                                                const newRate = event.data;
-                                                                                if (timer.lastStart) {
-                                                                                    timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                                                    timer.lastStart = Date.now();
-                                                                                }
-                                                                                timer.lastRate = newRate;
-                                                                                videoTimersRef.current[c.id] = timer;
-                                                                            }}
-                                                                            onEnd={async (event) => {
-                                                                                if (videoPlaybackRef.current[c.id]?.intervalId) {
-                                                                                    clearInterval(videoPlaybackRef.current[c.id].intervalId);
-                                                                                    videoPlaybackRef.current[c.id].intervalId = null;
-                                                                                }
-
-                                                                                const timer = videoTimersRef.current[c.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                                                if (timer.lastStart) {
-                                                                                    timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                                                    timer.lastStart = null;
-                                                                                }
-                                                                                const duration = event.target.getDuration();
-                                                                                if (timer.totalTime < duration * 0.9) {
-                                                                                    setVideoWarningModal(true);
-                                                                                    videoTimersRef.current[c.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                                                    event.target.seekTo(0);
-                                                                                    return;
-                                                                                }
-
-                                                                                setLocalVideosVistos(prev => {
-                                                                                    const next = { ...prev, [c.id]: true };
-                                                                                    localStorage.setItem('local_videos_vistos', JSON.stringify(next));
-                                                                                    return next;
-                                                                                });
-
-                                                                                try {
-                                                                                    if ((!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0)) {
-                                                                                        await handleCompletarSinPreguntas(c);
-                                                                                    } else {
-                                                                                        await eventoPublicoService.marcarVideoVisto(evento!.id, c.id, form.ci, form.fechaNacimiento);
-                                                                                        const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
-                                                                                        setProgreso(progUpdate.progress);
-                                                                                    }
-                                                                                } catch (e) {
-                                                                                    console.error("Error marking video seen:", e);
-                                                                                }
-
-                                                                                toast.success('¡Vídeo completado! ' + ((!c.preguntas || c.preguntas.length === 0) ? 'Paso finalizado.' : 'Evaluación habilitada.'));
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            <div className="w-full">
-                                                                {(() => {
-                                                                    const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
-                                                                    const totalPuntosReal = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
-                                                                    let maxEsperado = totalPuntosReal;
-                                                                    if (c.cantidadPreguntas && c.cantidadPreguntas > 0 && c.preguntas?.length > 0) {
-                                                                        const puntosPromedio = totalPuntosReal / c.preguntas.length;
-                                                                        maxEsperado = Math.round(puntosPromedio * c.cantidadPreguntas);
-                                                                    }
-                                                                    const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? maxEsperado) || 0);
-                                                                    const nMinPercentage = c.puntajeMinimo || 75;
-                                                                    const nMin = c.esEvaluativo ? Math.ceil(tVal * (nMinPercentage / 100)) : 0;
-                                                                    const isFinished = isStepFinished(c.id);
-                                                                    const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
-                                                                    const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
-                                                                    const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
-                                                                    const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
-
-                                                                    // ==========================================
-                                                                    // BLOQUE MAESTRO: PASO FINALIZADO (Video o Cuestionario)
-                                                                    // ==========================================
-                                                                    if (isFinished) {
-                                                                        const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
-                                                                        const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
-                                                                        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
-                                                                        const isGraded = c.esEvaluativo !== false && tVal > 0;
-
-                                                                        return (
-                                                                            <div className="flex flex-col gap-4">
-                                                                                <div className={cn(
-                                                                                    "p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3",
-                                                                                    sinPreguntas || !isGraded || isAprobado
-                                                                                        ? "bg-green-500/5 border-green-500/10 text-green-500"
-                                                                                        : "bg-amber-500/5 border-amber-500/10 text-amber-600"
-                                                                                )}>
-                                                                                    <div className={cn(
-                                                                                        "w-14 h-14 rounded-2xl flex items-center justify-center",
-                                                                                        sinPreguntas || !isGraded || isAprobado ? "bg-green-500/10" : "bg-amber-500/10"
-                                                                                    )}>
-                                                                                        {sinPreguntas || !isGraded || isAprobado ? <CheckCircle2 className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
-                                                                                    </div>
-
-                                                                                    <div className="text-center space-y-1">
-                                                                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
-                                                                                            {sinPreguntas ? 'Paso Completado' : (!isGraded ? 'Cuestionario Completado' : (isAprobado ? 'Evaluación Aprobada' : 'Evaluación Pendiente'))}
-                                                                                        </p>
-                                                                                        {!sinPreguntas && isGraded && (
-                                                                                            <p className="text-xl font-black tracking-tight">
-                                                                                                {pVal} puntos de {tVal}
-                                                                                            </p>
-                                                                                        )}
-                                                                                    </div>
-
-                                                                                    {!sinPreguntas && isGraded && !isAprobado && !hasReachedLimit && (
-                                                                                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 text-center max-w-[200px]">
-                                                                                            Necesitas {nMin} puntos para aprobar. Tienes intentos disponibles.
-                                                                                        </p>
-                                                                                    )}
-                                                                                </div>
-
-                                                                                {/* Acciones para pasos finalizados */}
-                                                                                <div className="flex flex-col gap-3">
-                                                                                    {!sinPreguntas && !isPerfect && !hasReachedLimit && (
-                                                                                        <button
-                                                                                            onClick={() => handleEmpezarCuestionario(c)}
-                                                                                            className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400 transition-all flex items-center justify-center gap-3"
-                                                                                        >
-                                                                                            <RotateCcw className="w-4 h-4" />
-                                                                                            Reintentar Evaluación
-                                                                                        </button>
-                                                                                    )}
-
-                                                                                    {/* Botón de navegación al siguiente paso (Siempre visible si está terminado) */}
-                                                                                    {idx < sortedCuestionarios.length - 1 && (
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                const nextEl = document.getElementById(`step-${sortedCuestionarios[idx + 1].id}`);
-                                                                                                nextEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                                            }}
-                                                                                            className="w-full h-14 rounded-2xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
-                                                                                        >
-                                                                                            Continuar al siguiente paso
-                                                                                            <ArrowRight className="w-4 h-4" />
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    }
-
-                                                                    // PRIORIDAD SENIOR: Si es el paso activo y se puede empezar, MOSTRAR BOTÓN SIEMPRE
-                                                                    if (isActive && canStart && !hasReachedLimit) {
-                                                                        const hasVideo = !!c.urlVideo;
-                                                                        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
-                                                                        const videoPendiente = hasVideo && !prog?.videoCompletado && !localVideosVistos[c.id];
-
-                                                                        if (sinPreguntas && hasVideo && videoPendiente) {
-                                                                            return (
-                                                                                <div className="p-6 rounded-3xl bg-primary/[0.03] border border-dashed border-primary/20 flex flex-col items-center text-center gap-4">
-                                                                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center rotate-3">
-                                                                                        <Video className="w-7 h-7 text-primary" />
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <p className="text-xs font-black uppercase text-primary tracking-[0.2em]">Video</p>
-                                                                                        <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase leading-relaxed max-w-[200px]">Visualiza el contenido completo para desbloquear el siguiente módulo</p>
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        }
-
-                                                                        const showPreview = !hasVideo && !sinPreguntas;
-
-                                                                        return (
-                                                                            <div className="flex flex-col gap-4 w-full">
-                                                                                {showPreview && (
-                                                                                    <div className="p-4 rounded-[1.5rem] bg-muted/20 border border-border/40 flex items-center gap-4">
-                                                                                        <div className="w-10 h-10 rounded-xl bg-background shadow-sm flex items-center justify-center text-primary">
-                                                                                            <FileText className="w-5 h-5" />
-                                                                                        </div>
-                                                                                        <div className="flex-1 text-left">
-                                                                                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Resumen de Evaluación</p>
-                                                                                            <p className="text-[11px] font-bold text-foreground/80 uppercase">
-                                                                                                {c.preguntas?.length || 0} Preguntas • {c.limiteIntentos ? `${c.limiteIntentos} Intentos` : 'Intentos Ilimitados'}
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                                <button
-                                                                                    disabled={!!videoPendiente}
-                                                                                    onClick={() => sinPreguntas ? handleCompletarSinPreguntas(c) : handleEmpezarCuestionario(c)}
-                                                                                    className={cn(
-                                                                                        "w-full h-16 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-4",
-                                                                                        videoPendiente
-                                                                                            ? "bg-muted text-muted-foreground border-2 border-dashed border-border shadow-none opacity-50 cursor-not-allowed"
-                                                                                            : isFinished
-                                                                                                ? "bg-amber-500 text-black shadow-amber-500/30 hover:scale-[1.02] hover:bg-amber-400"
-                                                                                                : "bg-primary text-white shadow-primary/30 hover:scale-[1.02] hover:bg-primary-500"
-                                                                                    )}
-                                                                                >
-                                                                                    {videoPendiente
-                                                                                        ? (sinPreguntas ? 'Ver video para avanzar' : 'Ver video para evaluar')
-                                                                                        : (sinPreguntas ? 'Completar este paso' : (isFinished ? 'Reintentar Evaluación' : 'Realizar Evaluación'))}
-                                                                                    {videoPendiente ? <Lock className="w-4 h-4 opacity-50" /> : <ArrowRight className="w-5 h-5" />}
-                                                                                </button>
-                                                                            </div>
-                                                                        );
-                                                                    }
-
-                                                                    if (!isFinished) {
-                                                                        return (
-                                                                            <div className="flex flex-col items-center gap-3">
-                                                                                <div className="w-16 h-16 rounded-[1.5rem] bg-muted/50 border-2 border-dashed border-border flex items-center justify-center text-muted-foreground/30">
-                                                                                    {isProloga || isUpcoming ? <Clock className="w-7 h-7" /> : !canStart ? <Lock className="w-7 h-7" /> : <ArrowRight className="w-7 h-7" />}
-                                                                                </div>
-                                                                                <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">
-                                                                                    {isProloga ? "Próximamente" : !canStart ? "Bloqueado" : isUpcoming ? "Próximamente" : "Finalizado"}
-                                                                                </span>
-                                                                            </div>
-                                                                        );
-                                                                    }
-                                                                    return null;
-                                                                })()}
-                                                            </div>
-                                                        </div>
-                                                    </motion.div>
-                                                );
-                                            })}
-
                                             {(() => {
-                                                const allMandatoryFinished = sortedCuestionarios.every(c => {
-                                                    if (!c.esObligatorio) return true;
-                                                    const prog = progreso.find(p => p.id === c.id);
-                                                    const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
-                                                    const isPerfect = !c.esEvaluativo || (!!prog?.finalizado && (prog?.aprobado));
-                                                    const hasReachedLimit = c.limiteIntentos != null && (prog?.numeroIntentos || 0) >= c.limiteIntentos;
-                                                    return (prog?.finalizado && (isPerfect || hasReachedLimit)) || (sinPreguntas && (prog?.videoCompletado || localVideosVistos[c.id]));
-                                                });
-                                                if (allMandatoryFinished && sortedCuestionarios.length > 0) {
-                                                    const ultimoCuestionario = sortedCuestionarios[sortedCuestionarios.length - 1];
-                                                    const fechaFinUltimo = ultimoCuestionario?.fechaFin ? new Date(ultimoCuestionario.fechaFin) : null;
-                                                    let fechaCertificacionTexto = "en los próximos días";
-                                                    if (fechaFinUltimo && !isNaN(fechaFinUltimo.getTime())) {
-                                                        const fechaCert = new Date(fechaFinUltimo);
-                                                        fechaCert.setMonth(fechaCert.getMonth() + 1);
-                                                        fechaCertificacionTexto = fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
-                                                    }
+                                                const ultimaFechaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
+                                                    const end = new Date(c.fechaFin);
+                                                    return end > max ? end : max;
+                                                }, new Date(0));
+                                                const generalTimeLeft = formatTimeRemaining(ultimaFechaFin);
 
+                                                if (!generalTimeLeft || isNaN(ultimaFechaFin.getTime())) return null;
+
+                                                // Plazo vencido: badge discreto sin ruido visual
+                                                if (generalTimeLeft.text === 'Cerrado') {
                                                     return (
-                                                        <div className="mt-8 p-8 rounded-[2.5rem] bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border border-green-500/20 relative overflow-hidden group">
-                                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                                                <Trophy className="w-24 h-24 text-green-500 -rotate-12" />
-                                                            </div>
-                                                            <div className="relative z-10 flex flex-col items-center text-center gap-4">
-                                                                <div className="w-20 h-20 rounded-[2rem] bg-green-500 shadow-xl shadow-green-500/40 flex items-center justify-center text-white animate-bounce">
-                                                                    <PartyPopper className="w-10 h-10" />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-xl font-black uppercase tracking-tighter text-green-600">¡Evento Completado!</h3>
-                                                                    <p className="text-xs text-muted-foreground font-bold mt-1 uppercase max-w-[240px]">Has cumplido con todos los requisitos y evaluaciones del evento.</p>
-                                                                </div>
-
-                                                                <div className="w-full mt-6 space-y-6">
-                                                                    {/* CARD: PORTAL DE CERTIFICACIÓN */}
-                                                                    <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-2 border-primary/20 rounded-[2rem] p-8 text-left relative overflow-hidden group/cert shadow-xl shadow-primary/5 hover:border-primary/30 transition-all duration-300">
-                                                                        <div className="absolute -right-8 -top-8 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover/cert:bg-primary/20 transition-all duration-500" />
-
-                                                                        <div className="relative z-10 flex flex-col xl:flex-row gap-6 items-start xl:items-center justify-between">
-                                                                            <div className="flex gap-5 items-start">
-                                                                                <div className="w-16 h-16 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center shrink-0">
-                                                                                    <Trophy className="w-8 h-8 text-white" />
-                                                                                </div>
-                                                                                <div className="space-y-2">
-                                                                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">
-                                                                                        Ministerio de Educación
-                                                                                    </span>
-                                                                                    <h4 className="text-2xl font-black uppercase text-foreground tracking-tight leading-none">
-                                                                                        Portal de Certificación
-                                                                                    </h4>
-                                                                                    <p className="text-lg text-foreground/90 font-bold leading-relaxed max-w-xl">
-                                                                                        Tu certificado se habilitará <span className="text-primary font-black underline decoration-2 decoration-primary/30 underline-offset-4">{fechaCertificacionTexto}</span>.
-                                                                                    </p>
-                                                                                    <p className="text-xs text-muted-foreground font-medium leading-relaxed max-w-lg">
-                                                                                        El certificado digital oficial incorpora firma digital autorizada y código QR para su verificación inmediata a nivel nacional.
-                                                                                    </p>
-
-                                                                                    <div className="pt-2 flex flex-wrap gap-x-4 gap-y-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                                                                            <span>Válido con firma digital y QR</span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                                                                            <span>Descarga directa con C.I.</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <a
-                                                                                href="https://certificados.minedu.gob.bo"
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="inline-flex items-center gap-3 px-8 h-16 rounded-[1.25rem] bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] hover:bg-primary/95 active:scale-95 transition-all group shrink-0 w-full xl:w-auto justify-center border border-primary/20"
-                                                                            >
-                                                                                <Globe className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                                                                                certificados.minedu.gob.bo
-                                                                                <ExternalLink className="w-3.5 h-3.5 opacity-75 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                                                                            </a>
-                                                                        </div>
-                                                                    </div>
-
-
-                                                                </div>
-                                                            </div>
+                                                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/40 bg-muted/10 text-muted-foreground/50">
+                                                            <Lock className="w-3.5 h-3.5 shrink-0" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest">Evaluaciones cerradas</span>
                                                         </div>
                                                     );
                                                 }
-                                                return null;
+
+                                                return (
+                                                    <div className={cn(
+                                                        "flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 shadow-lg transition-all",
+                                                        generalTimeLeft.priority === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-500" :
+                                                            "bg-primary/10 border-primary/30 text-primary"
+                                                    )}>
+                                                        <Clock className="w-4 h-4" />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-0.5">Cierre General:</span>
+                                                            <span className="text-xs font-black uppercase tracking-tight leading-none">
+                                                                {generalTimeLeft.full}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
                                             })()}
+                                        </div>
+
+                                        {/* ── BANNER EVENTO COMPLETADO ── */}
+                                        {evento.cuestionarios.every((c: any) => isStepFinished(c.id)) && (() => {
+                                            // Fecha más tardía de los cuestionarios (cierre general)
+                                            const ultimaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
+                                                const d = new Date(c.fechaFin);
+                                                return d > max ? d : max;
+                                            }, new Date(0));
+                                            const fechaCertLabel = !isNaN(ultimaFin?.getTime())
+                                                ? ultimaFin.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })
+                                                : null;
+
+                                            return (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                                                    className="relative overflow-hidden rounded-3xl border-2 border-emerald-500/40 shadow-2xl shadow-emerald-500/20"
+                                                    style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, var(--card) 45%, rgba(16,185,129,0.06) 100%)' }}
+                                                >
+                                                    {/* Glow orb top-center */}
+                                                    <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-40 rounded-full bg-emerald-400/25 blur-3xl pointer-events-none" />
+                                                    {/* Glow orb bottom-right */}
+                                                    <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                                                    {/* Corner sparkles */}
+                                                    <div className="absolute top-4 right-6 text-emerald-400/40 text-2xl select-none pointer-events-none">✦</div>
+                                                    <div className="absolute top-8 right-14 text-emerald-400/20 text-sm select-none pointer-events-none">✦</div>
+                                                    <div className="absolute bottom-5 left-6 text-primary/20 text-lg select-none pointer-events-none">✦</div>
+
+                                                    <div className="relative z-10 p-7 md:p-10 flex flex-col items-center text-center gap-6">
+                                                        {/* Trophy icon with ring glow */}
+                                                        <div className="relative">
+                                                            <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl scale-150 animate-pulse" />
+                                                            <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border-2 border-emerald-500/40 flex items-center justify-center shadow-xl shadow-emerald-500/20">
+                                                                <Trophy className="w-12 h-12 text-emerald-400" />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Main text */}
+                                                        <div className="space-y-2 max-w-lg">
+                                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 mb-1">
+                                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400">Logro Desbloqueado · Verificado</span>
+                                                            </div>
+                                                            <h3 className="text-3xl font-black uppercase text-foreground tracking-tight leading-none">
+                                                                ¡Evento Completado!
+                                                            </h3>
+                                                            <p className="text-sm text-muted-foreground font-medium leading-relaxed max-w-sm mx-auto">
+                                                                Has cumplido con <strong className="text-foreground">todos los requisitos</strong> y evaluaciones del evento. Tu certificado oficial está siendo generado.
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Stats strip */}
+                                                        <div className="flex flex-wrap justify-center gap-3 w-full max-w-md">
+                                                            <div className="flex-1 min-w-[120px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/8 border border-emerald-500/20">
+                                                                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                                <div className="text-left">
+                                                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Estado</p>
+                                                                    <p className="text-xs font-black text-emerald-400 mt-0.5">Aprobado</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-[120px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary/8 border border-primary/20">
+                                                                <Award className="w-4 h-4 text-primary shrink-0" />
+                                                                <div className="text-left">
+                                                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Certificado</p>
+                                                                    <p className="text-xs font-black text-primary mt-0.5">Digital oficial</p>
+                                                                </div>
+                                                            </div>
+                                                            {fechaCertLabel && (
+                                                                <div className="flex-1 min-w-[140px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border/60">
+                                                                    <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                                    <div className="text-left">
+                                                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Disponible el</p>
+                                                                        <p className="text-xs font-black text-foreground mt-0.5">{fechaCertLabel}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Certificate info footer */}
+                                                        <div className="w-full max-w-md p-4 rounded-2xl bg-muted/20 border border-border/50 space-y-2">
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                                                    <Award className="w-3 h-3 text-primary" />
+                                                                </div>
+                                                                <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Ministerio de Educación · Portal de Certificación</p>
+                                                            </div>
+                                                            <p className="text-[9px] text-muted-foreground/70 font-bold leading-relaxed text-center">
+                                                                El certificado digital incorpora firma digital autorizada y código QR para verificación inmediata a nivel nacional.
+                                                            </p>
+                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center pt-1 border-t border-border/40">
+                                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+                                                                    <ShieldCheck className="w-2.5 h-2.5" /> Firma digital y QR
+                                                                </span>
+                                                                <span className="text-[8px] font-black uppercase tracking-wider text-primary flex items-center gap-1">
+                                                                    <Download className="w-2.5 h-2.5" /> Descarga con C.I.
+                                                                </span>
+                                                                <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                                                                    <Globe className="w-2.5 h-2.5" /> certificados.minedu.gob.bo
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })()}
+
+                                        {/* ── INTERFAZ UNIFICADA DEL PORTAL (STYLE UDEMY/PLATZI) ── */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                                            {/* Selector de pestañas para móvil */}
+                                            <div className="col-span-12 lg:hidden flex border-b border-border bg-card rounded-2xl overflow-hidden p-1 gap-1">
+                                                <button
+                                                    onClick={() => setMobileTab('modules')}
+                                                    className={cn(
+                                                        "flex-1 py-3 text-xs font-black uppercase tracking-widest text-center rounded-xl transition-all",
+                                                        mobileTab === 'modules' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    Temario ({evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length}/{evento.cuestionarios.length})
+                                                </button>
+                                                <button
+                                                    onClick={() => setMobileTab('content')}
+                                                    className={cn(
+                                                        "flex-1 py-3 text-xs font-black uppercase tracking-widest text-center rounded-xl transition-all",
+                                                        mobileTab === 'content' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    Clase / Cuestionario
+                                                </button>
+                                            </div>
+
+                                            {/* COLUMNA IZQUIERDA: SIDEBAR DE TEMARIO */}
+                                            <div className={cn(
+                                                "col-span-12 lg:col-span-4 bg-card border border-border rounded-3xl p-5 space-y-4 shadow-xl shadow-black/5",
+                                                mobileTab === 'modules' ? "block" : "hidden lg:block"
+                                            )}>
+                                                <div className="space-y-1">
+                                                    <h3 className="text-xs font-black uppercase text-foreground tracking-tight">Temario del Evento</h3>
+                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest leading-relaxed">
+                                                        Haz clic en un módulo para ingresar
+                                                    </p>
+                                                </div>
+
+                                                {/* Barra de Progreso General */}
+                                                {(() => {
+                                                    const total = evento.cuestionarios.length;
+                                                    const done = evento.cuestionarios.filter((c: any) => isStepFinished(c.id)).length;
+                                                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                                                    const allDone = done === total;
+                                                    return (
+                                                        <div className={cn(
+                                                            "space-y-2 p-4 rounded-2xl border transition-all",
+                                                            allDone ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/20 border-border/50"
+                                                        )}>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Progreso General</span>
+                                                                <span className={cn("text-[10px] font-black tabular-nums", allDone ? "text-emerald-500" : "text-primary")}>
+                                                                    {done}/{total} · {pct}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={cn("h-full rounded-full transition-all duration-700", allDone ? "bg-emerald-500" : "bg-primary")}
+                                                                    style={{ width: `${pct}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Lista Scrollable de Diapositivas */}
+                                                <div ref={moduleListRef} className="space-y-2 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+                                                    {sortedCuestionarios.map((c, idx) => {
+                                                        const isFinished = isStepFinished(c.id);
+                                                        const canStart = c.estado === 'activo' && checkCanStartCuestionario(c.id);
+                                                        const isSelected = selectedModuleId === c.id;
+                                                        const prog = progreso.find((p: any) => p.id === c.id);
+                                                        const hasVideo = !!c.urlVideo;
+
+                                                        return (
+                                                            <button
+                                                                key={c.id}
+                                                                ref={(el) => { moduleItemRefs.current[c.id] = el; }}
+                                                                onClick={() => {
+                                                                    setSelectedModuleId(c.id);
+                                                                    setMobileTab('content');
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3 group relative overflow-hidden",
+                                                                    isSelected
+                                                                        ? "bg-primary/10 border-primary text-primary shadow-inner ring-2 ring-primary/20"
+                                                                        : isFinished
+                                                                            ? "bg-emerald-500/[0.02] border-emerald-500/10 hover:border-emerald-500/30 text-foreground"
+                                                                            : canStart
+                                                                                ? "bg-card border-border hover:border-primary/30 text-foreground hover:bg-muted/10"
+                                                                                : "bg-muted/10 border-border/30 opacity-40 cursor-not-allowed"
+                                                                )}
+                                                                disabled={c.estado !== 'activo' && !isFinished}
+                                                            >
+                                                                {/* Icono de estado */}
+                                                                <div className={cn(
+                                                                    "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors",
+                                                                    isSelected
+                                                                        ? "bg-primary border-primary text-white"
+                                                                        : isFinished
+                                                                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                                                            : canStart
+                                                                                ? "bg-muted border-border text-muted-foreground group-hover:border-primary/40"
+                                                                                : "bg-muted/50 border-border/20 text-muted-foreground/30"
+                                                                )}>
+                                                                    {isFinished
+                                                                        ? (!c.esEvaluativo && (!c.preguntas || c.preguntas.length === 0)
+                                                                            ? <Play className="w-3.5 h-3.5" />   // solo video: play en verde
+                                                                            : <Check className="w-3.5 h-3.5" /> // evaluativo: check
+                                                                        )
+                                                                        : canStart
+                                                                            ? (hasVideo ? <Video className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />)
+                                                                            : <Lock className="w-3.5 h-3.5" />
+                                                                    }
+                                                                </div>
+
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between gap-1">
+                                                                        <span className="text-[8px] font-black uppercase tracking-wider opacity-60">Módulo {idx + 1}</span>
+                                                                        {c.esObligatorio && (
+                                                                            <span className="text-[7px] font-bold uppercase tracking-widest text-amber-500/80">Oblig.</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <h4 className="text-[13px] font-black uppercase mt-1.5 tracking-tight leading-snug break-words whitespace-normal text-foreground group-hover:text-primary transition-colors">{c.titulo}</h4>
+                                                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                                        {(c.esEvaluativo || (c.preguntas && c.preguntas.length > 0)) ? (
+                                                                            <>
+                                                                                <span className={cn(
+                                                                                    "text-[9px] font-black flex items-center gap-1",
+                                                                                    isFinished ? "text-emerald-500" : canStart ? "text-muted-foreground" : "text-muted-foreground/50"
+                                                                                )}>
+                                                                                    {isFinished
+                                                                                        ? <><CheckCircle2 className="w-3 h-3 shrink-0" /><span>Completado</span></>
+                                                                                        : canStart
+                                                                                            ? <><Unlock className="w-3 h-3 shrink-0" /><span>Disponible</span></>
+                                                                                            : <><Lock className="w-3 h-3 shrink-0" /><span>Bloqueado</span></>}
+                                                                                </span>
+                                                                                {c.esEvaluativo && prog?.nota !== null && prog?.nota !== undefined && (
+                                                                                    <span className={cn(
+                                                                                        "text-[9px] font-black px-1.5 py-0.5 rounded-md",
+                                                                                        prog.nota >= (c.puntajeMinimo || 75)
+                                                                                            ? "bg-emerald-500/10 text-emerald-500"
+                                                                                            : "bg-amber-500/10 text-amber-500"
+                                                                                    )}>
+                                                                                        {prog.nota}/100
+                                                                                    </span>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            /* Solo video */
+                                                                            <span className={cn(
+                                                                                "text-[9px] font-black flex items-center gap-1",
+                                                                                isFinished ? "text-emerald-500" : "text-muted-foreground"
+                                                                            )}>
+                                                                                {isFinished
+                                                                                    ? <><CheckCircle2 className="w-3 h-3 shrink-0" /><span>Visto</span></>
+                                                                                    : canStart
+                                                                                        ? <><Video className="w-3 h-3 shrink-0" /><span>Ver video</span></>
+                                                                                        : <><Lock className="w-3 h-3 shrink-0" /><span>Bloqueado</span></>}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* COLUMNA DERECHA: REPRODUCTOR DE CONTENIDO ACTIVO */}
+                                            <div className={cn(
+                                                "col-span-12 lg:col-span-8",
+                                                mobileTab === 'content' ? "block" : "hidden lg:block"
+                                            )}>
+                                                {(() => {
+                                                    const c = sortedCuestionarios.find(x => x.id === selectedModuleId);
+                                                    if (!c) {
+                                                        return (
+                                                            <div className="bg-card border border-border rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[350px]">
+                                                                <ClipboardList className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                                                                <h3 className="font-black uppercase text-sm text-foreground">Selecciona un Módulo</h3>
+                                                                <p className="text-xs text-muted-foreground mt-1">Elige un paso del temario para comenzar a avanzar en el curso.</p>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    const isFinished = isStepFinished(c.id);
+                                                    const canStart = c.estado === 'activo' && checkCanStartCuestionario(c.id);
+                                                    // 1. SI EL MÓDULO ESTÁ BLOQUEADO (LOCKED)
+                                                    if (!isFinished && !canStart) {
+                                                        return (
+                                                            <div className="bg-card border border-border rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[350px] space-y-4">
+                                                                <div className="w-16 h-16 rounded-2xl bg-muted border border-border/80 flex items-center justify-center text-muted-foreground">
+                                                                    <Lock className="w-8 h-8 animate-pulse" />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-black uppercase text-base text-foreground">Contenido Bloqueado</h3>
+                                                                    <p className="text-xs text-muted-foreground mt-1.5 max-w-[280px] mx-auto leading-relaxed uppercase tracking-wider font-bold">
+                                                                        Debes finalizar los módulos obligatorios anteriores para habilitar este paso.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // 2. SI EL MÓDULO ESTÁ COMPLETADO (FINISHED) - MOSTRAR RESULTADOS
+                                                    if (isFinished || (resultado && cuestionarioActivo?.id === c.id)) {
+                                                        const progBackend = progreso.find((p: any) => p.id === c.id);
+                                                        const prog = (resultado && cuestionarioActivo?.id === c.id) ? resultado : progBackend;
+                                                        const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
+                                                        const totalPuntos = c.preguntas?.reduce((acc: number, q: any) => acc + (q.puntos || 0), 0) || 0;
+                                                        const tVal = Number((prog?.puntajeMaximo ?? prog?.puntosMaximo ?? totalPuntos) || 0);
+                                                        const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
+                                                        const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
+                                                        const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
+                                                        const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
+
+                                                        const currentIndex = sortedCuestionarios.findIndex((x: any) => x.id === c.id);
+                                                        const siguienteCues = currentIndex !== -1 && currentIndex < sortedCuestionarios.length - 1
+                                                            ? sortedCuestionarios[currentIndex + 1]
+                                                            : null;
+
+                                                        const sinPreguntas = !c.preguntas || c.preguntas.length === 0;
+
+                                                        return (
+                                                            <div className={cn(
+                                                                "relative overflow-hidden rounded-3xl border-2 transition-all duration-500 bg-card",
+                                                                !c.esEvaluativo
+                                                                    ? "bg-primary/5 border-primary/20"
+                                                                    : isAprobado
+                                                                        ? "bg-gradient-to-br from-primary/10 via-card to-card border-primary/30 shadow-2xl shadow-primary/10"
+                                                                        : "bg-gradient-to-br from-amber-500/10 via-card to-card border-amber-500/20"
+                                                            )}>
+                                                                <div className="relative z-10 p-8 text-center space-y-6">
+                                                                    <div className={cn(
+                                                                        "w-20 h-20 rounded-[1.5rem] mx-auto flex items-center justify-center border-2 transition-colors",
+                                                                        !c.esEvaluativo
+                                                                            ? "bg-primary/10 border-primary/20 text-primary"
+                                                                            : isAprobado ? "bg-primary/15 border-primary/30 text-primary animate-pulse" : "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                                                                    )}>
+                                                                        {!c.esEvaluativo
+                                                                            ? <CheckCircle2 className="w-10 h-10" />
+                                                                            : isAprobado
+                                                                                ? <Trophy className="w-10 h-10" />
+                                                                                : <AlertTriangle className="w-10 h-10" />
+                                                                        }
+                                                                    </div>
+
+                                                                    <div className="space-y-1">
+                                                                        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">{c.titulo}</span>
+                                                                        <h2 className="text-4xl font-black tracking-tighter text-foreground mt-1">
+                                                                            {!c.esEvaluativo ? '¡COMPLETO!' : `${Math.min(prog?.nota ?? 0, 100)}`}
+                                                                            {c.esEvaluativo && <span className="text-xl opacity-20 ml-1">/100</span>}
+                                                                        </h2>
+                                                                        <p className={cn(
+                                                                            "text-xs font-black uppercase tracking-[0.3em] mt-1",
+                                                                            !c.esEvaluativo
+                                                                                ? "text-primary"
+                                                                                : isAprobado ? "text-primary" : "text-amber-500"
+                                                                        )}>
+                                                                            {!c.esEvaluativo ? (
+                                                                                <span className="flex items-center justify-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Paso Completado</span>
+                                                                            ) : isAprobado ? (
+                                                                                <span className="flex items-center justify-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> Aprobado con Éxito</span>
+                                                                            ) : (
+                                                                                <span className="flex items-center justify-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Evaluación Pendiente</span>
+                                                                            )}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    {c.esEvaluativo && (
+                                                                        <div className="space-y-3 pt-1 max-w-sm mx-auto">
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                                                                                    <span>0</span>
+                                                                                    <span className={isAprobado ? 'text-primary font-black' : 'text-amber-500 font-black'}>
+                                                                                        {pVal} / {tVal} pts
+                                                                                    </span>
+                                                                                    <span>100</span>
+                                                                                </div>
+                                                                                <div className="w-full h-3 bg-muted rounded-full overflow-hidden border relative shadow-inner">
+                                                                                    <div
+                                                                                        className={cn("h-full rounded-full transition-all duration-1000", isAprobado ? "bg-primary" : "bg-amber-500")}
+                                                                                        style={{ width: `${Math.min(prog?.nota ?? 0, 100)}%` }}
+                                                                                    />
+                                                                                </div>
+                                                                                <p className="text-[9px] text-muted-foreground font-bold">
+                                                                                    Mínimo para aprobar: {c.puntajeMinimo || 75}/100
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div className="flex flex-col gap-3 max-w-sm mx-auto pt-6 border-t border-border/50">
+                                                                        {c.esEvaluativo && !isAprobado && hasReachedLimit && (
+                                                                            <div className="flex flex-col items-center gap-2.5 p-5 bg-red-500/5 rounded-2xl border border-red-500/20 text-center">
+                                                                                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                                                                                    <Lock className="w-5 h-5" />
+                                                                                </div>
+                                                                                <span className="text-[10px] font-black uppercase text-red-500 tracking-[0.2em]">
+                                                                                    Evaluación Reprobada · Intentos Agotados
+                                                                                </span>
+                                                                                <p className="text-[11px] text-muted-foreground font-bold leading-normal uppercase">
+                                                                                    Has alcanzado el límite de {limitValue} {limitValue === 1 ? 'intento' : 'intentos'} sin alcanzar la nota mínima de {c.puntajeMinimo || 75} puntos. Tu avance ha quedado bloqueado y no puedes continuar con el siguiente módulo.
+                                                                                </p>
+                                                                                <p className="text-[9px] text-red-500/80 font-black uppercase tracking-widest leading-none mt-1">
+                                                                                    Comunícate con el organizador.
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                        {siguienteCues && (!c.esEvaluativo || isAprobado) && (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setSelectedModuleId(siguienteCues.id);
+                                                                                }}
+                                                                                className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-md"
+                                                                            >
+                                                                                Siguiente Módulo <ArrowRight className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                        {!sinPreguntas && !isPerfect && !hasReachedLimit && (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    localStorage.removeItem(`cuestionario_session_${evento.id}`);
+                                                                                    handleEmpezarCuestionario(c);
+                                                                                }}
+                                                                                className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-amber-500/20 hover:bg-amber-400 transition-all flex items-center justify-center gap-3"
+                                                                            >
+                                                                                <RotateCcw className="w-4 h-4" /> Reintentar Evaluación
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // 3. SI EL MÓDULO ESTÁ DISPONIBLE Y EN PROGRESO (RENDER WIZARD DEL PLAY DE CLASES)
+                                                    if (cuestionarioActivo && cuestionarioActivo.id === c.id) {
+                                                        const progC = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
+                                                        const videoVisto = !cuestionarioActivo.urlVideo || progC?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
+                                                        const hasVideo = !!cuestionarioActivo.urlVideo;
+                                                        const pregs = cuestionarioActivo.preguntas;
+
+                                                        return (
+                                                            <div className="space-y-6">
+                                                                {/* ── SLIDE TIMELINE INDICATOR ── */}
+                                                                <div className="bg-card border border-border rounded-3xl p-4 md:p-5 space-y-4 shadow-xl shadow-black/5">
+                                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <ClipboardList className="w-5 h-5 text-primary" />
+                                                                            <div>
+                                                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Progreso del Módulo</span>
+                                                                                <h4 className="text-sm font-black uppercase text-foreground leading-tight">{cuestionarioActivo.titulo}</h4>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                                                                            {/* ── TEMPORIZADOR en barra de progreso ── siempre visible si hay tiempo límite y video visto */}
+                                                                            {videoVisto && cuestionarioActivo.tiempoMaximo && cuestionarioActivo.tiempoMaximo > 0 && startTime && (
+                                                                                <Timer_Cuestionario
+                                                                                    segundos={cuestionarioActivo.tiempoMaximo * 60}
+                                                                                    startTime={startTime}
+                                                                                    onExpire={() => {
+                                                                                        setTimerExpired(true);
+                                                                                        handleEnviarCuestionario();
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                            {videoVisto && pregs.length > 0 && (
+                                                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20 shrink-0">
+                                                                                    {cuestionarioActivo.preguntas.filter(p => {
+                                                                                        const r = respuestas[p.id];
+                                                                                        return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                                    }).length}/{pregs.length} Respondidas
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Grid de diapositivas interactivo */}
+                                                                    {pregs.length <= 10 ? (
+                                                                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                                                                            {hasVideo && (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setSlideDirection(0 < preguntaIdx ? 'backward' : 'forward');
+                                                                                        setPreguntaIdx(0);
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                                                                        preguntaIdx === 0
+                                                                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                            : videoVisto
+                                                                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+                                                                                                : "bg-primary/5 text-primary border-primary/20 animate-pulse"
+                                                                                    )}
+                                                                                >
+                                                                                    <Video className="w-3.5 h-3.5" />
+                                                                                    <span>Video</span>
+                                                                                    {videoVisto && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                                </button>
+                                                                            )}
+
+                                                                            {videoVisto && pregs.map((p, i) => {
+                                                                                const slideIdx = hasVideo ? i + 1 : i;
+                                                                                const r = respuestas[p.id];
+                                                                                const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                                const esActual = preguntaIdx === slideIdx;
+
+                                                                                return (
+                                                                                    <button
+                                                                                        key={p.id}
+                                                                                        onClick={() => {
+                                                                                            setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                            setPreguntaIdx(slideIdx);
+                                                                                        }}
+                                                                                        title={`Ir a Pregunta ${i + 1}`}
+                                                                                        className={cn(
+                                                                                            "flex items-center justify-center gap-1.5 h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                                                                            esActual
+                                                                                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                                : respondida
+                                                                                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15"
+                                                                                                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                                        )}
+                                                                                    >
+                                                                                        <span>P{i + 1}</span>
+                                                                                        {respondida && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    ) : (() => {
+                                                                        const activeQuestionIdx = hasVideo ? preguntaIdx - 1 : preguntaIdx;
+                                                                        const totalPregs = pregs.length;
+                                                                        let start = Math.max(0, activeQuestionIdx - 2);
+                                                                        let end = Math.min(totalPregs - 1, start + 4);
+                                                                        if (end - start < 4) {
+                                                                            start = Math.max(0, end - 4);
+                                                                        }
+                                                                        const visibleQuestionIndices = [];
+                                                                        for (let i = start; i <= end; i++) {
+                                                                            visibleQuestionIndices.push(i);
+                                                                        }
+
+                                                                        const totalRespondidas = pregs.filter(p => {
+                                                                            const r = respuestas[p.id];
+                                                                            return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                        }).length;
+                                                                        const pctRespondidas = Math.round((totalRespondidas / totalPregs) * 100);
+
+                                                                        return (
+                                                                            <div className="w-full pt-3 border-t border-border/50 space-y-3">
+                                                                                {/* Header info bar inside selector */}
+                                                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wider">
+                                                                                    <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+                                                                                        <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-xl border border-primary/20">
+                                                                                            {preguntaIdx === 0 && hasVideo ? 'Viendo Video' : `Pregunta ${activeQuestionIdx + 1} / ${totalPregs}`}
+                                                                                        </span>
+                                                                                        <span className="opacity-50">•</span>
+                                                                                        <span className="text-emerald-500 font-black">
+                                                                                            {totalRespondidas} de {totalPregs} respondidas ({pctRespondidas}%)
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {/* Thin progress bar representing answered questions */}
+                                                                                    <div className="w-full sm:w-40 h-2 bg-muted rounded-full overflow-hidden border border-border/30">
+                                                                                        <div
+                                                                                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                                                                            style={{ width: `${pctRespondidas}%` }}
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {/* Navigation controls */}
+                                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                                    {/* Video Button */}
+                                                                                    {hasVideo && (
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                setSlideDirection(0 < preguntaIdx ? 'backward' : 'forward');
+                                                                                                setPreguntaIdx(0);
+                                                                                            }}
+                                                                                            className={cn(
+                                                                                                "flex items-center gap-1.5 h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border shrink-0",
+                                                                                                preguntaIdx === 0
+                                                                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                                    : videoVisto
+                                                                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+                                                                                                        : "bg-primary/5 text-primary border-primary/20 animate-pulse"
+                                                                                            )}
+                                                                                        >
+                                                                                            <Video className="w-3.5 h-3.5" />
+                                                                                            <span>Video</span>
+                                                                                            {videoVisto && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                                        </button>
+                                                                                    )}
+
+                                                                                    {/* Separator / Divider if video is present */}
+                                                                                    {hasVideo && <div className="h-6 w-[1px] bg-border mx-1" />}
+
+                                                                                    {/* Left/Prev Arrow */}
+                                                                                    {videoVisto && (
+                                                                                        <button
+                                                                                            disabled={preguntaIdx === 0}
+                                                                                            onClick={() => {
+                                                                                                setSlideDirection('backward');
+                                                                                                setPreguntaIdx(prev => Math.max(0, prev - 1));
+                                                                                            }}
+                                                                                            className={cn(
+                                                                                                "flex items-center justify-center w-8 h-8 rounded-xl border transition-all text-muted-foreground hover:text-foreground",
+                                                                                                preguntaIdx === 0
+                                                                                                    ? "opacity-30 cursor-not-allowed border-transparent"
+                                                                                                    : "bg-card border-border hover:border-primary/30"
+                                                                                            )}
+                                                                                            title="Pregunta Anterior"
+                                                                                        >
+                                                                                            <ChevronLeft className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    )}
+
+                                                                                    {/* First Question Button and Ellipsis if window is shifted */}
+                                                                                    {videoVisto && start > 0 && (
+                                                                                        <>
+                                                                                            <button
+                                                                                                onClick={() => {
+                                                                                                    const slideIdx = hasVideo ? 1 : 0;
+                                                                                                    setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                    setPreguntaIdx(slideIdx);
+                                                                                                }}
+                                                                                                className={cn(
+                                                                                                    "flex items-center justify-center h-8 w-8 rounded-xl text-[10px] font-black transition-all border",
+                                                                                                    (hasVideo ? preguntaIdx === 1 : preguntaIdx === 0)
+                                                                                                        ? "bg-primary text-white border-primary"
+                                                                                                        : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                                                )}
+                                                                                            >
+                                                                                                1
+                                                                                            </button>
+                                                                                            {start > 1 && (
+                                                                                                <span className="text-muted-foreground/60 font-black text-[10px] px-1 select-none">...</span>
+                                                                                            )}
+                                                                                        </>
+                                                                                    )}
+
+                                                                                    {/* Windowed Question Buttons */}
+                                                                                    {videoVisto && visibleQuestionIndices.map((i) => {
+                                                                                        const slideIdx = hasVideo ? i + 1 : i;
+                                                                                        const r = respuestas[pregs[i].id];
+                                                                                        const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                                        const esActual = preguntaIdx === slideIdx;
+
+                                                                                        return (
+                                                                                            <button
+                                                                                                key={pregs[i].id}
+                                                                                                onClick={() => {
+                                                                                                    setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                    setPreguntaIdx(slideIdx);
+                                                                                                }}
+                                                                                                title={`Ir a Pregunta ${i + 1}`}
+                                                                                                className={cn(
+                                                                                                    "flex items-center justify-center gap-1 h-8 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                                                                                    esActual
+                                                                                                        ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                                        : respondida
+                                                                                                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15"
+                                                                                                            : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                                                )}
+                                                                                            >
+                                                                                                <span>P{i + 1}</span>
+                                                                                                {respondida && <Check className="w-2.5 h-2.5 text-emerald-500" />}
+                                                                                            </button>
+                                                                                        );
+                                                                                    })}
+
+                                                                                    {/* Last Question Button and Ellipsis if window is shifted */}
+                                                                                    {videoVisto && end < totalPregs - 1 && (
+                                                                                        <>
+                                                                                            {end < totalPregs - 2 && (
+                                                                                                <span className="text-muted-foreground/60 font-black text-[10px] px-1 select-none">...</span>
+                                                                                            )}
+                                                                                            <button
+                                                                                                onClick={() => {
+                                                                                                    const slideIdx = hasVideo ? totalPregs : totalPregs - 1;
+                                                                                                    setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                    setPreguntaIdx(slideIdx);
+                                                                                                }}
+                                                                                                className={cn(
+                                                                                                    "flex items-center justify-center h-8 w-8 rounded-xl text-[10px] font-black transition-all border",
+                                                                                                    (hasVideo ? preguntaIdx === totalPregs : preguntaIdx === totalPregs - 1)
+                                                                                                        ? "bg-primary text-white border-primary"
+                                                                                                        : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                                                )}
+                                                                                            >
+                                                                                                {totalPregs}
+                                                                                            </button>
+                                                                                        </>
+                                                                                    )}
+
+                                                                                    {/* Right/Next Arrow */}
+                                                                                    {videoVisto && (
+                                                                                        <button
+                                                                                            disabled={preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1)}
+                                                                                            onClick={() => {
+                                                                                                setSlideDirection('forward');
+                                                                                                setPreguntaIdx(prev => Math.min(hasVideo ? totalPregs : totalPregs - 1, prev + 1));
+                                                                                            }}
+                                                                                            className={cn(
+                                                                                                "flex items-center justify-center w-8 h-8 rounded-xl border transition-all text-muted-foreground hover:text-foreground",
+                                                                                                preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1)
+                                                                                                    ? "opacity-30 cursor-not-allowed border-transparent"
+                                                                                                    : "bg-card border-border hover:border-primary/30"
+                                                                                            )}
+                                                                                            title="Pregunta Siguiente"
+                                                                                        >
+                                                                                            <ChevronRight className="w-4 h-4" />
+                                                                                        </button>
+                                                                                    )}
+
+                                                                                    {/* Map Toggle Button */}
+                                                                                    {videoVisto && (
+                                                                                        <button
+                                                                                            onClick={() => setMostrarMapaPreguntas(!mostrarMapaPreguntas)}
+                                                                                            className={cn(
+                                                                                                "flex items-center gap-1.5 h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ml-auto shrink-0",
+                                                                                                mostrarMapaPreguntas
+                                                                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                                                                                                    : "bg-muted/30 text-muted-foreground border-border hover:border-primary/30"
+                                                                                            )}
+                                                                                            title="Ver todas las preguntas"
+                                                                                        >
+                                                                                            <LayoutGrid className="w-3.5 h-3.5" />
+                                                                                            <span>Ver Todas</span>
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* Collapsible Questions Map */}
+                                                                                <AnimatePresence>
+                                                                                    {mostrarMapaPreguntas && (
+                                                                                        <motion.div
+                                                                                            initial={{ opacity: 0, height: 0 }}
+                                                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                                                            exit={{ opacity: 0, height: 0 }}
+                                                                                            className="pt-3 border-t border-border/50 space-y-2.5 overflow-hidden"
+                                                                                        >
+                                                                                            <div className="flex items-center justify-between">
+                                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Mapa de Preguntas</span>
+                                                                                                <button
+                                                                                                    onClick={() => setMostrarMapaPreguntas(false)}
+                                                                                                    className="text-[9px] font-black uppercase text-primary hover:underline"
+                                                                                                >
+                                                                                                    Ocultar
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 max-h-40 overflow-y-auto p-1 scrollbar-thin">
+                                                                                                {pregs.map((p, i) => {
+                                                                                                    const slideIdx = hasVideo ? i + 1 : i;
+                                                                                                    const r = respuestas[p.id];
+                                                                                                    const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                                                    const esActual = preguntaIdx === slideIdx;
+
+                                                                                                    return (
+                                                                                                        <button
+                                                                                                            key={p.id}
+                                                                                                            onClick={() => {
+                                                                                                                setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                                setPreguntaIdx(slideIdx);
+                                                                                                            }}
+                                                                                                            className={cn(
+                                                                                                                "flex items-center justify-center gap-1 h-8 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                                                                                                esActual
+                                                                                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                                                    : respondida
+                                                                                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15"
+                                                                                                                        : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            <span>P{i + 1}</span>
+                                                                                                            {respondida && <Check className="w-2.5 h-2.5 text-emerald-500" />}
+                                                                                                        </button>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        </motion.div>
+                                                                                    )}
+                                                                                </AnimatePresence>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+
+                                                                {/* ── PRESENTATION SLIDE CONTROLLER ── */}
+                                                                <div className="relative overflow-hidden min-h-[300px]">
+                                                                    <AnimatePresence mode="wait" initial={false}>
+                                                                        <motion.div
+                                                                            key={preguntaIdx}
+                                                                            initial={{ opacity: 0, x: slideDirection === 'forward' ? 50 : -50 }}
+                                                                            animate={{ opacity: 1, x: 0 }}
+                                                                            exit={{ opacity: 0, x: slideDirection === 'forward' ? -50 : 50 }}
+                                                                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                                            className="w-full"
+                                                                        >
+                                                                            {(() => {
+                                                                                const esSlideVideo = hasVideo && preguntaIdx === 0;
+
+                                                                                if (esSlideVideo) {
+                                                                                    // RENDER VIDEO SLIDE
+                                                                                    const ytId = extractYouTubeId(cuestionarioActivo.urlVideo!);
+                                                                                    const handleVideoEnd = async () => {
+                                                                                        if (videoVisto) return;
+                                                                                        try {
+                                                                                            await eventoPublicoService.marcarVideoVisto(
+                                                                                                evento!.id,
+                                                                                                cuestionarioActivo.id,
+                                                                                                form.ci,
+                                                                                                form.fechaNacimiento
+                                                                                            );
+                                                                                            const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
+                                                                                            setProgreso(progUpdate.progress);
+
+                                                                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
+                                                                                                await handleCompletarSinPreguntas(cuestionarioActivo);
+                                                                                            } else {
+                                                                                                toast.success('¡Video completado! Ya puedes comenzar la evaluación.');
+                                                                                            }
+                                                                                        } catch (e) {
+                                                                                            console.error('Error marcando video visto:', e);
+                                                                                        }
+                                                                                    };
+
+                                                                                    return (
+                                                                                        <div className={cn(
+                                                                                            "bg-card border-2 rounded-3xl overflow-hidden shadow-xl transition-all duration-500",
+                                                                                            videoVisto ? "border-emerald-500/20" : "border-primary/20"
+                                                                                        )}>
+                                                                                            <div className={cn(
+                                                                                                "px-6 py-4 flex items-center justify-between gap-4 border-b border-border/40",
+                                                                                                videoVisto ? "bg-emerald-500/5" : "bg-primary/5"
+                                                                                            )}>
+                                                                                                <div className="flex items-center gap-3">
+                                                                                                    <div className={cn(
+                                                                                                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
+                                                                                                        videoVisto ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-500" : "bg-primary/10 border-primary/25 text-primary"
+                                                                                                    )}>
+                                                                                                        <Video className="w-5 h-5" />
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">Diapositiva 1 · Video Clase</span>
+                                                                                                        <h4 className="text-xs font-black uppercase text-foreground leading-tight">
+                                                                                                            {videoVisto ? '✓ Video Visto — Puedes avanzar' : 'Ve el video completo para continuar'}
+                                                                                                        </h4>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                {videoVisto && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                                                                                            </div>
+
+                                                                                            <div className="relative w-full aspect-video">
+                                                                                                <YouTube
+                                                                                                    videoId={ytId}
+                                                                                                    className="absolute inset-0 w-full h-full"
+                                                                                                    iframeClassName="w-full h-full"
+                                                                                                    opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
+                                                                                                    onStateChange={(event) => {
+                                                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                                        const currentRate = event.target.getPlaybackRate() || 1;
+                                                                                                        if (event.data === 1) {
+                                                                                                            timer.lastStart = Date.now();
+                                                                                                            timer.lastRate = currentRate;
+
+                                                                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                                                            }
+
+                                                                                                            const isAlreadyWatched = !!videoVisto;
+
+                                                                                                            const intervalId = setInterval(() => {
+                                                                                                                const player = event.target;
+                                                                                                                const currentTime = player.getCurrentTime();
+                                                                                                                const playbackRecord = videoPlaybackRef.current[cuestionarioActivo.id] || { maxTime: 0, intervalId: null };
+
+                                                                                                                if (!isAlreadyWatched) {
+                                                                                                                    if (currentTime > playbackRecord.maxTime + 3) {
+                                                                                                                        player.seekTo(playbackRecord.maxTime, true);
+                                                                                                                        toast.warning('No está permitido adelantar el video.');
+                                                                                                                    } else {
+                                                                                                                        playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                                                    }
+                                                                                                                } else {
+                                                                                                                    playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                                                }
+
+                                                                                                                videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                                                                    ...playbackRecord,
+                                                                                                                    intervalId
+                                                                                                                };
+                                                                                                            }, 500);
+
+                                                                                                            videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                                                                maxTime: videoPlaybackRef.current[cuestionarioActivo.id]?.maxTime || 0,
+                                                                                                                intervalId
+                                                                                                            };
+                                                                                                        } else {
+                                                                                                            if (timer.lastStart) {
+                                                                                                                timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                                                timer.lastStart = null;
+                                                                                                            }
+                                                                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                                                                videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                                                                            }
+                                                                                                        }
+                                                                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                                                                    }}
+                                                                                                    onPlaybackRateChange={(event) => {
+                                                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                                        const newRate = event.data;
+                                                                                                        if (timer.lastStart) {
+                                                                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                                            timer.lastStart = Date.now();
+                                                                                                        }
+                                                                                                        timer.lastRate = newRate;
+                                                                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                                                                    }}
+                                                                                                    onEnd={async (event) => {
+                                                                                                        if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                                                            clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                                                            videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                                                                        }
+
+                                                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                                        if (timer.lastStart) {
+                                                                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                                            timer.lastStart = null;
+                                                                                                        }
+                                                                                                        const duration = event.target.getDuration();
+                                                                                                        if (timer.totalTime < duration * 0.9) {
+                                                                                                            setVideoWarningModal(true);
+                                                                                                            videoTimersRef.current[cuestionarioActivo.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                                                            event.target.seekTo(0);
+                                                                                                            return;
+                                                                                                        }
+
+                                                                                                        setLocalVideosVistos(prev => {
+                                                                                                            const next = { ...prev, [cuestionarioActivo.id]: true };
+                                                                                                            localStorage.setItem('local_videos_vistos', JSON.stringify(next));
+                                                                                                            return next;
+                                                                                                        });
+
+                                                                                                        await handleVideoEnd();
+                                                                                                    }}
+                                                                                                />
+                                                                                            </div>
+
+                                                                                            <div className="p-5 bg-muted/10 border-t border-border flex items-center justify-end">
+                                                                                                {cuestionarioActivo.preguntas.length > 0 && (
+                                                                                                    <button
+                                                                                                        disabled={!videoVisto}
+                                                                                                        onClick={() => {
+                                                                                                            if (videoVisto) {
+                                                                                                                setSlideDirection('forward');
+                                                                                                                setPreguntaIdx(1);
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        className={cn(
+                                                                                                            "flex items-center justify-center gap-2 h-12 px-6 rounded-2xl font-black text-xs uppercase transition-all shadow-lg",
+                                                                                                            videoVisto
+                                                                                                                ? "bg-primary text-white hover:opacity-90 shadow-primary/20 scale-102 animate-pulse"
+                                                                                                                : "bg-muted text-muted-foreground border border-dashed border-border opacity-50 cursor-not-allowed shadow-none"
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {videoVisto ? (
+                                                                                                            <>
+                                                                                                                Ir a Preguntas <ChevronRight className="w-4 h-4" />
+                                                                                                            </>
+                                                                                                        ) : (
+                                                                                                            <>
+                                                                                                                <Lock className="w-3.5 h-3.5 mr-1" /> Ve el video completo
+                                                                                                            </>
+                                                                                                        )}
+                                                                                                    </button>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                }
+
+                                                                                // RENDER PREGUNTA SLIDE
+                                                                                const pregRealIdx = hasVideo ? preguntaIdx - 1 : preguntaIdx;
+                                                                                const preg = cuestionarioActivo.preguntas[pregRealIdx];
+                                                                                if (!preg) return null;
+
+                                                                                if (!startTime) {
+                                                                                    // PANTALLA DE BIENVENIDA / INSTRUCCIONES DE LA EVALUACIÓN
+                                                                                    const progC = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
+                                                                                    const intentosRealizados = progC?.numeroIntentos || 0;
+                                                                                    const limitValue = progC?.limiteIntentos ?? cuestionarioActivo.limiteIntentos;
+                                                                                    const limiteAgotado = limitValue != null && intentosRealizados >= limitValue;
+
+                                                                                    // ── LÍMITE DE INTENTOS ALCANZADO: bloquear entrada ──────────────
+                                                                                    if (limiteAgotado) {
+                                                                                        return (
+                                                                                            <motion.div
+                                                                                                initial={{ opacity: 0, scale: 0.97 }}
+                                                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                                                className="bg-card border-2 border-red-500/30 rounded-3xl p-8 text-center space-y-6 shadow-xl bg-gradient-to-br from-red-500/5 via-card to-card"
+                                                                                            >
+                                                                                                <div className="w-20 h-20 rounded-[1.5rem] bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center mx-auto text-red-500">
+                                                                                                    <Lock className="w-10 h-10" />
+                                                                                                </div>
+
+                                                                                                <div className="space-y-2">
+                                                                                                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-500/70">Acceso Bloqueado</span>
+                                                                                                    <h3 className="text-xl font-black uppercase text-foreground tracking-tight leading-snug">
+                                                                                                        Límite de Intentos Alcanzado
+                                                                                                    </h3>
+                                                                                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed font-bold uppercase tracking-wider opacity-80">
+                                                                                                        Has utilizado todos los intentos disponibles para esta evaluación. Ya no es posible realizar un nuevo intento.
+                                                                                                    </p>
+                                                                                                </div>
+
+                                                                                                <div className="bg-muted/20 border border-border/50 rounded-2xl p-5 max-w-sm mx-auto space-y-3 text-left">
+                                                                                                    <div className="flex justify-between items-center">
+                                                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Intentos realizados</span>
+                                                                                                        <span className="text-sm font-black text-red-500">{intentosRealizados} / {limitValue}</span>
+                                                                                                    </div>
+                                                                                                    <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                                                                                                        <div className="h-full bg-red-500 rounded-full" style={{ width: '100%' }} />
+                                                                                                    </div>
+                                                                                                    {progC?.nota != null && (
+                                                                                                        <div className="flex justify-between items-center pt-1 border-t border-border/40">
+                                                                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Mejor nota obtenida</span>
+                                                                                                            <span className={`text-sm font-black ${(progC?.nota ?? 0) >= (cuestionarioActivo.puntajeMinimo || 75) ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                                                                                {progC?.nota ?? 0} / 100
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider">
+                                                                                                    Comunícate con el organizador si necesitas asistencia.
+                                                                                                </p>
+                                                                                            </motion.div>
+                                                                                        );
+                                                                                    }
+                                                                                    // ────────────────────────────────────────────────────────────────
+
+                                                                                    return (
+                                                                                        <motion.div
+                                                                                            initial={{ opacity: 0, scale: 0.98 }}
+                                                                                            animate={{ opacity: 1, scale: 1 }}
+                                                                                            className="bg-card border border-border rounded-3xl p-8 text-center space-y-6 shadow-xl"
+                                                                                        >
+                                                                                            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
+                                                                                                <ClipboardList className="w-8 h-8" />
+                                                                                            </div>
+
+                                                                                            <div className="space-y-2">
+                                                                                                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">
+                                                                                                    {cuestionarioActivo.esEvaluativo ? 'Evaluación de Módulo' : 'Formulario de Módulo'}
+                                                                                                </span>
+                                                                                                <h3 className="text-xl font-black uppercase text-foreground tracking-tight leading-snug">
+                                                                                                    {cuestionarioActivo.titulo}
+                                                                                                </h3>
+                                                                                                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed font-bold uppercase tracking-wider opacity-80">
+                                                                                                    {cuestionarioActivo.esEvaluativo
+                                                                                                        ? 'Prepárate para responder las preguntas de evaluación de este módulo. Una vez que inicies, el tiempo comenzará a correr.'
+                                                                                                        : 'Completa este formulario para registrar tu participación. No se asigna nota, solo debes responder todas las preguntas.'}
+                                                                                                </p>
+                                                                                            </div>
+
+                                                                                            <div className={`grid gap-4 max-w-md mx-auto bg-muted/20 p-5 rounded-2xl border border-border/50 text-left ${cuestionarioActivo.esEvaluativo ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                                                                                                <div className="space-y-0.5">
+                                                                                                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Preguntas</p>
+                                                                                                    <p className="text-sm font-black text-foreground">{cuestionarioActivo.preguntas.length} preguntas</p>
+                                                                                                </div>
+                                                                                                <div className="space-y-0.5">
+                                                                                                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Tiempo Límite</p>
+                                                                                                    <p className="text-sm font-black text-foreground">
+                                                                                                        {cuestionarioActivo.tiempoMaximo && cuestionarioActivo.tiempoMaximo > 0
+                                                                                                            ? `${cuestionarioActivo.tiempoMaximo} minutos`
+                                                                                                            : 'Sin límite'}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                                {cuestionarioActivo.esEvaluativo ? (
+                                                                                                    <div className="space-y-0.5">
+                                                                                                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Nota de Aprobación</p>
+                                                                                                        <p className="text-sm font-black text-emerald-500">{cuestionarioActivo.puntajeMinimo || 75} / 100 pts</p>
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div className="space-y-0.5">
+                                                                                                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Tipo</p>
+                                                                                                        <p className="text-sm font-black text-primary">Formulario</p>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                                <div className="space-y-0.5">
+                                                                                                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Intentos</p>
+                                                                                                    <p className="text-sm font-black text-foreground">
+                                                                                                        {intentosRealizados} realizados {limitValue ? `de ${limitValue}` : ''}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            <div className="pt-2 max-w-xs mx-auto">
+                                                                                                <button
+                                                                                                    onClick={() => {
+                                                                                                        const now = Date.now();
+                                                                                                        setStartTime(now);
+                                                                                                        // Guardar sesión
+                                                                                                        const session = {
+                                                                                                            cuestionarioActivo,
+                                                                                                            respuestas,
+                                                                                                            preguntaIdx,
+                                                                                                            startTime: now,
+                                                                                                            step: 'info'
+                                                                                                        };
+                                                                                                        localStorage.setItem(`cuestionario_session_${evento!.id}`, JSON.stringify(session));
+                                                                                                    }}
+                                                                                                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 text-white font-black text-xs uppercase tracking-widest hover:opacity-95 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
+                                                                                                >
+                                                                                                    <Play className="w-4 h-4 fill-white animate-pulse" />
+                                                                                                    {cuestionarioActivo.esEvaluativo ? 'Iniciar Evaluación' : 'Iniciar Formulario'}
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </motion.div>
+                                                                                    );
+                                                                                }
+
+                                                                                const totalRespondidas = cuestionarioActivo.preguntas.filter(p => {
+                                                                                    const r = respuestas[p.id];
+                                                                                    return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                                }).length;
+
+                                                                                const isLastQuestion = pregRealIdx === cuestionarioActivo.preguntas.length - 1;
+
+                                                                                return (
+                                                                                    <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-xl">
+                                                                                        {/* Header de pregunta */}
+                                                                                        <div className="px-6 py-4 bg-muted/30 border-b border-border flex items-center justify-between gap-4 flex-wrap">
+                                                                                            <div className="flex items-center gap-3">
+                                                                                                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                                                                                    <span className="text-sm font-black text-primary">{pregRealIdx + 1}</span>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                                                    <p className="text-[10px] font-bold text-muted-foreground leading-none mt-1">
+                                                                                                        {preg.tipo === 'SINGLE' ? 'Selección única' : preg.tipo === 'MULTIPLE' ? 'Selección múltiple' : preg.tipo === 'TRUE_FALSE' ? 'Verdadero / Falso' : 'Respuesta abierta'}
+                                                                                                        {cuestionarioActivo.esEvaluativo && <>{' • '}<span className="text-primary font-black">{preg.puntos} pt{preg.puntos !== 1 ? 's' : ''}</span></>}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                                                {respuestas[preg.id] !== undefined && respuestas[preg.id] !== '' && !(Array.isArray(respuestas[preg.id]) && respuestas[preg.id].length === 0) && (
+                                                                                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                                                                                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                                                                        <span className="text-[9px] font-black uppercase tracking-wider text-emerald-500">Respondida</span>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        <div className="p-6 md:p-8 space-y-6">
+                                                                                            {/* Texto de la pregunta */}
+                                                                                            <div className="text-base md:text-lg font-bold text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: preg.texto }} />
+
+                                                                                            {/* Opciones */}
+                                                                                            <div className="space-y-3">
+                                                                                                {(preg.tipo === 'SINGLE' || preg.tipo === 'TRUE_FALSE') && preg.opciones.map((opt, oi) => (
+                                                                                                    <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: opt.id }))}
+                                                                                                        className={`w-full flex items-center gap-4 px-5 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all group ${respuestas[preg.id] === opt.id
+                                                                                                            ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                                                                                            : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                                                                                            }`}>
+                                                                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${respuestas[preg.id] === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground group-hover:border-primary/60'
+                                                                                                            }`}>
+                                                                                                            {respuestas[preg.id] === opt.id
+                                                                                                                ? <Check className="w-3.5 h-3.5 text-white" />
+                                                                                                                : <span className="text-[9px] font-black text-muted-foreground">{String.fromCharCode(65 + oi)}</span>
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                        {opt.texto}
+                                                                                                    </button>
+                                                                                                ))}
+
+                                                                                                {preg.tipo === 'MULTIPLE' && preg.opciones.map((opt, oi) => {
+                                                                                                    const selected: string[] = respuestas[preg.id] || [];
+                                                                                                    const isChecked = selected.includes(opt.id);
+                                                                                                    return (
+                                                                                                        <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: isChecked ? selected.filter(x => x !== opt.id) : [...selected, opt.id] }))}
+                                                                                                            className={`w-full flex items-center gap-4 px-5 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all group ${isChecked
+                                                                                                                ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                                                                                                : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                                                                                                }`}>
+                                                                                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${isChecked ? 'border-primary bg-primary' : 'border-muted-foreground group-hover:border-primary/60'
+                                                                                                                }`}>
+                                                                                                                {isChecked
+                                                                                                                    ? <Check className="w-3.5 h-3.5 text-white" />
+                                                                                                                    : <span className="text-[9px] font-black text-muted-foreground">{String.fromCharCode(65 + oi)}</span>
+                                                                                                                }
+                                                                                                            </div>
+                                                                                                            {opt.texto}
+                                                                                                        </button>
+                                                                                                    );
+                                                                                                })}
+
+                                                                                                {preg.tipo === 'TEXTO' && (
+                                                                                                    <textarea placeholder="Escribe tu respuesta aquí..."
+                                                                                                        value={respuestas[preg.id] || ''}
+                                                                                                        onChange={e => setRespuestas(r => ({ ...r, [preg.id]: e.target.value }))}
+                                                                                                        className="w-full p-5 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none text-foreground font-medium resize-none h-36 transition-all"
+                                                                                                    />
+                                                                                                )}
+                                                                                            </div>
+
+                                                                                            {/* Navegación y Auto-guardado */}
+                                                                                            <div className="flex flex-col gap-4 pt-4 border-t border-border/80">
+                                                                                                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-muted/30">
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        {lastSavedStatus === 'saved' ? (
+                                                                                                            <>
+                                                                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Respuestas guardadas</span>
+                                                                                                            </>
+                                                                                                        ) : lastSavedStatus === 'saving' ? (
+                                                                                                            <>
+                                                                                                                <RefreshCw size={10} className="text-primary animate-spin" />
+                                                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Sincronizando...</span>
+                                                                                                            </>
+                                                                                                        ) : (
+                                                                                                            <>
+                                                                                                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-amber-500/80">Esperando cambios...</span>
+                                                                                                            </>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                    <span className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Auto-guardado</span>
+                                                                                                </div>
+
+                                                                                                <div className="flex items-center justify-between gap-3">
+                                                                                                    <button
+                                                                                                        onClick={() => {
+                                                                                                            setSlideDirection('backward');
+                                                                                                            setPreguntaIdx(i => Math.max(0, i - 1));
+                                                                                                        }}
+                                                                                                        className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-muted text-muted-foreground hover:text-foreground font-bold text-xs uppercase transition-all"
+                                                                                                    >
+                                                                                                        <ChevronLeft className="w-4 h-4" /> Anterior
+                                                                                                    </button>
+
+                                                                                                    {!isLastQuestion ? (
+                                                                                                        <button
+                                                                                                            onClick={() => {
+                                                                                                                setSlideDirection('forward');
+                                                                                                                setPreguntaIdx(i => i + 1);
+                                                                                                            }}
+                                                                                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                                                                                                        >
+                                                                                                            Siguiente <ChevronRight className="w-4 h-4" />
+                                                                                                        </button>
+                                                                                                    ) : (
+                                                                                                        <button
+                                                                                                            onClick={() => handleEnviarCuestionario()}
+                                                                                                            disabled={submitting}
+                                                                                                            className="flex-1 flex items-center justify-center gap-2 h-14 md:h-12 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 text-white font-black text-xs uppercase hover:opacity-90 disabled:opacity-40 transition-all shadow-xl shadow-emerald-600/25"
+                                                                                                        >
+                                                                                                            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                                                                            {totalRespondidas < cuestionarioActivo.preguntas.length
+                                                                                                                ? `Enviar (${totalRespondidas}/${cuestionarioActivo.preguntas.length})`
+                                                                                                                : 'Enviar Cuestionario ✓'
+                                                                                                            }
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </motion.div>
+                                                                    </AnimatePresence>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="bg-card border border-border rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[350px]">
+                                                            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                                                            <h3 className="font-black uppercase text-sm text-foreground">Cargando Módulo...</h3>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
                                     </div>
                                 )}{/* Afiche Principal */}
-                                {evento.afiche && (
+                                {!persona && evento.afiche && (
                                     <div className="space-y-6">
                                         <div className="flex items-center gap-4">
                                             <div className="h-px flex-1 bg-border" />
@@ -2065,39 +3098,40 @@ export default function EventoPublicoPage() {
                                     </div>
                                 )}
 
-                                <div className="flex flex-col gap-4">
-                                    {evento.inscripcionAbierta && (
-                                        <button onClick={() => setStep(inscripcion ? 'descargo' : 'identificacion')}
-                                            className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
-                                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                                                {inscripcion ? <CheckCircle2 className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                                            </div>
-                                            <div className="text-left text-foreground">
-                                                <div className="text-xl group-hover:text-primary transition-colors tracking-tight">
-                                                    {inscripcion ? 'Ver mi Comprobante' : 'Inscripción Oficial'}
+                                {!persona && (
+                                    <div className="flex flex-col gap-4">
+                                        {evento.inscripcionAbierta && (
+                                            <button onClick={() => setStep(inscripcion ? 'descargo' : 'identificacion')}
+                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                                    {inscripcion ? <CheckCircle2 className="w-6 h-6" /> : <Users className="w-6 h-6" />}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">
-                                                    {inscripcion ? 'Ya te encuentras registrado. Haz clic para ver tu certificado.' : 'Garantiza tu participación en esta actividad académica.'}
+                                                <div className="text-left text-foreground">
+                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">
+                                                        {inscripcion ? 'Ver mi Comprobante' : 'Inscripción Oficial'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">
+                                                        {inscripcion ? 'Ya te encuentras registrado. Haz clic para ver tu certificado.' : 'Garantiza tu participación en esta actividad académica.'}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                        </button>
-                                    )}
-                                    {evento.asistencia && (
-                                        <button onClick={() => setStep('asistencia')}
-                                            className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
-                                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                                                <CheckCircle2 className="w-6 h-6" />
-                                            </div>
-                                            <div className="text-left text-foreground">
-                                                <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Registro de Asistencia</div>
-                                                <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Valida y confirma tu asistencia mediante código oficial.</div>
-                                            </div>
-                                            <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                        </button>
-                                    )}
-
-                                </div>
+                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                            </button>
+                                        )}
+                                        {evento.asistencia && (
+                                            <button onClick={() => setStep('asistencia')}
+                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                                    <CheckCircle2 className="w-6 h-6" />
+                                                </div>
+                                                <div className="text-left text-foreground">
+                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Registro de Asistencia</div>
+                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Valida y confirma tu asistencia mediante código oficial.</div>
+                                                </div>
+                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </motion.div>
                         )}
 
@@ -2220,6 +3254,7 @@ export default function EventoPublicoPage() {
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Nombre 2</label>
                                         <input type="text" placeholder="Segundo nombre (opcional)" value={form.nombre2}
                                             onChange={e => setForm(p => ({ ...p, nombre2: e.target.value }))}
+                                            autoComplete="new-password"
                                             className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground uppercase transition-all" />
                                     </div>
                                     <div className="space-y-2">
@@ -2590,11 +3625,17 @@ export default function EventoPublicoPage() {
                                     <div>
                                         <h2 className="text-2xl font-black uppercase text-foreground">{cuestionarioActivo.titulo}</h2>
                                         <p className="text-sm text-muted-foreground mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                            <span className="font-bold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-md">
+                                            <span className="font-bold text-primary uppercase bg-primary/10 px-2.5 py-0.5 rounded-md">
                                                 {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
                                             </span>
                                             <span className="hidden sm:inline opacity-50">•</span>
-                                            <span className="font-bold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-md">{cuestionarioActivo.preguntas.length} preguntas</span>
+                                            {cuestionarioActivo.preguntas.length > 0 ? (
+                                                <span className="font-bold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-md">{cuestionarioActivo.preguntas.length} preguntas</span>
+                                            ) : (
+                                                <span className="font-bold text-emerald-500 uppercase bg-emerald-500/10 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                    <Video className="w-3.5 h-3.5" /> Clase en Video
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                     {cuestionarioActivo.tiempoMaximo && (
@@ -2606,282 +3647,722 @@ export default function EventoPublicoPage() {
                                     )}
                                 </div>
 
-                                {/* ── VIDEO OBLIGATORIO ── */}
-                                {cuestionarioActivo.urlVideo && (() => {
-                                    const ytId = extractYouTubeId(cuestionarioActivo.urlVideo);
-                                    const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
-                                    const videoVisto = progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
-
-                                    // Si ya se vio, no lo mostramos de nuevo para no estorbar
-                                    if (videoVisto) return null;
-
-                                    const handleVideoEnd = async () => {
-                                        if (videoVisto) return;
-                                        try {
-                                            await eventoPublicoService.marcarVideoVisto(
-                                                evento!.id,
-                                                cuestionarioActivo.id,
-                                                form.ci,
-                                                form.fechaNacimiento
-                                            );
-                                            const prog = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
-                                            setProgreso(prog.progress);
-
-                                            // Lógica Senior: Si no hay preguntas, el paso se completa al ver el video
-                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
-                                                await handleCompletarSinPreguntas(cuestionarioActivo);
-                                                setStep('info'); // Regresar a la lista con el siguiente paso desbloqueado
-                                            } else {
-                                                toast.success('¡Video completado! Ya puedes responder el cuestionario.');
-                                            }
-                                        } catch (e) {
-                                            console.error('Error marcando video visto:', e);
-                                        }
-                                    };
+                                {/* ── SLIDE TIMELINE INDICATOR ── */}
+                                {(() => {
+                                    const progC = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
+                                    const videoVisto = !cuestionarioActivo.urlVideo || progC?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
+                                    const hasVideo = !!cuestionarioActivo.urlVideo;
+                                    const pregs = cuestionarioActivo.preguntas;
 
                                     return (
-                                        <div className={cn(
-                                            "bg-card border-2 rounded-3xl overflow-hidden",
-                                            videoVisto ? "border-green-500/30" : "border-primary/40"
-                                        )}>
-                                            <div className={cn(
-                                                "px-6 py-3 flex items-center justify-between gap-4",
-                                                videoVisto ? "bg-green-500/10" : "bg-primary/10"
-                                            )}>
-                                                <div className="flex items-center gap-3">
-                                                    <Video className={cn("w-5 h-5", videoVisto ? "text-green-500" : "text-primary")} />
-                                                    <span className={cn("text-xs font-black uppercase tracking-widest", videoVisto ? "text-green-500" : "text-primary")}>
-                                                        {videoVisto ? '✓ Video Visto — Cuestionario Desbloqueado' : 'Ve el video completo para continuar'}
-                                                    </span>
-                                                </div>
-                                                {videoVisto && <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />}
-                                            </div>
-                                            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                                                <YouTube
-                                                    videoId={ytId}
-                                                    className="absolute inset-0 w-full h-full"
-                                                    iframeClassName="w-full h-full"
-                                                    opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
-                                                    onStateChange={(event) => {
-                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                        const currentRate = event.target.getPlaybackRate() || 1;
-                                                        if (event.data === 1) {
-                                                            timer.lastStart = Date.now();
-                                                            timer.lastRate = currentRate;
-
-                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
-                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
-                                                            }
-
-                                                            const isAlreadyWatched = !!(progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id]);
-
-                                                            const intervalId = setInterval(() => {
-                                                                const player = event.target;
-                                                                const currentTime = player.getCurrentTime();
-                                                                const playbackRecord = videoPlaybackRef.current[cuestionarioActivo.id] || { maxTime: 0, intervalId: null };
-
-                                                                if (!isAlreadyWatched) {
-                                                                    if (currentTime > playbackRecord.maxTime + 3) {
-                                                                        player.seekTo(playbackRecord.maxTime, true);
-                                                                        toast.warning('No está permitido adelantar el video.');
-                                                                    } else {
-                                                                        playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
-                                                                    }
-                                                                } else {
-                                                                    playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
-                                                                }
-
-                                                                videoPlaybackRef.current[cuestionarioActivo.id] = {
-                                                                    ...playbackRecord,
-                                                                    intervalId
-                                                                };
-                                                            }, 500);
-
-                                                            videoPlaybackRef.current[cuestionarioActivo.id] = {
-                                                                maxTime: videoPlaybackRef.current[cuestionarioActivo.id]?.maxTime || 0,
-                                                                intervalId
-                                                            };
-                                                        } else {
-                                                            if (timer.lastStart) {
-                                                                timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                                timer.lastStart = null;
-                                                            }
-                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
-                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
-                                                                videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
-                                                            }
-                                                        }
-                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
-                                                    }}
-                                                    onPlaybackRateChange={(event) => {
-                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                        const newRate = event.data;
-                                                        if (timer.lastStart) {
-                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                            timer.lastStart = Date.now();
-                                                        }
-                                                        timer.lastRate = newRate;
-                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
-                                                    }}
-                                                    onEnd={async (event) => {
-                                                        if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
-                                                            clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
-                                                            videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
-                                                        }
-
-                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                        if (timer.lastStart) {
-                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
-                                                            timer.lastStart = null;
-                                                        }
-                                                        const duration = event.target.getDuration();
-                                                        if (timer.totalTime < duration * 0.9) {
-                                                            setVideoWarningModal(true);
-                                                            videoTimersRef.current[cuestionarioActivo.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
-                                                            event.target.seekTo(0);
-                                                            return;
-                                                        }
-
-                                                        setLocalVideosVistos(prev => {
-                                                            const next = { ...prev, [cuestionarioActivo.id]: true };
-                                                            localStorage.setItem('local_videos_vistos', JSON.stringify(next));
-                                                            return next;
-                                                        });
-
-                                                        await handleVideoEnd();
-                                                    }}
-                                                />
-                                            </div>
-                                            {!videoVisto && (
-                                                <div className="px-6 py-3 bg-amber-500/10 border-t border-amber-500/20 text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                                                    Debes terminar de ver el video para acceder al cuestionario
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Pregunta actual — solo si no hay video obligatorio pendiente */}
-                                {(() => {
-                                    const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
-                                    const videoVisto = !cuestionarioActivo.urlVideo || progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
-                                    if (!videoVisto) return (
-                                        <div className="text-center py-10 text-muted-foreground font-bold text-sm">
-                                            Termina de ver el video de arriba para acceder a las preguntas.
-                                        </div>
-                                    );
-                                    return null;
-                                })()}
-
-                                {/* Pregunta actual */}
-                                {(() => {
-                                    const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
-                                    const videoVisto = !cuestionarioActivo.urlVideo || progCues?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
-                                    if (!videoVisto) return null;
-                                    return cuestionarioActivo.preguntas.length > 0 && (() => {
-                                        const preg = cuestionarioActivo.preguntas[preguntaIdx];
-                                        return (
-                                            <div className="bg-card border border-border rounded-3xl p-8 space-y-6">
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="flex-1">
-                                                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Pregunta {preguntaIdx + 1} de {cuestionarioActivo.preguntas.length} • {preg.puntos} pt{preg.puntos !== 1 ? 's' : ''}</span>
-                                                        <div className="text-xl font-bold text-foreground mt-2 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: preg.texto }} />
+                                        <div className="bg-card/80 backdrop-blur-md border border-border rounded-3xl p-4 md:p-6 space-y-4 shadow-xl shadow-black/5">
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="flex items-center gap-2">
+                                                    <ClipboardList className="w-5 h-5 text-primary" />
+                                                    <div>
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Progreso del Módulo</span>
+                                                        <h4 className="text-sm font-black uppercase text-foreground leading-tight">{cuestionarioActivo.titulo}</h4>
                                                     </div>
                                                 </div>
+                                                {pregs.length > 0 && (
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20 shrink-0 self-start md:self-auto">
+                                                        {cuestionarioActivo.preguntas.filter(p => {
+                                                            const r = respuestas[p.id];
+                                                            return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                        }).length}/{pregs.length} Preguntas Respondidas
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                                {/* Opciones según tipo */}
-                                                <div className="space-y-3">
-                                                    {(preg.tipo === 'SINGLE' || preg.tipo === 'TRUE_FALSE') && preg.opciones.map(opt => (
-                                                        <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: opt.id }))}
-                                                            className={`w-full flex items-center gap-4 px-6 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all ${respuestas[preg.id] === opt.id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/20 text-foreground hover:border-primary/40'}`}>
-                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${respuestas[preg.id] === opt.id ? 'border-primary' : 'border-muted-foreground'}`}>
-                                                                {respuestas[preg.id] === opt.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                                                            </div>
-                                                            {opt.texto}
+                                            {/* Grid de diapositivas interactivo */}
+                                            {pregs.length <= 10 ? (
+                                                <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-border/50">
+                                                    {/* Botón Slide Video */}
+                                                    {hasVideo && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSlideDirection(0 < preguntaIdx ? 'backward' : 'forward');
+                                                                setPreguntaIdx(0);
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border",
+                                                                preguntaIdx === 0
+                                                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                    : videoVisto
+                                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 hover:scale-102"
+                                                                        : "bg-primary/5 text-primary border-primary/20 animate-pulse"
+                                                            )}
+                                                        >
+                                                            <Video className="w-3.5 h-3.5" />
+                                                            <span>Video</span>
+                                                            {videoVisto && <Check className="w-3 h-3 text-emerald-500" />}
                                                         </button>
-                                                    ))}
+                                                    )}
 
-                                                    {preg.tipo === 'MULTIPLE' && preg.opciones.map(opt => {
-                                                        const selected: string[] = respuestas[preg.id] || [];
-                                                        const isChecked = selected.includes(opt.id);
+                                                    {/* Preguntas */}
+                                                    {pregs.map((p, i) => {
+                                                        const slideIdx = hasVideo ? i + 1 : i;
+                                                        const r = respuestas[p.id];
+                                                        const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                        const esActual = preguntaIdx === slideIdx;
+                                                        const deshabilitado = hasVideo && !videoVisto;
+
                                                         return (
-                                                            <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: isChecked ? selected.filter(x => x !== opt.id) : [...selected, opt.id] }))}
-                                                                className={`w-full flex items-center gap-4 px-6 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all ${isChecked ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/20 text-foreground hover:border-primary/40'}`}>
-                                                                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 ${isChecked ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
-                                                                    {isChecked && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                                                </div>
-                                                                {opt.texto}
+                                                            <button
+                                                                key={p.id}
+                                                                disabled={deshabilitado}
+                                                                onClick={() => {
+                                                                    if (deshabilitado) return;
+                                                                    setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                    setPreguntaIdx(slideIdx);
+                                                                }}
+                                                                title={`Ir a Pregunta ${i + 1}`}
+                                                                className={cn(
+                                                                    "flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all border",
+                                                                    esActual
+                                                                        ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                        : deshabilitado
+                                                                            ? "bg-muted/40 text-muted-foreground/30 border-border/20 cursor-not-allowed opacity-50"
+                                                                            : respondida
+                                                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15 hover:scale-102"
+                                                                                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30 hover:scale-102"
+                                                                )}
+                                                            >
+                                                                <span>P{i + 1}</span>
+                                                                {respondida && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                {deshabilitado && <Lock className="w-3 h-3 text-muted-foreground/40" />}
                                                             </button>
                                                         );
                                                     })}
-
-                                                    {preg.tipo === 'TEXTO' && (
-                                                        <textarea placeholder="Escribe tu respuesta aquí..."
-                                                            value={respuestas[preg.id] || ''}
-                                                            onChange={e => setRespuestas(r => ({ ...r, [preg.id]: e.target.value }))}
-                                                            className="w-full p-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none text-foreground font-medium resize-none h-32 transition-all"
-                                                        />
-                                                    )}
                                                 </div>
+                                            ) : (() => {
+                                                const activeQuestionIdx = hasVideo ? preguntaIdx - 1 : preguntaIdx;
+                                                const totalPregs = pregs.length;
+                                                let start = Math.max(0, activeQuestionIdx - 2);
+                                                let end = Math.min(totalPregs - 1, start + 4);
+                                                if (end - start < 4) {
+                                                    start = Math.max(0, end - 4);
+                                                }
+                                                const visibleQuestionIndices = [];
+                                                for (let i = start; i <= end; i++) {
+                                                    visibleQuestionIndices.push(i);
+                                                }
 
-                                                {/* Navegación */}
-                                                <div className="flex flex-col gap-6 pt-4 border-t border-border">
-                                                    {/* Sync Status Mobile/Desktop */}
-                                                    <div className="flex items-center justify-between px-4 py-2 rounded-2xl bg-muted/30">
-                                                        <div className="flex items-center gap-2">
-                                                            {lastSavedStatus === 'saved' ? (
+                                                const totalRespondidas = pregs.filter(p => {
+                                                    const r = respuestas[p.id];
+                                                    return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                }).length;
+                                                const pctRespondidas = Math.round((totalRespondidas / totalPregs) * 100);
+                                                const deshabilitado = hasVideo && !videoVisto;
+
+                                                return (
+                                                    <div className="w-full pt-2 border-t border-border/50 space-y-3.5">
+                                                        {/* Header info bar inside selector */}
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-black uppercase tracking-wider">
+                                                            <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+                                                                <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-xl border border-primary/20">
+                                                                    {preguntaIdx === 0 && hasVideo ? 'Viendo Video' : `Pregunta ${activeQuestionIdx + 1} / ${totalPregs}`}
+                                                                </span>
+                                                                <span className="opacity-50">•</span>
+                                                                <span className="text-emerald-500 font-black">
+                                                                    {totalRespondidas} de {totalPregs} respondidas ({pctRespondidas}%)
+                                                                </span>
+                                                            </div>
+                                                            {/* Thin progress bar representing answered questions */}
+                                                            <div className="w-full sm:w-40 h-2 bg-muted rounded-full overflow-hidden border border-border/30">
+                                                                <div
+                                                                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                                                    style={{ width: `${pctRespondidas}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Navigation controls */}
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            {/* Video Button */}
+                                                            {hasVideo && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSlideDirection(0 < preguntaIdx ? 'backward' : 'forward');
+                                                                        setPreguntaIdx(0);
+                                                                    }}
+                                                                    className={cn(
+                                                                        "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border shrink-0",
+                                                                        preguntaIdx === 0
+                                                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                            : videoVisto
+                                                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 hover:scale-102"
+                                                                                : "bg-primary/5 text-primary border-primary/20 animate-pulse"
+                                                                    )}
+                                                                >
+                                                                    <Video className="w-3.5 h-3.5" />
+                                                                    <span>Video</span>
+                                                                    {videoVisto && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                </button>
+                                                            )}
+
+                                                            {/* Separator / Divider if video is present */}
+                                                            {hasVideo && <div className="h-8 w-[1px] bg-border mx-1" />}
+
+                                                            {/* Left/Prev Arrow */}
+                                                            <button
+                                                                disabled={preguntaIdx === 0 || deshabilitado}
+                                                                onClick={() => {
+                                                                    setSlideDirection('backward');
+                                                                    setPreguntaIdx(prev => Math.max(0, prev - 1));
+                                                                }}
+                                                                className={cn(
+                                                                    "flex items-center justify-center w-10 h-10 rounded-xl border transition-all text-muted-foreground hover:text-foreground",
+                                                                    (preguntaIdx === 0 || deshabilitado)
+                                                                        ? "opacity-30 cursor-not-allowed border-transparent"
+                                                                        : "bg-card border-border hover:border-primary/30"
+                                                                )}
+                                                                title="Pregunta Anterior"
+                                                            >
+                                                                <ChevronLeft className="w-4.5 h-4.5" />
+                                                            </button>
+
+                                                            {/* First Question Button and Ellipsis if window is shifted */}
+                                                            {!deshabilitado && start > 0 && (
                                                                 <>
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Respuestas seguras en este dispositivo</span>
-                                                                </>
-                                                            ) : lastSavedStatus === 'saving' ? (
-                                                                <>
-                                                                    <RefreshCw size={10} className="text-primary animate-spin" />
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Sincronizando...</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500/80">Esperando cambios...</span>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const slideIdx = hasVideo ? 1 : 0;
+                                                                            setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                            setPreguntaIdx(slideIdx);
+                                                                        }}
+                                                                        className={cn(
+                                                                            "flex items-center justify-center h-10 w-10 rounded-xl text-xs font-black transition-all border",
+                                                                            (hasVideo ? preguntaIdx === 1 : preguntaIdx === 0)
+                                                                                ? "bg-primary text-white border-primary"
+                                                                                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                        )}
+                                                                    >
+                                                                        1
+                                                                    </button>
+                                                                    {start > 1 && (
+                                                                        <span className="text-muted-foreground/60 font-black text-xs px-1 select-none">...</span>
+                                                                    )}
                                                                 </>
                                                             )}
-                                                        </div>
-                                                        <span className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Local Storage Active</span>
-                                                    </div>
 
-                                                    <div className="flex items-center justify-between">
-                                                        <button onClick={() => setPreguntaIdx(i => Math.max(0, i - 1))} disabled={preguntaIdx === 0}
-                                                            className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 font-bold text-xs uppercase transition-all">
-                                                            <ChevronLeft className="w-4 h-4" /> Anterior
-                                                        </button>
+                                                            {/* Windowed Question Buttons */}
+                                                            {visibleQuestionIndices.map((i) => {
+                                                                const slideIdx = hasVideo ? i + 1 : i;
+                                                                const r = respuestas[pregs[i].id];
+                                                                const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                const esActual = preguntaIdx === slideIdx;
 
-                                                        {/* Progress dots */}
-                                                        <div className="hidden sm:flex gap-1.5">
-                                                            {cuestionarioActivo.preguntas.map((_, i) => (
-                                                                <button key={i} onClick={() => setPreguntaIdx(i)}
-                                                                    className={`w-2.5 h-2.5 rounded-full transition-all ${i === preguntaIdx ? 'bg-primary w-5' : respuestas[cuestionarioActivo.preguntas[i].id] ? 'bg-primary/40' : 'bg-muted'}`} />
-                                                            ))}
-                                                        </div>
+                                                                return (
+                                                                    <button
+                                                                        key={pregs[i].id}
+                                                                        disabled={deshabilitado}
+                                                                        onClick={() => {
+                                                                            if (deshabilitado) return;
+                                                                            setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                            setPreguntaIdx(slideIdx);
+                                                                        }}
+                                                                        title={`Ir a Pregunta ${i + 1}`}
+                                                                        className={cn(
+                                                                            "flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border",
+                                                                            esActual
+                                                                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                : deshabilitado
+                                                                                    ? "bg-muted/40 text-muted-foreground/30 border-border/20 cursor-not-allowed opacity-50"
+                                                                                    : respondida
+                                                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15 hover:scale-102"
+                                                                                        : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30 hover:scale-102"
+                                                                        )}
+                                                                    >
+                                                                        <span>P{i + 1}</span>
+                                                                        {respondida && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                        {deshabilitado && <Lock className="w-3 h-3 text-muted-foreground/40" />}
+                                                                    </button>
+                                                                );
+                                                            })}
 
-                                                        {preguntaIdx < cuestionarioActivo.preguntas.length - 1 ? (
-                                                            <button onClick={() => setPreguntaIdx(i => i + 1)}
-                                                                className="flex items-center gap-2 h-12 px-6 rounded-2xl bg-primary text-white font-bold text-xs uppercase hover:opacity-90 transition-all">
-                                                                Siguiente <ChevronRight className="w-4 h-4" />
+                                                            {/* Last Question Button and Ellipsis if window is shifted */}
+                                                            {!deshabilitado && end < totalPregs - 1 && (
+                                                                <>
+                                                                    {end < totalPregs - 2 && (
+                                                                        <span className="text-muted-foreground/60 font-black text-xs px-1 select-none">...</span>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const slideIdx = hasVideo ? totalPregs : totalPregs - 1;
+                                                                            setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                            setPreguntaIdx(slideIdx);
+                                                                        }}
+                                                                        className={cn(
+                                                                            "flex items-center justify-center h-10 w-10 rounded-xl text-xs font-black transition-all border",
+                                                                            (hasVideo ? preguntaIdx === totalPregs : preguntaIdx === totalPregs - 1)
+                                                                                ? "bg-primary text-white border-primary"
+                                                                                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                                                                        )}
+                                                                    >
+                                                                        {totalPregs}
+                                                                    </button>
+                                                                </>
+                                                            )}
+
+                                                            {/* Right/Next Arrow */}
+                                                            <button
+                                                                disabled={preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1) || deshabilitado}
+                                                                onClick={() => {
+                                                                    setSlideDirection('forward');
+                                                                    setPreguntaIdx(prev => Math.min(hasVideo ? totalPregs : totalPregs - 1, prev + 1));
+                                                                }}
+                                                                className={cn(
+                                                                    "flex items-center justify-center w-10 h-10 rounded-xl border transition-all text-muted-foreground hover:text-foreground",
+                                                                    (preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1) || deshabilitado)
+                                                                        ? "opacity-30 cursor-not-allowed border-transparent"
+                                                                        : "bg-card border-border hover:border-primary/30"
+                                                                )}
+                                                                title="Pregunta Siguiente"
+                                                            >
+                                                                <ChevronRight className="w-4.5 h-4.5" />
                                                             </button>
-                                                        ) : (
-                                                            <button onClick={() => handleEnviarCuestionario()} disabled={submitting}
-                                                                className="flex items-center gap-2 h-14 md:h-12 px-8 rounded-2xl bg-green-600 text-white font-black text-xs uppercase hover:opacity-90 disabled:opacity-40 transition-all shadow-lg shadow-green-600/20">
-                                                                {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                                Enviar Todo
+
+                                                            {/* Map Toggle Button */}
+                                                            <button
+                                                                disabled={deshabilitado}
+                                                                onClick={() => setMostrarMapaPreguntas(!mostrarMapaPreguntas)}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 h-10 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ml-auto shrink-0",
+                                                                    deshabilitado
+                                                                        ? "bg-muted/40 text-muted-foreground/30 border-border/20 cursor-not-allowed opacity-50"
+                                                                        : mostrarMapaPreguntas
+                                                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-102"
+                                                                            : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30 hover:scale-102"
+                                                                )}
+                                                                title="Ver todas las preguntas"
+                                                            >
+                                                                <LayoutGrid className="w-3.5 h-3.5" />
+                                                                <span>Ver Todas</span>
                                                             </button>
-                                                        )}
+                                                        </div>
+
+                                                        {/* Collapsible Questions Map */}
+                                                        <AnimatePresence>
+                                                            {mostrarMapaPreguntas && !deshabilitado && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, height: 0 }}
+                                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                                    exit={{ opacity: 0, height: 0 }}
+                                                                    className="pt-3.5 border-t border-border/50 space-y-2.5 overflow-hidden"
+                                                                >
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mapa de Preguntas</span>
+                                                                        <button
+                                                                            onClick={() => setMostrarMapaPreguntas(false)}
+                                                                            className="text-[10px] font-black uppercase text-primary hover:underline"
+                                                                        >
+                                                                            Ocultar
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-48 overflow-y-auto p-1 scrollbar-thin">
+                                                                        {pregs.map((p, i) => {
+                                                                            const slideIdx = hasVideo ? i + 1 : i;
+                                                                            const r = respuestas[p.id];
+                                                                            const respondida = r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                                            const esActual = preguntaIdx === slideIdx;
+
+                                                                            return (
+                                                                                <button
+                                                                                    key={p.id}
+                                                                                    onClick={() => {
+                                                                                        setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                        setPreguntaIdx(slideIdx);
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "flex items-center justify-center gap-1.5 h-10 rounded-xl text-xs font-black uppercase tracking-wider transition-all border",
+                                                                                        esActual
+                                                                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                                                            : respondida
+                                                                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/15 hover:scale-102"
+                                                                                                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30 hover:scale-102"
+                                                                                    )}
+                                                                                >
+                                                                                    <span>P{i + 1}</span>
+                                                                                    {respondida && <Check className="w-3 h-3 text-emerald-500" />}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()
+                                                );
+                                            })()}
+                                        </div>
+                                    );
                                 })()}
+
+                                {/* ── PRESENTATION SLIDE CONTROLLER ── */}
+                                <div className="relative overflow-hidden min-h-[300px]">
+                                    <AnimatePresence mode="wait" initial={false}>
+                                        <motion.div
+                                            key={preguntaIdx}
+                                            initial={{ opacity: 0, x: slideDirection === 'forward' ? 50 : -50 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: slideDirection === 'forward' ? -50 : 50 }}
+                                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                            className="w-full"
+                                        >
+                                            {(() => {
+                                                const progC = progreso?.find((p: any) => p.id === cuestionarioActivo.id);
+                                                const videoVisto = !cuestionarioActivo.urlVideo || progC?.videoCompletado || localVideosVistos[cuestionarioActivo.id];
+                                                const hasVideo = !!cuestionarioActivo.urlVideo;
+
+                                                // DETERMINAR QUÉ MOSTRAR EN ESTA DIAPOSITIVA
+                                                const esSlideVideo = hasVideo && preguntaIdx === 0;
+
+                                                if (esSlideVideo) {
+                                                    // RENDER SLIDE VIDEO
+                                                    const ytId = extractYouTubeId(cuestionarioActivo.urlVideo!);
+                                                    const handleVideoEnd = async () => {
+                                                        if (videoVisto) return;
+                                                        try {
+                                                            await eventoPublicoService.marcarVideoVisto(
+                                                                evento!.id,
+                                                                cuestionarioActivo.id,
+                                                                form.ci,
+                                                                form.fechaNacimiento
+                                                            );
+                                                            const progUpdate = await eventoPublicoService.getProgreso(evento!.id, form.ci, form.fechaNacimiento);
+                                                            setProgreso(progUpdate.progress);
+
+                                                            if (!cuestionarioActivo.preguntas || cuestionarioActivo.preguntas.length === 0) {
+                                                                await handleCompletarSinPreguntas(cuestionarioActivo);
+                                                                setStep('info');
+                                                            } else {
+                                                                toast.success('¡Video completado! Ya puedes continuar a las preguntas.');
+                                                            }
+                                                        } catch (e) {
+                                                            console.error('Error marcando video visto:', e);
+                                                        }
+                                                    };
+
+                                                    return (
+                                                        <div className={cn(
+                                                            "bg-card border-2 rounded-3xl overflow-hidden shadow-xl transition-all duration-500",
+                                                            videoVisto ? "border-emerald-500/20" : "border-primary/20"
+                                                        )}>
+                                                            <div className={cn(
+                                                                "px-6 py-4 flex items-center justify-between gap-4 border-b border-border/40",
+                                                                videoVisto ? "bg-emerald-500/5" : "bg-primary/5"
+                                                            )}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={cn(
+                                                                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
+                                                                        videoVisto ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-500" : "bg-primary/10 border-primary/25 text-primary"
+                                                                    )}>
+                                                                        <Video className="w-5 h-5" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">Diapositiva 1 · Video Clase</span>
+                                                                        <h4 className="text-xs font-black uppercase text-foreground leading-tight">
+                                                                            {videoVisto ? '✓ Video Visto — Puedes avanzar' : 'Ve el video completo para continuar'}
+                                                                        </h4>
+                                                                    </div>
+                                                                </div>
+                                                                {videoVisto && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                                                            </div>
+
+                                                            <div className="relative w-full aspect-video">
+                                                                <YouTube
+                                                                    videoId={ytId}
+                                                                    className="absolute inset-0 w-full h-full"
+                                                                    iframeClassName="w-full h-full"
+                                                                    opts={{ height: '100%', width: '100%', playerVars: { rel: 0, modestbranding: 1 } }}
+                                                                    onStateChange={(event) => {
+                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                        const currentRate = event.target.getPlaybackRate() || 1;
+                                                                        if (event.data === 1) {
+                                                                            timer.lastStart = Date.now();
+                                                                            timer.lastRate = currentRate;
+
+                                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                            }
+
+                                                                            const isAlreadyWatched = !!videoVisto;
+
+                                                                            const intervalId = setInterval(() => {
+                                                                                const player = event.target;
+                                                                                const currentTime = player.getCurrentTime();
+                                                                                const playbackRecord = videoPlaybackRef.current[cuestionarioActivo.id] || { maxTime: 0, intervalId: null };
+
+                                                                                if (!isAlreadyWatched) {
+                                                                                    if (currentTime > playbackRecord.maxTime + 3) {
+                                                                                        player.seekTo(playbackRecord.maxTime, true);
+                                                                                        toast.warning('No está permitido adelantar el video.');
+                                                                                    } else {
+                                                                                        playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                    }
+                                                                                } else {
+                                                                                    playbackRecord.maxTime = Math.max(playbackRecord.maxTime, currentTime);
+                                                                                }
+
+                                                                                videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                                    ...playbackRecord,
+                                                                                    intervalId
+                                                                                };
+                                                                            }, 500);
+
+                                                                            videoPlaybackRef.current[cuestionarioActivo.id] = {
+                                                                                maxTime: videoPlaybackRef.current[cuestionarioActivo.id]?.maxTime || 0,
+                                                                                intervalId
+                                                                            };
+                                                                        } else {
+                                                                            if (timer.lastStart) {
+                                                                                timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                                timer.lastStart = null;
+                                                                            }
+                                                                            if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                                clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                                videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                                            }
+                                                                        }
+                                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                                    }}
+                                                                    onPlaybackRateChange={(event) => {
+                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                        const newRate = event.data;
+                                                                        if (timer.lastStart) {
+                                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                            timer.lastStart = Date.now();
+                                                                        }
+                                                                        timer.lastRate = newRate;
+                                                                        videoTimersRef.current[cuestionarioActivo.id] = timer;
+                                                                    }}
+                                                                    onEnd={async (event) => {
+                                                                        if (videoPlaybackRef.current[cuestionarioActivo.id]?.intervalId) {
+                                                                            clearInterval(videoPlaybackRef.current[cuestionarioActivo.id].intervalId);
+                                                                            videoPlaybackRef.current[cuestionarioActivo.id].intervalId = null;
+                                                                        }
+
+                                                                        const timer = videoTimersRef.current[cuestionarioActivo.id] || { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                        if (timer.lastStart) {
+                                                                            timer.totalTime += ((Date.now() - timer.lastStart) / 1000) * (timer.lastRate || 1);
+                                                                            timer.lastStart = null;
+                                                                        }
+                                                                        const duration = event.target.getDuration();
+                                                                        if (timer.totalTime < duration * 0.9) {
+                                                                            setVideoWarningModal(true);
+                                                                            videoTimersRef.current[cuestionarioActivo.id] = { totalTime: 0, lastStart: null, lastRate: 1 };
+                                                                            event.target.seekTo(0);
+                                                                            return;
+                                                                        }
+
+                                                                        setLocalVideosVistos(prev => {
+                                                                            const next = { ...prev, [cuestionarioActivo.id]: true };
+                                                                            localStorage.setItem('local_videos_vistos', JSON.stringify(next));
+                                                                            return next;
+                                                                        });
+
+                                                                        await handleVideoEnd();
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Footer del Video Slide */}
+                                                            <div className="p-6 bg-muted/20 border-t border-border flex items-center justify-between gap-4">
+                                                                <button
+                                                                    onClick={() => setStep('info')}
+                                                                    className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-muted text-muted-foreground hover:text-foreground font-bold text-xs uppercase transition-all"
+                                                                >
+                                                                    <ChevronLeft className="w-4 h-4" /> Salir
+                                                                </button>
+
+                                                                {cuestionarioActivo.preguntas.length > 0 && (
+                                                                    <button
+                                                                        disabled={!videoVisto}
+                                                                        onClick={() => {
+                                                                            setSlideDirection('forward');
+                                                                            setPreguntaIdx(1);
+                                                                        }}
+                                                                        className={cn(
+                                                                            "flex items-center justify-center gap-2 h-12 px-6 rounded-2xl font-black text-xs uppercase transition-all shadow-lg",
+                                                                            videoVisto
+                                                                                ? "bg-primary text-white hover:opacity-90 shadow-primary/20 scale-102 animate-pulse"
+                                                                                : "bg-muted text-muted-foreground border border-dashed border-border opacity-50 cursor-not-allowed shadow-none"
+                                                                        )}
+                                                                    >
+                                                                        {videoVisto ? (
+                                                                            <>
+                                                                                Ir a Preguntas <ChevronRight className="w-4 h-4" />
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Lock className="w-3.5 h-3.5 mr-1" /> Ve el video completo
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // RENDER SLIDE PREGUNTA
+                                                const pregRealIdx = hasVideo ? preguntaIdx - 1 : preguntaIdx;
+                                                const preg = cuestionarioActivo.preguntas[pregRealIdx];
+                                                if (!preg) return null; // Resguardo
+
+                                                const totalRespondidas = cuestionarioActivo.preguntas.filter(p => {
+                                                    const r = respuestas[p.id];
+                                                    return r !== undefined && r !== '' && !(Array.isArray(r) && r.length === 0);
+                                                }).length;
+
+                                                const isLastQuestion = pregRealIdx === cuestionarioActivo.preguntas.length - 1;
+
+                                                return (
+                                                    <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-xl">
+                                                        {/* Header de pregunta */}
+                                                        <div className="px-6 py-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-border flex items-center justify-between gap-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                                                    <span className="text-sm font-black text-primary">{pregRealIdx + 1}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                    <p className="text-[10px] font-bold text-muted-foreground leading-none mt-1">
+                                                                        {preg.tipo === 'SINGLE' ? 'Selección única' : preg.tipo === 'MULTIPLE' ? 'Selección múltiple' : preg.tipo === 'TRUE_FALSE' ? 'Verdadero / Falso' : 'Respuesta abierta'}
+                                                                        {' • '}<span className="text-primary font-black">{preg.puntos} pt{preg.puntos !== 1 ? 's' : ''}</span>
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            {respuestas[preg.id] !== undefined && respuestas[preg.id] !== '' && !(Array.isArray(respuestas[preg.id]) && respuestas[preg.id].length === 0) && (
+                                                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+                                                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-500">Respondida</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="p-6 md:p-8 space-y-6">
+                                                            {/* Texto de la pregunta */}
+                                                            <div className="text-base md:text-lg font-bold text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: preg.texto }} />
+
+                                                            {/* Opciones según tipo */}
+                                                            <div className="space-y-3">
+                                                                {(preg.tipo === 'SINGLE' || preg.tipo === 'TRUE_FALSE') && preg.opciones.map((opt, oi) => (
+                                                                    <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: opt.id }))}
+                                                                        className={`w-full flex items-center gap-4 px-5 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all group ${respuestas[preg.id] === opt.id
+                                                                            ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                                                            : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                                                            }`}>
+                                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${respuestas[preg.id] === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground group-hover:border-primary/60'
+                                                                            }`}>
+                                                                            {respuestas[preg.id] === opt.id
+                                                                                ? <Check className="w-3.5 h-3.5 text-white" />
+                                                                                : <span className="text-[9px] font-black text-muted-foreground">{String.fromCharCode(65 + oi)}</span>
+                                                                            }
+                                                                        </div>
+                                                                        {opt.texto}
+                                                                    </button>
+                                                                ))}
+
+                                                                {preg.tipo === 'MULTIPLE' && preg.opciones.map((opt, oi) => {
+                                                                    const selected: string[] = respuestas[preg.id] || [];
+                                                                    const isChecked = selected.includes(opt.id);
+                                                                    return (
+                                                                        <button key={opt.id} onClick={() => setRespuestas(r => ({ ...r, [preg.id]: isChecked ? selected.filter(x => x !== opt.id) : [...selected, opt.id] }))}
+                                                                            className={`w-full flex items-center gap-4 px-5 h-14 rounded-2xl border-2 font-bold text-sm text-left transition-all group ${isChecked
+                                                                                ? 'border-primary bg-primary/10 text-primary shadow-md shadow-primary/10'
+                                                                                : 'border-border bg-muted/20 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                                                                }`}>
+                                                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${isChecked ? 'border-primary bg-primary' : 'border-muted-foreground group-hover:border-primary/60'
+                                                                                }`}>
+                                                                                {isChecked
+                                                                                    ? <Check className="w-3.5 h-3.5 text-white" />
+                                                                                    : <span className="text-[9px] font-black text-muted-foreground">{String.fromCharCode(65 + oi)}</span>
+                                                                                }
+                                                                            </div>
+                                                                            {opt.texto}
+                                                                        </button>
+                                                                    );
+                                                                })}
+
+                                                                {preg.tipo === 'TEXTO' && (
+                                                                    <textarea placeholder="Escribe tu respuesta aquí..."
+                                                                        value={respuestas[preg.id] || ''}
+                                                                        onChange={e => setRespuestas(r => ({ ...r, [preg.id]: e.target.value }))}
+                                                                        className="w-full p-5 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none text-foreground font-medium resize-none h-36 transition-all"
+                                                                    />
+                                                                )}
+                                                            </div>
+
+                                                            {/* ── NAVEGACIÓN Y CONTROLES INFERIORES DE PREGUNTA ── */}
+                                                            <div className="flex flex-col gap-4 pt-4 border-t border-border/80">
+                                                                {/* Sync Status */}
+                                                                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-muted/30">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {lastSavedStatus === 'saved' ? (
+                                                                            <>
+                                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Respuestas guardadas localmente</span>
+                                                                            </>
+                                                                        ) : lastSavedStatus === 'saving' ? (
+                                                                            <>
+                                                                                <RefreshCw size={10} className="text-primary animate-spin" />
+                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Sincronizando...</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                                                <span className="text-[9px] font-black uppercase tracking-widest text-amber-500/80">Esperando cambios...</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Auto-guardado</span>
+                                                                </div>
+
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSlideDirection('backward');
+                                                                            setPreguntaIdx(i => Math.max(0, i - 1));
+                                                                        }}
+                                                                        className="flex items-center gap-2 h-12 px-5 rounded-2xl bg-muted text-muted-foreground hover:text-foreground font-bold text-xs uppercase transition-all"
+                                                                    >
+                                                                        <ChevronLeft className="w-4 h-4" /> Anterior
+                                                                    </button>
+
+                                                                    {!isLastQuestion ? (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setSlideDirection('forward');
+                                                                                setPreguntaIdx(i => i + 1);
+                                                                            }}
+                                                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                                                                        >
+                                                                            Siguiente <ChevronRight className="w-4 h-4" />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => handleEnviarCuestionario()}
+                                                                            disabled={submitting}
+                                                                            className="flex-1 flex items-center justify-center gap-2 h-14 md:h-12 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 text-white font-black text-xs uppercase hover:opacity-90 disabled:opacity-40 transition-all shadow-xl shadow-emerald-600/25"
+                                                                        >
+                                                                            {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                                            {totalRespondidas < cuestionarioActivo.preguntas.length
+                                                                                ? `Enviar (${totalRespondidas}/${cuestionarioActivo.preguntas.length} respondidas)`
+                                                                                : 'Enviar Cuestionario ✓'
+                                                                            }
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </div>
                             </motion.div>
                         )}
 
@@ -2902,70 +4383,139 @@ export default function EventoPublicoPage() {
                                     </div>
                                 ) : (
                                     <>
+                                        {/* ── TARJETA PRINCIPAL DE RESULTADO ── */}
                                         <div className={cn(
-                                            "p-8 rounded-3xl text-center space-y-4 border-2 transition-all duration-500",
-                                            (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1)
-                                                ? "bg-primary/5 border-primary/20 shadow-2xl shadow-primary/5"
-                                                : "bg-amber-500/5 border-amber-500/20"
+                                            "relative overflow-hidden rounded-3xl border-2 transition-all duration-500",
+                                            resultado.esEvaluativo === false
+                                                ? "bg-primary/5 border-primary/20"
+                                                : isAprobado
+                                                    ? "bg-gradient-to-br from-primary/10 via-card to-card border-primary/30 shadow-2xl shadow-primary/10"
+                                                    : "bg-gradient-to-br from-amber-500/10 via-card to-card border-amber-500/20"
                                         )}>
-                                            <div className={cn(
-                                                "w-20 h-20 rounded-full mx-auto flex items-center justify-center transition-colors",
-                                                resultado.esEvaluativo === false
-                                                    ? "bg-primary/10"
-                                                    : (resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? "bg-primary/10" : "bg-amber-500/10"
-                                            )}>
-                                                {(resultado.puntaje ?? 0) >= (resultado.puntajeMaximo ?? 1) ? (
-                                                    <Trophy className="w-10 h-10 text-primary" />
-                                                ) : (
-                                                    <AlertTriangle className="w-10 h-10 text-amber-500" />
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="space-y-1 mb-4">
-                                                    <p className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de Evaluación de:</p>
-                                                    <h3 className="text-sm font-black uppercase text-foreground tracking-tight line-clamp-1">{cuestionarioActivo?.titulo}</h3>
-                                                </div>
-                                                <h2 className="text-5xl font-black text-foreground tracking-tighter">
-                                                    {resultado.esEvaluativo === false ? '¡LISTO!' : `${Math.min(resultado.nota ?? 0, 100)}`}
-                                                    {resultado.esEvaluativo !== false && <span className="text-2xl opacity-20 ml-1">/100</span>}
-                                                </h2>
-                                                <p className={cn(
-                                                    "text-sm font-black uppercase tracking-[0.3em]",
+                                            {/* Background glow */}
+                                            {isAprobado && resultado.esEvaluativo !== false && (
+                                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+                                            )}
+
+                                            <div className="relative z-10 p-8 text-center space-y-5">
+                                                {/* Icon */}
+                                                <div className={cn(
+                                                    "w-24 h-24 rounded-[2rem] mx-auto flex items-center justify-center border-2 transition-colors",
                                                     resultado.esEvaluativo === false
-                                                        ? "text-primary"
-                                                        : resultado.aprobado ? "text-primary" : "text-amber-500"
+                                                        ? "bg-primary/10 border-primary/20"
+                                                        : isAprobado ? "bg-primary/15 border-primary/30" : "bg-amber-500/10 border-amber-500/20"
                                                 )}>
                                                     {resultado.esEvaluativo === false
-                                                        ? 'Formulario Enviado'
-                                                        : resultado.aprobado ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
-                                                </p>
-                                            </div>
+                                                        ? <CheckCircle2 className="w-12 h-12 text-primary" />
+                                                        : isAprobado
+                                                            ? <Trophy className="w-12 h-12 text-primary" />
+                                                            : <AlertTriangle className="w-12 h-12 text-amber-500" />
+                                                    }
+                                                </div>
 
-                                            {resultado.esEvaluativo !== false && (
-                                                <div className="space-y-4 pt-2">
-                                                    <div className="w-full h-3 bg-muted rounded-full overflow-hidden border border-border shadow-inner">
-                                                        <motion.div
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${Math.min(resultado.nota ?? 0, 100)}%` }}
-                                                            className={cn("h-full rounded-full transition-all duration-1000", resultado.aprobado ? "bg-primary" : "bg-amber-500")}
-                                                        />
-                                                    </div>
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                                        Has obtenido {resultado.puntaje} de {resultado.puntajeMaximo} puntos posibles
+                                                <div className="space-y-2">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">Resultado · {cuestionarioActivo?.titulo}</p>
+                                                    <h2 className="text-6xl font-black tracking-tighter text-foreground">
+                                                        {resultado.esEvaluativo === false ? '¡LISTO!' : `${Math.min(resultado.nota ?? 0, 100)}`}
+                                                        {resultado.esEvaluativo !== false && <span className="text-3xl opacity-20 ml-1">/100</span>}
+                                                    </h2>
+                                                    <p className={cn(
+                                                        "text-sm font-black uppercase tracking-[0.3em]",
+                                                        resultado.esEvaluativo === false
+                                                            ? "text-primary"
+                                                            : isAprobado ? "text-primary" : "text-amber-500"
+                                                    )}>
+                                                        {resultado.esEvaluativo === false
+                                                            ? 'Formulario Enviado'
+                                                            : isAprobado ? 'Aprobado con Éxito' : 'Evaluación Pendiente'}
                                                     </p>
-                                                    {!resultado.aprobado && (
-                                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-                                                            <p className="text-[10px] text-amber-600 font-black uppercase tracking-tight leading-relaxed">
-                                                                Necesitas al menos {cuestionarioActivo?.puntajeMinimo || 75}/100 para aprobar y obtener tu certificado.
+                                                </div>
+
+                                                {resultado.esEvaluativo !== false && (
+                                                    <div className="space-y-3 pt-1">
+                                                        {/* Barra de puntaje */}
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                                                                <span>0</span>
+                                                                <span className={isAprobado ? 'text-primary' : 'text-amber-500'}>
+                                                                    {resultado.puntaje} / {resultado.puntajeMaximo} pts
+                                                                </span>
+                                                                <span>100</span>
+                                                            </div>
+                                                            <div className="w-full h-4 bg-muted/50 rounded-full overflow-hidden border border-border shadow-inner relative">
+                                                                <motion.div
+                                                                    initial={{ width: 0 }}
+                                                                    animate={{ width: `${Math.min(resultado.nota ?? 0, 100)}%` }}
+                                                                    transition={{ duration: 1.2, ease: 'easeOut' }}
+                                                                    className={cn("h-full rounded-full", isAprobado ? "bg-gradient-to-r from-primary to-emerald-400" : "bg-gradient-to-r from-amber-500 to-orange-400")}
+                                                                />
+                                                                {/* Línea de puntaje mínimo */}
+                                                                <div
+                                                                    className="absolute top-0 h-full border-r-2 border-white/60 border-dashed"
+                                                                    style={{ left: `${cuestionarioActivo?.puntajeMinimo || 75}%` }}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[9px] text-muted-foreground font-bold text-center">
+                                                                Mínimo para aprobar: {cuestionarioActivo?.puntajeMinimo || 75}/100
                                                             </p>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            )}
+
+                                                        {!isAprobado && resultado.esEvaluativo !== false && (
+                                                            <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-500/8 border border-amber-500/15">
+                                                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                                                <p className="text-[10px] text-amber-500/90 font-bold leading-relaxed text-left">
+                                                                    Necesitas <strong>{cuestionarioActivo?.puntajeMinimo || 75}/100</strong> para aprobar y acceder al certificado. Puedes reintentar si aún tienes intentos disponibles.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <div className="p-6 bg-card border border-border rounded-2xl space-y-3">
-                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] border-b border-border pb-2">Información del Cuestionario</p>
+                                        {/* ── TIMELINE DE MÓDULOS ── */}
+                                        {(() => {
+                                            const sortedCuesTimeline = [...(evento?.cuestionarios || [])]
+                                                .filter(c => c.estado !== 'eliminado')
+                                                .sort((a, b) => a.orden - b.orden);
+                                            if (sortedCuesTimeline.length <= 1) return null;
+                                            return (
+                                                <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tu progreso en el curso</p>
+                                                    <div className="space-y-2">
+                                                        {sortedCuesTimeline.map((c, idx) => {
+                                                            const cProg = progreso?.find((p: any) => p.id === c.id);
+                                                            const cAprobado = !!cProg?.aprobado;
+                                                            const cCompletado = !!cProg?.completado;
+                                                            const esActual = c.id === cuestionarioActivo?.id;
+                                                            return (
+                                                                <div key={c.id} className={cn(
+                                                                    "flex items-center gap-3 px-4 py-3 rounded-xl border transition-all",
+                                                                    esActual ? 'border-primary/30 bg-primary/5' : cAprobado || cCompletado ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/40 bg-muted/10 opacity-50'
+                                                                )}>
+                                                                    <div className={cn(
+                                                                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black",
+                                                                        esActual ? 'bg-primary/15 text-primary' : cAprobado || cCompletado ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground'
+                                                                    )}>
+                                                                        {cAprobado || cCompletado ? '✓' : idx + 1}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[10px] font-black uppercase truncate text-foreground">{c.titulo}</p>
+                                                                        <p className="text-[9px] text-muted-foreground font-bold">
+                                                                            {esActual ? 'Módulo actual' : cAprobado ? 'Aprobado' : cCompletado ? 'Completado' : 'Pendiente'}
+                                                                        </p>
+                                                                    </div>
+                                                                    {esActual && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        <div className="p-5 bg-card border border-border rounded-2xl space-y-2">
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em] border-b border-border pb-2">Sobre esta actividad</p>
                                             <div className="text-sm text-foreground leading-relaxed prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: cuestionarioActivo?.descripcion || '' }} />
                                         </div>
 
@@ -2973,14 +4523,33 @@ export default function EventoPublicoPage() {
                                             const progCues = progreso?.find((p: any) => p.id === cuestionarioActivo?.id);
                                             const isAprobado = !!resultado.aprobado || !!progCues?.aprobado || (resultado.nota !== null && resultado.nota !== undefined && resultado.nota >= (cuestionarioActivo?.puntajeMinimo || 75));
 
+                                            const sortedCues = [...(evento?.cuestionarios || [])]
+                                                .filter(c => c.estado !== 'eliminado')
+                                                .sort((a, b) => a.orden - b.orden);
+                                            const currentIndex = sortedCues.findIndex((c: any) => c.id === cuestionarioActivo?.id);
+                                            const siguienteCues = currentIndex !== -1 && currentIndex < sortedCues.length - 1
+                                                ? sortedCues[currentIndex + 1]
+                                                : null;
+
                                             if (resultado.esEvaluativo !== false && isAprobado) {
                                                 return (
-                                                    <button
-                                                        onClick={() => setStep('descargo')}
-                                                        className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
-                                                    >
-                                                        <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
-                                                    </button>
+                                                    <div className="flex flex-col gap-3">
+                                                        {siguienteCues && (
+                                                            <button
+                                                                onClick={() => handleEmpezarCuestionario(siguienteCues)}
+                                                                className="w-full h-16 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-500 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-600/30 animate-pulse"
+                                                            >
+                                                                {siguienteCues.urlVideo ? <Video className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                                                                {siguienteCues.urlVideo ? 'Ver Siguiente Video' : 'Ir al Siguiente Cuestionario'}
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setStep('descargo')}
+                                                            className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
+                                                        >
+                                                            <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
+                                                        </button>
+                                                    </div>
                                                 );
                                             } else if (resultado.esEvaluativo === false) {
                                                 return (
@@ -2997,13 +4566,19 @@ export default function EventoPublicoPage() {
 
                                                 if (hasReachedLimit) {
                                                     return (
-                                                        <div className="flex flex-col items-center gap-3 p-6 bg-red-500/5 rounded-2xl border-2 border-dashed border-red-500/20">
-                                                            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                                                                <AlertCircle className="w-6 h-6" />
+                                                        <div className="flex flex-col items-center gap-3 p-6 bg-red-500/5 rounded-2xl border border-red-500/20 text-center">
+                                                            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                                                                <Lock className="w-6 h-6" />
                                                             </div>
-                                                            <span className="text-[10px] font-black uppercase text-red-500 tracking-[0.2em] text-center">
-                                                                Intentos Agotados para esta Evaluación
+                                                            <span className="text-[10px] font-black uppercase text-red-500 tracking-[0.2em]">
+                                                                Evaluación Reprobada · Intentos Agotados
                                                             </span>
+                                                            <p className="text-[11px] text-muted-foreground font-bold leading-normal uppercase">
+                                                                Has alcanzado el límite de {limitValue} {limitValue === 1 ? 'intento' : 'intentos'} sin alcanzar la nota mínima de {cuestionarioActivo?.puntajeMinimo || 75} puntos. Tu avance ha quedado bloqueado.
+                                                            </p>
+                                                            <p className="text-[9px] text-red-500/80 font-black uppercase tracking-widest leading-none mt-1">
+                                                                Comunícate con el organizador para asistencia.
+                                                            </p>
                                                         </div>
                                                     );
                                                 }

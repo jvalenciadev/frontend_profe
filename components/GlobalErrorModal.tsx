@@ -157,7 +157,10 @@ export function GlobalErrorModal() {
                                         <Clock className="w-3 h-3" /> Timestamp
                                     </div>
                                     <p className="text-[10px] font-bold text-foreground">
-                                        {new Date(error.timestamp).toLocaleTimeString()}
+                                        {(() => {
+                                            const d = error.timestamp ? new Date(error.timestamp) : new Date();
+                                            return isNaN(d.getTime()) ? new Date().toLocaleTimeString() : d.toLocaleTimeString();
+                                        })()}
                                     </p>
                                 </div>
                                 <div className="col-span-2 p-3 rounded-xl bg-primary/5 border border-primary/10 space-y-1">

@@ -11,13 +11,6 @@ export type AppAbility = MongoAbility;
 export function defineAbilityFromPermissions(permissions: Permission[], roles: string[] = []): AppAbility {
     const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
-    // 1. OBLIGATORIO: Bypass para Super Administrador
-    // Si el usuario es superadmin, tiene acceso total 'manage' a 'all'
-    if (roles.includes('ADMINISTRADOR_SISTEMA') || roles.includes('SUPER_ADMIN')) {
-        can('manage', 'all'); // Usamos 'manage' para máxima autoridad en CASL
-        return build();
-    }
-
     // 2. Procesar permisos dinámicos del backend
     if (permissions && permissions.length > 0) {
         permissions.forEach((perm) => {

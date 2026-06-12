@@ -97,6 +97,16 @@ const handleResponseError = (error: any) => {
         }
     }
 
+    // Extraer mensaje legible del backend (NestJS usa { statusCode, message, error })
+    let userMessage: string | null = null;
+    if (backendError) {
+        if (typeof backendError.message === 'string') {
+            userMessage = backendError.message;
+        } else if (Array.isArray(backendError.message)) {
+            userMessage = backendError.message.join(', ');
+        }
+    }
+
     if (backendError && backendError.success === false) {
         if ([403, 409, 500, 503].includes(status)) {
             errorStore.setError(backendError);
@@ -105,6 +115,12 @@ const handleResponseError = (error: any) => {
                 description: backendError.message,
                 className: 'bg-rose-500 text-white'
             });
+        }
+    } else if (userMessage && status >= 400 && status < 500) {
+        // Errores de validación del backend (400, 403, 404, etc.) - mostrar solo el toast
+        // No enviar al errorStore global para no interrumpir la navegación
+        if (status !== 401) {
+            toast.error(userMessage);
         }
     } else {
         errorStore.setError({
@@ -118,7 +134,11 @@ const handleResponseError = (error: any) => {
         });
     }
 
-    return Promise.reject(error);
+    // Re-throw con el mensaje del backend para que los catch locales puedan usarlo
+    const enrichedError = new Error(userMessage || error.message || 'Error desconocido');
+    (enrichedError as any).status = status;
+    (enrichedError as any).originalError = error;
+    return Promise.reject(enrichedError);
 };
 
 api.interceptors.response.use(handleResponseSuccess, handleResponseError);

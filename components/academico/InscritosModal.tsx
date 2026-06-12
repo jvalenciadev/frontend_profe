@@ -34,6 +34,9 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { pdf, PDFDownloadLink } from '@react-pdf/renderer';
 import { InscripcionPDF } from './InscripcionPDF';
+import { publicService } from '@/services/publicService';
+import { uploadService } from '@/services/uploadService';
+import { Plus } from 'lucide-react';
 
 interface InscritosModalProps {
     isOpen: boolean;
@@ -47,12 +50,22 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIns, setSelectedIns] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<'perfil' | 'pagos'>('perfil');
+    const [showAddPayment, setShowAddPayment] = useState(false);
+    const [newPayment, setNewPayment] = useState({
+        nroDeposito: '',
+        monto: '',
+        fecha: new Date().toISOString().split('T')[0],
+        imagen: '',
+        imagenPreview: ''
+    });
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         if (isOpen && oferta) {
             loadInscritos();
         } else {
             setSelectedIns(null);
+            setShowAddPayment(false);
         }
     }, [isOpen, oferta]);
 
@@ -61,8 +74,13 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
         try {
             const data = await inscripcionService.getByOferta(oferta.id);
             setInscritos(data || []);
-            if (data?.length > 0 && !selectedIns) {
-                setSelectedIns(data[0]);
+            if (data?.length > 0) {
+                if (selectedIns) {
+                    const updated = data.find((x: any) => x.id === selectedIns.id);
+                    setSelectedIns(updated || data[0]);
+                } else {
+                    setSelectedIns(data[0]);
+                }
             }
         } catch (error) {
             toast.error('Error al cargar inscritos');
@@ -82,6 +100,29 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
     };
 
     const handleApproveInscripcion = async (insId: string) => {
+        const bauchers = selectedIns?.baucher || [];
+        
+        // 1. Check if there are no deposits at all
+        if (bauchers.length === 0) {
+            return toast.error('No se puede formalizar: El participante no tiene ningún comprobante de pago registrado. Por favor, agregue y valide un depósito primero.');
+        }
+
+        // 2. Check if there are any pending deposits (unconfirmed)
+        const tienePendientes = bauchers.some((b: any) => !b.confirmado && b.confirmado !== false);
+        const tieneRechazados = bauchers.every((b: any) => b.confirmado === false);
+        if (tienePendientes) {
+            return toast.error('No se puede formalizar: El participante tiene comprobantes de pago pendientes de verificación. Por favor, valide todos los depósitos en la pestaña "Historial de Pagos" antes de continuar.');
+        }
+        if (tieneRechazados) {
+            return toast.error('No se puede formalizar: Todos los comprobantes de pago del participante han sido rechazados. Por favor, registre un depósito válido.');
+        }
+
+        // 3. Check if total confirmed amount is greater than 0
+        const totalConfirmado = bauchers.reduce((s: number, b: any) => s + (b.confirmado ? Number(b.monto) : 0), 0);
+        if (totalConfirmado <= 0) {
+            return toast.error('No se puede formalizar: El participante no cuenta con ningún depósito validado con monto mayor a 0 Bs.');
+        }
+
         try {
             await inscripcionService.confirmInscripcion(insId);
             toast.success('Inscripción formalizada exitosamente');
@@ -120,13 +161,13 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                 {/* Custom Premium Header */}
                 <div className="p-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/20">
+                        <div className="w-16 h-16 rounded-[2rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
                             <Building2 className="w-8 h-8" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-1">Centro de Gestión Académica</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-1">Centro de Gestión Académica</p>
                             <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-white uppercase italic">
-                                {oferta?.nombre} <span className="text-indigo-600">[{oferta?.codigo}]</span>
+                                {oferta?.nombre} <span className="text-primary">[{oferta?.codigo}]</span>
                             </h2>
                         </div>
                     </div>
@@ -140,9 +181,9 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                             <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-1">Inscritos</p>
                             <p className="text-lg font-black text-emerald-600">{stats.inscritosCount}</p>
                         </div>
-                        <div className="px-6 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center">
-                            <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mb-1">Recaudado</p>
-                            <p className="text-lg font-black text-indigo-600">Bs. {stats.totalRecaudado.toLocaleString()}</p>
+                        <div className="px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-center">
+                            <p className="text-[9px] font-black text-primary uppercase tracking-widest leading-none mb-1">Recaudado</p>
+                            <p className="text-lg font-black text-primary">Bs. {stats.totalRecaudado.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -152,11 +193,11 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                     <div className="w-full md:w-[380px] border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900/50">
                         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
                             <div className="relative group">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="text"
                                     placeholder="Buscar participante..."
-                                    className="w-full h-12 pl-12 pr-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 outline-none focus:border-indigo-600 text-xs font-bold transition-all shadow-sm"
+                                    className="w-full h-12 pl-12 pr-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 outline-none focus:border-primary text-xs font-bold transition-all shadow-sm"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -181,14 +222,14 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                         className={cn(
                                             "w-full p-4 rounded-[2rem] border transition-all text-left relative group",
                                             selectedIns?.id === i.id
-                                                ? "bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-600/20"
-                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-400/50 dark:hover:border-indigo-500/50"
+                                                ? "bg-primary border-primary text-white shadow-xl shadow-primary/20"
+                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-primary/50 dark:hover:border-primary/50"
                                         )}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={cn(
                                                 "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm relative overflow-hidden",
-                                                selectedIns?.id === i.id ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800 text-indigo-600"
+                                                selectedIns?.id === i.id ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800 text-primary"
                                             )}>
                                                 {i.persona?.nombre?.[0]}{i.persona?.apellidos?.[0]}
                                                 {i.estadoInscripcion?.nombre === 'INSCRITO' && (
@@ -212,7 +253,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                         {i.estadoInscripcion?.nombre || 'PREINSCRITO'}
                                                     </span>
                                                     <span className={cn("text-[9px] font-bold", selectedIns?.id === i.id ? "text-white/60" : "text-slate-400")}>
-                                                        Bs. {(i.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0)}
+                                                        Bs. {(i.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0)} de {oferta?.costo || i.programa?.costo || 0}
                                                     </span>
                                                 </div>
                                             </div>
@@ -239,13 +280,13 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                         <div className="flex flex-col md:flex-row justify-between items-start gap-8 px-4">
                                             <div className="flex-1 space-y-4">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 font-black text-[9px] uppercase tracking-[0.2em] border border-indigo-100 dark:border-indigo-500/20">Expediente Digital</span>
+                                                    <span className="px-3 py-1 rounded-lg bg-primary/5 dark:bg-primary/10 text-primary font-black text-[9px] uppercase tracking-[0.2em] border border-primary/10 dark:border-primary/20">Expediente Digital</span>
                                                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: {selectedIns.id.substring(0, 8)}</span>
                                                 </div>
                                                 <h3 className="text-4xl font-black tracking-tighter text-slate-800 dark:text-white uppercase leading-none">
                                                     {selectedIns.persona?.nombre} <br />
-                                                    <span className="text-indigo-600">{selectedIns.persona?.apellidos}</span>
+                                                    <span className="text-primary">{selectedIns.persona?.apellidos}</span>
                                                 </h3>
                                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                                                     <div className="space-y-1">
@@ -258,7 +299,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Turno</p>
-                                                        <p className="text-xs font-black text-indigo-600 uppercase">{selectedIns.turno?.turnoConfig?.nombre || 'Único'}</p>
+                                                        <p className="text-xs font-black text-primary uppercase">{selectedIns.turno?.turnoConfig?.nombre || 'Único'}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Sede</p>
@@ -281,7 +322,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                 {selectedIns.estadoInscripcion?.nombre !== 'INSCRITO' && (
                                                     <button
                                                         onClick={() => handleApproveInscripcion(selectedIns.id)}
-                                                        className="h-16 px-10 rounded-3xl bg-indigo-600 text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl shadow-indigo-600/20 group"
+                                                        className="h-16 px-10 rounded-3xl bg-primary text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 group"
                                                     >
                                                         <Stamp className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                                                         Formalizar Inscripción
@@ -297,7 +338,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                             onClick={() => setActiveTab('perfil')}
                                             className={cn(
                                                 "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                                activeTab === 'perfil' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "text-slate-400 hover:text-indigo-600"
+                                                activeTab === 'perfil' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:text-primary"
                                             )}
                                         >
                                             Perfil e Información
@@ -306,7 +347,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                             onClick={() => setActiveTab('pagos')}
                                             className={cn(
                                                 "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-                                                activeTab === 'pagos' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "text-slate-400 hover:text-indigo-600"
+                                                activeTab === 'pagos' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:text-primary"
                                             )}
                                         >
                                             Historial de Pagos
@@ -323,11 +364,11 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                     {/* Documents and Print */}
                                                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-200 dark:border-slate-800 space-y-6">
-                                                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Documentación y Comprobantes</p>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Documentación y Comprobantes</p>
                                                         <div className="space-y-4">
-                                                            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                                                            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-primary/30 transition-all">
                                                                 <div className="flex items-center gap-4">
-                                                                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-600">
+                                                                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-primary">
                                                                         <Printer className="w-6 h-6" />
                                                                     </div>
                                                                     <div>
@@ -338,12 +379,12 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                                 <PDFDownloadLink
                                                                     document={<InscripcionPDF inscripcion={selectedIns} profe={null} />}
                                                                     fileName={`Comprobante_${selectedIns.persona?.nroDocumento}.pdf`}
-                                                                    className="p-3 rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:scale-105 transition-all"
+                                                                    className="p-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105 transition-all"
                                                                 >
                                                                     {({ loading }) => loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                                                                 </PDFDownloadLink>
                                                             </div>
-                                                            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-indigo-500/30 transition-all opacity-50 cursor-not-allowed">
+                                                            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-primary/30 transition-all opacity-50 cursor-not-allowed">
                                                                 <div className="flex items-center gap-4">
                                                                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-400">
                                                                         <FileCheck className="w-6 h-6" />
@@ -362,10 +403,10 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
 
                                                     {/* Contact & Meta */}
                                                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-200 dark:border-slate-800 space-y-6">
-                                                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Información de Enlace</p>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Información de Enlace</p>
                                                         <div className="space-y-6">
                                                             <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
+                                                                <div className="w-10 h-10 rounded-xl bg-primary/5 dark:bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                                                     <Mail className="w-5 h-5" />
                                                                 </div>
                                                                 <div>
@@ -396,6 +437,167 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                 </div>
                                             ) : (
                                                 <div className="space-y-8">
+                                                    {/* Resumen de Saldos del Pago */}
+                                                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-6">
+                                                        <div className="flex flex-wrap gap-6 text-left">
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Costo Programa</p>
+                                                                <p className="text-lg font-black text-slate-800 dark:text-white">Bs. {oferta?.costo || selectedIns.programa?.costo || 0}</p>
+                                                            </div>
+                                                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-1">Total Pagado</p>
+                                                                <p className="text-lg font-black text-emerald-600">Bs. {(selectedIns.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0)}</p>
+                                                            </div>
+                                                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-none mb-1">Saldo Pendiente</p>
+                                                                <p className="text-lg font-black text-rose-600">Bs. {Math.max(0, (oferta?.costo || selectedIns.programa?.costo || 0) - (selectedIns.baucher || []).reduce((acc: number, b: any) => acc + (b.confirmado ? Number(b.monto) : 0), 0))}</p>
+                                                            </div>
+                                                        </div>
+                                                        {!showAddPayment && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setShowAddPayment(true);
+                                                                    setNewPayment({
+                                                                        nroDeposito: '',
+                                                                        monto: '',
+                                                                        fecha: new Date().toISOString().split('T')[0],
+                                                                        imagen: '',
+                                                                        imagenPreview: ''
+                                                                    });
+                                                                }}
+                                                                className="h-12 px-6 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-primary/95 transition-all shadow-md shadow-primary/10"
+                                                            >
+                                                                <Plus className="w-4 h-4" /> Registrar Depósito
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Formulario para Registrar Nuevo Pago */}
+                                                    {showAddPayment && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 border-2 border-primary/20 shadow-xl space-y-6"
+                                                        >
+                                                            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                                                                <h4 className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white">Nuevo Depósito</h4>
+                                                                <button onClick={() => setShowAddPayment(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                                                    <X className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                                <div className="space-y-2 text-left">
+                                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Nro de Depósito</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={newPayment.nroDeposito}
+                                                                        onChange={e => setNewPayment(p => ({ ...p, nroDeposito: e.target.value }))}
+                                                                        className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary outline-none transition-all font-bold text-xs"
+                                                                        placeholder="Ej: 8472931"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-2 text-left">
+                                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Monto (Bs.)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={newPayment.monto}
+                                                                        onChange={e => setNewPayment(p => ({ ...p, monto: e.target.value }))}
+                                                                        className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary outline-none transition-all font-bold text-xs"
+                                                                        placeholder="Ej: 500"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-2 text-left">
+                                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Fecha de Pago</label>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={newPayment.fecha}
+                                                                        onChange={e => setNewPayment(p => ({ ...p, fecha: e.target.value }))}
+                                                                        className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary outline-none transition-all font-bold text-xs"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="relative group text-left">
+                                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2 block mb-2">Comprobante de Pago (Imagen)</label>
+                                                                <input
+                                                                    type="file"
+                                                                    id="new-baucher-upload"
+                                                                    className="hidden"
+                                                                    accept="image/*"
+                                                                    onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (!file) return;
+                                                                        const val = uploadService.validateFile(file);
+                                                                        if (!val.valid) return toast.error(val.error);
+                                                                        setIsUploading(true);
+                                                                        try {
+                                                                            const res = await publicService.uploadBaucher(file);
+                                                                            if (res.success) {
+                                                                                setNewPayment(p => ({
+                                                                                    ...p,
+                                                                                    imagen: res.data.path,
+                                                                                    imagenPreview: URL.createObjectURL(file)
+                                                                                }));
+                                                                                toast.success('Archivo subido');
+                                                                            }
+                                                                        } catch (error) {
+                                                                            toast.error('Error al subir comprobante');
+                                                                        } finally {
+                                                                            setIsUploading(false);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <label htmlFor="new-baucher-upload" className="flex flex-col items-center justify-center aspect-[2.5/1] w-full max-w-md rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-primary transition-all cursor-pointer bg-slate-50 dark:bg-slate-800/20">
+                                                                    {newPayment.imagenPreview ? (
+                                                                        <img src={newPayment.imagenPreview} className="w-full h-full object-cover rounded-[0.9rem]" alt="Preview" />
+                                                                    ) : (
+                                                                        <>
+                                                                            {isUploading ? <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" /> : <Download className="w-8 h-8 text-slate-400 mb-2" />}
+                                                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subir Imagen del Baucher</span>
+                                                                        </>
+                                                                    )}
+                                                                </label>
+                                                            </div>
+
+                                                            <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowAddPayment(false)}
+                                                                    className="px-6 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 font-black uppercase tracking-widest text-[9px] hover:bg-slate-200 transition-all"
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isUploading || !newPayment.imagen || !newPayment.monto || !newPayment.nroDeposito}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await inscripcionService.addBaucher({
+                                                                                inscripcionId: selectedIns.id,
+                                                                                imagen: newPayment.imagen,
+                                                                                nroDeposito: newPayment.nroDeposito,
+                                                                                monto: newPayment.monto,
+                                                                                fecha: newPayment.fecha,
+                                                                                confirmado: true, // Auto-confirmado por admin
+                                                                                fechaConfirmacion: new Date()
+                                                                            });
+                                                                            toast.success('Depósito registrado con éxito');
+                                                                            setShowAddPayment(false);
+                                                                            loadInscritos();
+                                                                        } catch (error) {
+                                                                            toast.error('Error al registrar depósito');
+                                                                        }
+                                                                    }}
+                                                                    className="flex-1 h-12 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[9px] hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center justify-center gap-2"
+                                                                >
+                                                                    Guardar Depósito
+                                                                </button>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+
                                                     {/* Payments Section */}
                                                     <div className="flex flex-col gap-6">
                                                         {(selectedIns.baucher || []).length === 0 ? (
@@ -411,7 +613,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                         ) : (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                                 {selectedIns.baucher.map((b: any) => (
-                                                                    <div key={b.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col group transition-all hover:shadow-xl hover:shadow-indigo-500/5">
+                                                                    <div key={b.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col group transition-all hover:shadow-xl hover:shadow-primary/5">
                                                                         <div className="h-56 relative group/img overflow-hidden cursor-zoom-in bg-slate-100 flex items-center justify-center">
                                                                             {b.imagen ? (
                                                                                 <img
@@ -440,7 +642,7 @@ export function InscritosModal({ isOpen, onClose, oferta }: InscritosModalProps)
                                                                             <div className="space-y-4">
                                                                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 pb-4 border-b border-slate-50 dark:border-slate-800">
                                                                                     <div className="flex items-center gap-2">
-                                                                                        <Fingerprint className="w-4 h-4 text-indigo-500" />
+                                                                                        <Fingerprint className="w-4 h-4 text-primary" />
                                                                                         Nº Depósito: {b.nroDeposito || 'S/N'}
                                                                                     </div>
                                                                                     <div className="flex items-center gap-2">

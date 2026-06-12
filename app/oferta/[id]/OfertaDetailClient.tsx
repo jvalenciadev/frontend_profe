@@ -13,7 +13,7 @@ import {
 import { publicService } from '@/services/publicService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { InscripcionPDF } from '@/components/academico/InscripcionPDF';
+import { FormularioInscripcionPDF } from '@/components/academico/FormularioInscripcionPDF';
 
 import dynamic from 'next/dynamic';
 const PDFDownloadLink = dynamic<any>(() => import('@react-pdf/renderer').then(mod => mod.PDFDownloadLink), { ssr: false });
@@ -381,6 +381,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
     const [personaSource, setPersonaSource] = useState<'map_persona' | 'admins' | null>(null);
     const [isClient, setIsClient] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+    const [inscripcionData, setInscripcionData] = useState<any>(null);
 
     useEffect(() => {
         setIsClient(true);
@@ -428,10 +429,43 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
     }, [currentProgram]);
 
     useEffect(() => {
-        if (persona?.alreadyEnrolled?.estadoNombre === 'CONFIRMADO') {
-            setIsConfirmed(true);
+        if (persona?.alreadyEnrolled) {
+            setInscripcionData(persona.alreadyEnrolled);
+            if (persona.alreadyEnrolled.estadoNombre === 'CONFIRMADO') {
+                setIsConfirmed(true);
+            }
         }
     }, [persona]);
+
+    const pdfInscripcion = useMemo(() => {
+        if (!inscripcionData) return null;
+        return {
+            ...inscripcionData,
+            persona: {
+                ...inscripcionData.persona,
+                nombre: inscripcionData.persona?.nombre || manualData.nombre,
+                apellidos: inscripcionData.persona?.apellidos || manualData.apellidos,
+                nroDocumento: inscripcionData.persona?.nroDocumento || ci,
+                ci: inscripcionData.persona?.ci || ci,
+                complemento: inscripcionData.persona?.complemento || complemento,
+                fechaNacimiento: inscripcionData.persona?.fechaNacimiento || fechaNacimiento,
+                celular: inscripcionData.persona?.celular || manualData.celular,
+                correo: inscripcionData.persona?.correo || inscripcionData.persona?.email || manualData.correo,
+                unidadEducativa: inscripcionData.unidadEducativa || inscripcionData.persona?.unidadEducativa || manualData.unidadEducativa,
+                nivel: inscripcionData.nivel || inscripcionData.persona?.nivel || manualData.nivel,
+                area: inscripcionData.materia || inscripcionData.persona?.area || manualData.area,
+            },
+            programa: currentProgram,
+            sede: currentProgram.sede?.nombre || inscripcionData.sede,
+            departamento: currentProgram.sede?.departamento?.nombre || inscripcionData.departamento,
+            turno: currentProgram.turnos?.find((t: any) => String(t.id) === String(selectedTurnoId))?.turnoConfig?.nombre || inscripcionData.turno || 'ÚNICO',
+            baucher: {
+                nroDeposito: baucher.nroDeposito || inscripcionData.baucher?.nroDeposito,
+                fecha: baucher.fecha || inscripcionData.baucher?.fecha,
+                monto: baucher.monto || inscripcionData.baucher?.monto || currentProgram.costo,
+            }
+        };
+    }, [inscripcionData, currentProgram, manualData, ci, complemento, fechaNacimiento, selectedTurnoId, baucher]);
 
     // CAMPOS EXTRA
     const [camposExtra, setCamposExtra] = useState<any[]>([]);
@@ -459,6 +493,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                 // REDIRECCIÓN A ÉXITO (MODO COMPROBANTE)
                 setPersona(data);
                 setPersonaFound(true);
+                setInscripcionData(data.alreadyEnrolled);
                 setManualData(p => ({
                     ...p,
                     correo: data.correo || '',
@@ -471,7 +506,23 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
             }
 
             if (!data?.found) {
-                toast.error('Su identificación no se encuentra registrada para este programa');
+                // REGISTRO DESDE CERO
+                setPersona(null);
+                setPersonaFound(false);
+                setPersonaSource(null);
+                setInscripcionData(null);
+                setManualData({
+                    nombre: '',
+                    apellidos: '',
+                    correo: '',
+                    correoConfirmacion: '',
+                    celular: '',
+                    unidadEducativa: '',
+                    nivel: '',
+                    area: ''
+                });
+                toast.info('Identificación no registrada. Por favor, complete sus datos para registrarse.');
+                setStep(2);
                 return;
             }
 
@@ -502,8 +553,19 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
     };
 
     const handleManualNext = async () => {
-        if (!manualData.correo || manualData.correo !== manualData.correoConfirmacion) return toast.error('Los correos no coinciden');
-        if (!manualData.celular) return toast.error('Ingrese su número de celular');
+        if (!personaFound) {
+            if (!manualData.nombre.trim()) return toast.error('Ingrese su nombre');
+            if (!manualData.apellidos.trim()) return toast.error('Ingrese sus apellidos');
+            if (!manualData.correo.trim()) return toast.error('Ingrese su correo electrónico');
+            if (manualData.correo !== manualData.correoConfirmacion) return toast.error('Los correos no coinciden');
+            if (!manualData.celular.trim()) return toast.error('Ingrese su número de celular');
+            if (!manualData.unidadEducativa.trim()) return toast.error('Ingrese su unidad educativa');
+            if (!manualData.nivel) return toast.error('Seleccione su nivel de formación');
+            if (!manualData.area.trim()) return toast.error('Ingrese su área de desempeño');
+        } else {
+            if (!manualData.correo) return toast.error('Ingrese su correo electrónico');
+            if (!manualData.celular) return toast.error('Ingrese su número de celular');
+        }
         setStep(3);
     };
 
@@ -527,15 +589,49 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                 sedeId: currentProgram.sede?.id, // CORRECTO: El ID de la tabla Sede, no el ID del programa
                 baucher,
                 datosPersona: {
-                    ci, complemento, fechaNacimiento,
+                    ci,
+                    complemento,
+                    fechaNacimiento,
                     nombre: manualData.nombre,
                     apellidos: manualData.apellidos,
                     correo: manualData.correo,
                     celular: manualData.celular,
+                    unidadEducativa: manualData.unidadEducativa,
+                    nivel: manualData.nivel,
+                    area: manualData.area,
                 },
                 mod_campos_extra_regs: userExtraResponses
             });
-            if (res.success) setStep(7);
+            if (res.success) {
+                const nuevaInscripcion = {
+                    id: res.inscripcionId,
+                    programaId: currentProgram.id,
+                    turnoId: selectedTurnoId,
+                    sedeId: currentProgram.sede?.id,
+                    unidadEducativa: manualData.unidadEducativa,
+                    nivel: manualData.nivel,
+                    materia: manualData.area,
+                    fechaInscripcion: new Date(),
+                    estadoNombre: 'PENDIENTE',
+                    persona: {
+                        nombre: manualData.nombre,
+                        apellidos: manualData.apellidos,
+                        ci: ci,
+                        nroDocumento: ci,
+                        complemento: complemento,
+                        fechaNacimiento: fechaNacimiento,
+                        celular: manualData.celular,
+                        correo: manualData.correo,
+                    },
+                    baucher: Number(currentProgram.costo) > 0 ? {
+                        nroDeposito: baucher.nroDeposito,
+                        fecha: baucher.fecha,
+                        monto: baucher.monto
+                    } : null
+                };
+                setInscripcionData(nuevaInscripcion);
+                setStep(7);
+            }
         } catch { toast.error('Error al procesar inscripción'); } finally { setIsLoading(false); }
     };
 
@@ -605,18 +701,54 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                             )}
                             {!personaFound && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input value={manualData.nombre} onChange={e => setManualData(p => ({ ...p, nombre: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NOMBRE(S)" />
-                                    <input value={manualData.apellidos} onChange={e => setManualData(p => ({ ...p, apellidos: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="APELLIDO(S)" />
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Nombre(s)</label>
+                                        <input value={manualData.nombre} onChange={e => setManualData(p => ({ ...p, nombre: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NOMBRE(S)" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Apellido(s)</label>
+                                        <input value={manualData.apellidos} onChange={e => setManualData(p => ({ ...p, apellidos: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="APELLIDO(S)" />
+                                    </div>
                                 </div>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input value={manualData.correo} onChange={e => setManualData(p => ({ ...p, correo: e.target.value.toLowerCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="CORREO ELECTRÓNICO" />
-                                <input value={manualData.celular} onChange={e => setManualData(p => ({ ...p, celular: e.target.value }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NRO. CELULAR (WHATSAPP)" />
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Correo Electrónico</label>
+                                    <input value={manualData.correo} onChange={e => setManualData(p => ({ ...p, correo: e.target.value.toLowerCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="CORREO ELECTRÓNICO" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Número de Celular</label>
+                                    <input value={manualData.celular} onChange={e => setManualData(p => ({ ...p, celular: e.target.value }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="NRO. CELULAR (WHATSAPP)" />
+                                </div>
                             </div>
                             {!personaFound && (
-                                <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Repetir Correo Electrónico</label>
                                     <input value={manualData.correoConfirmacion} onChange={e => setManualData(p => ({ ...p, correoConfirmacion: e.target.value.toLowerCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="REPETIR CORREO ELECTRÓNICO" />
+                                </div>
+                            )}
+
+                            {!personaFound && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Unidad Educativa</label>
+                                        <input value={manualData.unidadEducativa} onChange={e => setManualData(p => ({ ...p, unidadEducativa: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="UNIDAD EDUCATIVA / CEA" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Nivel de Formación</label>
+                                        <select value={manualData.nivel} onChange={e => setManualData(p => ({ ...p, nivel: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm outline-none focus:border-primary transition-all">
+                                            <option value="">SELECCIONE NIVEL...</option>
+                                            <option value="PRIMARIA">PRIMARIA</option>
+                                            <option value="SECUNDARIA">SECUNDARIA</option>
+                                            <option value="SUPERIOR">SUPERIOR</option>
+                                            <option value="OTRO">OTRO</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">Área de Desempeño</label>
+                                        <input value={manualData.area} onChange={e => setManualData(p => ({ ...p, area: e.target.value.toUpperCase() }))} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="ÁREA DE DESEMPEÑO" />
+                                    </div>
                                 </div>
                             )}
 
@@ -656,16 +788,9 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 </div>
                             )}
 
-                            {isEmailSent && (
-                                <div className="pt-4 space-y-3">
-                                    <p className="text-center text-[10px] font-black uppercase tracking-widest text-primary">Ingresa el código enviado a tu correo</p>
-                                    <input value={verificationCode} onChange={e => setVerificationCode(e.target.value)} className="w-full h-20 rounded-2xl bg-primary/5 border-2 border-primary text-center text-4xl font-black tracking-[0.5em] outline-none" placeholder="000000" />
-                                </div>
-                            )}
-
                             <button onClick={handleManualNext} disabled={isVerifying} className="w-full h-16 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-[0.15em] text-[11px] hover:brightness-110 shadow-xl transition-all flex items-center justify-center gap-4">
                                 {isVerifying && <Loader2 className="animate-spin h-5 w-5" />}
-                                {personaFound ? 'Confirmar y Continuar' : isEmailSent ? 'Verificar Código' : 'Solicitar Código de Acceso'}
+                                {personaFound ? 'Confirmar y Continuar' : 'Confirmar y Registrar'}
                             </button>
                         </div>
                     )}
@@ -819,15 +944,60 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                             <div className="space-y-6">
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Número de Depósito</label>
-                                    <input value={baucher.nroDeposito} onChange={e => setBaucher(p => ({ ...p, nroDeposito: e.target.value }))} className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" />
+                                    <input value={baucher.nroDeposito} onChange={e => setBaucher(p => ({ ...p, nroDeposito: e.target.value }))} className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" placeholder="EJ: 98765432" />
                                 </div>
-                                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-1">Monto Confirmado</p>
-                                    <p className="text-3xl font-black">{programa.costo} Bs.</p>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Fecha de Depósito</label>
+                                    <input type="date" value={baucher.fecha} onChange={e => setBaucher(p => ({ ...p, fecha: e.target.value }))} className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm" />
                                 </div>
+
+                                {/* Selector de Tipo de Monto */}
+                                <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-white/5 p-2 rounded-2xl">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBaucher(prev => ({ ...prev, monto: currentProgram?.costo?.toString() || '' }))}
+                                        className={cn(
+                                            "py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                            Number(baucher.monto) === Number(currentProgram?.costo)
+                                                ? "bg-primary text-white shadow-md"
+                                                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                        )}
+                                    >
+                                        Pago Completo ({currentProgram?.costo} Bs.)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBaucher(prev => ({ ...prev, monto: '' }))}
+                                        className={cn(
+                                            "py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                            Number(baucher.monto) !== Number(currentProgram?.costo)
+                                                ? "bg-primary text-white shadow-md"
+                                                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                        )}
+                                    >
+                                        Pago Gradual / Otro
+                                    </button>
+                                </div>
+
+                                {/* Input de Monto Gradual */}
+                                {Number(baucher.monto) !== Number(currentProgram?.costo) && (
+                                    <div className="space-y-3 animate-in fade-in duration-200">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Monto del Depósito (Bs.)</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max={currentProgram?.costo}
+                                            value={baucher.monto}
+                                            onChange={e => setBaucher(p => ({ ...p, monto: e.target.value }))}
+                                            className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 font-bold text-sm"
+                                            placeholder="Ej. 500"
+                                        />
+                                    </div>
+                                )}
+
                                 <div className="flex gap-4">
                                     <button onClick={() => setStep(3)} className="h-16 px-6 rounded-2xl bg-slate-100 dark:bg-white/5 font-black uppercase tracking-widest text-[11px]">Atrás</button>
-                                    <button onClick={() => setStep(5)} disabled={!baucher.imagen || !baucher.nroDeposito} className="flex-1 h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-lg shadow-primary/20">Continuar al Resumen</button>
+                                    <button onClick={() => setStep(5)} disabled={!baucher.imagen || !baucher.nroDeposito || !baucher.fecha || !baucher.monto || Number(baucher.monto) <= 0} className="flex-1 h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-lg shadow-primary/20">Continuar al Resumen</button>
                                 </div>
                             </div>
                         </div>
@@ -899,6 +1069,40 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                     <p className="font-black text-sm uppercase tracking-tight truncate">{manualData.celular} • {manualData.correo}</p>
                                 </div>
 
+                                {!personaFound && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Unidad Educativa</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{manualData.unidadEducativa}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Nivel de Formación</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{manualData.nivel}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Área de Desempeño</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{manualData.area}</p>
+                                        </div>
+                                    </>
+                                )}
+
+                                {Number(programa.costo) > 0 && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Nro. de Depósito</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{baucher.nroDeposito}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Monto Depositado</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{baucher.monto} Bs.</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Fecha de Depósito</p>
+                                            <p className="font-black text-lg uppercase tracking-tight truncate">{fmt(baucher.fecha)}</p>
+                                        </div>
+                                    </>
+                                )}
+
                                 {/* CAMPOS EXTRA DINÁMICOS (mod_campo_extra) */}
                                 {programa.mod_campo_extra && Object.keys(programa.mod_campo_extra).length > 0 && (
                                     <div className="col-span-full pt-6 mt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -933,7 +1137,9 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                         <div className="space-y-0.5">
                                             <p className="font-black text-[10px] uppercase tracking-widest text-amber-600">Registro Detectado</p>
                                             <p className="text-[11px] text-slate-500 leading-tight font-bold">
-                                                Usted ya se encuentra registrado en este programa académico.
+                                                {personaFound 
+                                                    ? "Usted ya se encuentra registrado en este programa académico."
+                                                    : "Su registro e inscripción han sido procesados con éxito."}
                                             </p>
                                         </div>
                                     </div>
@@ -950,7 +1156,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Postulante</p>
                                         <p className="font-black text-sm uppercase truncate">
-                                            {persona?.alreadyEnrolled?.persona?.nombre} {persona?.alreadyEnrolled?.persona?.apellidos}
+                                            {pdfInscripcion?.persona?.nombre} {pdfInscripcion?.persona?.apellidos}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
@@ -966,28 +1172,24 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Sede de Estudios</p>
                                         <p className="font-black text-sm uppercase">
-                                            {persona?.alreadyEnrolled
-                                                ? `${persona.alreadyEnrolled.departamento || ''} - ${persona.alreadyEnrolled.sede || 'Sede Central'}`
-                                                : `${currentProgram.sede?.departamento?.nombre || ''} - ${currentProgram.sede?.nombre || 'Sede Central'}`}
+                                            {pdfInscripcion?.sede ? `${pdfInscripcion.departamento || ''} - ${pdfInscripcion.sede}` : 'Sede Central'}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Turno Habilitado</p>
                                         <p className="font-black text-sm uppercase tracking-widest">
-                                            {persona?.alreadyEnrolled
-                                                ? persona.alreadyEnrolled.turno || 'ÚNICO'
-                                                : currentProgram.turnos?.find((x: any) => String(x.id) === String(selectedTurnoId))?.turnoConfig?.nombre || 'ÚNICO'}
+                                            {pdfInscripcion?.turno || 'ÚNICO'}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em] border-l-2 border-primary pl-3">Contacto Registrado</p>
                                         <p className="font-black text-sm uppercase tracking-tight">
-                                            {persona?.alreadyEnrolled?.persona?.celular || manualData.celular} • {persona?.alreadyEnrolled?.persona?.correo || manualData.correo}
+                                            {pdfInscripcion?.persona?.celular} • {pdfInscripcion?.persona?.correo}
                                         </p>
                                     </div>
                                 </div>
 
-                                {persona?.alreadyEnrolled && (
+                                {inscripcionData && (
                                     <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-6">
                                         {!isConfirmed && (
                                             <div
@@ -1002,7 +1204,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                                 </div>
                                                 <div className="flex-1">
                                                     <p className="text-xs font-black leading-tight text-slate-800 dark:text-slate-200">
-                                                        Acepto las condiciones establecidas en el Formulario de Compromiso de Permanencia y Conclusión
+                                                        Declaro la veracidad de los datos proporcionados y confirmo mi Formulario de Inscripción
                                                     </p>
                                                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Obligatorio para finalizar su inscripción.</p>
                                                 </div>
@@ -1016,11 +1218,11 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                                     onClick={async () => {
                                                         try {
                                                             setIsLoading(true);
-                                                            await publicService.confirmarInscripcion(persona.alreadyEnrolled.id);
+                                                            await publicService.confirmarInscripcion(inscripcionData.id);
                                                             setIsConfirmed(true);
-                                                            toast.success('Compromiso confirmado correctamente');
+                                                            toast.success('Inscripción confirmada correctamente');
                                                         } catch (e) {
-                                                            toast.error('Error al confirmar compromiso');
+                                                            toast.error('Error al confirmar inscripción');
                                                         } finally {
                                                             setIsLoading(false);
                                                         }
@@ -1035,7 +1237,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                                     <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
                                                         <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                                         <p className="text-[10px] font-bold text-amber-800 dark:text-amber-400 leading-tight">
-                                                            DEBE DESCARGAR, IMPRIMIR Y ENTREGAR ESTE COMPROMISO FIRMADO EN LA <span className="uppercase">{persona.alreadyEnrolled.sede || 'Sede Central'}</span>.
+                                                            DEBE DESCARGAR, IMPRIMIR Y ENTREGAR ESTE FORMULARIO DE INSCRIPCIÓN FIRMADO EN LA <span className="uppercase">{pdfInscripcion?.sede || 'Sede Central'}</span>.
                                                         </p>
                                                     </div>
 
@@ -1050,8 +1252,8 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
                                                         {isClient && (
                                                             <PDFDownloadLink
-                                                                document={<InscripcionPDF inscripcion={persona.alreadyEnrolled} />}
-                                                                fileName={`Inscripcion_${persona.alreadyEnrolled.id}.pdf`}
+                                                                document={<FormularioInscripcionPDF inscripcion={pdfInscripcion} />}
+                                                                fileName={`Inscripcion_${inscripcionData.id}.pdf`}
                                                                 className="flex-1 h-14 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                                             >
                                                                 {({ loading }: any) => (
@@ -1070,12 +1272,12 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 )}
                             </div>
 
-                                <button 
-                                    onClick={onClose} 
-                                    className="w-full h-14 sm:h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
-                                >
-                                    {isConfirmed ? 'Finalización Exitosa' : 'Cerrar Ventana'}
-                                </button>
+                            <button 
+                                onClick={onClose} 
+                                className="w-full h-14 sm:h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                            >
+                                {isConfirmed ? 'Finalización Exitosa' : 'Cerrar Ventana'}
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1097,14 +1299,14 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 className="relative w-full max-w-5xl h-[85vh] bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-2xl"
                             >
                                 <div className="h-16 border-b flex items-center justify-between px-8 bg-slate-50">
-                                    <h4 className="font-black uppercase tracking-widest text-xs text-slate-800">Vista Previa de Compromiso</h4>
+                                    <h4 className="font-black uppercase tracking-widest text-xs text-slate-800">Vista Previa de Inscripción</h4>
                                     <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
                                 <div className="flex-1 w-full bg-slate-200">
                                     <PDFViewer width="100%" height="100%" showToolbar={true}>
-                                        <InscripcionPDF inscripcion={persona.alreadyEnrolled} />
+                                        <FormularioInscripcionPDF inscripcion={pdfInscripcion} />
                                     </PDFViewer>
                                 </div>
                             </motion.div>

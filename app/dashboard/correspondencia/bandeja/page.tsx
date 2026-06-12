@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 import { uploadService } from '@/services/uploadService';
 import { getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
+import { useAbility } from '@/hooks/useAbility';
+import { useRouter } from 'next/navigation';
 
 const TABS = [
     { id: 'recibidos', label: 'Recibidos', icon: Inbox },
@@ -34,6 +36,10 @@ const TABS = [
 
 export default function BandejaPage() {
     const { user } = useAuth();
+    const { can } = useAbility();
+    const router = useRouter();
+
+    // — Todos los hooks deben estar antes de cualquier return condicional —
     const [tab, setTab] = useState<typeof TABS[number]['id']>('recibidos');
     const [bandeja, setBandeja] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -49,6 +55,13 @@ export default function BandejaPage() {
     const [uploading, setUploading] = useState(false);
     const [detalle, setDetalle] = useState('');
 
+    // Guard CASL: redirige si no tiene permiso
+    useEffect(() => {
+        if (!can('read', 'CorDocumento')) {
+            router.replace('/dashboard');
+        }
+    }, [can, router]);
+
     const fetchBandeja = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -63,6 +76,15 @@ export default function BandejaPage() {
     }, []);
 
     useEffect(() => { fetchBandeja(); }, [fetchBandeja]);
+
+    // Limpiar estado del panel de acción cada vez que cambia el documento seleccionado
+    // Esto previene que una acción de un documento anterior se aplique al nuevo seleccionado
+    useEffect(() => {
+        setAccionSeleccionada(null);
+        setNuevoDest(null);
+        setArchivoUrl(null);
+        setDetalle('');
+    }, [selected?.id]);
 
     const docs = bandeja?.[tab] || [];
     const filtered = docs.filter((doc: any) => {
@@ -85,14 +107,27 @@ export default function BandejaPage() {
                 archivoUrl || undefined,
                 nuevoDest?.id || undefined
             );
-            toast.success(`Documento actualizado: ${accion}`);
+            const mensajes: Record<string, string> = {
+                ENVIO: 'Documento enviado oficialmente',
+                RECEPCION: 'Recepción confirmada',
+                DERIVACION: 'Documento derivado correctamente',
+                DEVOLUCION: 'Documento devuelto al remitente',
+                CANCELAR: 'Envío cancelado correctamente',
+                ARCHIVADO: 'Documento archivado',
+            };
+            toast.success(mensajes[accion] ?? `Acción "${accion}" registrada`);
             setNuevoDest(null);
             setArchivoUrl(null);
             setDetalle('');
+            setAccionSeleccionada(null);
             await fetchBandeja();
             setSelected(null);
         } catch (err: any) {
-            toast.error(err?.message ?? 'Error al avanzar estado');
+            // El interceptor de API ya muestra el toast para errores 4xx del backend.
+            // Solo mostramos un fallback si el error no fue manejado (ej. error de red).
+            if (!err.status) {
+                toast.error('Error de conexión. Verifique su red e intente de nuevo.');
+            }
         } finally {
             setAvanzando(false);
         }
@@ -180,48 +215,58 @@ export default function BandejaPage() {
         }
 
         const actions = [];
-
-        // 1. El REMITENTE solo puede enviar si está en ELABORACION
-        if (doc.estado === 'ELABORACION' && rol === 'REMITENTE') {
-            actions.push({ accion: 'ENVIO', label: 'Enviar Oficialmente', color: 'bg-primary text-white shadow-primary/20' });
-        }
-
-        // 2. DESTINATARIOS y VIAS solo pueden recibir si está ENVIADO o EN_TRAMITE (derivado)
-        if ((doc.estado === 'ENVIADO' || doc.estado === 'EN_TRAMITE') && (rol === 'DESTINATARIO' || rol === 'VIA')) {
-            actions.push({ accion: 'RECEPCION', label: 'Confirmar Recepción', color: 'bg-emerald-500 text-white shadow-emerald-500/20' });
-        }
-
-        // 3. Una vez RECIBIDO, pueden derivar o archivar
-        if (doc.estado === 'RECIBIDO' && (rol === 'DESTINATARIO' || rol === 'VIA')) {
-            actions.push({ accion: 'DERIVACION', label: 'Derivar / Tramitar', color: 'bg-purple-500 text-white shadow-purple-500/20' });
-            actions.push({ accion: 'ARCHIVADO', label: 'Finalizar y Archivar', color: 'bg-muted text-muted-foreground' });
-        }
-
-        // Lógica de Custodia Senior: 
-        // Aunque el rol coincida, verificamos si el usuario es el poseedor físico actual.
         const ultimoMovimiento = doc.seguimientos?.[0];
-        const soyElDeLaUltimaAccion = ultimoMovimiento?.usuario.id === user?.id;
 
-        let tieneCustodia = true;
-        if (doc.estado !== 'ELABORACION') {
-            if (ultimoMovimiento?.accion === 'RECEPCION') {
-                // Si ya se recibió, solo el que lo recibió lo tiene
-                tieneCustodia = soyElDeLaUltimaAccion;
-            } else if (ultimoMovimiento?.accion === 'ENVIO' || ultimoMovimiento?.accion === 'DERIVACION') {
-                // Si se envió o derivó, el emisor ya NO lo tiene
-                tieneCustodia = !soyElDeLaUltimaAccion;
+        // 1. El REMITENTE solo puede enviar si está en ELABORACION, CANCELADO o DEVUELTO (reenviar)
+        if ((doc.estado === 'ELABORACION' || doc.estado === 'CANCELADO' || doc.estado === 'DEVUELTO') && rol === 'REMITENTE') {
+            actions.push({
+                accion: 'ENVIO',
+                label: doc.estado === 'DEVUELTO' ? 'Corregir y Reenviar' : (doc.estado === 'CANCELADO' ? 'Reenviar Documento' : 'Enviar Oficialmente'),
+                color: 'bg-primary text-white shadow-primary/20'
+            });
+        }
+
+        // 2. El REMITENTE puede cancelar el envío antes de que el destinatario lo reciba (solo primer envío en estado ENVIADO)
+        if (doc.estado === 'ENVIADO' && rol === 'REMITENTE') {
+            const yaCirculo = doc.seguimientos?.some(s =>
+                s.accion === 'RECEPCION' ||
+                s.accion === 'DERIVACION' ||
+                s.accion === 'DEVOLUCION'
+            );
+            if (!yaCirculo) {
+                actions.push({
+                    accion: 'CANCELAR',
+                    label: 'Cancelar Envío',
+                    color: 'bg-red-600 text-white shadow-red-600/20 hover:bg-red-700'
+                });
             }
         }
 
-        if (actions.length === 0 || !tieneCustodia) return (
-            <div className="flex flex-col items-center gap-3 p-6 bg-muted/20 rounded-3xl border border-dashed border-border/50">
-                <AlertCircle className="w-6 h-6 text-muted-foreground opacity-40" />
-                <p className="text-[10px] font-bold text-muted-foreground italic text-center uppercase tracking-widest leading-relaxed">
-                    {!tieneCustodia ? 'No tienes la custodia actual' : 'Sin acciones disponibles'}<br />
-                    {doc.estado === 'EN_TRAMITE' && !tieneCustodia ? 'El documento ha sido derivado a otra oficina.' : 'El documento está en trámite en otra oficina.'}
-                </p>
-            </div>
-        );
+        // 3. Custodia Dinámica - Confirmar Recepción:
+        // Si el estado es ENVIADO o EN_TRAMITE, y el destinatario del último movimiento es el usuario actual.
+        if ((doc.estado === 'ENVIADO' || doc.estado === 'EN_TRAMITE') && ultimoMovimiento?.destinatario?.id === user?.id) {
+            actions.push({ accion: 'RECEPCION', label: 'Confirmar Recepción', color: 'bg-emerald-500 text-white shadow-emerald-500/20' });
+        }
+
+        // 4. Custodia Dinámica - Derivar, Devolver o Archivar:
+        // Si el estado es RECIBIDO, y el que confirmó la recepción es el usuario actual.
+        if (doc.estado === 'RECIBIDO' && ultimoMovimiento?.accion === 'RECEPCION' && ultimoMovimiento?.usuario?.id === user?.id) {
+            actions.push({ accion: 'DERIVACION', label: 'Derivar / Tramitar', color: 'bg-purple-500 text-white shadow-purple-500/20' });
+            actions.push({ accion: 'DEVOLUCION', label: 'Devolver / Rechazar', color: 'bg-rose-500 text-white shadow-rose-500/20' });
+            actions.push({ accion: 'ARCHIVADO', label: 'Finalizar y Archivar', color: 'bg-muted text-muted-foreground' });
+        }
+
+        if (actions.length === 0) {
+            return (
+                <div className="flex flex-col items-center gap-3 p-6 bg-muted/20 rounded-3xl border border-dashed border-border/50">
+                    <AlertCircle className="w-6 h-6 text-muted-foreground opacity-40" />
+                    <p className="text-[10px] font-bold text-muted-foreground italic text-center uppercase tracking-widest leading-relaxed">
+                        Sin acciones de custodia disponibles<br />
+                        {doc.estado === 'EN_TRAMITE' ? 'El documento ha sido derivado a otra oficina.' : 'El documento está en trámite.'}
+                    </p>
+                </div>
+            );
+        }
 
         return (
             <div className="space-y-3 mt-4">
@@ -245,7 +290,7 @@ export default function BandejaPage() {
         const search = async (val: string) => {
             if (!val.trim()) { setResults([]); return; }
             const data = await buscarUsuarios(val);
-            setResults(data);
+            setResults(data.filter(u => u.id !== user?.id));
             setOpen(true);
         };
 
@@ -291,6 +336,9 @@ export default function BandejaPage() {
             </div>
         );
     };
+
+    // Guard de render: evita mostrar la UI un instante antes del redirect
+    if (!can('read', 'CorDocumento')) return null;
 
     return (
         <div className="space-y-8 pb-20">
@@ -380,7 +428,13 @@ export default function BandejaPage() {
                                         <motion.tr key={doc.id}
                                             whileHover={{ backgroundColor: 'rgba(var(--primary-rgb), 0.02)' }}
                                             className={cn("group cursor-pointer transition-colors", selected?.id === doc.id && "bg-primary/5")}
-                                            onClick={() => setSelected(selected?.id === doc.id ? null : doc)}>
+                                            onClick={() => {
+                                                setAccionSeleccionada(null);
+                                                setNuevoDest(null);
+                                                setArchivoUrl(null);
+                                                setDetalle('');
+                                                setSelected(selected?.id === doc.id ? null : doc);
+                                            }}>
                                             <td className="px-8 py-6">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-2xl bg-muted flex flex-col items-center justify-center shrink-0 border border-border/50 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -391,6 +445,12 @@ export default function BandejaPage() {
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <span className="text-xs font-black tracking-tight">{doc.cite}</span>
                                                         </div>
+                                                        {doc.hr && (
+                                                            <div className="flex items-center gap-1.5 mb-1">
+                                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">HR:</span>
+                                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">{doc.hr}</span>
+                                                            </div>
+                                                        )}
                                                         <div className="flex items-center gap-2">
                                                             <Calendar className="w-3 h-3 text-muted-foreground" />
                                                             <span className="text-[10px] font-bold text-muted-foreground">
@@ -418,12 +478,12 @@ export default function BandejaPage() {
                                                         <div className="w-1.5 h-1.5 rounded-full bg-current" />
                                                         {ESTADO_LABELS[doc.estado]?.label ?? doc.estado}
                                                     </span>
-                                                    
+
                                                     {doc.diasMora > 0 && tab === 'recibidos' && (
                                                         <span className={cn(
                                                             "text-[8px] font-black uppercase tracking-widest flex items-center gap-1",
-                                                            doc.nivelAlerta === 'CRITICO' ? "text-red-600 animate-pulse" : 
-                                                            doc.nivelAlerta === 'MORA' ? "text-orange-600" : "text-muted-foreground"
+                                                            doc.nivelAlerta === 'CRITICO' ? "text-red-600 animate-pulse" :
+                                                                doc.nivelAlerta === 'MORA' ? "text-orange-600" : "text-muted-foreground"
                                                         )}>
                                                             <Clock className="w-2.5 h-2.5" />
                                                             {doc.diasMora} Días en Custodia {doc.alerta && "⚠️ MORA"}
@@ -467,7 +527,15 @@ export default function BandejaPage() {
                         <div className="flex-1 space-y-8 overflow-y-auto pr-4">
                             <div className="p-6 rounded-3xl bg-muted/30 border border-border/50">
                                 <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">Documento Seleccionado</p>
-                                <h3 className="text-lg font-black tracking-tighter leading-tight mb-4">{selected.cite}</h3>
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-black tracking-tighter leading-tight">{selected.cite}</h3>
+                                    {selected.hr && (
+                                        <div className="mt-1 flex items-center gap-1.5">
+                                            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Hoja de Ruta:</span>
+                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-black tracking-wide border border-emerald-500/20">{selected.hr}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between text-xs font-bold">
                                         <span className="text-muted-foreground">Estado Actual:</span>
@@ -477,6 +545,26 @@ export default function BandejaPage() {
                                         <span className="text-muted-foreground">Tu Rol:</span>
                                         <span className="uppercase">{selected.participantes.find(p => p.userId === user?.id)?.rol}</span>
                                     </div>
+
+                                    {selected.estado === 'DEVUELTO' && selected.seguimientos?.[0] && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 my-3 animate-in zoom-in-95 duration-300">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <AlertCircle className="w-4 h-4 text-red-600" />
+                                                <span className="text-[10px] font-black uppercase text-red-600 tracking-widest">Documento Devuelto / Observado</span>
+                                            </div>
+                                            <p className="text-[11px] font-bold text-foreground">
+                                                Devuelto por: {selected.seguimientos[0].usuario.nombre} {selected.seguimientos[0].usuario.apellidos}
+                                            </p>
+                                            {selected.seguimientos[0].detalle && (
+                                                <div className="mt-2 p-2.5 rounded-lg bg-red-500/5 border-l-2 border-red-500/30">
+                                                    <p className="text-[10px] text-red-700 font-medium italic leading-tight">
+                                                        Motivo: "{selected.seguimientos[0].detalle}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {selected.seguimientos?.[0] && (
                                         <div className="pt-3 border-t border-border/30">
                                             <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Último Movimiento</p>
@@ -545,7 +633,7 @@ export default function BandejaPage() {
                         </div>
 
                         <div className="mt-auto pt-8 border-t border-border">
-                            <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(selected.cite)}`}
+                            <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(selected.hr || selected.cite)}`}
                                 className="w-full h-14 rounded-2xl border border-border font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-accent transition-all">
                                 Ver Historial Completo <ArrowRight className="w-4 h-4" />
                             </Link>

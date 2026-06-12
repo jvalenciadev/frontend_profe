@@ -50,6 +50,7 @@ import { InscripcionPDF } from '@/components/academico/InscripcionPDF';
 import { useProfe } from '@/contexts/ProfeContext';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { InscritosModal } from '@/components/academico/InscritosModal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function InscripcionesPage() {
     const { items: inscripciones, loading, loadItems, createItem: createInscripcion, updateItem: updateInscripcion, deleteItem } = useInscripcions();
@@ -58,6 +59,14 @@ export default function InscripcionesPage() {
 
     const [sedes, setSedes] = useState<any[]>([]);
     const [estadosInscripcion, setEstadosInscripcion] = useState<any[]>([]);
+    const [activePdfRow, setActivePdfRow] = useState<string | null>(null);
+
+    // Confirm delete modal state
+    const [confirmDeleteState, setConfirmDeleteState] = useState<{ open: boolean; id: string; loading: boolean }>({
+        open: false,
+        id: '',
+        loading: false
+    });
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingInscripcion, setEditingInscripcion] = useState<any>(null);
@@ -113,7 +122,7 @@ export default function InscripcionesPage() {
         if (filterSede) params.sedeId = filterSede;
         if (filterEstado) params.estadoInscripcionId = filterEstado;
         if (filterVersion) params.versionId = filterVersion;
-        
+
         loadItems(params);
     }, [page, searchTerm, filterSede, filterEstado, filterVersion]);
 
@@ -363,10 +372,16 @@ export default function InscripcionesPage() {
         }
     };
 
-    const confirmDelete = async (id: string) => {
-        if (window.confirm('¿Está seguro de eliminar este registro? Esta acción no se puede deshacer.')) {
-            await deleteItem(id);
-        }
+    const confirmDelete = (id: string) => {
+        setConfirmDeleteState({ open: true, id, loading: false });
+    };
+
+    const handleConfirmDelete = async () => {
+        const id = confirmDeleteState.id;
+        if (!id) return;
+        setConfirmDeleteState(prev => ({ ...prev, loading: true }));
+        await deleteItem(id);
+        setConfirmDeleteState({ open: false, id: '', loading: false });
     };
 
     const handleBulkFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -435,15 +450,15 @@ export default function InscripcionesPage() {
 
                 totalSuccess += res.success;
                 totalErrors = [...totalErrors, ...res.errors];
-                
+
                 setMigrationProgress(Math.round(((i + 1) / chunks.length) * 100));
             }
 
             const finalReport = { success: totalSuccess, errors: totalErrors };
             setMigrationReport(finalReport);
             toast.success(`Migración finalizada: ${totalSuccess} exitosos, ${totalErrors.length} errores`);
-            loadItems(); 
-            
+            loadItems();
+
             if (totalErrors.length === 0) {
                 setTimeout(() => setIsBulkModalOpen(false), 2000);
             }
@@ -604,14 +619,14 @@ export default function InscripcionesPage() {
             </div>
 
             {/* Inscriptions Table Card */}
-            <Card className="border-border/40 overflow-hidden shadow-2xl shadow-indigo-500/5">
-                <div className="p-8 border-b border-border/40 bg-white/50 dark:bg-slate-900/50 flex flex-col md:flex-row justify-between gap-6">
+            <Card className="border-border/40 overflow-hidden shadow-2xl shadow-primary/5 bg-card/60 backdrop-blur-md">
+                <div className="p-8 border-b border-border/40 bg-white/30 dark:bg-slate-900/30 flex flex-col md:flex-row justify-between gap-6">
                     <div className="relative flex-1 max-w-xl group">
                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
                             placeholder="Buscar por Doc., Nombre o Programa..."
-                            className="w-full h-14 pl-14 pr-6 rounded-2xl bg-muted/30 border border-border/50 focus:border-primary outline-none text-sm font-bold transition-all shadow-sm"
+                            className="w-full h-14 pl-14 pr-6 rounded-2xl bg-background border border-border/60 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none text-sm font-bold transition-all shadow-sm"
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -683,7 +698,12 @@ export default function InscripcionesPage() {
                                 </tr>
                             ) : (
                                 filteredInscripciones.map((ins) => (
-                                    <tr key={ins.id} className="hover:bg-primary/[0.02] transition-colors group">
+                                    <tr
+                                        key={ins.id}
+                                        onMouseEnter={() => setActivePdfRow(ins.id)}
+                                        onMouseLeave={() => setActivePdfRow(null)}
+                                        className="hover:bg-primary/[0.02] transition-colors group"
+                                    >
                                         <td className="p-6">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shadow-sm">
@@ -761,13 +781,22 @@ export default function InscripcionesPage() {
                                                 >
                                                     <Edit2 className="w-5 h-5" />
                                                 </button>
-                                                <PDFDownloadLink
-                                                    document={<InscripcionPDF inscripcion={ins} profe={profe} />}
-                                                    fileName={`Inscripcion_${ins.persona?.nroDocumento || ins.id}.pdf`}
-                                                    className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                                                >
-                                                    {({ loading }) => (loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />)}
-                                                </PDFDownloadLink>
+                                                {activePdfRow === ins.id ? (
+                                                    <PDFDownloadLink
+                                                        document={<InscripcionPDF inscripcion={ins} profe={profe} />}
+                                                        fileName={`Inscripcion_${ins.persona?.nroDocumento || ins.id}.pdf`}
+                                                        className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm animate-in fade-in zoom-in-95 duration-150"
+                                                    >
+                                                        {({ loading }) => (loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />)}
+                                                    </PDFDownloadLink>
+                                                ) : (
+                                                    <button
+                                                        className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                        title="Ficha PDF"
+                                                    >
+                                                        <Printer className="w-5 h-5" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => confirmDelete(ins.id)}
                                                     className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
@@ -879,7 +908,7 @@ export default function InscripcionesPage() {
                                             {/* Results Dropdown */}
                                             {personasFound.length > 0 && (
                                                 <div className="absolute z-[100] top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-h-72 overflow-y-auto p-3 space-y-1">
-                                                    {personasFound.map((p: any) => (
+                                                    {personasFound.slice(0, 5).map((p: any) => (
                                                         <div
                                                             key={p.id}
                                                             onClick={() => {
@@ -1285,11 +1314,11 @@ export default function InscripcionesPage() {
                                 <p className="text-sm font-black uppercase tracking-tight">{bulkFile ? bulkFile.name : 'Seleccionar Archivo Excel'}</p>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{bulkData.length > 0 ? `${bulkData.length} registros detectados` : 'Formatos permitidos: .xlsx, .csv'}</p>
                             </div>
-                            <input 
-                                type="file" 
-                                className="absolute inset-0 opacity-0 cursor-pointer" 
-                                accept=".xlsx, .csv" 
-                                onChange={handleBulkFile} 
+                            <input
+                                type="file"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                accept=".xlsx, .csv"
+                                onChange={handleBulkFile}
                                 disabled={isMigrating}
                             />
                         </div>
@@ -1301,7 +1330,7 @@ export default function InscripcionesPage() {
                                     <span className="text-[10px] font-black text-amber-600">{migrationProgress}%</span>
                                 </div>
                                 <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <motion.div 
+                                    <motion.div
                                         className="h-full bg-amber-500"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${migrationProgress}%` }}
@@ -1312,7 +1341,7 @@ export default function InscripcionesPage() {
                         )}
 
                         {migrationReport && (
-                            <motion.div 
+                            <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-slate-900/50 border border-border/40 space-y-6"
@@ -1370,18 +1399,18 @@ export default function InscripcionesPage() {
                     </div>
 
                     <div className="p-8 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-end gap-4">
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsBulkModalOpen(false);
                                 setMigrationReport(null);
                                 setBulkFile(null);
                                 setBulkData([]);
-                            }} 
+                            }}
                             className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
                         >
                             Cerrar
                         </button>
-                        <button 
+                        <button
                             onClick={startBulkMigration}
                             disabled={isMigrating || bulkData.length === 0 || !bulkDestination.turnoId}
                             className="h-14 px-10 rounded-2xl bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-amber-600/20 hover:bg-amber-700 transition-all flex items-center gap-3 disabled:opacity-50"
@@ -1392,6 +1421,19 @@ export default function InscripcionesPage() {
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmModal
+                isOpen={confirmDeleteState.open}
+                onClose={() => setConfirmDeleteState({ open: false, id: '', loading: false })}
+                onConfirm={handleConfirmDelete}
+                title="¿Eliminar Registro?"
+                description="¿Está seguro de eliminar este registro? Esta acción no se puede deshacer."
+                confirmText="Sí, eliminar"
+                cancelText="Cancelar"
+                variant="danger"
+                loading={confirmDeleteState.loading}
+            />
         </div>
     );
 }
+

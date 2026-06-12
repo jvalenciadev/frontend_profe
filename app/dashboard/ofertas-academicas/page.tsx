@@ -56,6 +56,7 @@ import { userService } from '@/services/userService';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { InscritosModal } from '@/components/academico/InscritosModal';
+import { Can } from '@/components/Can';
 
 export default function OfertasAcademicasPage() {
     const { user } = useAuth();
@@ -1070,13 +1071,15 @@ export default function OfertasAcademicasPage() {
                                                             <UserPlus className="w-3 h-3" />
                                                             Inscritos
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleOpenFacilitadores(o)}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[8px] font-black uppercase hover:bg-primary hover:text-white transition-all shadow-sm"
-                                                        >
-                                                            <Users2 className="w-3 h-3" />
-                                                            Facilitadores
-                                                        </button>
+                                                        <Can action="read" subject="AsignacionFacilitador">
+                                                            <button
+                                                                onClick={() => handleOpenFacilitadores(o)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[8px] font-black uppercase hover:bg-primary hover:text-white transition-all shadow-sm"
+                                                            >
+                                                                <Users2 className="w-3 h-3" />
+                                                                Facilitadores
+                                                            </button>
+                                                        </Can>
                                                     </div>
 
                                                     <div className="pt-3 flex items-center justify-between">
@@ -1945,19 +1948,21 @@ export default function OfertasAcademicasPage() {
                                         </div>
                                     )}
 
-                                    <button
-                                        onClick={handleCreateAsignacion}
-                                        disabled={isLoading || !newAsignacion.facilitadorId}
-                                        className={cn(
-                                            "w-full h-11 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
-                                            !newAsignacion.facilitadorId
-                                                ? "bg-muted text-muted-foreground opacity-50"
-                                                : "bg-primary text-white hover:shadow-lg hover:shadow-primary/20 active:scale-95"
-                                        )}
-                                    >
-                                        <Save className="w-3.5 h-3.5" />
-                                        Confirmar Asignación
-                                    </button>
+                                    <Can action="create" subject="AsignacionFacilitador">
+                                        <button
+                                            onClick={handleCreateAsignacion}
+                                            disabled={isLoading || !newAsignacion.facilitadorId}
+                                            className={cn(
+                                                "w-full h-11 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                                                !newAsignacion.facilitadorId
+                                                    ? "bg-muted text-muted-foreground opacity-50"
+                                                    : "bg-primary text-white hover:shadow-lg hover:shadow-primary/20 active:scale-95"
+                                            )}
+                                        >
+                                            <Save className="w-3.5 h-3.5" />
+                                            Confirmar Asignación
+                                        </button>
+                                    </Can>
                                 </div>
                             </div>
 
@@ -2158,21 +2163,25 @@ export default function OfertasAcademicasPage() {
                                                     </div>
 
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <button
-                                                            onClick={() => {
-                                                                setNewAsignacion({ ...newAsignacion, moduloId: as.moduloId, turnoId: as.turnoId });
-                                                                toast.info('Reasignando', { description: as.modulo?.nombre });
-                                                            }}
-                                                            className="p-2 rounded-lg hover:bg-primary hover:text-white transition-colors text-muted-foreground"
-                                                        >
-                                                            <RefreshCw className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteAsignacion(as.id)}
-                                                            className="p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors text-rose-500"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
+                                                        <Can action="update" subject="AsignacionFacilitador">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setNewAsignacion({ ...newAsignacion, moduloId: as.moduloId, turnoId: as.turnoId });
+                                                                    toast.info('Reasignando', { description: as.modulo?.nombre });
+                                                                }}
+                                                                className="p-2 rounded-lg hover:bg-primary hover:text-white transition-colors text-muted-foreground"
+                                                            >
+                                                                <RefreshCw className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </Can>
+                                                        <Can action="delete" subject="AsignacionFacilitador">
+                                                            <button
+                                                                onClick={() => handleDeleteAsignacion(as.id)}
+                                                                className="p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors text-rose-500"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </Can>
                                                     </div>
                                                 </div>
                                             ))}

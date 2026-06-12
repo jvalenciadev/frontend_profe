@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { useAbility } from '@/hooks/useAbility';
 import {
     Send, FileText, Users, CornerRightDown,
     Eye, Check, X, UserPlus, Type, AlignLeft, Search,
@@ -39,6 +40,7 @@ interface ParticipanteConCargo extends CorUsuario {
 
 export default function NuevaNotaPage() {
     const { user } = useAuth();
+    const { can } = useAbility();
     const router = useRouter();
     const [tipo, setTipo] = useState<CorTipoDocumento>('INFORME');
     const [hr, setHr] = useState('');
@@ -60,6 +62,13 @@ export default function NuevaNotaPage() {
             setRemitentes([{ id: user.id, nombre: user.nombre, apellidos: user.apellidos, cargoStr: user.cargoStr || null, cargoLiteral: user.cargoStr || '' }]);
         }
     }, [user]);
+
+    // Guard CASL
+    useEffect(() => {
+        if (!can('manage', 'CorDocumento') && !can('create', 'CorDocumento')) {
+            router.replace('/dashboard/correspondencia/bandeja');
+        }
+    }, [can, router]);
 
     const currentYear = new Date().getFullYear();
     const currentDateFormatted = new Intl.DateTimeFormat('es-BO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date());
@@ -92,15 +101,16 @@ export default function NuevaNotaPage() {
         if (!success || confirming) return;
         setConfirming(true);
         try {
-            const tieneVias = vias.length > 0;
-            const accion = tieneVias ? 'DERIVACION' : 'ENVIO';
-            const detalle = tieneVias
-                ? `Documento derivado a Vía para su revisión: ${vias.map(v => v.nombre).join(', ')}`
+            // Siempre usamos ENVIO: el backend registra el estado como ENVIADO
+            // permitiendo al remitente cancelar si es necesario.
+            // Si hay vías, el detalle lo indica para el historial.
+            const detalle = vias.length > 0
+                ? `Documento enviado oficialmente. Pasa por Vía: ${vias.map(v => v.nombre).join(', ')} antes de llegar a: ${destinatarios.map(d => d.nombre).join(', ')}`
                 : `Documento enviado oficialmente a: ${destinatarios.map(d => d.nombre).join(', ')}`;
-            await avanzarEstado(success.id, accion, detalle);
-            localStorage.removeItem('profe_current_cor_id'); // Ciclo completado: Limpiar persistencia
+            await avanzarEstado(success.id, 'ENVIO', detalle);
+            localStorage.removeItem('profe_current_cor_id');
             toast.success('Documento enviado oficialmente');
-            router.push('/dashboard/correspondencia/seguimiento');
+            router.push('/dashboard/correspondencia/bandeja');
         } catch (err) {
             toast.error('Error al confirmar el envío');
         } finally { setConfirming(false); }
@@ -166,7 +176,7 @@ export default function NuevaNotaPage() {
         ul, ol { margin-left: 25pt; }
         
         .header-title { font-size: 16pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 5pt; }
-        .meta-table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
+        .meta-table { width: 100%; border-collapse: collapse; margin-top: 10pt; line-height: 1.15; }
         .meta-label { width: 60pt; font-weight: bold; vertical-align: top; }
         .meta-value { vertical-align: top; }
         .content-body { margin-top: 10pt; text-align: justify; line-height: 1.5; }
@@ -175,21 +185,19 @@ export default function NuevaNotaPage() {
 <body>
     <div class="Section1">
         <div class="header-title">${tipo.replace('_', ' ')}</div>
-        <div style="text-align: center; font-weight: bold; font-size: 11pt; margin-bottom: 20pt;">
+        <div style="text-align: center; font-weight: bold; font-size: 11pt; margin-bottom: 12pt;">
             HR: ${hrFinal}<br>CITE: ${citeFinal}
         </div>
         
         <table class="meta-table" style="font-family: 'Arial'; font-size: 11pt;">
-            ${destinatarios.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'A:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
-            ${vias.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'Vía:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
-            ${remitentes.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 8pt;">${i === 0 ? 'De:' : ''}</td><td class="meta-value" style="padding-bottom: 8pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
-            <tr><td class="meta-label" style="padding-bottom: 8pt;">Ref.:</td><td class="meta-value" style="padding-bottom: 8pt;"><b>${(referencia || 'SIN REFERENCIA').toUpperCase()}</b></td></tr>
-            <tr><td class="meta-label" style="padding-bottom: 8pt;">Fecha:</td><td class="meta-value" style="padding-bottom: 8pt;">La Paz, ${currentDateFormatted}</td></tr>
+            ${destinatarios.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'A:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            ${vias.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'Vía:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            ${remitentes.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'De:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            <tr><td class="meta-label" style="padding-bottom: 3pt;">Ref.:</td><td class="meta-value" style="padding-bottom: 3pt;"><b>${(referencia || 'SIN REFERENCIA').toUpperCase()}</b></td></tr>
+            <tr><td class="meta-label" style="padding-bottom: 3pt;">Fecha:</td><td class="meta-value" style="padding-bottom: 3pt;">La Paz, ${currentDateFormatted}</td></tr>
         </table>
         
-        <table border=0 cellspacing=0 cellpadding=0 width="100%" style='border-collapse:collapse; margin-top:0pt;'>
-            <tr><td style='border-top:solid black 2.25pt; mso-border-top-alt:solid black 2.25pt; padding:0cm 0cm 0cm 0cm;'>&nbsp;</td></tr>
-        </table>
+        <div style="border-top: solid black 2.25pt; margin-top: 8pt; margin-bottom: 12pt; font-size: 1pt; line-height: 1pt;"></div>
         <div class="content-body">${contenido || '---'}</div>
     </div>
     
@@ -303,6 +311,9 @@ export default function NuevaNotaPage() {
         recoverDraft();
     }, []);
 
+    // Guard de render: sin permisos de escritura, no mostrar la UI
+    if (!can('manage', 'CorDocumento') && !can('create', 'CorDocumento')) return null;
+
     if (success) {
         return (
             <>
@@ -411,7 +422,7 @@ export default function NuevaNotaPage() {
                                 <textarea
                                     value={contenido}
                                     onChange={e => setContenido(e.target.value.slice(0, 150))}
-                                    placeholder="De mi consideración:..."
+                                    placeholder="Para su conocimiento..."
                                     maxLength={150}
                                     className="w-full bg-transparent min-h-[400px] outline-none resize-none font-serif text-lg leading-relaxed"
                                 />
@@ -422,8 +433,8 @@ export default function NuevaNotaPage() {
                 <div className="lg:col-span-4 space-y-8">
                     <ConfigSidebar tipo={tipo} setTipo={setTipo} />
                     <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl space-y-10">
-                        <UserSelector label="Dirigido a" icon={Users} selected={destinatarios} onAdd={(u: any) => setDestinatarios(p => [...p, u])} onRemove={(id: any) => setDestinatarios(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setDestinatarios)} />
-                        <div className="h-px bg-border/20" /><UserSelector label="Vía" icon={CornerRightDown} selected={vias} onAdd={(u: any) => setVias(p => [...p, u])} onRemove={(id: any) => setVias(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setVias)} /><div className="h-px bg-border/20" /><UserSelector label="De" icon={Check} selected={remitentes} onAdd={(u: any) => setRemitentes(p => [...p, u])} onRemove={(id: any) => setRemitentes(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setRemitentes)} />
+                        <UserSelector label="Dirigido a" icon={Users} selected={destinatarios} excludeId={user?.id} onAdd={(u: any) => setDestinatarios(p => [...p, u])} onRemove={(id: any) => setDestinatarios(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setDestinatarios)} />
+                        <div className="h-px bg-border/20" /><UserSelector label="Vía" icon={CornerRightDown} selected={vias} excludeId={user?.id} onAdd={(u: any) => setVias(p => [...p, u])} onRemove={(id: any) => setVias(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setVias)} /><div className="h-px bg-border/20" /><UserSelector label="De" icon={Check} selected={remitentes} onAdd={(u: any) => setRemitentes(p => [...p, u])} onRemove={(id: any) => setRemitentes(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setRemitentes)} />
                     </div>
                 </div>
             </form>
@@ -452,7 +463,7 @@ function ConfigSidebar({ tipo, setTipo }: any) {
     );
 }
 
-function UserSelector({ label, icon: Icon, selected, onAdd, onRemove, onUpdateCargo }: any) {
+function UserSelector({ label, icon: Icon, selected, excludeId, onAdd, onRemove, onUpdateCargo }: any) {
     const [q, setQ] = useState('');
     const [results, setResults] = useState<CorUsuario[]>([]);
     const [loading, setLoading] = useState(false);
@@ -461,8 +472,11 @@ function UserSelector({ label, icon: Icon, selected, onAdd, onRemove, onUpdateCa
     const search = useCallback(async (query: string) => {
         if (!query.trim()) { setResults([]); return; }
         setLoading(true);
-        try { const data = await buscarUsuarios(query); setResults(data.filter((u: any) => !selected.some((s: any) => s.id === u.id))); } finally { setLoading(false); }
-    }, [selected]);
+        try {
+            const data = await buscarUsuarios(query);
+            setResults(data.filter((u: any) => u.id !== excludeId && !selected.some((s: any) => s.id === u.id)));
+        } finally { setLoading(false); }
+    }, [selected, excludeId]);
     const handleChange = (e: any) => { const val = e.target.value; setQ(val); setOpen(true); if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(() => search(val), 350); };
     return (
         <div className="space-y-4">

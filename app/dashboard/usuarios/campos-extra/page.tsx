@@ -6,6 +6,7 @@ import { Plus, Edit2, Trash2, Save, X, Settings2, ShieldCheck, List, ToggleLeft,
 import { userService } from '@/services/userService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const TIPOS_CAMPO = [
     { value: 'TEXTO', label: 'Texto Libre', icon: Edit2 },
@@ -18,6 +19,12 @@ export default function CamposExtraAdminPage() {
     const [campos, setCampos] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Confirm Modal State
+    const [confirmDeleteState, setConfirmDeleteState] = useState<{ open: boolean; id: string }>({
+        open: false,
+        id: ''
+    });
     
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,15 +109,21 @@ export default function CamposExtraAdminPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (confirm("¿Estás seguro de inhabilitar este campo? Los usuarios ya no lo verán.") === true) {
-            try {
-                await userService.deleteCampoExtra(id);
-                toast.success("Campo eliminado");
-                fetchData();
-            } catch (error) {
-                toast.error("Error al eliminar el campo");
-            }
+    const handleDelete = (id: string) => {
+        setConfirmDeleteState({ open: true, id });
+    };
+
+    const handleConfirmDelete = async () => {
+        const id = confirmDeleteState.id;
+        if (!id) return;
+        try {
+            await userService.deleteCampoExtra(id);
+            toast.success("Campo inhabilitado");
+            fetchData();
+        } catch (error) {
+            toast.error("Error al inhabilitar el campo");
+        } finally {
+            setConfirmDeleteState({ open: false, id: '' });
         }
     };
 
@@ -460,6 +473,17 @@ export default function CamposExtraAdminPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ConfirmModal
+                isOpen={confirmDeleteState.open}
+                onClose={() => setConfirmDeleteState({ open: false, id: '' })}
+                onConfirm={handleConfirmDelete}
+                title="¿Inhabilitar Campo?"
+                description="¿Estás seguro de inhabilitar este campo? Los usuarios ya no lo verán."
+                confirmText="Sí, inhabilitar"
+                cancelText="Cancelar"
+                variant="warning"
+            />
         </div>
     );
 }

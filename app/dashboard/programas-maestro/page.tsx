@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { userService } from '@/services/userService';
+import { Can } from '@/components/Can';
 
 
 export default function ProgramasMaestroPage() {
@@ -257,13 +258,15 @@ export default function ProgramasMaestroPage() {
                     >
                         <Activity className="w-5 h-5" />
                     </button>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Crear Programa
-                    </button>
+                    <Can action="create" subject="Programa">
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Crear Programa
+                        </button>
+                    </Can>
                 </div>
             </div>
 
@@ -421,18 +424,22 @@ export default function ProgramasMaestroPage() {
                                                             )}
                                                         </div>
                                                         <div className="flex gap-1.5">
-                                                            <button
-                                                                onClick={() => handleOpenModal(programa)}
-                                                                className="p-2 rounded-lg bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm group/btn"
-                                                            >
-                                                                <Edit2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(programa)}
-                                                                className="p-2 rounded-lg bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm group/btn"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                                                            </button>
+                                                            <Can action="update" subject="Programa">
+                                                                <button
+                                                                    onClick={() => handleOpenModal(programa)}
+                                                                    className="p-2 rounded-lg bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all shadow-sm group/btn"
+                                                                >
+                                                                    <Edit2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                                                </button>
+                                                            </Can>
+                                                            <Can action="delete" subject="Programa">
+                                                                <button
+                                                                    onClick={() => handleDelete(programa)}
+                                                                    className="p-2 rounded-lg bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm group/btn"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                                                </button>
+                                                            </Can>
                                                         </div>
                                                     </div>
                                                 </div>

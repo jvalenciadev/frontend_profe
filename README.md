@@ -1,4 +1,4 @@
-# PROFE OS - Frontend
+# AULA PROFE - Frontend
 
 Interfaz de usuario moderna basada en Next.js.
 

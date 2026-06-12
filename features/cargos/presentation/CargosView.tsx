@@ -3,6 +3,7 @@ import { Cargo } from '../domain/Cargo';
 import { Modal } from '@/components/Modal';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Can } from '@/components/Can';
 import {
     Briefcase,
     Plus,
@@ -62,13 +63,15 @@ export const CargosView: React.FC<CargosViewProps> = ({
                         Define los cargos y posiciones (Clean Architecture).
                     </p>
                 </div>
-                <button
-                    onClick={() => openModalFor()}
-                    className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nuevo Cargo
-                </button>
+                <Can action="create" subject="Cargo">
+                    <button
+                        onClick={() => openModalFor()}
+                        className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nuevo Cargo
+                    </button>
+                </Can>
             </div>
 
             <div className="relative">
@@ -106,12 +109,16 @@ export const CargosView: React.FC<CargosViewProps> = ({
                                     </div>
                                     <h3 className="text-base font-black uppercase tracking-tight mb-6 group-hover:text-primary transition-colors">{cargo.nombre}</h3>
                                     <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/40">
-                                        <button onClick={() => openModalFor(cargo)} className="p-2 rounded-xl bg-muted/50 hover:bg-primary hover:text-white">
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onDelete(cargo.id)} className="p-2 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <Can action="update" subject="Cargo">
+                                            <button onClick={() => openModalFor(cargo)} className="p-2 rounded-xl bg-muted/50 hover:bg-primary hover:text-white">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                        </Can>
+                                        <Can action="delete" subject="Cargo">
+                                            <button onClick={() => onDelete(cargo.id)} className="p-2 rounded-xl bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </Can>
                                     </div>
                                 </Card>
                             </motion.div>

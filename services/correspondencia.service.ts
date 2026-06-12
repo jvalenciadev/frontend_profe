@@ -28,6 +28,7 @@ export interface CorSeguimiento {
     accion: string;
     detalle: string | null;
     usuario: CorUsuario;
+    destinatario: CorUsuario | null; // A quién se envió/derivó
     archivoUrl: string | null;
 }
 
@@ -144,4 +145,6 @@ export const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
     RECIBIDO: { label: 'Recibido', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
     EN_TRAMITE: { label: 'En Trámite', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
     ARCHIVADO: { label: 'Archivado', color: 'bg-muted text-muted-foreground border-border' },
+    CANCELADO: { label: 'Cancelado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
+    DEVUELTO: { label: 'Devuelto', color: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
 };

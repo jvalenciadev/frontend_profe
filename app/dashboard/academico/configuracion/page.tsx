@@ -8,7 +8,6 @@ import {
     programaModalidadService,
     programaTipoService,
     programaInscripcionEstadoService,
-    insigniaService
 } from '@/services/programaConfigService';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -30,16 +29,16 @@ import {
     XCircle,
     Activity,
     Trophy,
-    Award
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/StatusBadge';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const TABS = [
     {
-        id: 'versiones', label: 'Versiones', icon: Layers, service: programaVersionService, fields: [
+        id: 'versiones', label: 'Versiones', icon: Layers, subject: 'ProgramaVersion', service: programaVersionService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Versión I' },
             { name: 'romano', label: 'Romano', type: 'text', placeholder: 'Ej: I' },
             { name: 'numero', label: 'Número', type: 'number', placeholder: 'Ej: 1' },
@@ -47,46 +46,38 @@ const TABS = [
         ]
     },
     {
-        id: 'turnos', label: 'Turnos', icon: Clock, service: programaTurnoService, fields: [
+        id: 'turnos', label: 'Turnos', icon: Clock, subject: 'ProgramaTurno', service: programaTurnoService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Mañana' },
             { name: 'descripcion', label: 'Descripción', type: 'text', placeholder: 'Ej: Lunes a Viernes 08:00 - 12:00' },
         ]
     },
     {
-        id: 'duraciones', label: 'Duraciones', icon: History, service: programaDuracionService, fields: [
+        id: 'duraciones', label: 'Duraciones', icon: History, subject: 'ProgramaDuracion', service: programaDuracionService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: 6 Meses' },
             { name: 'semanas', label: 'Semanas', type: 'number', placeholder: 'Ej: 24' },
         ]
     },
     {
-        id: 'modalidades', label: 'Modalidades', icon: Globe, service: programaModalidadService, fields: [
+        id: 'modalidades', label: 'Modalidades', icon: Globe, subject: 'ProgramaModalidad', service: programaModalidadService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Virtual' },
         ]
     },
     {
-        id: 'tipos', label: 'Tipos de Programa', icon: Tag, service: programaTipoService, fields: [
+        id: 'tipos', label: 'Tipos de Programa', icon: Tag, subject: 'ProgramaTipo', service: programaTipoService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Diplomado' },
             { name: 'notaMaxima', label: 'Nota Máxima', type: 'number', placeholder: 'Ej: 100' },
             { name: 'notaReprobacion', label: 'Nota Reprobación', type: 'number', placeholder: 'Ej: 60' },
         ]
     },
     {
-        id: 'estados-inscripcion', label: 'Estados Inscripción', icon: Activity, service: programaInscripcionEstadoService, fields: [
+        id: 'estados-inscripcion', label: 'Estados Inscripción', icon: Activity, subject: 'ProgramaInscripcionEstado', service: programaInscripcionEstadoService, fields: [
             { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: INSCRITO' },
-        ]
-    },
-    {
-        id: 'insignias', label: 'Insignias', icon: Award, service: insigniaService, hideStatus: true, fields: [
-            { name: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Alumno Estrella' },
-            { name: 'descripcion', label: 'Descripción', type: 'text', placeholder: 'Ej: Por participación impecable' },
-            { name: 'icono', label: 'Ícono (Nombre Lucide o Emoji)', type: 'text', placeholder: 'Ej: Star, Zap, 🏆' },
-            { name: 'color', label: 'Color Hex', type: 'text', placeholder: 'Ej: #f59e0b' },
-            { name: 'tipo', label: 'Tipo Código (ID)', type: 'text', placeholder: 'Ej: ALUMNO_ESTRELLA' },
         ]
     },
 ];
 
 export default function ConfigAcademicaPage() {
+    const { can } = usePermissions();
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -94,6 +85,11 @@ export default function ConfigAcademicaPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [formData, setFormData] = useState<any>({ estado: 'activo' });
+
+    // Permisos del tab activo según su subject CASL (refleja permisos reales de la DB)
+    const canCreate = can('create', activeTab.subject as string);
+    const canUpdate = can('update', activeTab.subject as string);
+    const canDelete = can('delete', activeTab.subject as string);
 
     const [confirmDelete, setConfirmDelete] = useState<{
         isOpen: boolean;
@@ -217,13 +213,15 @@ export default function ConfigAcademicaPage() {
                     </p>
                 </div>
 
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nuevo {activeTab.label.slice(0, -1)}
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className="h-14 px-8 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-3 shrink-0"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nuevo {activeTab.label.slice(0, -1)}
+                    </button>
+                )}
             </div>
 
             {/* Tabs Navigation */}
@@ -289,21 +287,27 @@ export default function ConfigAcademicaPage() {
                                     transition={{ duration: 0.3, ease: 'easeOut' }}
                                 >
                                     <Card className="group relative border-border/40 overflow-hidden bg-card hover:border-primary/50 transition-all p-8 rounded-[3.5rem] shadow-sm hover:shadow-3xl hover:shadow-primary/10 h-full flex flex-col justify-between">
-                                        {/* Action buttons (hover) */}
-                                        <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-                                            <button
-                                                onClick={() => handleOpenModal(item)}
-                                                className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 text-primary shadow-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all scale-90 hover:scale-100"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item)}
-                                                className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-500 shadow-xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all scale-90 hover:scale-100"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                        {/* Action buttons (hover) - guarded by CASL */}
+                                        {(canUpdate || canDelete) && (
+                                            <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+                                                {canUpdate && (
+                                                    <button
+                                                        onClick={() => handleOpenModal(item)}
+                                                        className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 text-primary shadow-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all scale-90 hover:scale-100"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(item)}
+                                                        className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-500 shadow-xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all scale-90 hover:scale-100"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="space-y-6">
                                             <div className="flex justify-between items-start">
@@ -322,7 +326,7 @@ export default function ConfigAcademicaPage() {
                                                 {/* Badge Preview */}
                                                 {activeTab.id === 'insignias' && (
                                                     <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-border/40 bg-muted/20">
-                                                        <div 
+                                                        <div
                                                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shadow-lg"
                                                             style={{ background: item.color || '#6366f1' }}
                                                         >

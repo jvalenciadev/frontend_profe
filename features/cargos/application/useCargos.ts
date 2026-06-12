@@ -53,7 +53,6 @@ export const useCargos = () => {
     };
 
     const deleteCargo = async (id: string) => {
-        if (!window.confirm('¿Estás seguro de eliminar este cargo?')) return;
         try {
             setLoading(true);
             await CargoApi.delete(id);

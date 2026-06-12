@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 type Tab = 'config-global' | 'por-modulo';
 
@@ -53,6 +54,21 @@ interface CategoriaModulo {
 
 export default function CategoriasPage() {
     const [activeTab, setActiveTab] = useState<Tab>('config-global');
+
+    // Confirm modal state
+    const [confirmState, setConfirmState] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant: 'danger' | 'warning' | 'info' | 'success' | 'primary';
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+        variant: 'danger'
+    });
 
     // ─── Config Global ────────────────────────────────────────
     const [tipos, setTipos] = useState<TipoConConfig[]>([]);
@@ -174,18 +190,27 @@ export default function CategoriasPage() {
         }
     };
 
-    const handleDeleteConfig = async (id: string) => {
-        if (!window.confirm('¿Eliminar esta categoría de configuración?')) return;
-        try {
-            await aulaCategoriaService.deleteConfig(id);
-            toast.success('Categoría eliminada');
-            const refreshed = await aulaCategoriaService.getTiposConConfig();
-            setTipos(refreshed);
-            const updated = refreshed.find((t: TipoConConfig) => t.id === selectedTipo?.id);
-            if (updated) setSelectedTipo(updated);
-        } catch {
-            toast.error('Error al eliminar');
-        }
+    const handleDeleteConfig = (id: string) => {
+        setConfirmState({
+            open: true,
+            title: '¿Eliminar Categoría?',
+            description: '¿Está seguro de eliminar esta categoría de configuración? Esta acción no se puede deshacer.',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    await aulaCategoriaService.deleteConfig(id);
+                    toast.success('Categoría eliminada');
+                    const refreshed = await aulaCategoriaService.getTiposConConfig();
+                    setTipos(refreshed);
+                    const updated = refreshed.find((t: TipoConConfig) => t.id === selectedTipo?.id);
+                    if (updated) setSelectedTipo(updated);
+                } catch {
+                    toast.error('Error al eliminar');
+                } finally {
+                    setConfirmState(prev => ({ ...prev, open: false }));
+                }
+            }
+        });
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -238,18 +263,26 @@ export default function CategoriasPage() {
         }
     };
 
-    const handleDeleteCat = async (id: string) => {
-        if (!window.confirm('¿Eliminar esta categoría del módulo?')) return;
-        setCatLoading(true);
-        try {
-            await aulaCategoriaService.delete(id);
-            toast.success('Categoría eliminada');
-            if (selectedModulo) await loadCategorias(selectedModulo.id);
-        } catch {
-            toast.error('Error al eliminar');
-        } finally {
-            setCatLoading(false);
-        }
+    const handleDeleteCat = (id: string) => {
+        setConfirmState({
+            open: true,
+            title: '¿Eliminar Categoría?',
+            description: '¿Está seguro de eliminar esta categoría del módulo? Esta acción no se puede deshacer.',
+            variant: 'danger',
+            onConfirm: async () => {
+                setCatLoading(true);
+                try {
+                    await aulaCategoriaService.delete(id);
+                    toast.success('Categoría eliminada');
+                    if (selectedModulo) await loadCategorias(selectedModulo.id);
+                } catch {
+                    toast.error('Error al eliminar');
+                } finally {
+                    setCatLoading(false);
+                    setConfirmState(prev => ({ ...prev, open: false }));
+                }
+            }
+        });
     };
 
     const handleAplicarConfig = async () => {
@@ -906,6 +939,17 @@ export default function CategoriasPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <ConfirmModal
+                isOpen={confirmState.open}
+                onClose={() => setConfirmState(prev => ({ ...prev, open: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                description={confirmState.description}
+                confirmText="Sí, eliminar"
+                cancelText="Cancelar"
+                variant={confirmState.variant}
+            />
         </div>
     );
 }

@@ -92,9 +92,9 @@ const menuItems: MenuItem[] = [
         href: '/dashboard/correspondencia',
         icon: Mail,
         children: [
-            { title: 'Seguimiento de CITE', href: '/dashboard/correspondencia/seguimiento' },
-            { title: 'Nueva Nota/Informe', href: '/dashboard/correspondencia/nuevo' },
-            { title: 'Mi Bandeja', href: '/dashboard/correspondencia/bandeja' },
+            { title: 'Seguimiento de CITE', href: '/dashboard/correspondencia/seguimiento', permission: { action: 'read', subject: 'CorDocumento' } },
+            { title: 'Nueva Nota/Informe', href: '/dashboard/correspondencia/nuevo', permission: { action: 'create', subject: 'CorDocumento' } },
+            { title: 'Mi Bandeja', href: '/dashboard/correspondencia/bandeja', permission: { action: 'read', subject: 'CorDocumento' } },
         ]
     },
     {
@@ -140,8 +140,7 @@ const menuItems: MenuItem[] = [
         icon: ShieldCheck,
         children: [
             { title: 'Usuarios', href: '/dashboard/usuarios', permission: { action: 'read', subject: 'User' }, },
-            { title: 'Roles', href: '/dashboard/roles', permission: { action: 'read', subject: 'Role' }, },
-            { title: 'Permisos', href: '/dashboard/permisos', permission: { action: 'read', subject: 'Permission' }, },
+            { title: 'Seguridad', href: '/dashboard/seguridad', permission: { action: 'read', subject: 'Role' }, },
         ],
     },
     {

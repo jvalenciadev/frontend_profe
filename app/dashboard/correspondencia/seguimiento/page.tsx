@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAbility } from '@/hooks/useAbility';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, FileText, Clock, CheckCircle2, Calendar,
     X, AlertCircle, User, PenLine, Send, Inbox,
-    CornerRightDown, MessageSquare, Archive, FolderOpen, Download
+    CornerRightDown, MessageSquare, Archive, FolderOpen, Download,
+    XCircle, RotateCcw, ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -22,6 +25,8 @@ const ACCION_ICONS: Record<string, React.ElementType> = {
     DERIVACION: CornerRightDown,
     OBSERVACION: MessageSquare,
     ARCHIVADO: Archive,
+    CANCELAR: XCircle,
+    DEVOLUCION: RotateCcw,
 };
 
 function rolLabel(rol: string) {
@@ -32,32 +37,57 @@ function rolLabel(rol: string) {
 }
 
 export default function SeguimientoPage() {
+    const searchParams = useSearchParams();
+    const { can } = useAbility();
+    const router = useRouter();
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<CorDocumento | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleSearch = useCallback(async (e: React.FormEvent) => {
-        e.preventDefault();
-        const q = search.trim();
-        if (!q) return;
+    const doSearch = useCallback(async (q: string) => {
+        if (!q.trim()) return;
         setLoading(true);
         setError(null);
         setResult(null);
         try {
-            const doc = await buscarPorCite(q);
+            const doc = await buscarPorCite(q.trim());
             setResult(doc);
         } catch (err: any) {
             setError(err?.message ?? 'No se encontró el documento');
         } finally {
             setLoading(false);
         }
-    }, [search]);
+    }, []);
+
+    // Auto-cargar si se navega desde la bandeja con ?cite=
+    useEffect(() => {
+        const citeFromUrl = searchParams.get('cite');
+        if (citeFromUrl) {
+            setSearch(citeFromUrl);
+            doSearch(citeFromUrl);
+        }
+    }, [searchParams, doSearch]);
+
+    // Guard CASL: sólo usuarios con acceso a CorDocumento pueden ver el seguimiento
+    useEffect(() => {
+        if (!can('read', 'CorDocumento')) {
+            router.replace('/dashboard');
+        }
+    }, [can, router]);
+
+    const handleSearch = useCallback(async (e: React.FormEvent) => {
+        e.preventDefault();
+        doSearch(search);
+    }, [search, doSearch]);
 
     const destinatarios = result?.participantes.filter(p => p.rol === 'DESTINATARIO') ?? [];
     const vias = result?.participantes.filter(p => p.rol === 'VIA') ?? [];
     const remitentes = result?.participantes.filter(p => p.rol === 'REMITENTE') ?? [];
+
+    // Guard de render
+    if (!can('read', 'CorDocumento')) return null;
 
     return (
         <div className="space-y-8 pb-20">
@@ -75,7 +105,7 @@ export default function SeguimientoPage() {
                             Seguimiento de <span className="text-primary">Correspondencia</span>
                         </h1>
                         <p className="text-muted-foreground text-sm font-medium max-w-lg leading-relaxed">
-                            Ingrese el número de CITE para rastrear el estado y el historial completo de movimientos del documento.
+                            Ingrese la <strong>Hoja de Ruta (HR)</strong> para rastrear el estado y el historial completo del documento. La HR es el identificador único global del sistema.
                         </p>
                     </motion.div>
 
@@ -92,7 +122,7 @@ export default function SeguimientoPage() {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Ej: INF/PROFE Nro. 2/2026"
+                                placeholder="Ej: 0001/2026  — o también: INF/PROFE Nro. 1/2026"
                                 className="w-full h-16 pl-14 pr-6 rounded-2xl bg-background border-2 border-border/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none font-bold text-lg"
                             />
                             {search && (
@@ -211,6 +241,50 @@ export default function SeguimientoPage() {
                                                         {new Date(seg.fecha).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                                     </div>
                                                 </div>
+
+                                                {/* Destinatario del movimiento */}
+                                                {seg.accion === 'ENVIO' && vias.length > 0 ? (
+                                                    <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                                        <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-1" />
+                                                        <div>
+                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                                {vias.length > 1 ? 'Vías a:' : 'Vía a:'}
+                                                            </span>
+                                                            <div className="space-y-1.5 mt-1">
+                                                                {vias.map(v => (
+                                                                    <p key={v.id} className="text-[11px] font-bold text-foreground leading-tight">
+                                                                        {v.usuario.nombre} {v.usuario.apellidos}
+                                                                        {v.usuario.cargoStr && (
+                                                                            <span className="text-[9px] text-muted-foreground font-black uppercase ml-1.5 opacity-70">
+                                                                                &mdash; {v.usuario.cargoStr}
+                                                                            </span>
+                                                                        )}
+                                                                    </p>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    seg.destinatario && (seg.accion === 'ENVIO' || seg.accion === 'DERIVACION') && (
+                                                        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                                    {result?.participantes.find(p => p.userId === seg.destinatario?.id)?.rol === 'VIA' ? 'Vía a:' : 'Dirigido a:'}
+                                                                </span>
+                                                                <p className="text-[11px] font-bold text-foreground">
+                                                                    {seg.destinatario.nombre} {seg.destinatario.apellidos}
+                                                                    {seg.destinatario.cargoStr && (
+                                                                        <span className="text-[9px] text-muted-foreground font-black uppercase ml-1.5 opacity-70">
+                                                                            &mdash; {seg.destinatario.cargoStr}
+                                                                        </span>
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                )}
+
                                                 {seg.detalle && (
                                                     <p className="text-sm text-muted-foreground leading-relaxed font-medium group-hover:text-foreground transition-colors">
                                                         {seg.detalle}
@@ -240,8 +314,8 @@ export default function SeguimientoPage() {
                     <div className="w-20 h-20 rounded-[2rem] bg-primary/5 border border-primary/10 flex items-center justify-center text-primary/30 mx-auto mb-4">
                         <Search className="w-10 h-10" />
                     </div>
-                    <p className="text-sm font-bold text-muted-foreground">Ingrese un número de CITE para comenzar la búsqueda</p>
-                    <p className="text-[10px] text-muted-foreground/50 mt-1">Ejemplo: INF/PROFE Nro. 1/2026</p>
+                    <p className="text-sm font-bold text-muted-foreground">Ingrese el número de <strong>Hoja de Ruta (HR)</strong> o CITE para rastrear</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">Ejemplo HR: 0001/2026 &nbsp;|&nbsp; Ejemplo CITE: INF/PROFE Nro. 1/2026</p>
                 </motion.div>
             )}
         </div>

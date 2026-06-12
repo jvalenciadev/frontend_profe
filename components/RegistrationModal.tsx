@@ -98,7 +98,7 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
     };
 
     const handleSubmit = async () => {
-        if (!baucher.imagen || !baucher.nroDeposito) {
+        if (!baucher.imagen || !baucher.nroDeposito || !baucher.monto || Number(baucher.monto) <= 0) {
             return toast.error('Complete los datos del pago');
         }
 
@@ -272,6 +272,50 @@ export default function RegistrationModal({ isOpen, onClose, program }: Registra
                                             <span className="text-xs font-bold uppercase tracking-widest">Inversión del programa: {program?.costo} Bs.</span>
                                         </div>
                                     </div>
+
+                                    {/* Selector de Tipo de Pago */}
+                                    <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-white/5 p-2 rounded-2xl">
+                                        <button
+                                            type="button"
+                                            onClick={() => setBaucher(prev => ({ ...prev, monto: program?.costo || '' }))}
+                                            className={cn(
+                                                "py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                                Number(baucher.monto) === Number(program?.costo)
+                                                    ? "bg-primary-600 text-white shadow-md"
+                                                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                            )}
+                                        >
+                                            Pago Completo ({program?.costo} Bs.)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBaucher(prev => ({ ...prev, monto: '' }))}
+                                            className={cn(
+                                                "py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                                                Number(baucher.monto) !== Number(program?.costo)
+                                                    ? "bg-primary-600 text-white shadow-md"
+                                                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                            )}
+                                        >
+                                            Pago Gradual / A Cuenta
+                                        </button>
+                                    </div>
+
+                                    {/* Campo numérico para Pago Gradual */}
+                                    {Number(baucher.monto) !== Number(program?.costo) && (
+                                        <div className="space-y-2 animate-in fade-in duration-200 text-left">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Monto a Depositar (Bs.)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max={program?.costo}
+                                                value={baucher.monto}
+                                                onChange={(e) => setBaucher({ ...baucher, monto: e.target.value })}
+                                                className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 focus:border-primary-600 outline-none transition-all font-bold text-lg"
+                                                placeholder="Ej. 500"
+                                            />
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-6">
