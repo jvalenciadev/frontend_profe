@@ -26,7 +26,7 @@ type TipoPreg = 'SINGLE' | 'MULTIPLE' | 'TRUE_FALSE' | 'TEXTO';
 interface Opcion { id: string; texto: string; }
 interface Pregunta { id: string; texto: string; tipo: TipoPreg; puntos: number; obligatorio: boolean; opciones: Opcion[]; }
 interface Cuestionario { id: string; titulo: string; descripcion: string; fechaInicio: string; fechaFin: string; tiempoMaximo: number | null; puntosMaximos: number | null; estado: string; preguntas: Pregunta[]; orden: number; esObligatorio: boolean; esEvaluativo: boolean; urlVideo?: string | null; limiteIntentos?: number | null; esAleatorio?: boolean; cantidadPreguntas?: number | null; puntajeMinimo?: number; }
-interface Evento { id: string; nombre: string; codigo: string; descripcion: string; banner: string; afiche: string; fecha: string; lugar: string; inscripcionAbierta: boolean; asistencia: boolean | null; codigoAsistencia: string | null; tipo: any; cuestionarios: Cuestionario[]; modalidadIds: string; camposExtras: any[]; tenantId?: string; urlVideo?: string | null; }
+interface Evento { id: string; nombre: string; codigo: string; descripcion: string; banner: string; afiche: string; fecha: string; lugar: string; estado: string; inscripcionAbierta: boolean; asistencia: boolean | null; codigoAsistencia: string | null; tipo: any; cuestionarios: Cuestionario[]; modalidadIds: string; camposExtras: any[]; tenantId?: string; urlVideo?: string | null; }
 
 // ─── YOUTUBE HELPER ─────────────────────────────────────────────────────────
 function extractYouTubeId(url: string): string {
@@ -1466,9 +1466,17 @@ export default function EventoPublicoPage() {
                         </button>
 
                         <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
-                            <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
-                                {evento.tipo?.nombre || 'Evento'}
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                    {evento.tipo?.nombre || 'Evento'}
+                                </span>
+                                {evento.estado === 'finalizado' && (
+                                    <span className="px-3 py-1 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1">
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                        Finalizado
+                                    </span>
+                                )}
+                            </div>
                             <h1 className="text-5xl lg:text-6xl font-black tracking-tighter text-white mt-4 uppercase leading-[0.9] drop-shadow-2xl">
                                 {evento.nombre}
                             </h1>
@@ -1481,9 +1489,17 @@ export default function EventoPublicoPage() {
                     <div className="md:hidden pt-32 pb-8 px-6 bg-slate-50 dark:bg-slate-900 border-b border-border">
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
-                                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
-                                    {evento.tipo?.nombre || 'Evento'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                                        {evento.tipo?.nombre || 'Evento'}
+                                    </span>
+                                    {evento.estado === 'finalizado' && (
+                                        <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
+                                            Finalizado
+                                        </span>
+                                    )}
+                                </div>
                                 <button onClick={() => router.back()} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-foreground active:scale-95 transition-all">
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
@@ -1496,6 +1512,15 @@ export default function EventoPublicoPage() {
                 )}
 
                 <div className={cn("mx-auto px-4 py-12 space-y-12 transition-all duration-500", persona ? "max-w-[1440px] w-full pt-28 md:pt-36" : "max-w-4xl")}>
+                    {evento.estado === 'finalizado' && (
+                        <div className="p-6 rounded-[2rem] bg-amber-500/5 border border-amber-500/20 flex items-center gap-4 text-amber-600 dark:text-amber-400 shadow-sm">
+                            <AlertTriangle className="w-6 h-6 shrink-0" />
+                            <div>
+                                <h3 className="font-black uppercase text-xs tracking-wider">Evento Finalizado</h3>
+                                <p className="text-xs font-bold text-muted-foreground mt-0.5">Este evento ha concluido. Ya no es posible registrarse ni realizar cuestionarios de evaluación.</p>
+                            </div>
+                        </div>
+                    )}
                     {/* Info badges */}
                     {!persona && (
                         <div className="flex flex-wrap gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
@@ -1552,7 +1577,7 @@ export default function EventoPublicoPage() {
 
 
                                 {/* ── PORTAL DE EVALUACIÓN (GATED) ── */}
-                                {(evento.cuestionarios?.length || 0) > 0 && (
+                                {(evento.cuestionarios?.length || 0) > 0 && evento.estado !== 'finalizado' && (
                                     !persona ? (() => {
                                         const firstCues = sortedCuestionarios[0];
                                         const firstStart = firstCues ? new Date(firstCues.fechaInicio) : null;
@@ -1740,7 +1765,7 @@ export default function EventoPublicoPage() {
                                 })()}
 
 
-                                {persona && (evento.cuestionarios?.length || 0) > 0 && (
+                                {persona && (evento.cuestionarios?.length || 0) > 0 && evento.estado !== 'finalizado' && (
                                     <div className="space-y-6 pt-4">
                                         <div className="flex items-center justify-between border-b border-border pb-6 flex-wrap gap-4">
                                             <h2 className="text-xl font-black uppercase text-foreground flex items-center gap-3">
