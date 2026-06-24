@@ -6,8 +6,8 @@ import { authService } from './authService';
 
 export const userService = {
     // Listar todos los usuarios
-    getAll: async (search?: string) => {
-        const { data } = await api.get<any>('/users', { params: { search } });
+    getAll: async (search?: string, global?: boolean) => {
+        const { data } = await api.get<any>('/users', { params: { search, global: global ? 'true' : undefined } });
         // Handle both Array and Object { users: [] } responses
         if (Array.isArray(data)) return data;
         if (data.users && Array.isArray(data.users)) return data.users;

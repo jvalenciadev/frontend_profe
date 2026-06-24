@@ -73,6 +73,7 @@ export default function OfertasAcademicasPage() {
     const [masterSearch, setMasterSearch] = useState('');
     const [activeMaster, setActiveMaster] = useState<any>(null);
     const [departamentos, setDepartamentos] = useState<any[]>([]);
+    const [selectedGestion, setSelectedGestion] = useState('');
 
     const [formData, setFormData] = useState({
         programaId: '',
@@ -118,6 +119,33 @@ export default function OfertasAcademicasPage() {
     const [versiones, setVersiones] = useState<any[]>([]);
     const [turnosMaster, setTurnosMaster] = useState<any[]>([]);
     const [facilitadores, setFacilitadores] = useState<any[]>([]);
+
+    // Sincronización automática de versión según programa seleccionado y gestión elegida
+    useEffect(() => {
+        if (editingOferta) return;
+
+        if (selectedMaster && selectedGestion) {
+            const count = ofertas.filter(o =>
+                o.programaId === selectedMaster.id &&
+                o.version?.gestion === selectedGestion &&
+                o.estado !== 'eliminado'
+            ).length;
+
+            const siguienteNumero = count + 1;
+
+            const targetVersion = versiones.find(v =>
+                v.numero === siguienteNumero &&
+                v.gestion === selectedGestion &&
+                (v.estado === 'activo' || v.estado === 'ACTIVO')
+            );
+
+            if (targetVersion) {
+                setFormData(prev => ({ ...prev, versionId: targetVersion.id }));
+            } else {
+                setFormData(prev => ({ ...prev, versionId: '' }));
+            }
+        }
+    }, [selectedMaster, selectedGestion, ofertas, versiones, editingOferta]);
 
     // Facilitator Assignment State
     const [isFacilitadoresModalOpen, setIsFacilitadoresModalOpen] = useState(false);
@@ -212,6 +240,7 @@ export default function OfertasAcademicasPage() {
         setEditingOferta(null);
         setSelectedMaster(null);
         setModalStep('pick');
+        setSelectedGestion(versiones[0]?.gestion || '');
         setFormData({
             programaId: '',
             sedeId: '',
@@ -304,6 +333,7 @@ export default function OfertasAcademicasPage() {
     const handleEdit = (oferta: any) => {
         setEditingOferta(oferta);
         setSelectedMaster(oferta.programa);
+        setSelectedGestion(oferta.version?.gestion || '');
 
         // Ensure we handle dates correctly from the backend snapshot
         const formatDate = (dateStr: string) => {
@@ -369,6 +399,7 @@ export default function OfertasAcademicasPage() {
             // Fetch full details to ensure we have modules and all fields
             const fullMaster = await programaMaestroService.getById(master.id);
             setSelectedMaster(fullMaster);
+            setSelectedGestion(versiones[0]?.gestion || '');
 
             const today = new Date().toISOString().split('T')[0];
             const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -540,11 +571,11 @@ export default function OfertasAcademicasPage() {
         targets.forEach(({ moduloId, turnoId }) => {
             // Buscar si es un módulo maestro (Global) o un modulo dos
             const isMasterModule = targetOferta?.programa?.modulos?.find((m: any) => m.id === moduloId && m.esGlobal);
-            const existing = asignaciones.find(as => 
-                (isMasterModule ? as.moduloMaestroId === moduloId : as.moduloId === moduloId) && 
+            const existing = asignaciones.find(as =>
+                (isMasterModule ? as.moduloMaestroId === moduloId : as.moduloId === moduloId) &&
                 as.turnoId === turnoId
             );
-            
+
             const payload = {
                 programaId: targetOferta?.id,
                 moduloId: isMasterModule ? null : moduloId,
@@ -734,6 +765,34 @@ export default function OfertasAcademicasPage() {
 
         return matchesSearch && matchesMaster && matchesSede && matchesModalidad && matchesEstado;
     });
+
+    const uniqueGestiones = Array.from(new Set(versiones.map(v => v.gestion).filter(Boolean)));
+
+    const autoVersionInfo = (() => {
+        if (!selectedMaster || !selectedGestion) return { targetVersion: null, siguienteNumero: 1, error: false };
+
+        const count = ofertas.filter(o =>
+            o.programaId === selectedMaster.id &&
+            o.version?.gestion === selectedGestion &&
+            o.estado !== 'eliminado'
+        ).length;
+
+        const siguienteNumero = count + 1;
+
+        const targetVersion = versiones.find(v =>
+            v.numero === siguienteNumero &&
+            v.gestion === selectedGestion &&
+            (v.estado === 'activo' || v.estado === 'ACTIVO')
+        );
+
+        return {
+            targetVersion,
+            siguienteNumero,
+            error: !targetVersion
+        };
+    })();
+
+    const isSaveDisabled = !editingOferta && autoVersionInfo.error;
 
     return (
         <div className="space-y-8 pb-20">
@@ -1287,19 +1346,42 @@ export default function OfertasAcademicasPage() {
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Versión / Gestión</label>
-                                            <select
-                                                className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground appearance-none shadow-sm"
-                                                value={formData.versionId}
-                                                onChange={(e) => setFormData({ ...formData, versionId: e.target.value })}
-                                                required
-                                            >
-                                                <option value="">Seleccionar Versión</option>
-                                                {versiones.map(v => (
-                                                    <option key={v.id} value={v.id}>
-                                                        {v.nombre} {v.romano} ({v.gestion})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            {editingOferta ? (
+                                                <input
+                                                    type="text"
+                                                    className="w-full h-11 px-4 rounded-xl bg-muted/30 border border-border outline-none text-xs font-bold text-foreground shadow-sm opacity-80"
+                                                    value={`${editingOferta.version?.nombre || ''} ${editingOferta.version?.romano || ''} (${editingOferta.version?.gestion || ''})`}
+                                                    disabled
+                                                />
+                                            ) : (
+                                                <>
+                                                    <select
+                                                        className="w-full h-11 px-4 rounded-xl bg-card border border-border focus:border-primary transition-all outline-none text-xs font-bold text-foreground appearance-none shadow-sm cursor-pointer"
+                                                        value={selectedGestion}
+                                                        onChange={(e) => setSelectedGestion(e.target.value)}
+                                                        required
+                                                    >
+                                                        <option value="">Seleccionar Gestión</option>
+                                                        {uniqueGestiones.map(g => (
+                                                            <option key={g} value={g}>
+                                                                Gestión {g}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+
+                                                    {selectedGestion && (
+                                                        autoVersionInfo.error ? (
+                                                            <div className="mt-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-bold leading-tight">
+                                                                ⚠ No existe la Versión {autoVersionInfo.siguienteNumero} habilitada para la gestión {selectedGestion}. El administrador debe habilitarla primero en Configuración.
+                                                            </div>
+                                                        ) : (
+                                                            <div className="mt-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold leading-tight">
+                                                                ✓ Se asignará automáticamente: Versión {autoVersionInfo.targetVersion?.numero} ({autoVersionInfo.targetVersion?.nombre})
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1674,7 +1756,7 @@ export default function OfertasAcademicasPage() {
 
                         <div className="flex justify-end gap-3 pt-6 border-t border-border/40">
                             <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">Cancelar</button>
-                            <button type="submit" disabled={isLoading} className="h-12 px-10 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
+                            <button type="submit" disabled={isLoading || isSaveDisabled} className="h-12 px-10 rounded-xl bg-primary disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
                                 {isLoading ? 'Generando Versión...' : (editingOferta ? 'Actualizar Oferta' : 'Lanzar Oferta Operativa')}
                             </button>
                         </div>
@@ -1823,36 +1905,36 @@ export default function OfertasAcademicasPage() {
                                                             const isSelected = isLegacySelected || isMultiSelected;
 
                                                             return (
-                                                                 <td key={t.id} className="p-1 border-r last:border-r-0 border-border/10 relative">
-                                                                     <button
-                                                                         onClick={() => toggleSlot(m.id, t.id)}
-                                                                         title={asig ? `Módulo asignado a ${asig.facilitador?.nombre}` : 'Espacio disponible'}
-                                                                         className={cn(
-                                                                             "w-full h-10 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center border-2",
-                                                                             isSelected
-                                                                                 ? "bg-primary border-primary text-white shadow-md shadow-primary/10 scale-[0.98]"
-                                                                                 : asig
-                                                                                     ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10"
-                                                                                     : "bg-background border-dashed border-border/60 hover:border-primary/40 text-muted-foreground hover:bg-primary/5"
-                                                                         )}
-                                                                     >
-                                                                         {asig && !isSelected ? (
-                                                                             <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-emerald-500/20 shadow-sm">
-                                                                                 {asig.facilitador?.imagen ? (
-                                                                                     <img src={asig.facilitador.imagen} className="w-full h-full object-cover" />
-                                                                                 ) : <UserCircle className="w-full h-full p-0.5" />}
-                                                                             </div>
-                                                                         ) : isSelected ? (
-                                                                             <div className="flex flex-col items-center">
-                                                                                 <BadgeCheck className="w-4 h-4 text-white animate-in zoom-in" />
-                                                                             </div>
-                                                                         ) : (
-                                                                             <PlusCircle className={cn("w-3.5 h-3.5", "text-muted-foreground/20 group-hover/tr:text-primary/30")} />
-                                                                         )}
-                                                                     </button>
-                                                                 </td>
-                                                             );
-                                                         })}
+                                                                <td key={t.id} className="p-1 border-r last:border-r-0 border-border/10 relative">
+                                                                    <button
+                                                                        onClick={() => toggleSlot(m.id, t.id)}
+                                                                        title={asig ? `Módulo asignado a ${asig.facilitador?.nombre}` : 'Espacio disponible'}
+                                                                        className={cn(
+                                                                            "w-full h-10 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center border-2",
+                                                                            isSelected
+                                                                                ? "bg-primary border-primary text-white shadow-md shadow-primary/10 scale-[0.98]"
+                                                                                : asig
+                                                                                    ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10"
+                                                                                    : "bg-background border-dashed border-border/60 hover:border-primary/40 text-muted-foreground hover:bg-primary/5"
+                                                                        )}
+                                                                    >
+                                                                        {asig && !isSelected ? (
+                                                                            <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-emerald-500/20 shadow-sm">
+                                                                                {asig.facilitador?.imagen ? (
+                                                                                    <img src={asig.facilitador.imagen} className="w-full h-full object-cover" />
+                                                                                ) : <UserCircle className="w-full h-full p-0.5" />}
+                                                                            </div>
+                                                                        ) : isSelected ? (
+                                                                            <div className="flex flex-col items-center">
+                                                                                <BadgeCheck className="w-4 h-4 text-white animate-in zoom-in" />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <PlusCircle className={cn("w-3.5 h-3.5", "text-muted-foreground/20 group-hover/tr:text-primary/30")} />
+                                                                        )}
+                                                                    </button>
+                                                                </td>
+                                                            );
+                                                        })}
                                                     </tr>
                                                 );
                                             })}

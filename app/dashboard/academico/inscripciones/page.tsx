@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useInscripcions } from '@/features/inscripcion/application/useInscripcions';
 import { useOfertas } from '@/features/oferta/application/useOfertas';
 import { sedeService } from '@/services/sedeService';
 import { programaInscripcionEstadoService } from '@/services/programaConfigService';
 import { userService } from '@/services/userService';
+import { roleService } from '@/services/roleService';
 import { inscripcionService } from '@/services/inscripcionService';
+import { mapPersonaService } from '@/services/mapPersonaService';
 import * as XLSX from 'xlsx';
 import {
     Plus,
@@ -39,7 +41,14 @@ import {
     ArrowRightCircle,
     Tag,
     ChevronDown,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Sparkles,
+    Check,
+    AlertCircle,
+    User,
+    GraduationCap,
+    X,
+    Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Modal } from '@/components/Modal';
@@ -57,9 +66,27 @@ export default function InscripcionesPage() {
     const { items: ofertas, loadItems: loadOfertas } = useOfertas();
     const { config: profe } = useProfe();
 
+    const searchRef = useRef<HTMLInputElement>(null);
     const [sedes, setSedes] = useState<any[]>([]);
     const [estadosInscripcion, setEstadosInscripcion] = useState<any[]>([]);
     const [activePdfRow, setActivePdfRow] = useState<string | null>(null);
+
+    const [roles, setRoles] = useState<any[]>([]);
+    const [isRegisteringPersona, setIsRegisteringPersona] = useState(false);
+    const [personaRegistering, setPersonaRegistering] = useState(false);
+    const [newPersonaData, setNewPersonaData] = useState({
+        ci: '',
+        nombre: '',
+        apellidos: '',
+        fechaNacimiento: '',
+        genero: '',
+        estadoCivil: '',
+        direccion: '',
+        celular: '',
+        correo: ''
+    });
+    const [mapPersonaFound, setMapPersonaFound] = useState<any>(null);
+    const [mapPersonaLoading, setMapPersonaLoading] = useState(false);
 
     // Confirm delete modal state
     const [confirmDeleteState, setConfirmDeleteState] = useState<{ open: boolean; id: string; loading: boolean }>({
@@ -222,7 +249,75 @@ export default function InscripcionesPage() {
         loadSedes();
         loadEstados();
         loadCamposExtra();
+        loadRoles();
     }, []);
+
+    const loadRoles = async () => {
+        try {
+            const data = await roleService.getAll();
+            setRoles(data);
+        } catch (error) {
+            console.error('Error al cargar roles');
+        }
+    };
+
+    const handleRegisterPersona = async () => {
+        if (!newPersonaData.ci.trim() || !newPersonaData.nombre.trim() || !newPersonaData.apellidos.trim()) {
+            toast.warning('Complete los campos obligatorios: CI, Nombres y Apellidos');
+            return;
+        }
+
+        setPersonaRegistering(true);
+        try {
+            const matchingRole = roles.find(r => r.name?.toUpperCase().includes('PARTICIPANTE') || r.nombre?.toUpperCase().includes('PARTICIPANTE'));
+            const roleIds = matchingRole ? [matchingRole.id] : [];
+
+            const payload: any = {
+                username: newPersonaData.ci.trim(),
+                password: newPersonaData.ci.trim().length >= 6 ? newPersonaData.ci.trim() : newPersonaData.ci.trim().padEnd(6, '0'),
+                ci: newPersonaData.ci.trim(),
+                nombre: newPersonaData.nombre.trim(),
+                apellidos: newPersonaData.apellidos.trim(),
+                correo: newPersonaData.correo.trim() || `${newPersonaData.ci.trim()}@profe.edu.bo`,
+                celular: newPersonaData.celular.trim() || undefined,
+                roleIds,
+                activo: true
+            };
+            if (newPersonaData.fechaNacimiento) payload.fechaNacimiento = newPersonaData.fechaNacimiento;
+            if (newPersonaData.genero) payload.genero = newPersonaData.genero;
+            if (newPersonaData.estadoCivil) payload.estadoCivil = newPersonaData.estadoCivil;
+            if (newPersonaData.direccion.trim()) payload.direccion = newPersonaData.direccion.trim();
+            if (mapPersonaFound) payload.personaId = mapPersonaFound.id;
+
+            const createdUser = await userService.create(payload);
+            toast.success('Participante registrado exitosamente');
+
+            // Auto select
+            setFormData(prev => ({ ...prev, personaId: createdUser.id }));
+            setPersonaSearch(`${createdUser.nombre} ${createdUser.apellidos}`);
+            setIsRegisteringPersona(false);
+
+            // Clean state
+            setNewPersonaData({
+                ci: '',
+                nombre: '',
+                apellidos: '',
+                fechaNacimiento: '',
+                genero: '',
+                estadoCivil: '',
+                direccion: '',
+                celular: '',
+                correo: ''
+            });
+            setMapPersonaFound(null);
+        } catch (error: any) {
+            console.error('Error creating participant:', error);
+            const msg = error.response?.data?.message || 'Error al registrar al participante';
+            toast.error(msg);
+        } finally {
+            setPersonaRegistering(false);
+        }
+    };
 
     // Set default version filter to latest version (not 2025 if possible)
     useEffect(() => {
@@ -267,7 +362,7 @@ export default function InscripcionesPage() {
             if (personaSearch.length >= 3 && !formData.personaId) {
                 setPersonaLoading(true);
                 try {
-                    const data = await userService.getAll(personaSearch);
+                    const data = await userService.getAll(personaSearch, true);
                     setPersonasFound(data);
                 } catch (error) {
                     console.error('Error searching personas');
@@ -281,7 +376,104 @@ export default function InscripcionesPage() {
         return () => clearTimeout(timer);
     }, [personaSearch, formData.personaId]);
 
+    // Search in map_personas by CI when registration CI changes
+    useEffect(() => {
+        if (!isRegisteringPersona) {
+            setMapPersonaFound(null);
+            return;
+        }
+
+        const ciQuery = newPersonaData.ci.trim();
+        if (ciQuery.length < 5) {
+            if (mapPersonaFound) {
+                setMapPersonaFound(null);
+            }
+            return;
+        }
+
+        setMapPersonaLoading(true);
+        const timer = setTimeout(async () => {
+            try {
+                const response = await mapPersonaService.getAll({ search: ciQuery, limit: 1 });
+                const match = response.data?.find((p: any) => p.ci.toString().trim() === ciQuery);
+                if (match) {
+                    setMapPersonaFound(match);
+
+                    const pNombre = [match.nombre1, match.nombre2].filter(Boolean).join(' ').trim().toUpperCase();
+                    const pApellidos = [match.apellido1, match.apellido2].filter(Boolean).join(' ').trim().toUpperCase();
+
+                    let pFecha = '';
+                    if (match.fechaNacimiento) {
+                        try {
+                            pFecha = new Date(match.fechaNacimiento).toISOString().split('T')[0];
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+
+                    let pGenero = '';
+                    if (match.genero?.nombre) {
+                        const genNombre = match.genero.nombre.toUpperCase();
+                        if (genNombre.includes('MASC') || genNombre === 'VARÓN' || genNombre === 'VARON' || genNombre === 'MALE') {
+                            pGenero = 'MASCULINO';
+                        } else if (genNombre.includes('FEM') || genNombre === 'MUJER' || genNombre === 'FEMALE') {
+                            pGenero = 'FEMENINO';
+                        } else if (genNombre.includes('PREF') || genNombre.includes('NO DECIR')) {
+                            pGenero = 'PREFIERO_NO_DECIRLO';
+                        } else {
+                            pGenero = 'OTRO';
+                        }
+                    }
+
+                    setNewPersonaData(prev => ({
+                        ...prev,
+                        nombre: pNombre,
+                        apellidos: pApellidos,
+                        fechaNacimiento: pFecha,
+                        genero: pGenero,
+                        celular: match.celular ? match.celular.toString() : '',
+                        correo: match.correo || '',
+                    }));
+
+                    toast.info('Datos cargados desde el Padrón (MAP)');
+                } else {
+                    if (mapPersonaFound) {
+                        setMapPersonaFound(null);
+                        setNewPersonaData(prev => ({
+                            ...prev,
+                            nombre: '',
+                            apellidos: '',
+                            fechaNacimiento: '',
+                            genero: '',
+                            celular: '',
+                            correo: '',
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Error querying map_personas:', error);
+            } finally {
+                setMapPersonaLoading(false);
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [newPersonaData.ci, isRegisteringPersona]);
+
     const handleOpenModal = (inscripcion: any = null) => {
+        setIsRegisteringPersona(false);
+        setNewPersonaData({
+            ci: '',
+            nombre: '',
+            apellidos: '',
+            fechaNacimiento: '',
+            genero: '',
+            estadoCivil: '',
+            direccion: '',
+            celular: '',
+            correo: ''
+        });
+        setMapPersonaFound(null);
         if (inscripcion) {
             setEditingInscripcion(inscripcion);
 
@@ -784,7 +976,7 @@ export default function InscripcionesPage() {
                                                 {activePdfRow === ins.id ? (
                                                     <PDFDownloadLink
                                                         document={<InscripcionPDF inscripcion={ins} profe={profe} />}
-                                                        fileName={`Inscripcion_${ins.persona?.nroDocumento || ins.id}.pdf`}
+                                                        fileName={`Inscripcion_${ins.persona?.ci || ins.id}.pdf`}
                                                         className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm animate-in fade-in zoom-in-95 duration-150"
                                                     >
                                                         {({ loading }) => (loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />)}
@@ -843,384 +1035,888 @@ export default function InscripcionesPage() {
                 title={undefined}
                 size="2xl"
             >
-                <form onSubmit={handleSubmit} className="flex flex-col min-h-[500px] overflow-hidden bg-slate-50 dark:bg-slate-950">
+                <form onSubmit={handleSubmit} className="relative flex flex-col min-h-[550px] max-h-[85vh] overflow-hidden bg-slate-50 dark:bg-slate-950 rounded-[2rem]">
+                    {/* LEFT ACCENT BAR (decorative, inside the form to fit the Modal container) */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-[2rem] z-10" />
+
                     {/* Modal Head */}
-                    <div className="p-8 bg-white dark:bg-slate-900 border-b border-border/40">
-                        <div className="flex items-center justify-between mb-8">
+                    <div className="relative shrink-0 px-8 pt-6 pb-5 bg-white dark:bg-slate-900 border-b border-border/40 pl-9">
+                        <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-xl shadow-primary/20">
-                                    <Stamp className="w-8 h-8" />
+                                <div className="relative">
+                                    <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/20">
+                                        <Stamp className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                                        <Sparkles className="w-2.5 h-2.5 text-white animate-pulse" />
+                                    </div>
                                 </div>
                                 <div>
                                     <h3 className="text-2xl font-black uppercase tracking-tighter italic leading-none">
                                         {editingInscripcion ? 'Actualizar' : 'Nueva'} <span className="text-primary">Inscripción</span>
                                     </h3>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Sistema de Matriculación Profe</p>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mt-1">Sistema de Matriculación Profe</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className={cn("w-3 h-3 rounded-full", currentStep >= 1 ? "bg-primary shadow-[0_0_10px_rgba(var(--theme-primary),0.5)]" : "bg-muted")} />
-                                <div className={cn("w-12 h-1 rounded-full", currentStep >= 2 ? "bg-primary" : "bg-muted")} />
-                                <div className={cn("w-3 h-3 rounded-full", currentStep >= 2 ? "bg-primary" : "bg-muted")} />
-                            </div>
+
+                            {/* Close button */}
+                            <button
+                                type="button"
+                                onClick={() => setIsModalOpen(false)}
+                                className="w-10 h-10 rounded-2xl bg-muted/40 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-900/20 flex items-center justify-center transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        {/* Informative Alert */}
-                        <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex gap-4">
-                            <Info className="w-5 h-5 text-primary shrink-0" />
-                            <p className="text-[10px] font-bold text-primary/80 uppercase leading-relaxed tracking-wide">
-                                Asegúrese de que los datos biométricos y de contacto sean correctos. La matrícula genera un compromiso institucional automático.
-                            </p>
-                        </div>
+                        {/* Step indicator */}
+                        {!editingInscripcion && (
+                            <div className="flex items-center gap-0 mt-6 border-t border-border/20 pt-4">
+                                {[
+                                    { id: 1, label: 'Participante', icon: User },
+                                    { id: 2, label: 'Oferta Académica', icon: GraduationCap },
+                                ].map((s, idx) => {
+                                    const isActive = currentStep === s.id;
+                                    const isDone = currentStep > s.id;
+                                    return (
+                                        <div key={s.id} className="flex items-center">
+                                            <button
+                                                type="button"
+                                                disabled={!isDone}
+                                                onClick={() => isDone && setCurrentStep(s.id)}
+                                                className={cn(
+                                                    'flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all text-[9px] font-black uppercase tracking-widest',
+                                                    isActive
+                                                        ? 'bg-primary text-primary-foreground shadow-lg'
+                                                        : isDone
+                                                            ? 'text-primary hover:bg-primary/10 cursor-pointer'
+                                                            : 'text-muted-foreground'
+                                                )}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        'w-4 h-4 rounded-full flex items-center justify-center border-2 transition-all text-[8px] font-black',
+                                                        isActive
+                                                            ? 'border-white bg-white/20'
+                                                            : isDone
+                                                                ? 'border-primary bg-primary/10'
+                                                                : 'border-border'
+                                                    )}
+                                                >
+                                                    {isDone ? (
+                                                        <Check className="w-2.5 h-2.5" />
+                                                    ) : (
+                                                        s.id
+                                                    )}
+                                                </div>
+                                                <s.icon className="w-3 h-3" />
+                                                <span>{s.label}</span>
+                                            </button>
+                                            {idx < 1 && (
+                                                <div
+                                                    className={cn(
+                                                        'h-0.5 w-8 mx-2 rounded-full transition-all',
+                                                        currentStep > s.id ? 'bg-primary' : 'bg-border'
+                                                    )}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Step Content */}
-                    <div className="flex-1 p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                    <div className="flex-1 px-8 py-6 space-y-6 overflow-y-auto custom-scrollbar pl-9 bg-slate-50/50 dark:bg-slate-950/50">
                         <AnimatePresence mode="wait">
                             {currentStep === 1 ? (
                                 <motion.div
                                     key="step1"
-                                    initial={{ opacity: 0, x: -20 }}
+                                    initial={{ opacity: 0, x: -16 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    className="space-y-8"
+                                    exit={{ opacity: 0, x: 16 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="space-y-6"
                                 >
-                                    {/* Persona Search Component */}
-                                    <div className="space-y-4">
-                                        <div className="relative">
-                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 mb-2 block">Identificación del Participante</label>
-                                            <div className="relative group">
-                                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="CI, Nombre o Apellidos..."
-                                                    className="w-full h-16 pl-14 pr-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-primary outline-none text-sm font-bold shadow-sm"
-                                                    value={personaSearch}
-                                                    onChange={(e) => {
-                                                        setPersonaSearch(e.target.value);
-                                                        setFormData({ ...formData, personaId: '' });
+                                    {isRegisteringPersona ? (
+                                        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-border/40 shadow-sm space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <UserPlus className="w-4 h-4 text-primary" />
+                                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Registrar Nuevo Participante</h4>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsRegisteringPersona(false);
+                                                        setMapPersonaFound(null);
                                                     }}
-                                                    required
-                                                />
-                                                {personaLoading && <Loader2 className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-primary" />}
+                                                    className="px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-[8px] font-black uppercase tracking-widest text-muted-foreground transition-all"
+                                                >
+                                                    Cancelar
+                                                </button>
                                             </div>
 
-                                            {/* Results Dropdown */}
-                                            {personasFound.length > 0 && (
-                                                <div className="absolute z-[100] top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-h-72 overflow-y-auto p-3 space-y-1">
-                                                    {personasFound.slice(0, 5).map((p: any) => (
-                                                        <div
-                                                            key={p.id}
-                                                            onClick={() => {
-                                                                setFormData({ ...formData, personaId: p.id });
-                                                                setPersonaSearch(`${p.nombre} ${p.apellidos}`);
-                                                                setPersonasFound([]);
-                                                            }}
-                                                            className="p-5 hover:bg-primary/5 dark:hover:bg-primary/10 cursor-pointer rounded-2xl flex justify-between items-center group transition-all"
-                                                        >
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px]">
-                                                                    {p.nombre?.[0]}{p.apellidos?.[0]}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[12px] font-black uppercase text-foreground group-hover:text-primary">{p.nombre} {p.apellidos}</p>
-                                                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">{p.nroDocumento} | {p.celular}</p>
-                                                                </div>
-                                                            </div>
-                                                            <ArrowUpRight className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-all" />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {formData.personaId && (
-                                            <div className="p-5 rounded-3xl bg-primary text-primary-foreground flex items-center justify-between shadow-xl shadow-primary/20">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                                                        <CheckCircle2 className="w-7 h-7" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-black uppercase tracking-widest">Participante Vinculado</p>
-                                                        <p className="text-[10px] font-bold text-primary-foreground/80 uppercase">CI: {personaSearch.split('|')[0]}</p>
-                                                    </div>
-                                                </div>
-                                                {!editingInscripcion && (
-                                                    <button type="button" onClick={() => { setFormData({ ...formData, personaId: '' }); setPersonaSearch(''); }} className="px-4 py-2 bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/20">Cambiar</button>
+                                            {/* Sección: Identidad */}
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-2">Datos de Identidad</p>
+                                                {mapPersonaLoading && (
+                                                    <span className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                        <Loader2 className="w-3 h-3 animate-spin text-primary" /> Buscando...
+                                                    </span>
+                                                )}
+                                                {mapPersonaFound && (
+                                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider">
+                                                        ✓ Vinculado a Padrón (MAP)
+                                                    </span>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-
-                                    {/* Dynamic Extra Fields */}
-                                    {camposExtra.length > 0 && (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-[2.5rem] bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
-                                            <div className="col-span-full">
-                                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2 italic">Información Complementaria del Usuario</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">C.I. / Documento *</label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        autoComplete="off"
+                                                        name="reg_ci"
+                                                        placeholder="Ej: 1234567"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold"
+                                                        value={newPersonaData.ci}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, ci: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5 md:col-span-2">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Nombres *</label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        autoComplete="off"
+                                                        name="reg_nombre"
+                                                        placeholder="Nombres completos"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold uppercase read-only:opacity-75 read-only:bg-muted/10"
+                                                        value={newPersonaData.nombre}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, nombre: e.target.value.toUpperCase() })}
+                                                        readOnly={!!mapPersonaFound}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5 md:col-span-2">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Apellidos *</label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        autoComplete="off"
+                                                        name="reg_apellidos"
+                                                        placeholder="Apellidos completos"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold uppercase read-only:opacity-75 read-only:bg-muted/10"
+                                                        value={newPersonaData.apellidos}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, apellidos: e.target.value.toUpperCase() })}
+                                                        readOnly={!!mapPersonaFound}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Fecha de Nacimiento</label>
+                                                    <input
+                                                        type="date"
+                                                        autoComplete="off"
+                                                        name="reg_fecha_nacimiento"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold read-only:opacity-75 read-only:bg-muted/10"
+                                                        value={newPersonaData.fechaNacimiento}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, fechaNacimiento: e.target.value })}
+                                                        readOnly={!!mapPersonaFound}
+                                                    />
+                                                </div>
                                             </div>
-                                            {camposExtra.map((field) => (
-                                                <div key={field.id} className="space-y-1.5">
-                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 mb-2 block">
-                                                        {field.label} {field.esObligatorio && <span className="text-rose-500">*</span>}
-                                                    </label>
-                                                    {(() => {
-                                                        const fieldType = field.tipo?.toString().toLowerCase().trim() || 'text';
-                                                        let options: string[] = [];
-                                                        if (Array.isArray(field.opciones)) {
-                                                            options = field.opciones;
-                                                        } else if (typeof field.opciones === 'string') {
-                                                            try {
-                                                                options = field.opciones.startsWith('[') ? JSON.parse(field.opciones) : field.opciones.split(',').map((s: string) => s.trim());
-                                                            } catch (e) { }
-                                                        }
 
-                                                        if (['seleccion_unica', 'seleccion unica', 'select', 'single_select'].includes(fieldType)) {
-                                                            return (
-                                                                <div className="relative">
-                                                                    <select
-                                                                        className="w-full h-14 px-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold transition-all shadow-sm appearance-none cursor-pointer"
-                                                                        value={userExtraResponses[field.id] || ''}
-                                                                        onChange={(e) => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })}
-                                                                        required={field.esObligatorio}
-                                                                    >
-                                                                        <option value="" disabled>Seleccione una opción...</option>
-                                                                        {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
-                                                                    </select>
-                                                                    <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none">
-                                                                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                                            {/* Sección: Datos Personales */}
+                                            <div className="space-y-1 mt-4 mb-1">
+                                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-2">Datos Personales</p>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Género</label>
+                                                    <div className="relative">
+                                                        <select
+                                                            className="w-full h-11 px-4 pr-10 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold appearance-none cursor-pointer disabled:opacity-75 disabled:bg-muted/10"
+                                                            value={newPersonaData.genero}
+                                                            onChange={(e) => setNewPersonaData({ ...newPersonaData, genero: e.target.value })}
+                                                            disabled={!!mapPersonaFound}
+                                                        >
+                                                            <option value="">Seleccionar...</option>
+                                                            <option value="MASCULINO">Masculino</option>
+                                                            <option value="FEMENINO">Femenino</option>
+                                                            <option value="OTRO">Otro</option>
+                                                            <option value="PREFIERO_NO_DECIRLO">Prefiero no decirlo</option>
+                                                        </select>
+                                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Estado Civil</label>
+                                                    <div className="relative">
+                                                        <select
+                                                            className="w-full h-11 px-4 pr-10 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold appearance-none cursor-pointer"
+                                                            value={newPersonaData.estadoCivil}
+                                                            onChange={(e) => setNewPersonaData({ ...newPersonaData, estadoCivil: e.target.value })}
+                                                        >
+                                                            <option value="">Seleccionar...</option>
+                                                            <option value="SOLTERO">Soltero/a</option>
+                                                            <option value="CASADO">Casado/a</option>
+                                                            <option value="DIVORCIADO">Divorciado/a</option>
+                                                            <option value="VIUDO">Viudo/a</option>
+                                                            <option value="UNION_LIBRE">Unión Libre</option>
+                                                        </select>
+                                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5 md:col-span-2">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Dirección</label>
+                                                    <input
+                                                        type="text"
+                                                        autoComplete="off"
+                                                        name="reg_direccion"
+                                                        placeholder="Dirección completa"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold"
+                                                        value={newPersonaData.direccion}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, direccion: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Sección: Contacto */}
+                                            <div className="space-y-1 mt-4 mb-1">
+                                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-primary border-l-2 border-primary pl-2">Información de Contacto</p>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Celular / Teléfono</label>
+                                                    <input
+                                                        type="tel"
+                                                        autoComplete="off"
+                                                        name="reg_celular"
+                                                        placeholder="Ej: 70000000"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold read-only:opacity-75 read-only:bg-muted/10"
+                                                        value={newPersonaData.celular}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, celular: e.target.value })}
+                                                        readOnly={!!mapPersonaFound}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Correo Electrónico</label>
+                                                    <input
+                                                        type="email"
+                                                        autoComplete="off"
+                                                        name="reg_correo"
+                                                        placeholder="correo@ejemplo.com"
+                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold read-only:opacity-75 read-only:bg-muted/10"
+                                                        value={newPersonaData.correo}
+                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, correo: e.target.value })}
+                                                        readOnly={!!mapPersonaFound}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                disabled={personaRegistering || !newPersonaData.ci.trim() || !newPersonaData.nombre.trim() || !newPersonaData.apellidos.trim()}
+                                                onClick={handleRegisterPersona}
+                                                className="w-full h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                            >
+                                                {personaRegistering ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Check className="w-4.5 h-4.5" />}
+                                                Crear y Seleccionar Participante
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Persona Search block */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                        <User className="w-3.5 h-3.5 text-primary" />
+                                                        Identificación del Participante
+                                                    </label>
+                                                    {!formData.personaId && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setIsRegisteringPersona(true);
+                                                                setMapPersonaFound(null);
+                                                                setNewPersonaData({
+                                                                    ci: /^\d+$/.test(personaSearch) ? personaSearch : '',
+                                                                    nombre: /^[a-zA-Z\s]+$/.test(personaSearch) ? personaSearch : '',
+                                                                    apellidos: '',
+                                                                    fechaNacimiento: '',
+                                                                    genero: '',
+                                                                    estadoCivil: '',
+                                                                    direccion: '',
+                                                                    celular: '',
+                                                                    correo: ''
+                                                                });
+                                                            }}
+                                                            className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1"
+                                                        >
+                                                            <Plus className="w-3 h-3" /> Registrar Nuevo
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="relative">
+                                                    <div
+                                                        className={cn(
+                                                            'relative flex items-center rounded-2xl border-2 bg-white dark:bg-slate-900 transition-all shadow-sm',
+                                                            formData.personaId
+                                                                ? 'border-primary/40'
+                                                                : personaSearch.length >= 3
+                                                                    ? 'border-primary shadow-lg shadow-primary/10'
+                                                                    : 'border-border/50 hover:border-primary/30'
+                                                        )}
+                                                    >
+                                                        <Search className="absolute left-5 w-5 h-5 text-muted-foreground shrink-0" />
+                                                        <input
+                                                            ref={searchRef}
+                                                            type="text"
+                                                            placeholder="Buscar por CI, nombre o apellidos..."
+                                                            className="w-full h-14 pl-14 pr-12 bg-transparent outline-none text-xs font-bold text-foreground placeholder:text-muted-foreground/50"
+                                                            value={personaSearch}
+                                                            onChange={(e) => {
+                                                                setPersonaSearch(e.target.value);
+                                                                setFormData({ ...formData, personaId: '' });
+                                                            }}
+                                                            required
+                                                        />
+                                                        {personaLoading && (
+                                                            <Loader2 className="absolute right-5 w-5 h-5 text-primary animate-spin" />
+                                                        )}
+                                                        {formData.personaId && !personaLoading && (
+                                                            <CheckCircle2 className="absolute right-5 w-5 h-5 text-emerald-500" />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Dropdown */}
+                                                    <AnimatePresence>
+                                                        {personasFound.length > 0 && !formData.personaId && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                                                                className="absolute z-[100] top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-border/50 rounded-3xl shadow-2xl overflow-hidden"
+                                                            >
+                                                                <div className="p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                                                    {personasFound.slice(0, 6).map((p: any) => (
+                                                                        <button
+                                                                            key={p.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setFormData({ ...formData, personaId: p.id });
+                                                                                setPersonaSearch(`${p.nombre} ${p.apellidos}`);
+                                                                                setPersonasFound([]);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-primary/5 dark:hover:bg-primary/10 transition-all group text-left"
+                                                                        >
+                                                                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-[11px] shrink-0">
+                                                                                {`${p.nombre?.[0] ?? ''}${p.apellidos?.[0] ?? ''}`.toUpperCase()}
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-[12px] font-black uppercase text-foreground group-hover:text-primary transition-colors truncate">
+                                                                                    {p.nombre} {p.apellidos}
+                                                                                </p>
+                                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                                                    CI: {p.ci} · {p.celular}
+                                                                                </p>
+                                                                            </div>
+                                                                            <ArrowUpRight className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-all shrink-0" />
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                                {personasFound.length > 6 && (
+                                                                    <div className="px-4 py-2 bg-muted/30 text-[9px] font-bold text-muted-foreground text-center uppercase tracking-widest border-t border-border/30">
+                                                                        +{personasFound.length - 6} resultados · refine su búsqueda
+                                                                    </div>
+                                                                )}
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+
+                                                {/* Selected persona card */}
+                                                <AnimatePresence>
+                                                    {formData.personaId && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: 8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: 8 }}
+                                                            className="relative overflow-hidden p-4 rounded-2xl bg-primary text-white shadow-xl shadow-primary/20"
+                                                        >
+                                                            {/* Background pattern */}
+                                                            <div className="absolute inset-0 opacity-10" style={{
+                                                                backgroundImage: 'radial-gradient(circle at 85% 50%, white 1px, transparent 1px)',
+                                                                backgroundSize: '16px 16px',
+                                                            }} />
+                                                            <div className="relative flex items-center justify-between">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center font-black text-sm">
+                                                                        {personaSearch.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs font-black uppercase tracking-wide leading-none">
+                                                                            {personaSearch}
+                                                                        </p>
+                                                                        <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest mt-1">
+                                                                            Participante Vinculado Exitosamente
+                                                                        </p>
                                                                     </div>
                                                                 </div>
-                                                            );
-                                                        }
+                                                                {!editingInscripcion && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setFormData({ ...formData, personaId: '' });
+                                                                            setPersonaSearch('');
+                                                                        }}
+                                                                        className="px-3.5 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                                                                    >
+                                                                        Cambiar
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
 
-                                                        if (['seleccion_multiple', 'seleccion multiple', 'checkbox', 'multiple_select'].includes(fieldType)) {
+                                                {/* Not Found Suggestion */}
+                                                {!formData.personaId && personaSearch.length >= 3 && !personaLoading && personasFound.length === 0 && (
+                                                    <div className="p-5 rounded-2xl border border-dashed border-border bg-white dark:bg-slate-900 text-center space-y-3">
+                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">No se encontró ningún participante con "{personaSearch}"</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setIsRegisteringPersona(true);
+                                                                setNewPersonaData({
+                                                                    ci: /^\d+$/.test(personaSearch) ? personaSearch : '',
+                                                                    nombre: /^[a-zA-Z\s]+$/.test(personaSearch) ? personaSearch : '',
+                                                                    apellidos: '',
+                                                                    fechaNacimiento: '',
+                                                                    genero: '',
+                                                                    estadoCivil: '',
+                                                                    direccion: '',
+                                                                    celular: '',
+                                                                    correo: ''
+                                                                });
+                                                            }}
+                                                            className="h-10 px-5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all inline-flex items-center gap-2"
+                                                        >
+                                                            <UserPlus className="w-4 h-4" /> Registrar como Nuevo
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Hint */}
+                                                {!formData.personaId && personaSearch.length < 3 && (
+                                                    <p className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">
+                                                        <AlertCircle className="w-3.5 h-3.5" />
+                                                        Ingrese al menos 3 caracteres para buscar
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Dynamic Extra Fields */}
+                                            {camposExtra.length > 0 && (
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Star className="w-3.5 h-3.5 text-amber-500" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                            Información Complementaria
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-border/40 shadow-sm">
+                                                        {camposExtra.map((field: any) => {
+                                                            const fieldType = (field.tipo ?? '').toString().toLowerCase().trim();
+                                                            let options: string[] = [];
+                                                            if (Array.isArray(field.opciones)) {
+                                                                options = field.opciones;
+                                                            } else if (typeof field.opciones === 'string') {
+                                                                try {
+                                                                    options = field.opciones.startsWith('[')
+                                                                        ? JSON.parse(field.opciones)
+                                                                        : field.opciones.split(',').map((s: string) => s.trim());
+                                                                } catch { }
+                                                            }
+
+                                                            const baseInput = 'w-full h-12 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold transition-all shadow-sm';
+
                                                             return (
-                                                                <div className="flex flex-col gap-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-                                                                    {options.map((opt: string) => {
-                                                                        const isChecked = (userExtraResponses[field.id] || '').split(',').includes(opt);
-                                                                        return (
-                                                                            <label key={opt} className="flex items-center gap-3 text-xs font-bold cursor-pointer group hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1.5 -m-1.5 rounded-lg transition-colors">
-                                                                                <div className={cn("w-5 h-5 rounded flex items-center justify-center border-2 transition-colors", isChecked ? "bg-primary border-primary" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 group-hover:border-primary/50")}>
-                                                                                    {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                                                <div key={field.id} className="space-y-1.5">
+                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">
+                                                                        {field.label} {field.esObligatorio && <span className="text-rose-500">*</span>}
+                                                                    </label>
+                                                                    {(() => {
+                                                                        if (['seleccion_unica', 'seleccion unica', 'select', 'single_select'].includes(fieldType)) {
+                                                                            return (
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        className={cn(baseInput, 'appearance-none cursor-pointer pr-10')}
+                                                                                        value={userExtraResponses[field.id] || ''}
+                                                                                        onChange={(e) => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })}
+                                                                                        required={field.esObligatorio}
+                                                                                    >
+                                                                                        <option value="" disabled>Seleccione...</option>
+                                                                                        {options.map((opt) => (
+                                                                                            <option key={opt} value={opt}>{opt}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                                                                                 </div>
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    className="hidden"
-                                                                                    checked={isChecked}
-                                                                                    onChange={(e) => {
-                                                                                        const current = (userExtraResponses[field.id] || '').split(',').filter(Boolean);
-                                                                                        if (e.target.checked) {
-                                                                                            setUserExtraResponses({ ...userExtraResponses, [field.id]: [...current, opt].join(',') });
-                                                                                        } else {
-                                                                                            setUserExtraResponses({ ...userExtraResponses, [field.id]: current.filter(c => c !== opt).join(',') });
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                                <span className={cn(isChecked ? "text-primary transition-colors" : "text-foreground")}>{opt}</span>
-                                                                            </label>
+                                                                            );
+                                                                        }
+
+                                                                        if (['seleccion_multiple', 'seleccion multiple', 'checkbox', 'multiple_select'].includes(fieldType)) {
+                                                                            return (
+                                                                                <div className="flex flex-col gap-2.5 p-4 bg-white dark:bg-slate-900 border border-border/50 rounded-2xl shadow-sm">
+                                                                                    {options.map((opt: string) => {
+                                                                                        const isChecked = (userExtraResponses[field.id] || '').split(',').includes(opt);
+                                                                                        return (
+                                                                                            <label key={opt} className="flex items-center gap-3 text-xs font-bold cursor-pointer group hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 -m-2 rounded-xl transition-all">
+                                                                                                <div className={cn("w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-300", isChecked ? "bg-primary border-primary scale-105" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 group-hover:border-primary/50")}>
+                                                                                                    {isChecked && <Check className="w-3.5 h-3.5 text-white" />}
+                                                                                                </div>
+                                                                                                <input
+                                                                                                    type="checkbox"
+                                                                                                    className="hidden"
+                                                                                                    checked={isChecked}
+                                                                                                    onChange={(e) => {
+                                                                                                        const current = (userExtraResponses[field.id] || '').split(',').filter(Boolean);
+                                                                                                        if (e.target.checked) {
+                                                                                                            setUserExtraResponses({ ...userExtraResponses, [field.id]: [...current, opt].join(',') });
+                                                                                                        } else {
+                                                                                                            setUserExtraResponses({ ...userExtraResponses, [field.id]: current.filter(c => c !== opt).join(',') });
+                                                                                                        }
+                                                                                                    }}
+                                                                                                />
+                                                                                                <span className={cn("transition-colors duration-200", isChecked ? "text-primary font-black" : "text-foreground")}>{opt}</span>
+                                                                                            </label>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            );
+                                                                        }
+
+                                                                        return (
+                                                                            <input
+                                                                                className={baseInput}
+                                                                                type={['number', 'numero'].includes(fieldType) ? 'number' : ['date', 'fecha'].includes(fieldType) ? 'date' : 'text'}
+                                                                                value={userExtraResponses[field.id] || ''}
+                                                                                onChange={(e) => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })}
+                                                                                placeholder={`${field.label}...`}
+                                                                                required={field.esObligatorio}
+                                                                            />
                                                                         );
-                                                                    })}
+                                                                    })()}
                                                                 </div>
                                                             );
-                                                        }
-
-                                                        return (
-                                                            <input
-                                                                className="w-full h-14 px-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold transition-all shadow-sm"
-                                                                type={['number', 'numero'].includes(fieldType) ? 'number' : ['date', 'fecha'].includes(fieldType) ? 'date' : 'text'}
-                                                                value={userExtraResponses[field.id] || ''}
-                                                                onChange={(e) => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })}
-                                                                placeholder={`Ingrese ${field.label.toLowerCase()}...`}
-                                                                required={field.esObligatorio}
-                                                            />
-                                                        );
-                                                    })()}
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            )}
+                                        </>
                                     )}
                                 </motion.div>
                             ) : (
                                 <motion.div
                                     key="step2"
-                                    initial={{ opacity: 0, x: 20 }}
+                                    initial={{ opacity: 0, x: 16 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-8"
+                                    exit={{ opacity: 0, x: -16 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="space-y-6"
                                 >
-                                    <div className="p-8 rounded-[2.5rem] bg-primary/5 border border-primary/10 space-y-6">
-                                        <div className="flex items-center gap-4 text-primary">
-                                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center"><Building2 className="w-6 h-6" /></div>
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest">Asignación de Oferta y Turno</h4>
+                                    {/* Selected Persona Pill */}
+                                    {personaSearch && (
+                                        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-primary/5 border border-primary/10 w-fit">
+                                            <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-primary text-[10px] font-black">
+                                                {personaSearch.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+                                            </div>
+                                            <span className="text-[11px] font-black text-primary uppercase tracking-wide">
+                                                {personaSearch}
+                                            </span>
                                         </div>
+                                    )}
 
-                                        <div className="grid grid-cols-1 gap-6">
-                                            {/* PROGRAM/VERSION SELECTION */}
-                                            <div className="space-y-4">
-                                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center justify-between">
-                                                    <span>1. Programa y Versión Académica</span>
+                                    {/* 1. Version Selection */}
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                            <GraduationCap className="w-3.5 h-3.5 text-primary" />
+                                            1. Programa y Versión Académica
+                                        </label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                            {uniqueVersions
+                                                .filter((v: any) => (editingInscripcion ? v.id === selectedVersionId : true))
+                                                .map((v: any) => {
+                                                    const isSelected = selectedVersionId === v.id;
+                                                    return (
+                                                        <button
+                                                            key={v.id}
+                                                            type="button"
+                                                            disabled={!!editingInscripcion}
+                                                            onClick={() => {
+                                                                if (!editingInscripcion) {
+                                                                    setSelectedVersionId(v.id);
+                                                                    setFormData({ ...formData, programaId: '', sedeId: '', turnoId: '' });
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                'relative p-4 rounded-2xl border-2 text-left transition-all group overflow-hidden',
+                                                                isSelected
+                                                                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                                                    : 'border-border/40 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-sm'
+                                                            )}
+                                                        >
+                                                            {isSelected && (
+                                                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                                                    <Check className="w-3 h-3 text-white" />
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="px-2.5 py-0.5 rounded-full bg-primary text-white text-[9px] font-black tracking-widest uppercase">
+                                                                    {v.nombre} {v.numero}
+                                                                </span>
+                                                                {v.gestion && (
+                                                                    <span className="text-[9px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                                                                        {v.gestion}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className={cn(
+                                                                'text-[11px] font-black uppercase tracking-tight leading-tight',
+                                                                isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary transition-colors'
+                                                            )}>
+                                                                {v.programaNombre}
+                                                            </p>
+                                                            {v.codigo && (
+                                                                <p className="text-[8px] font-black text-muted-foreground/50 uppercase tracking-widest mt-1">
+                                                                    {v.codigo}
+                                                                </p>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Sede selection */}
+                                    <AnimatePresence>
+                                        {selectedVersionId && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="space-y-3 pt-4 border-t border-border/30"
+                                            >
+                                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    2. Sede / Modalidad
                                                 </label>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
-                                                    {uniqueVersions
-                                                        .filter(v => editingInscripcion ? v.id === selectedVersionId : true)
-                                                        .map(v => {
-                                                            const isSelected = selectedVersionId === v.id;
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    {ofertas
+                                                        .filter((o: any) => o.version?.id === selectedVersionId)
+                                                        .map((o: any) => {
+                                                            const isSelected = formData.programaId === o.id;
                                                             return (
-                                                                <div
-                                                                    key={v.id}
+                                                                <button
+                                                                    key={o.id}
+                                                                    type="button"
                                                                     onClick={() => {
-                                                                        if (!editingInscripcion) {
-                                                                            setSelectedVersionId(v.id);
-                                                                            setFormData({ ...formData, sedeId: '', programaId: '', turnoId: '' });
+                                                                        let newTurnoId = o?.turnos?.[0]?.id || '';
+                                                                        if (formData.turnoId && formData.programaId) {
+                                                                            const oldOferta = ofertas.find((old: any) => old.id === formData.programaId);
+                                                                            const oldTurno = oldOferta?.turnos?.find((t: any) => t.id === formData.turnoId);
+                                                                            if (oldTurno) {
+                                                                                const matchingTurno = o?.turnos?.find((t: any) => t.turnoConfig?.nombre === oldTurno.turnoConfig?.nombre);
+                                                                                if (matchingTurno) newTurnoId = matchingTurno.id;
+                                                                            }
                                                                         }
+                                                                        setFormData({ ...formData, programaId: o.id, sedeId: o.sedeId, turnoId: newTurnoId });
                                                                     }}
                                                                     className={cn(
-                                                                        "p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all flex flex-col justify-between group",
+                                                                        'flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-wider',
                                                                         isSelected
-                                                                            ? "border-primary bg-primary/5 shadow-xl shadow-primary/10 scale-[1.02]"
-                                                                            : editingInscripcion
-                                                                                ? "hidden"
-                                                                                : "border-transparent bg-white dark:bg-slate-900 shadow-sm hover:border-primary/50 hover:shadow-md"
+                                                                            ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.01]'
+                                                                            : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/50 hover:shadow-sm'
                                                                     )}
                                                                 >
-                                                                    <div className="flex items-start justify-between mb-4">
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className="z-20 inline-flex items-center justify-center h-6 px-3 rounded-full bg-primary text-primary-foreground text-[10px] font-black tracking-widest shadow-md uppercase">
-                                                                                {v.nombre} {v.numero}
-                                                                            </span>
-                                                                            {v.gestion && (
-                                                                                <span className="z-10 inline-flex items-center h-6 px-2 pl-4 rounded-r-full bg-slate-200 dark:bg-slate-800 text-[9px] font-black tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 border-l-0 -ml-2">
-                                                                                    {v.gestion}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                        <div className={cn("w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all shadow-sm", isSelected ? "border-primary bg-primary" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800")}>
-                                                                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h5 className={cn("text-[11px] font-black uppercase tracking-tight leading-loose line-clamp-2", isSelected ? "text-primary dark:text-primary" : "text-foreground group-hover:text-primary transition-colors")}>
-                                                                            {v.programaNombre}
-                                                                        </h5>
-                                                                        <div className="flex items-center gap-2 mt-3">
-                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-400">
-                                                                                {v.codigo}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                                    <MapPin className={cn('w-3.5 h-3.5', isSelected ? 'text-white/85' : 'text-primary/60')} />
+                                                                    {o.sede?.nombre || 'General'}
+                                                                    {isSelected && <Check className="w-3.5 h-3.5 ml-1" />}
+                                                                </button>
                                                             );
                                                         })}
                                                 </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* 3. Turno Selection */}
+                                    <AnimatePresence>
+                                        {formData.programaId && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="space-y-3 pt-4 border-t border-border/30"
+                                            >
+                                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                    <Clock className="w-3.5 h-3.5 text-primary" />
+                                                    3. Horario / Turno Asignado
+                                                </label>
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    {(ofertas.find(o => o.id === formData.programaId)?.turnos || []).map((t: any) => {
+                                                        const isSelected = formData.turnoId === t.id;
+                                                        return (
+                                                            <button
+                                                                key={t.id}
+                                                                type="button"
+                                                                onClick={() => setFormData({ ...formData, turnoId: t.id })}
+                                                                className={cn(
+                                                                    'flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-wider',
+                                                                    isSelected
+                                                                        ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20 scale-[1.01]'
+                                                                        : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/50 hover:shadow-sm'
+                                                                )}
+                                                            >
+                                                                <Clock className={cn('w-3.5 h-3.5', isSelected ? 'text-white/85' : 'text-primary/60')} />
+                                                                {t.turnoConfig?.nombre || 'Turno Único'}
+                                                                {isSelected && <Check className="w-3.5 h-3.5 ml-1" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* 4. Estado Academico */}
+                                    {estadosInscripcion.length > 0 && (
+                                        <div className="space-y-3 pt-4 border-t border-border/30">
+                                            <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                                4. Estado del Registro Académico
+                                            </label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {estadosInscripcion.map((est: any) => {
+                                                    const isSelected = formData.estadoInscripcionId === est.id;
+                                                    const colorMap: Record<string, string> = {
+                                                        INSCRITO: 'border-emerald-500 bg-emerald-500 hover:bg-emerald-600',
+                                                        PREINSCRITO: 'border-amber-500 bg-amber-500 hover:bg-amber-600',
+                                                        BAJA: 'border-rose-500 bg-rose-500 hover:bg-rose-600',
+                                                    };
+                                                    const activeColor = colorMap[est.nombre] ?? 'border-primary bg-primary hover:bg-primary/90';
+                                                    return (
+                                                        <button
+                                                            key={est.id}
+                                                            type="button"
+                                                            onClick={() => setFormData({ ...formData, estadoInscripcionId: est.id })}
+                                                            className={cn(
+                                                                'px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase tracking-widest transition-all',
+                                                                isSelected
+                                                                    ? `${activeColor} text-white shadow-lg`
+                                                                    : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/40'
+                                                            )}
+                                                        >
+                                                            {est.nombre}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
-
-                                            {/* SEDE SELECTION */}
-                                            {selectedVersionId && (
-                                                <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center justify-between">
-                                                        <span>2. Sede / Modalidad Disponible</span>
-                                                    </label>
-                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                                        {ofertas
-                                                            .filter((o: any) => o.version?.id === selectedVersionId)
-                                                            .map((o: any) => {
-                                                                const isSelected = formData.programaId === o.id;
-                                                                return (
-                                                                    <div
-                                                                        key={o.id}
-                                                                        onClick={() => {
-                                                                            let newTurnoId = o?.turnos?.[0]?.id || '';
-                                                                            if (formData.turnoId && formData.programaId) {
-                                                                                const oldOferta = ofertas.find((old: any) => old.id === formData.programaId);
-                                                                                const oldTurno = oldOferta?.turnos?.find((t: any) => t.id === formData.turnoId);
-                                                                                if (oldTurno) {
-                                                                                    const matchingTurno = o?.turnos?.find((t: any) => t.turnoConfig?.nombre === oldTurno.turnoConfig?.nombre);
-                                                                                    if (matchingTurno) newTurnoId = matchingTurno.id;
-                                                                                }
-                                                                            }
-                                                                            setFormData({ ...formData, programaId: o.id, sedeId: o.sedeId, turnoId: newTurnoId });
-                                                                        }}
-                                                                        className={cn(
-                                                                            "p-4 rounded-[1rem] border-2 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group text-center",
-                                                                            isSelected
-                                                                                ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                                                                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:border-primary/50 text-foreground"
-                                                                        )}
-                                                                    >
-                                                                        <span className="text-[10px] font-black uppercase tracking-widest line-clamp-2">
-                                                                            {o.sede?.nombre || 'General'}
-                                                                        </span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* TURNO SELECTION */}
-                                            {formData.programaId && (
-                                                <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">3. Horario / Turno Asignado</label>
-                                                    <select
-                                                        className="w-full h-14 px-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-primary outline-none text-xs font-black uppercase shadow-sm appearance-none cursor-pointer"
-                                                        value={formData.turnoId}
-                                                        onChange={(e) => setFormData({ ...formData, turnoId: e.target.value })}
-                                                        required
-                                                    >
-                                                        <option value="">Seleccionar Turno</option>
-                                                        {ofertas.find(o => o.id === formData.programaId)?.turnos?.map((t: any) => (
-                                                            <option key={t.id} value={t.id}>{t.turnoConfig?.nombre || 'General'}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
                                         </div>
-                                    </div>
+                                    )}
 
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block">Estado del Registro Académico</label>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                            {estadosInscripcion.map((est: any) => (
-                                                <button
-                                                    key={est.id}
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, estadoInscripcionId: est.id })}
-                                                    className={cn(
-                                                        "p-4 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                                                        formData.estadoInscripcionId === est.id
-                                                            ? "bg-primary text-primary-foreground border-primary shadow-xl shadow-primary/20"
-                                                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-primary/50"
-                                                    )}
-                                                >
-                                                    {est.nombre}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    {/* Summary preview card */}
+                                    <AnimatePresence>
+                                        {formData.programaId && formData.turnoId && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 12 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-900/10 space-y-3"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                                                        Resumen de Matrícula
+                                                    </span>
+                                                </div>
+                                                {(() => {
+                                                    const selectedOferta = ofertas.find(o => o.id === formData.programaId);
+                                                    return (
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px] font-bold">
+                                                            <div>
+                                                                <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Programa</p>
+                                                                <p className="font-black text-foreground line-clamp-1">{selectedOferta?.nombre}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Sede</p>
+                                                                <p className="font-black text-foreground">{selectedOferta?.sede?.nombre || 'General'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Turno</p>
+                                                                <p className="font-black text-foreground">
+                                                                    {selectedOferta?.turnos?.find((t: any) => t.id === formData.turnoId)?.turnoConfig?.nombre || 'Turno Único'}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Costo</p>
+                                                                <p className="font-black text-primary">Bs. {selectedOferta?.costo?.toLocaleString() || 0}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
                     {/* Modal Footer */}
-                    <div className="p-8 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-between items-center">
+                    <div className="shrink-0 px-8 py-5 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-between items-center gap-4 pl-9">
                         <button
                             type="button"
-                            onClick={() => currentStep > 1 ? setCurrentStep(1) : setIsModalOpen(false)}
-                            className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all flex items-center gap-2"
+                            onClick={() => (currentStep > 1 && !editingInscripcion ? setCurrentStep(1) : setIsModalOpen(false))}
+                            className="h-12 px-5 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all flex items-center gap-2"
                         >
-                            <ChevronLeft className="w-5 h-5" />
-                            {currentStep === 1 ? 'Cancelar' : 'Regresar'}
+                            <ChevronLeft className="w-4 h-4" />
+                            {currentStep === 1 || editingInscripcion ? 'Cancelar' : 'Atrás'}
                         </button>
+
+                        <p className="hidden md:flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                            <Info className="w-3.5 h-3.5 text-primary/50" />
+                            {currentStep === 1
+                                ? 'Seleccione al participante para continuar'
+                                : 'Seleccione programa, sede y turno'}
+                        </p>
+
                         <button
                             type="submit"
                             disabled={isSubmitting || !formData.personaId || (currentStep === 2 && (!formData.programaId || !formData.turnoId))}
-                            className="h-16 px-12 rounded-3xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] shadow-2xl shadow-primary/30 hover:bg-slate-800 transition-all flex items-center gap-4 group disabled:opacity-50"
+                            className="h-14 px-8 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01]"
                         >
-                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                            {isSubmitting ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
                                 <>
-                                    <span>{currentStep === 1 && !editingInscripcion ? 'Ingresar Datos Académicos' : editingInscripcion ? 'Guardar Cambios' : 'Confirmar Matrícula'}</span>
-                                    <ArrowRightCircle className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                                    {currentStep === 1 && !editingInscripcion ? (
+                                        <>
+                                            <span>Datos Académicos</span>
+                                            <ArrowRightCircle className="w-4 h-4" />
+                                        </>
+                                    ) : editingInscripcion ? (
+                                        <>
+                                            <CheckCircle2 className="w-5 h-5" />
+                                            <span>Guardar Cambios</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Stamp className="w-5 h-5" />
+                                            <span>Confirmar Matrícula</span>
+                                        </>
+                                    )}
                                 </>
                             )}
                         </button>
