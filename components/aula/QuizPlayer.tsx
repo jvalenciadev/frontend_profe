@@ -139,9 +139,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
         }
         try {
             setStarting(true);
-            const int = await aulaService.iniciarIntento(cuestionario.id, { 
-                discapacidad, 
-                password: facilitadorPass 
+            const int = await aulaService.iniciarIntento(cuestionario.id, {
+                discapacidad,
+                password: facilitadorPass
             });
             setIntento(int);
 
@@ -161,7 +161,21 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                 // Si no es aleatorio, simplemente filtramos las preguntas que pertenecen al intento
                 // pero mantenemos el orden natural (orden: asc) que ya viene en fullCue.preguntas
                 const attemptPregsIds = new Set(int.respuestas.map((r: any) => r.preguntaId));
-                fullCue.preguntas = fullCue.preguntas.filter((p: any) => attemptPregsIds.has(p.id));
+            }
+
+            // Mezclar aleatoriamente las opciones de cada pregunta para el participante (seguridad y equidad)
+            if (fullCue.preguntas && fullCue.preguntas.length > 0) {
+                fullCue.preguntas = fullCue.preguntas.map((p: any) => {
+                    if (p.opciones && p.opciones.length > 0) {
+                        const shuffled = [...p.opciones];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                        }
+                        return { ...p, opciones: shuffled };
+                    }
+                    return p;
+                });
             }
 
             setCuestionario(fullCue);
@@ -249,9 +263,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
              */
             const data = { preguntaId, opcionId, textoLibre };
             const res = await aulaService.responderPregunta(intento.id, data);
-            
+
             setRespuestas(prev => ({ ...prev, [preguntaId]: res }));
-            
+
             // Si todo salió bien, removemos de pendientes
             setPendingSaves(prev => {
                 const next = new Set(prev);
@@ -273,7 +287,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
         // VERIFICACIÓN DE INTEGRIDAD (SENIOR CHECK)
         if (pendingSaves.size > 0) {
             toast.loading('Sincronizando últimas respuestas con el servidor...', { id: 'sync-toast' });
-            
+
             // Esperamos un momento a que las peticiones en vuelo terminen
             // Si después de 5 segundos siguen pendientes, lanzamos error
             let retries = 0;
@@ -281,9 +295,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                 await new Promise(r => setTimeout(r, 500));
                 retries++;
             }
-            
+
             toast.dismiss('sync-toast');
-            
+
             if (pendingSaves.size > 0) {
                 return toast.error('No se pudo asegurar el guardado de todas las respuestas.', {
                     description: 'Por favor, intente marcar su última respuesta nuevamente antes de finalizar.'
@@ -438,14 +452,14 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                 </div>
                                                 <p className="text-[9px] text-slate-500 font-bold uppercase leading-tight">El facilitador a cargo debe ingresar su contraseña para autorizar el tiempo extra.</p>
                                                 <div className="flex gap-2">
-                                                    <input 
+                                                    <input
                                                         type="password"
                                                         value={facilitadorPass}
                                                         onChange={(e) => setFacilitadorPass(e.target.value)}
                                                         placeholder="Contraseña del docente..."
                                                         className="flex-1 h-10 px-4 rounded-xl border-2 border-primary/20 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:border-primary transition-all"
                                                     />
-                                                    <button 
+                                                    <button
                                                         disabled={verifyingPass}
                                                         onClick={async () => {
                                                             if (!facilitadorPass.trim()) return;
@@ -968,7 +982,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                     </div>
                                 </div>
                                 <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${(Object.keys(respuestas).length / cuestionario.preguntas.length) * 100}%` }}
                                         className="h-full bg-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.5)]"
@@ -1016,8 +1030,8 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                                 ? "bg-primary border-primary text-white shadow-xl shadow-primary/20 scale-110"
                                                                 : isAnswered
                                                                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 hover:border-emerald-500"
-                                                                    : theme === 'dark' 
-                                                                        ? "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600 hover:text-white" 
+                                                                    : theme === 'dark'
+                                                                        ? "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600 hover:text-white"
                                                                         : "bg-white border-slate-100 text-slate-400 hover:border-primary/30 hover:text-primary shadow-sm"
                                                         )}
                                                     >
@@ -1090,8 +1104,8 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                             Procesamiento de Resultados
                                         </p>
                                         <div className="h-1 w-20 bg-primary/30 mx-auto rounded-full overflow-hidden">
-                                            <motion.div 
-                                                animate={{ x: [-40, 40] }} 
+                                            <motion.div
+                                                animate={{ x: [-40, 40] }}
                                                 transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                                                 className="h-full w-10 bg-primary"
                                             />
