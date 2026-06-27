@@ -375,7 +375,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 relative z-10">
                                 {[
-                                    { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion + (discapacidad ? 30 : 0)} min`, icon: Timer, color: 'text-primary' },
+                                    { label: 'Duración', value: cuestionario.duracion === 0 ? 'Sin límite' : `${cuestionario.duracion + (discapacidad ? 15 : 0)} min`, icon: Timer, color: 'text-primary' },
                                     { label: 'Intentos', value: `${lobbyData.intentosConsumidos} / ${cuestionario.maxIntentos}`, icon: History, color: 'text-amber-500' },
                                     { label: 'Preguntas', value: cuestionario.aleatorizar && cuestionario.randomCount ? cuestionario.randomCount : (cuestionario.preguntas?.length || 0), icon: Brain, color: 'text-emerald-500' }
                                 ].map((item, i) => (
@@ -427,7 +427,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     </div>
                                                     <div>
                                                         <p className={cn("text-[10px] font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>Modo Accesibilidad</p>
-                                                        <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Persona con discapacidad (+30 min extra)</p>
+                                                        <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Persona con discapacidad (+15 min extra)</p>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => {
