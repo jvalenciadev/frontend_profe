@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface ActivityEditorProps {
     moduloId: string;
@@ -34,6 +35,22 @@ interface ActivityEditorProps {
     activityToEdit?: any;
     turnoId?: string;
 }
+
+const toLocalISOString = (dateInput: string | Date) => {
+    const date = new Date(dateInput);
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+};
+
+const getTodayLocalStart = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00`;
+};
+
+const getInSixDaysLocalEnd = () => {
+    const d = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T23:59`;
+};
 
 export default function ActivityEditor({ moduloId, onClose, onSuccess, theme, initialUnitId, activityToEdit, turnoId }: ActivityEditorProps) {
     const [loading, setLoading] = useState(false);
@@ -49,11 +66,11 @@ export default function ActivityEditor({ moduloId, onClose, onSuccess, theme, in
         puntajeMax: activityToEdit?.puntajeMax || 100,
         esCalificable: activityToEdit?.esCalificable ?? true,
         fechaInicio: activityToEdit?.fechaInicio
-            ? new Date(activityToEdit.fechaInicio).toISOString().slice(0, 16)
-            : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T00:00`,
+            ? toLocalISOString(activityToEdit.fechaInicio)
+            : getTodayLocalStart(),
         fechaFin: activityToEdit?.fechaFin
-            ? new Date(activityToEdit.fechaFin).toISOString().slice(0, 16)
-            : `${new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).getFullYear()}-${String(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).getMonth() + 1).padStart(2, '0')}-${String(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).getDate()).padStart(2, '0')}T23:59`,
+            ? toLocalISOString(activityToEdit.fechaFin)
+            : getInSixDaysLocalEnd(),
         categoriaId: activityToEdit?.categoriaId || '',
 
         // Tarea flags
@@ -123,6 +140,8 @@ export default function ActivityEditor({ moduloId, onClose, onSuccess, theme, in
         try {
             const payload = {
                 ...form,
+                fechaInicio: form.fechaInicio ? new Date(form.fechaInicio).toISOString() : undefined,
+                fechaFin: form.fechaFin ? new Date(form.fechaFin).toISOString() : undefined,
                 turnoId: form.turnoId || turnoId,
                 asistencia: form.tipo === 'ASISTENCIA' ? { esPresencial: form.esPresencial, mod_asi_presencial: form.mod_asi_presencial } : undefined
             };
@@ -621,14 +640,9 @@ export default function ActivityEditor({ moduloId, onClose, onSuccess, theme, in
                                         <div className="flex items-center gap-3 mb-2">
                                             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Lineamientos Académicos</label>
                                         </div>
-                                        <textarea
+                                        <RichTextEditor
                                             value={form.instrucciones}
-                                            onChange={e => setForm({ ...form, instrucciones: e.target.value })}
-                                            rows={6}
-                                            className={cn(
-                                                "w-full p-6 rounded-[2rem] border-2 transition-all font-medium text-sm outline-none resize-none",
-                                                theme === 'dark' ? "bg-slate-800/50 border-slate-700 focus:border-primary text-white" : "bg-slate-50 border-slate-100 focus:border-primary shadow-sm"
-                                            )}
+                                            onChange={val => setForm({ ...form, instrucciones: val })}
                                             placeholder="Detalla aquí los lineamientos, instrucciones y objetivos de la actividad..."
                                         />
                                     </div>

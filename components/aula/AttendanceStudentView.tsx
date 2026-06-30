@@ -111,34 +111,36 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
                                         : (theme === 'dark' ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:border-indigo-500/50 backdrop-blur-sm" : "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-400/30 backdrop-blur-sm")
                                 )}
                             >
-                                <div className="flex items-center gap-6 relative z-10 w-full">
-                                    <div className={cn(
-                                        "w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg shrink-0",
-                                        reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
-                                    )}>
-                                        <span className="text-[8px] font-black uppercase mb-0.5">
-                                            {reg.fecha ? format(new Date(reg.fecha), 'MMM', { locale: es }) : '---'}
-                                        </span>
-                                        <span className="text-xl font-black leading-none">
-                                            {reg.fecha ? format(new Date(reg.fecha), 'dd') : '--'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                            <p className={cn("font-black text-sm uppercase tracking-tight truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>
-                                                {reg.fecha ? format(new Date(reg.fecha), "EEEE, dd 'de' MMMM", { locale: es }) : 'Fecha no disponible'}
-                                            </p>
-                                            <div className={cn("px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest",
-                                                reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
-                                            )}>
-                                                {reg.esPresencial ? 'Presencial' : 'Virtual'}
-                                            </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10 w-full">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className={cn(
+                                            "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg shrink-0",
+                                            reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
+                                        )}>
+                                            <span className="text-[8px] font-black uppercase mb-0.5">
+                                                {reg.fecha ? format(new Date(reg.fecha), 'MMM', { locale: es }) : '---'}
+                                            </span>
+                                            <span className="text-lg sm:text-xl font-black leading-none">
+                                                {reg.fecha ? format(new Date(reg.fecha), 'dd') : '--'}
+                                            </span>
                                         </div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
-                                            {reg.fecha ? `Sesión programada • ${format(new Date(reg.fecha), 'HH:mm')}` : 'Sin datos de hora'}
-                                        </p>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                                                <p className={cn("font-black text-xs sm:text-sm uppercase tracking-tight truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                                                    {reg.fecha ? format(new Date(reg.fecha), "EEEE, dd 'de' MMMM", { locale: es }) : 'Fecha no disponible'}
+                                                </p>
+                                                <div className={cn("px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest",
+                                                    reg.esPresencial ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-500/10 text-indigo-500"
+                                                )}>
+                                                    {reg.esPresencial ? 'Presencial' : 'Virtual'}
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
+                                                {reg.fecha ? `Sesión programada • ${format(new Date(reg.fecha), 'HH:mm')}` : 'Sin datos de hora'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="shrink-0">
+                                    <div className="shrink-0 flex justify-end sm:justify-start">
                                         <StatusBadge estado={reg.estado} />
                                     </div>
                                 </div>
@@ -190,7 +192,7 @@ function StatusBadge({ estado }: { estado: string }) {
     const { label, bg, icon: Icon } = config[estado] || config.P;
 
     return (
-        <div className={cn("flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-black/5", bg)}>
+        <div className={cn("flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-black/5", bg)}>
             <Icon size={14} />
             {label}
         </div>

@@ -274,7 +274,7 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                 {/* Responsive Visual Grains and Accents */}
                 <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
                 <div className="fixed bottom-0 left-0 w-[600px] h-[600px] blur-[120px] pointer-events-none rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--aula-primary), transparent 95%)' }} />
-                <div className="p-4 md:p-4 max-w-1xl mx-auto w-full relative">
+                <div className="p-4 md:p-6 max-w-1xl mx-auto w-full relative">
                     {children}
                 </div>
             </main>

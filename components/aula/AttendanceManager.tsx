@@ -492,21 +492,21 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                     <div
                                         key={reg.userId}
                                         className={cn(
-                                            "flex items-center justify-between p-3 px-5 rounded-2xl border transition-all",
+                                            "flex flex-col sm:flex-row sm:items-center justify-between p-3.5 px-5 rounded-2xl border transition-all gap-3",
                                             theme === 'dark' ? "bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50" : "bg-slate-50 border-slate-100 hover:bg-white hover:shadow-lg hover:border-primary/20"
                                         )}
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-4 min-w-0">
                                             <div className="w-10 h-10 rounded-xl bg-slate-200 overflow-hidden shadow-inner shrink-0 group-hover:scale-110 transition-transform">
                                                 {reg.imagen ? <img src={getImageUrl(reg.imagen)} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-400"><Users size={16} /></div>}
                                             </div>
-                                            <div>
-                                                <p className={cn("font-black text-xs", theme === 'dark' ? "text-white" : "text-slate-800")}>{reg.nombre}</p>
+                                            <div className="min-w-0">
+                                                <p className={cn("font-black text-xs truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>{reg.nombre}</p>
                                                 <p className="text-[9px] font-black text-primary uppercase tracking-tighter">{reg.turnoNombre}</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-1.5">
+                                        <div className="flex gap-1.5 justify-end sm:justify-start">
                                             <StatusButton
                                                 active={reg.estado === 'P'}
                                                 label="P"

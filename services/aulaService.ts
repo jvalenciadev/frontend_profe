@@ -390,6 +390,17 @@ export const aulaService = {
         return response.data;
     },
 
+    // ─── MIGRACIÓN / EXPORTACIÓN ──────────────────────────────────
+    exportarCurso: async (moduloId: string, turnoId?: string) => {
+        const response = await aulaApi.get(`/modulo/${moduloId}/exportar${turnoId ? `?turnoId=${turnoId}` : ''}`);
+        return response.data;
+    },
+
+    importarCurso: async (moduloId: string, data: any, ajustarFechas: boolean, turnoId?: string) => {
+        const response = await aulaApi.post(`/modulo/${moduloId}/importar${turnoId ? `?turnoId=${turnoId}` : ''}`, { data, ajustarFechas });
+        return response.data;
+    },
+
     // ─── UPLOADS ───────────────────────────────────────────────────
     uploadFile: async (tableName: string, formData: FormData) => {
         const response = await aulaApi.post(`/upload/${tableName}`, formData, {

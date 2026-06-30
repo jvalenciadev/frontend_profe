@@ -21,23 +21,55 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
     const [isPreview, setIsPreview] = useState(false);
     const [focused, setFocused] = useState(false);
 
+    const cleanHtml = (html: string): string => {
+        if (!html) return '';
+        return html.replace(/(<[a-z0-9]+[^>]*>)|((?:bis_skin_checked|skinchecked)=["']?\w+["']?\s*(?:style=["'][^"']*["'])?\s*(?:>|&gt;))/gi, (match, tag) => {
+            if (tag) {
+                return tag
+                    .replace(/\s+bis_skin_checked=["']?\w+["']?/gi, '')
+                    .replace(/\s+skinchecked=["']?\w+["']?/gi, '')
+                    .replace(/border-color:\s*rgb\(226,\s*232,\s*240\);?/gi, '')
+                    .replace(/\s+style="\s*"/gi, '')
+                    .replace(/\s+style='\s*'/gi, '');
+            } else {
+                return '';
+            }
+        });
+    };
+
     // Sync external value with editor content
     useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== value) {
-            editorRef.current.innerHTML = value || '';
+        if (editorRef.current) {
+            const cleaned = cleanHtml(value || '');
+            // Only update innerHTML if it's actually different AND the editor is not focused.
+            // This prevents the cursor from jumping to the beginning while typing.
+            if (editorRef.current.innerHTML !== cleaned && document.activeElement !== editorRef.current) {
+                editorRef.current.innerHTML = cleaned;
+            }
         }
     }, [value]);
 
-    const execCommand = (command: string, value: string = '') => {
-        document.execCommand(command, false, value);
+    const handleBlur = () => {
+        setFocused(false);
         if (editorRef.current) {
-            onChange(editorRef.current.innerHTML);
+            const cleaned = cleanHtml(editorRef.current.innerHTML);
+            if (editorRef.current.innerHTML !== cleaned) {
+                editorRef.current.innerHTML = cleaned;
+            }
+            onChange(cleaned);
+        }
+    };
+
+    const execCommand = (command: string, val: string = '') => {
+        document.execCommand(command, false, val);
+        if (editorRef.current) {
+            onChange(cleanHtml(editorRef.current.innerHTML));
         }
     };
 
     const handleInput = () => {
         if (editorRef.current) {
-            onChange(editorRef.current.innerHTML);
+            onChange(cleanHtml(editorRef.current.innerHTML));
         }
     };
 
@@ -124,7 +156,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
             <div className="relative min-h-[200px] flex flex-col">
                 {isPreview ? (
                     <div
-                        className="p-6 prose prose-invert prose-sm max-w-none bg-card min-h-[200px] overflow-y-auto"
+                        className="p-6 prose dark:prose-invert prose-sm max-w-none bg-card min-h-[200px] overflow-y-auto"
                         dangerouslySetInnerHTML={{ __html: value || '<p class="text-muted-foreground italic">Vista previa vacía...</p>' }}
                     />
                 ) : (
@@ -133,8 +165,8 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                         contentEditable
                         onInput={handleInput}
                         onFocus={() => setFocused(true)}
-                        onBlur={() => setFocused(false)}
-                        className="p-6 outline-none min-h-[200px] text-foreground font-medium leading-relaxed prose prose-invert prose-sm max-w-none"
+                        onBlur={handleBlur}
+                        className="p-6 outline-none min-h-[200px] text-foreground font-medium leading-relaxed prose dark:prose-invert prose-sm max-w-none"
                     />
                 )}
 
@@ -152,7 +184,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
             </div>
 
             <style jsx global>{`
-                .prose h1 { font-weight: 900; font-size: 1.8rem; margin-top: 1rem; margin-bottom: 0.5rem; color: white !important; }
+                .prose h1 { font-weight: 900; font-size: 1.8rem; margin-top: 1rem; margin-bottom: 0.5rem; }
                 .prose h2 { font-weight: 800; font-size: 1.4rem; margin-top: 1rem; margin-bottom: 0.5rem; color: var(--primary) !important; }
                 .prose p { margin-bottom: 1rem; line-height: 1.6; }
                 .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }

@@ -64,10 +64,14 @@ import { toast } from 'sonner';
 import ActivityEditor from '@/components/aula/ActivityEditor';
 import StudentList from '@/components/aula/StudentList';
 import MathRenderer from '@/components/aula/MathRenderer';
+import MigrationModal from '@/components/aula/MigrationModal';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 function formatDate(date: string) {
     if (!date) return '—';
-    return new Date(date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+    // Parse as local date to avoid UTC midnight → previous day in local timezone
+    const [y, m, d] = (date.split('T')[0]).split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
 
 function TabButton({ active, onClick, label, icon: Icon }: any) {
@@ -75,7 +79,7 @@ function TabButton({ active, onClick, label, icon: Icon }: any) {
         <button
             onClick={onClick}
             className={cn(
-                "px-8 h-12 rounded-[1.5rem] flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all relative overflow-hidden",
+                "px-8 h-12 rounded-[1.5rem] flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all relative overflow-hidden shrink-0 snap-start",
                 active
                     ? "bg-white dark:bg-slate-800 text-primary shadow-lg"
                     : "text-slate-400 hover:text-slate-600"
@@ -105,6 +109,27 @@ export default function CourseDetailPage() {
     const [modulo, setModulo] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeUnit, setActiveUnit] = useState(0);
+
+    // Restaurar unidad activa seleccionada desde localStorage
+    useEffect(() => {
+        if (moduloId) {
+            const saved = localStorage.getItem(`activeUnit_${moduloId}`);
+            if (saved !== null) {
+                const parsed = parseInt(saved, 10);
+                if (!isNaN(parsed)) {
+                    setActiveUnit(parsed);
+                }
+            }
+        }
+    }, [moduloId]);
+
+    const changeActiveUnit = (idx: number) => {
+        setActiveUnit(idx);
+        if (moduloId) {
+            localStorage.setItem(`activeUnit_${moduloId}`, idx.toString());
+        }
+    };
+
     const [view, setView] = useState<'content' | 'attendance' | 'stats'>('content');
     const [selectedActivity, setSelectedActivity] = useState<any>(null);
 
@@ -119,6 +144,7 @@ export default function CourseDetailPage() {
     const [showQuizEditor, setShowQuizEditor] = useState(false);
     const [showQuizPlayer, setShowQuizPlayer] = useState(false);
     const [showStudentList, setShowStudentList] = useState(false);
+    const [showMigrationModal, setShowMigrationModal] = useState(false);
 
     // Interceptar botón "atrás" del navegador mientras el QuizPlayer esté abierto
     useEffect(() => {
@@ -175,7 +201,8 @@ export default function CourseDetailPage() {
     }, [openQuizId, modulo, isFacilitator]);
 
     // --- CÁLCULO DE PROGRESO REAL ---
-    const allActivities = (modulo?.mod_unidades || []).flatMap((u: any) => u.actividades || []);
+    const allActivities = (modulo?.mod_unidades || []).flatMap((u: any) => u.actividades || [])
+        .filter((a: any) => a.tipo !== 'ASISTENCIA');
     const totalActivities = allActivities.length;
     const completedActivities = allActivities.filter((a: any) => a.userSubmitted).length;
     const calculatedProgress = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
@@ -234,7 +261,7 @@ export default function CourseDetailPage() {
                 const unitsCount = data.mod_unidades?.length || 0;
                 if (safeIndex >= unitsCount) {
                     safeIndex = Math.max(0, unitsCount - 1);
-                    setActiveUnit(safeIndex);
+                    changeActiveUnit(safeIndex);
                 }
 
                 const unit = data.mod_unidades?.[safeIndex] || data.mod_unidades?.[0];
@@ -378,9 +405,9 @@ export default function CourseDetailPage() {
     const participantesCount = modulo.participantes?.length || 0;
 
     return (
-        <div key={moduloId as string} className="max-w-9xl mx-auto px-6 space-y-12 pb-32">
+        <div key={moduloId as string} className="max-w-9xl mx-auto px-6 space-y-8 pb-24">
             {/* Premium Top Header */}
-            <header className="pt-12 flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 dark:border-slate-800/60 pb-12 relative">
+            <header className="pt-8 flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 dark:border-slate-800/60 pb-8 relative">
                 <div className="space-y-8 flex-1">
                     <button
                         onClick={() => router.push('/aula/cursos')}
@@ -449,11 +476,11 @@ export default function CourseDetailPage() {
 
                             {/* Minimal Progress */}
                             <div className="flex flex-col gap-3">
-                                <div className="flex items-baseline justify-between w-48">
-                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{progressText}</span>
-                                    <span className="text-xs font-black" style={{ color: 'var(--aula-primary)' }}>{displayProgress}%</span>
+                                <div className="flex items-baseline justify-between w-64">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{progressText}</span>
+                                    <span className="text-sm font-black" style={{ color: 'var(--aula-primary)' }}>{displayProgress}%</span>
                                 </div>
-                                <div className="w-48 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5">
+                                <div className="w-64 h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${displayProgress}%` }}
@@ -466,70 +493,74 @@ export default function CourseDetailPage() {
                     </div>
                 </div>
 
-                <div className="flex gap-4 pb-2">
-                    {isFacilitator && (
-                        <>
-                            <button
-                                onClick={() => setIsEditModeCombined(!isEditModeCombined)}
-                                className={cn(
-                                    "h-14 px-8 rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl",
-                                    isEditModeCombined
-                                        ? "bg-amber-500 text-white hover:bg-amber-600 scale-105"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                )}
-                            >
-                                <Settings size={18} className={isEditModeCombined ? "animate-spin-slow" : ""} />
-                                {isEditModeCombined ? "Desactivar Edición" : "Organizar Contenido"}
-                            </button>
-                            <button
-                                onClick={() => { setSelectedUnitToEdit(null); setShowUnitEditor(true); }}
-                                style={{ backgroundColor: 'var(--aula-primary)' }}
-                                className="h-14 px-10 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-2xl flex items-center gap-3"
-                            >
-                                <Plus size={18} /> Nueva Unidad
-                            </button>
-                        </>
-                    )}
-                </div>
+                {isFacilitator && (
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 pb-2 shrink-0">
+                        <button
+                            onClick={() => setIsEditModeCombined(!isEditModeCombined)}
+                            className={cn(
+                                "h-12 px-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 shadow-xl w-full sm:w-auto",
+                                isEditModeCombined
+                                    ? "bg-amber-500 text-white hover:bg-amber-600 scale-105"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                            )}
+                        >
+                            <Settings size={16} className={isEditModeCombined ? "animate-spin-slow" : ""} />
+                            {isEditModeCombined ? "Desactivar Edición" : "Organizar"}
+                        </button>
+                        <button
+                            onClick={() => { setSelectedUnitToEdit(null); setShowUnitEditor(true); }}
+                            style={{ backgroundColor: 'var(--aula-primary)' }}
+                            className="h-12 px-8 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-2 w-full sm:w-auto"
+                        >
+                            <Plus size={16} /> Nueva Unidad
+                        </button>
+                        <button
+                            onClick={() => setShowMigrationModal(true)}
+                            className="h-12 px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+                        >
+                            <Download size={16} /> Migrar
+                        </button>
+                    </div>
+                )}
             </header>
 
             {/* Premium Navigation Tabs */}
-            <div className="flex gap-2 p-2 bg-slate-100/60 dark:bg-slate-900/40 rounded-[2rem] w-fit backdrop-blur-md border border-white/20">
+            <div className="flex overflow-x-auto gap-2 p-2 bg-slate-100/60 dark:bg-slate-900/40 rounded-[2rem] w-full sm:w-fit backdrop-blur-md border border-white/20 scrollbar-none snap-x snap-mandatory">
                 <TabButton active={view === 'content'} onClick={() => setView('content')} label="Contenido" icon={Layout} />
                 <TabButton active={view === 'attendance'} onClick={() => setView('attendance')} label="Asistencia" icon={Calendar} />
                 <TabButton active={view === 'stats'} onClick={() => setView('stats')} label={isFacilitator ? "Rendimiento" : "Calificaciones"} icon={isFacilitator ? BarChart2 : Trophy} />
             </div>
 
             {view === 'content' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                <div className="flex flex-col lg:flex-row gap-10 items-start">
                     {/* Minimal index (TOC style) */}
-                    <nav className="lg:col-span-3 space-y-8">
-                        <div className="px-4">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Currículo</p>
+                    <nav className="w-full lg:w-80 shrink-0 space-y-4 lg:space-y-6">
+                        <div className="px-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Currículo</p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="flex lg:flex-col overflow-x-auto lg:overflow-visible gap-2 lg:space-y-0.5 pb-4 lg:pb-0 scrollbar-none snap-x snap-mandatory w-full">
                             {units.map((unit: any, idx: number) => (
                                 <button
                                     key={unit.id}
-                                    onClick={() => setActiveUnit(idx)}
+                                    onClick={() => changeActiveUnit(idx)}
                                     className={cn(
-                                        "w-full group flex items-center gap-4 p-4 rounded-2xl transition-all relative overflow-hidden",
+                                        "group flex items-center gap-3 p-3 rounded-2xl transition-all relative overflow-hidden shrink-0 snap-start w-[240px] lg:w-full text-left",
                                         activeUnit === idx
                                             ? "bg-white dark:bg-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none translate-x-1"
                                             : "hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
                                     )}
                                 >
                                     <div className={cn(
-                                        "w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 transition-all duration-500",
+                                        "w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-all duration-500",
                                         activeUnit === idx
                                             ? "text-white shadow-lg"
-                                            : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                                            : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                     )} style={activeUnit === idx ? { backgroundColor: 'var(--aula-primary)', boxShadow: '0 8px 16px -4px var(--aula-primary)66' } : {}}>
-                                        {unit.semana}
+                                        {idx + 1}
                                     </div>
                                     <span className={cn(
-                                        "text-xs font-bold leading-tight line-clamp-2 text-left",
-                                        activeUnit === idx ? "text-slate-900 dark:text-white" : "text-slate-500 group-hover:text-slate-700"
+                                        "text-sm font-bold leading-snug line-clamp-2",
+                                        activeUnit === idx ? "text-slate-900 dark:text-white" : "text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
                                     )}>
                                         {unit.titulo}
                                     </span>
@@ -544,7 +575,7 @@ export default function CourseDetailPage() {
                     </nav>
 
                     {/* Airy Content Flow */}
-                    <main className="lg:col-span-9 max-w-4xl space-y-20">
+                    <main className="flex-1 min-w-0 space-y-10 w-full">
                         <AnimatePresence mode="wait">
                             {currentUnit ? (
                                 <motion.div
@@ -552,14 +583,14 @@ export default function CourseDetailPage() {
                                     initial={{ opacity: 0, y: 15 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -15 }}
-                                    className="space-y-24"
+                                    className="space-y-10"
                                 >
                                     {/* Unit Focus Header */}
                                     <header className="space-y-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg">
-                                                    Semana {currentUnit.semana}
+                                                    Unidad {activeUnit + 1}
                                                 </div>
                                                 <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700" />
                                                 <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
@@ -590,8 +621,8 @@ export default function CourseDetailPage() {
                                     </header>
 
                                     {/* Unified Content Feed: Activities + Materials mixed and reorderable */}
-                                    <section className="space-y-10">
-                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-6">
+                                    <section className="space-y-6">
+                                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                                             <div className="flex items-center gap-4">
                                                 <h3 className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-slate-900")}>Contenido de la Unidad</h3>
                                                 {isEditModeCombined && (
@@ -834,7 +865,7 @@ export default function CourseDetailPage() {
                         onSuccess={() => {
                             setShowUnitEditor(false);
                             setSelectedUnitToEdit(null);
-                            setActiveUnit(0);
+                            changeActiveUnit(0);
                             loadModulo();
                         }}
                     />
@@ -869,6 +900,17 @@ export default function CourseDetailPage() {
                         resource={pdfToView}
                         theme={theme}
                         onClose={() => setPdfToView(null)}
+                    />
+                )}
+                {showMigrationModal && (
+                    <MigrationModal
+                        isOpen={showMigrationModal}
+                        onClose={() => setShowMigrationModal(false)}
+                        moduloId={moduloId as string}
+                        turnoId={turnoId}
+                        cursoTitulo={modulo?.nombre || modulo?.moduloNombre}
+                        onSuccess={loadModulo}
+                        theme={theme}
                     />
                 )}
             </AnimatePresence>
@@ -961,131 +1003,141 @@ function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className 
             whileHover={{ y: -4, scale: 1.01 }}
             onClick={onClick}
             className={cn(
-                "p-4 md:p-5 rounded-[2rem] border transition-all duration-500 cursor-pointer flex items-center gap-5 relative group overflow-hidden",
+                "p-5 md:p-6 rounded-[2rem] border transition-all duration-500 cursor-pointer flex flex-col gap-4 relative group overflow-hidden",
                 theme === 'dark'
                     ? cn("bg-slate-900/40 border-slate-800/60", info.border)
                     : cn("bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.06)]", info.border),
                 className
             )}
         >
-            <div
-                className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl transition-transform group-hover:rotate-6 duration-500 shrink-0")}
-                style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}
-            >
-                <info.icon size={22} />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-white shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-all"
-                            style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}>
-                            {info.label}
+            {/* 1. Header: Type Badge, Category, Status & Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full pb-2.5 border-b border-slate-100/50 dark:border-slate-800/30">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white"
+                        style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}>
+                        {info.label}
+                    </span>
+                    {act.esCalificable && (
+                        <span className="px-2 py-0.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                            Evaluativo
                         </span>
-                        {act.esCalificable && (
-                            <span className="px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                                Evaluativo
-                            </span>
-                        )}
-                        {act.categoria && (
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
-                                • {act.categoria.config?.nombre || act.categoria.nombre}
-                            </span>
-                        )}
-                    </div>
-                    <h4 className={cn("text-lg font-black tracking-tight leading-tight truncate", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                    )}
+                    {act.categoria && (
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                            • {act.categoria.config?.nombre || act.categoria.nombre}
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {/* Status Badge (Countdown / Submitted) */}
+                    {isFac ? (
+                        <div className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                            <Users size={11} className="text-primary opacity-60" />
+                            {act.respuestasCount || 0} {act.tipo === 'CUESTIONARIO' ? 'Intentos' : 'Entregas'}
+                        </div>
+                    ) : (
+                        act.userSubmitted ? (
+                            <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                <CheckCircle2 size={11} />
+                                <span>{act.isGraded ? `${act.userGrade}/${act.puntajeMax} PTS` : 'Entregado'}</span>
+                            </div>
+                        ) : (
+                            (() => {
+                                if (!act.fechaFin) return null;
+                                const now = new Date();
+                                const end = new Date(act.fechaFin);
+                                const diffMs = end.getTime() - now.getTime();
+                                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+                                if (diffMs < 0) return (
+                                    <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                        <Lock size={11} /> <span>Cerrado</span>
+                                    </div>
+                                );
+
+                                if (diffHours < 24) return (
+                                    <div className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                        <Clock size={11} className="text-rose-500" />
+                                        <span>Menos de 24h</span>
+                                    </div>
+                                );
+
+                                return (
+                                    <div className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                        <Clock size={11} />
+                                        <span>Faltan {diffDays} {diffDays === 1 ? 'día' : 'días'}</span>
+                                    </div>
+                                );
+                            })()
+                        )
+                    )}
+
+                    {isFac && (
+                        <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800/50 pl-2 relative z-30">
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-6 h-6 rounded-md flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all">
+                                <Edit3 size={12} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-6 h-6 rounded-md flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all">
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 2. Middle: Icon + Title */}
+            <div className="flex items-start gap-4 w-full">
+                <div
+                    className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl transition-transform group-hover:rotate-6 duration-500 shrink-0")}
+                    style={{ backgroundColor: info.bgHex || 'var(--aula-primary)' }}
+                >
+                    <info.icon size={22} />
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                    <h4 className={cn("text-base md:text-lg font-black tracking-tight leading-snug", theme === 'dark' ? "text-white" : "text-slate-800")}>
                         {act.titulo}
                     </h4>
                 </div>
-
-                <div className="text-slate-500 text-sm font-medium line-clamp-1 mt-1 opacity-80 italic prose prose-sm dark:prose-invert max-w-none">
-                    <MathRenderer text={act.instrucciones || 'Haga clic para ingresar a la actividad académica.'} />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 mt-2">
-                    {/* Fecha de Rango (Solo se muestra si NO ha entregado para incentivar el orden) */}
-                    {!act.userSubmitted && (
-                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 px-2 py-1 rounded-lg border border-slate-100/50 dark:border-slate-800/50">
-                            <Calendar size={10} className="text-primary opacity-70" />
-                            <span className="opacity-80 tracking-tight">{formatDate(act.fechaInicio)} — {formatDate(act.fechaFin)}</span>
-                        </div>
-                    )}
-
-                    {act.esCalificable && !act.userSubmitted && (
-                        <div className="flex items-center gap-1.5 text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/5 text-amber-600 border border-amber-500/10 shadow-sm transition-all">
-                            <Trophy size={10} className="text-amber-500" />
-                            <span>{act.puntajeMax} <span className="text-[7px] opacity-60 uppercase">PTS</span></span>
-                        </div>
-                    )}
-
-                    {/* Estado de Entrega o Countdown */}
-                    {isFac ? (
-                        <div className="flex items-center gap-2">
-                            <div className="px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[9px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                <Users size={10} className="text-primary opacity-60" />
-                                {act.respuestasCount || 0} {act.tipo === 'CUESTIONARIO' ? 'Intentos' : 'Entregas'}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            {act.userSubmitted ? (
-                                <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm">
-                                    <CheckCircle2 size={12} />
-                                    <span>{act.isGraded ? `${act.userGrade}/${act.puntajeMax} PTS` : 'Entregado'}</span>
-                                </div>
-                            ) : (
-                                (() => {
-                                    if (!act.fechaFin) return null;
-                                    const now = new Date();
-                                    const end = new Date(act.fechaFin);
-                                    const diffMs = end.getTime() - now.getTime();
-                                    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-
-                                    if (diffMs < 0) return (
-                                        <div className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-transparent">
-                                            <Lock size={10} /> <span>Cerrado</span>
-                                        </div>
-                                    );
-
-                                    if (diffHours < 24) return (
-                                        <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse shadow-sm shadow-rose-500/10">
-                                            <Clock size={12} className="text-rose-500" />
-                                            <span>Menos de 24h</span>
-                                        </div>
-                                    );
-
-                                    return (
-                                        <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm shadow-primary/5">
-                                            <Clock size={12} />
-                                            <span>Faltan {diffDays} {diffDays === 1 ? 'día' : 'días'}</span>
-                                        </div>
-                                    );
-                                })()
-                            )}
-                        </div>
-                    )}
-                </div>
             </div>
 
-            {isFac && (
-                <div className="flex items-center gap-1.5 pointer-events-auto relative z-30 shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary hover:text-white transition-all shadow-sm">
-                        <Edit3 size={15} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
-                        <Trash2 size={15} />
-                    </button>
+            {/* 3. Instructions */}
+            {act.instrucciones && (
+                <div className="px-2 w-full">
+                    <div className="text-slate-500 text-xs font-medium leading-relaxed prose prose-sm dark:prose-invert max-w-none opacity-85">
+                        <MathRenderer text={act.instrucciones} />
+                    </div>
                 </div>
             )}
-            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 transition-all shrink-0 ml-auto md:ml-0",
-                act.tipo === 'FORO' ? "group-hover:bg-primary" :
-                    act.tipo === 'TAREA' ? "group-hover:bg-amber-500" :
-                        act.tipo === 'CUESTIONARIO' ? "group-hover:bg-violet-500" : "group-hover:bg-primary", "group-hover:text-white")}>
-                <ChevronLeft size={16} className="rotate-180" />
+
+            {/* 4. Footer: Dates & Points */}
+            <div className="flex items-center justify-between gap-3 mt-1 pt-3 border-t border-slate-100 dark:border-slate-800/50 w-full px-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Fecha de Rango */}
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-100/50 dark:border-slate-800/50">
+                        <Calendar size={11} className="text-primary opacity-70" />
+                        <span className="opacity-80 tracking-tight">{formatDate(act.fechaInicio)} — {formatDate(act.fechaFin)}</span>
+                    </div>
+
+                    {act.esCalificable && (
+                        <div className="flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 rounded-lg bg-amber-500/5 text-amber-600 border border-amber-500/10 shadow-sm">
+                            <Trophy size={11} className="text-amber-500" />
+                            <span>{act.puntajeMax} <span className="text-[9px] opacity-60 uppercase">PTS</span></span>
+                        </div>
+                    )}
+                </div>
+
+                <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 text-slate-400 transition-all shrink-0 ml-auto",
+                    act.tipo === 'FORO' ? "group-hover:bg-[#0891b2]" :
+                        act.tipo === 'TAREA' ? "group-hover:bg-[#059669]" :
+                            act.tipo === 'CUESTIONARIO' ? "group-hover:bg-[#ea580c]" : "group-hover:bg-primary", "group-hover:text-white"
+                )}>
+                    <ChevronLeft size={14} className="rotate-180 transition-transform group-hover:translate-x-1" />
+                </div>
             </div>
         </motion.div>
     );
-
 }
 
 
@@ -1177,29 +1229,57 @@ function ResourceCard({ res, theme, isFac, onDelete, onEdit, onView, className }
 
     // ─── DISEÑO PARA TÍTULOS (SEPARADORES CREATIVOS) ───
     if (res.tipo === 'TITULO') {
+        const isPureDesc = res.descripcion && (res.titulo === res.descripcion || res.titulo === res.descripcion.slice(0, 200));
+
         return (
-            <motion.div layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-4 py-3 mt-4 group/title pointer-events-none">
-                <div className="relative shrink-0 flex items-center justify-center">
-                    <div className="w-1.5 h-5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]" style={{ backgroundColor: 'var(--aula-primary)' }} />
-                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full animate-pulse" style={{ backgroundColor: 'var(--aula-primary)' }} />
-                </div>
-                <div className="flex flex-col">
-                    <h3 className={cn("text-base font-black uppercase tracking-[0.1em] transition-colors", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                        {res.titulo}
-                    </h3>
-                    {res.descripcion && (
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 opacity-60">
-                            {res.descripcion}
-                        </p>
+            <motion.div
+                layout
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col w-full gap-2 mt-4 group/title"
+            >
+                {/* Cabecera del Separador */}
+                <div className="flex items-center gap-4 py-1.5 w-full">
+                    {/* Acento Izquierdo */}
+                    <div className="relative shrink-0 flex items-center justify-center">
+                        <div className="w-1.5 h-5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]" style={{ backgroundColor: 'var(--aula-primary)' }} />
+                        <div className="absolute inset-0 bg-primary/20 blur-md rounded-full animate-pulse" style={{ backgroundColor: 'var(--aula-primary)' }} />
+                    </div>
+
+                    {/* Texto principal del título / descripción pura */}
+                    <div className="min-w-0 flex-shrink-0">
+                        {isPureDesc ? (
+                            <div className={cn("text-sm md:text-base font-bold leading-relaxed", theme === 'dark' ? "text-slate-200" : "text-slate-800")}>
+                                <MathRenderer text={res.descripcion} />
+                            </div>
+                        ) : (
+                            <h3 className={cn("text-base md:text-lg font-black uppercase tracking-[0.05em] transition-colors", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                {res.titulo}
+                            </h3>
+                        )}
+                    </div>
+
+                    {/* Línea Divisoria */}
+                    <div className="h-px flex-1 bg-gradient-to-r from-slate-200 via-slate-100 to-transparent dark:from-slate-800 dark:via-slate-900 dark:to-transparent" />
+
+                    {/* Botones de acción para el facilitador */}
+                    {isFac && (
+                        <div className="flex gap-2 ml-4 shrink-0 pointer-events-auto">
+                            <button onClick={onEdit} className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-primary flex items-center justify-center transition-all bg-opacity-50 backdrop-blur-sm"><Edit3 size={12} /></button>
+                            <button onClick={onDelete} className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all"><Trash2 size={12} /></button>
+                        </div>
                     )}
                 </div>
-                <div className="h-px flex-1 bg-gradient-to-r from-slate-200 via-slate-100 to-transparent dark:from-slate-800 dark:via-slate-900 dark:to-transparent" />
 
-                {/* Botones para el Fac (estos sí necesitan eventos) */}
-                {isFac && (
-                    <div className="flex gap-2 pointer-events-auto ml-4">
-                        <button onClick={onEdit} className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-primary flex items-center justify-center transition-all bg-opacity-50 backdrop-blur-sm"><Edit3 size={12} /></button>
-                        <button onClick={onDelete} className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all"><Trash2 size={12} /></button>
+                {/* Descripción independiente (si tiene título y descripción distintos) */}
+                {!isPureDesc && res.descripcion && (
+                    <div className="pl-6 pr-4">
+                        <div className={cn(
+                            "text-sm font-medium leading-relaxed prose prose-sm dark:prose-invert max-w-none border-l-2 pl-4 border-slate-100 dark:border-slate-800/80",
+                            theme === 'dark' ? "text-slate-300" : "text-slate-600"
+                        )}>
+                            <MathRenderer text={res.descripcion} />
+                        </div>
                     </div>
                 )}
             </motion.div>
@@ -1221,94 +1301,107 @@ function ResourceCard({ res, theme, isFac, onDelete, onEdit, onView, className }
                 showVideo && "ring-2 ring-primary/10 border-primary/30 shadow-lg"
             )}
         >
-            <div className="p-3 md:p-4 flex items-center gap-4 w-full relative">
+            <div className="p-4 flex flex-col gap-3 w-full relative">
                 {/* Visual Accent */}
                 <div className={cn("absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity", info.bg)} />
 
-                {/* Icon Column */}
-                <div className="shrink-0">
-                    <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:rotate-6 shadow-sm",
-                        info.bg, info.color
-                    )}>
-                        <info.icon size={20} strokeWidth={1.7} />
+                {/* Top Row: Icon + Title + Actions */}
+                <div className="flex items-center justify-between gap-3 w-full">
+                    {/* Left: Icon + Title Info */}
+                    <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => youtubeId ? setShowVideo(!showVideo) : (onView ? onView() : window.open(res.url, '_blank'))}>
+                        <div className="shrink-0">
+                            <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:rotate-6 shadow-sm",
+                                info.bg, info.color
+                            )}>
+                                <info.icon size={20} strokeWidth={1.7} />
+                            </div>
+                        </div>
+                        <div className="min-w-0 flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className={cn("px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest shadow-sm", info.bg, info.color)}>
+                                    {info.label}
+                                </span>
+                                {res.url?.includes('drive.google.com') && (
+                                    <span className="px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 border border-blue-500/10">
+                                        Google Drive
+                                    </span>
+                                )}
+                            </div>
+                            {res.descripcion && (res.titulo === res.descripcion || res.titulo === res.descripcion.slice(0, 200)) ? null : (
+                                <h5 className={cn(
+                                    "text-sm md:text-base font-bold tracking-tight leading-tight truncate",
+                                    theme === 'dark' ? "text-white group-hover:text-primary" : "text-black group-hover:text-primary"
+                                )}>
+                                    {res.titulo}
+                                </h5>
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                {/* Content Info */}
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5 cursor-pointer" onClick={() => youtubeId ? setShowVideo(!showVideo) : (onView ? onView() : window.open(res.url, '_blank'))}>
-                    <div className="flex items-center gap-2">
-                        <span className={cn("px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest shadow-sm", info.bg, info.color)}>
-                            {info.label}
-                        </span>
-                        {res.url?.includes('drive.google.com') && (
-                            <span className="px-2 py-0.5 rounded-lg text-[6px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 border border-blue-500/10">
-                                Google Drive
-                            </span>
+                    {/* Right: Actions */}
+                    <div className="flex items-center justify-end gap-2 shrink-0">
+                        {youtubeId ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowVideo(!showVideo); }}
+                                className={cn(
+                                    "h-8 px-3 rounded-lg transition-all flex items-center gap-1.5 font-black text-[9px] uppercase tracking-widest shadow-sm",
+                                    showVideo
+                                        ? "bg-rose-50 text-white"
+                                        : "bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white"
+                                )}
+                            >
+                                <PlayCircle size={12} /> {showVideo ? 'Cerrar' : 'Ver Video'}
+                            </button>
+                        ) : (isPdf || res.tipo === 'IMAGEN') ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onView(); }}
+                                className="h-8 px-3 rounded-lg bg-primary text-white hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20"
+                            >
+                                <FileSearch size={12} /> Abrir
+                            </button>
+                        ) : (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); window.open(res.url, '_blank'); }}
+                                className="h-8 px-3 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 font-black text-[9px] uppercase tracking-widest"
+                            >
+                                <ExternalLink size={12} /> Link
+                            </button>
+                        )}
+
+                        {isFac && (
+                            <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800/50 pl-2 ml-1">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                                    className="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center shadow-sm"
+                                >
+                                    <Edit3 size={13} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                                    className="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center justify-center shadow-sm"
+                                >
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
                         )}
                     </div>
-                    <h5 className={cn(
-                        "text-sm md:text-base font-bold tracking-tight leading-tight truncate",
-                        theme === 'dark' ? "text-white group-hover:text-primary" : "text-black group-hover:text-primary"
-                    )}>
-                        {res.titulo}
-                    </h5>
-                    {res.descripcion && (
-                        <div className={cn("text-[11px] font-medium line-clamp-1 opacity-70 italic prose prose-sm dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
-                            <MathRenderer text={res.descripcion} />
-                        </div>
-                    )}
                 </div>
 
-                {/* Actions Panel */}
-                <div className="flex items-center gap-2 shrink-0 justify-end">
-                    {/* Primary Action */}
-                    {youtubeId ? (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowVideo(!showVideo); }}
-                            className={cn(
-                                "h-9 px-4 rounded-xl transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest shadow-md",
-                                showVideo
-                                    ? "bg-rose-500 text-white"
-                                    : "bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white"
-                            )}
-                        >
-                            <PlayCircle size={14} /> {showVideo ? 'Cerrar' : 'Ver Video'}
-                        </button>
-                    ) : (isPdf || res.tipo === 'IMAGEN') ? (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onView(); }}
-                            className="h-9 px-4 rounded-xl bg-primary text-white hover:scale-105 active:scale-95 transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20"
-                        >
-                            <FileSearch size={14} /> Abrir
-                        </button>
-                    ) : (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); window.open(res.url, '_blank'); }}
-                            className="h-9 px-4 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-2 font-black text-[9px] uppercase tracking-widest"
-                        >
-                            <ExternalLink size={14} /> Link
-                        </button>
-                    )}
-
-                    {/* Admin Actions */}
-                    {isFac && (
-                        <div className="flex items-center gap-1.5 ml-1 border-l border-slate-100 dark:border-slate-800/50 pl-2">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                                className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center shadow-sm"
-                            >
-                                <Edit3 size={15} />
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                                className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center justify-center shadow-sm"
-                            >
-                                <Trash2 size={15} />
-                            </button>
-                        </div>
-                    )}
-                </div>
+                {/* Bottom Row: Description */}
+                {res.descripcion && (
+                    <div className="sm:pl-13 pr-2 w-full mt-1">
+                        {res.titulo === res.descripcion || res.titulo === res.descripcion.slice(0, 200) ? (
+                            <div className={cn("text-sm font-medium leading-relaxed prose prose-sm dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-300" : "text-slate-700")}>
+                                <MathRenderer text={res.descripcion} />
+                            </div>
+                        ) : (
+                            <div className={cn("text-sm font-medium leading-relaxed prose prose-sm dark:prose-invert max-w-none", theme === 'dark' ? "text-slate-300" : "text-slate-600")}>
+                                <MathRenderer text={res.descripcion} />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Inline YouTube Player Improved */}
@@ -1371,16 +1464,27 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!form.titulo) return toast.error('El título es requerido');
+        let finalTitulo = form.titulo.trim();
+        if (!finalTitulo) {
+            if (form.descripcion.trim()) {
+                finalTitulo = form.descripcion.trim().slice(0, 200);
+            } else {
+                return toast.error('El título o la descripción son requeridos');
+            }
+        }
         if (form.tipo !== 'TITULO' && !form.url) return toast.error('La URL es requerida para este tipo de recurso');
 
         setLoading(true);
         try {
+            const payload = {
+                ...form,
+                titulo: finalTitulo
+            };
             if (isEdit) {
-                await aulaService.actualizarRecurso(resourceToEdit.id, form);
+                await aulaService.actualizarRecurso(resourceToEdit.id, payload);
                 toast.success('Recurso actualizado');
             } else {
-                await aulaService.crearRecurso({ ...form, unidadId: unitId });
+                await aulaService.crearRecurso({ ...payload, unidadId: unitId });
                 toast.success('Recurso añadido');
             }
             onSuccess();
@@ -1393,13 +1497,21 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={cn("w-full max-w-lg p-10 rounded-[3rem] shadow-2xl space-y-8", theme === 'dark' ? "bg-slate-900" : "bg-white")}>
-                <h3 className={cn("text-3xl font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={cn(
+                    "w-full max-w-3xl max-h-[90vh] flex flex-col p-10 rounded-[3rem] shadow-2xl",
+                    theme === 'dark' ? "bg-slate-900" : "bg-white"
+                )}
+            >
+                <h3 className={cn("text-3xl font-black mb-6 shrink-0", theme === 'dark' ? "text-white" : "text-slate-800")}>
                     {isEdit ? 'Editar' : 'Nuevo'} <span style={{ color: 'var(--aula-primary)' }}>Recurso</span>
                 </h3>
-                <div className="space-y-4">
+
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Título del Material</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Título del Material (Opcional si tiene descripción)</label>
                         <input type="text" placeholder="Ej: Lectura Obligatoria Semana 1" value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm", theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")} />
                     </div>
 
@@ -1438,13 +1550,18 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
                         </div>
                     )}
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 pb-2">
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Descripción del Material</label>
-                        <textarea placeholder="Explica de qué trata este recurso..." value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} className={cn("w-full min-h-[100px] p-6 rounded-2xl border-2 font-bold text-sm resize-none", theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")} />
+                        <RichTextEditor
+                            value={form.descripcion}
+                            onChange={val => setForm({ ...form, descripcion: val })}
+                            placeholder="Explica de qué trata este recurso..."
+                        />
                     </div>
                 </div>
-                <div className="flex gap-4">
-                    <button onClick={onClose} className="flex-1 h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-50 transition-all">Cancelar</button>
+
+                <div className="flex gap-4 pt-6 mt-4 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
+                    <button onClick={onClose} className="flex-1 h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">Cancelar</button>
                     <button onClick={handleSubmit} disabled={loading} className="flex-2 h-14 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 bg-primary" style={{ backgroundColor: 'var(--aula-primary)' }}>
                         {loading ? 'Procesando...' : isEdit ? 'Guardar Cambios' : 'Añadir Recurso'}
                     </button>
@@ -1457,13 +1574,34 @@ function ResourceModal({ unitId, theme, onClose, onSuccess, resourceToEdit }: an
 function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCount = 0 }: any) {
     const isEdit = !!unit;
     const [showDeletePrompt, setShowDeletePrompt] = useState(false);
+
+    const cleanHtmlText = (text: string) => {
+        if (!text) return '';
+        return text.replace(/(<[a-z0-9]+[^>]*>)|((?:bis_skin_checked|skinchecked)=["']?\w+["']?\s*(?:style=["'][^"']*["'])?\s*(?:>|&gt;))/gi, (match, tag) => {
+            if (tag) {
+                return tag
+                    .replace(/\s+bis_skin_checked=["']?\w+["']?/gi, '')
+                    .replace(/\s+skinchecked=["']?\w+["']?/gi, '')
+                    .replace(/border-color:\s*rgb\(226,\s*232,\s*240\);?/gi, '')
+                    .replace(/\s+style="\s*"/gi, '')
+                    .replace(/\s+style='\s*'/gi, '');
+            } else {
+                return '';
+            }
+        });
+    };
+
     const [form, setForm] = useState({
         titulo: unit?.titulo || '',
-        descripcion: unit?.descripcion || '',
+        descripcion: cleanHtmlText(unit?.descripcion || ''),
         semana: unit?.semana || (unitsCount + 1),
         orden: unit?.orden || (unitsCount + 1),
-        fechaInicio: unit?.fechaInicio ? new Date(unit.fechaInicio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        fechaFin: unit?.fechaFin ? new Date(unit.fechaFin).toISOString().split('T')[0] : new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        fechaInicio: unit?.fechaInicio
+            ? (() => { const d = new Date(unit.fechaInicio); return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toISOString().split('T')[0]; })()
+            : new Date().toISOString().split('T')[0],
+        fechaFin: unit?.fechaFin
+            ? (() => { const d = new Date(unit.fechaFin); return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toISOString().split('T')[0]; })()
+            : new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         turnoId: unit?.turnoId || turnoId || null
     });
     const [loading, setLoading] = useState(false);
@@ -1472,11 +1610,17 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCo
         if (!form.titulo) return toast.error('Título requerido');
         setLoading(true);
         try {
+            const cleanDesc = cleanHtmlText(form.descripcion || '');
+            const payload = {
+                ...form,
+                descripcion: cleanDesc
+            };
+
             if (isEdit) {
-                await aulaService.actualizarUnidad(moduloId, unit.id, form);
+                await aulaService.actualizarUnidad(moduloId, unit.id, payload);
                 toast.success('Unidad actualizada');
             } else {
-                await aulaService.crearUnidad(moduloId, form);
+                await aulaService.crearUnidad(moduloId, payload);
                 toast.success('Unidad creada');
             }
             onSuccess();
@@ -1507,8 +1651,17 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCo
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md overflow-y-auto">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={cn("w-full max-w-2xl p-10 rounded-[3.5rem] shadow-2xl space-y-8 my-8 border", theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100")}>
-                <div className="flex items-center justify-between">
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={cn(
+                    "w-full max-w-3xl rounded-[3.5rem] shadow-2xl border flex flex-col my-8",
+                    "max-h-[90vh]",
+                    theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
+                )}
+            >
+                {/* Fixed Header */}
+                <div className="flex items-center justify-between px-10 pt-10 pb-6 shrink-0">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="w-2 h-2 rounded-full bg-[var(--aula-primary)]" />
@@ -1525,76 +1678,76 @@ function UnitModal({ moduloId, theme, unit, onClose, onSuccess, turnoId, unitsCo
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="md:col-span-2 space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Título de la Unidad</label>
-                        <input
-                            type="text"
-                            placeholder="Ej: Semana 1: Introducción a la materia"
-                            value={form.titulo}
-                            onChange={e => setForm({ ...form, titulo: e.target.value })}
-                            className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0 transition-all",
-                                theme === 'dark'
-                                    ? "bg-slate-800 border-slate-700 text-white focus:border-[var(--aula-primary)]"
-                                    : "bg-slate-50 border-slate-100 focus:border-[var(--aula-primary)]")}
-                        />
-                    </div>
+                {/* Scrollable Body */}
+                <div className="overflow-y-auto px-10 pb-2 space-y-8 flex-1 min-h-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="md:col-span-2 space-y-3">
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Título de la Unidad</label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Semana 1: Introducción a la materia"
+                                value={form.titulo}
+                                onChange={e => setForm({ ...form, titulo: e.target.value })}
+                                className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0 transition-all",
+                                    theme === 'dark'
+                                        ? "bg-slate-800 border-slate-700 text-white focus:border-[var(--aula-primary)]"
+                                        : "bg-slate-50 border-slate-100 focus:border-[var(--aula-primary)]")}
+                            />
+                        </div>
 
-                    <div className="md:col-span-2 space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Descripción del Contenido</label>
-                        <textarea
-                            placeholder="Escribe una breve guía de lo que se verá esta semana..."
-                            value={form.descripcion}
-                            onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                            className={cn("w-full h-36 p-6 rounded-2xl border-2 font-bold text-sm resize-none focus:ring-0 transition-all",
-                                theme === 'dark'
-                                    ? "bg-slate-800 border-slate-700 text-white focus:border-[var(--aula-primary)]"
-                                    : "bg-slate-50 border-slate-100 focus:border-[var(--aula-primary)]")}
-                        />
-                    </div>
+                        <div className="md:col-span-2 space-y-3">
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Descripción del Contenido</label>
+                            <RichTextEditor
+                                placeholder="Escribe una breve guía de lo que se verá esta semana..."
+                                value={form.descripcion}
+                                onChange={val => setForm({ ...form, descripcion: val })}
+                            />
+                        </div>
 
-                    {isEdit && (
-                        <>
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">N° de Semana</label>
-                                <div className="relative">
-                                    <Hash size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="number"
-                                        value={form.semana}
-                                        onChange={e => setForm({ ...form, semana: parseInt(e.target.value) })}
-                                        className={cn("w-full h-14 pl-12 pr-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
-                                            theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
-                                    />
+                        {isEdit && (
+                            <>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">N° de Semana</label>
+                                    <div className="relative">
+                                        <Hash size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="number"
+                                            value={form.semana}
+                                            onChange={e => setForm({ ...form, semana: parseInt(e.target.value) })}
+                                            className={cn("w-full h-14 pl-12 pr-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
+                                                theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
 
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Fecha de Inicio</label>
-                        <input
-                            type="date"
-                            value={form.fechaInicio}
-                            onChange={e => setForm({ ...form, fechaInicio: e.target.value })}
-                            className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
-                                theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
-                        />
-                    </div>
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Fecha de Inicio</label>
+                            <input
+                                type="date"
+                                value={form.fechaInicio}
+                                onChange={e => setForm({ ...form, fechaInicio: e.target.value })}
+                                className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
+                                    theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
+                            />
+                        </div>
 
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Fecha de Finalización</label>
-                        <input
-                            type="date"
-                            value={form.fechaFin}
-                            onChange={e => setForm({ ...form, fechaFin: e.target.value })}
-                            className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
-                                theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
-                        />
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Fecha de Finalización</label>
+                            <input
+                                type="date"
+                                value={form.fechaFin}
+                                onChange={e => setForm({ ...form, fechaFin: e.target.value })}
+                                className={cn("w-full h-14 px-6 rounded-2xl border-2 font-bold text-sm focus:ring-0",
+                                    theme === 'dark' ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-100")}
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                {/* Fixed Footer */}
+                <div className="flex gap-4 px-10 py-6 shrink-0 border-t border-slate-100 dark:border-slate-800">
                     <button onClick={onClose} className="flex-1 h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">Cancelar</button>
                     <button onClick={handleSubmit} disabled={loading} className="flex-2 h-14 bg-[var(--aula-primary)] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 px-12 hover:scale-[1.02] active:scale-95 transition-all">
                         {loading ? 'Procesando...' : isEdit ? 'Guardar Cambios' : 'Crear Unidad'}
@@ -1719,9 +1872,9 @@ function StudentGradesDetailed({ moduloId, theme }: { moduloId: string; theme: s
                         <div className="space-y-5">
                             {(cat.actividades || []).map((act: any) => (
                                 <div key={act.id} className="group/item space-y-2">
-                                    <div className="flex justify-between items-center pr-1">
-                                        <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">{act.titulo}</span>
-                                        <div className="text-right flex items-baseline gap-1">
+                                    <div className="flex justify-between items-center gap-3 pr-1">
+                                        <span className="text-xs font-bold text-slate-500 truncate min-w-0 flex-1">{act.titulo}</span>
+                                        <div className="text-right flex items-baseline gap-1 shrink-0">
                                             <span className={cn("text-xs font-black", act.nota >= (act.puntajeMax * 0.6) ? "text-emerald-500" : "text-slate-400")}>{act.nota || '---'}</span>
                                             <span className="text-[9px] font-bold text-slate-300">/ {act.puntajeMax}</span>
                                         </div>
@@ -1849,12 +2002,12 @@ function FacilitatorGradesReport({ moduloId, turnoId, theme }: any) {
 
             {/* Matrix Section */}
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className={cn(
-                "rounded-[4.5rem] border shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] relative overflow-hidden backdrop-blur-xl",
+                "rounded-3xl md:rounded-[4.5rem] border shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] relative overflow-hidden backdrop-blur-xl",
                 isDark ? "bg-slate-900/90 border-slate-800" : "bg-white/95 border-slate-100"
             )}>
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-primary to-emerald-500" />
 
-                <div className="p-12 border-b border-slate-100 dark:border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="p-6 md:p-12 border-b border-slate-100 dark:border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div>
                         <div className="flex items-center gap-3">
                             <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
@@ -1993,7 +2146,7 @@ function FacilitatorGradesReport({ moduloId, turnoId, theme }: any) {
                     </table>
                 </div>
 
-                <footer className="p-16 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800/50 relative overflow-hidden">
+                <footer className="p-6 md:p-16 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800/50 relative overflow-hidden">
                     <div className="absolute bottom-0 right-0 p-10 opacity-5">
                         <GraduationCap size={200} />
                     </div>

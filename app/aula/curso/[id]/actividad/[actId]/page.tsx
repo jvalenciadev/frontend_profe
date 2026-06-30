@@ -188,6 +188,17 @@ export default function ActivityDetailPage() {
     const handleSubmission = async () => {
         if (!activity?.tarea?.id) return;
 
+        // Validar ventana de tiempo
+        const now = new Date();
+        const start = activity.fechaInicio ? new Date(activity.fechaInicio) : null;
+        const end = activity.fechaFin ? new Date(activity.fechaFin) : null;
+        if (start && now < start) {
+            return toast.error(`Esta actividad aún no está habilitada. Abre el ${start.toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`);
+        }
+        if (end && now > end) {
+            return toast.error('El plazo de entrega ha vencido.');
+        }
+
         // Si no hay archivo nuevo y no hay texto, y no había entrega previa, error
         const hasExistingDelivery = entregas.length > 0;
         if (selectedFiles.length === 0 && !deliveryText.trim() && !hasExistingDelivery) {
@@ -347,15 +358,73 @@ export default function ActivityDetailPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 px-4">
                 {/* Sidebar: Activity Info & Instructions */}
-                <aside className="lg:col-span-3 space-y-6">
+                <aside className="lg:col-span-4 space-y-6">
                     <div className={cn(
                         "sticky top-10 rounded-[2.5rem] border overflow-hidden transition-all",
                         theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-2xl shadow-slate-200/50"
                     )}>
+                        {/* Dynamic Countdown Header Banner */}
+                        {(() => {
+                            if (!activity.fechaFin) return null;
+                            const now = new Date();
+                            const start = activity.fechaInicio ? new Date(activity.fechaInicio) : null;
+                            const end = new Date(activity.fechaFin);
+                            const diffMs = end.getTime() - now.getTime();
+
+                            if (start && now < start) {
+                                return (
+                                    <div className="bg-slate-100 dark:bg-slate-800/80 px-8 py-3.5 border-b border-slate-200 dark:border-slate-800 text-center flex items-center justify-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Próximamente disponible</span>
+                                    </div>
+                                );
+                            }
+
+                            if (diffMs < 0) {
+                                return (
+                                    <div className="bg-rose-500/10 px-8 py-3.5 border-b border-rose-500/10 text-center flex items-center justify-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-rose-500">Plazo finalizado</span>
+                                    </div>
+                                );
+                            }
+
+                            const diffMins = Math.ceil(diffMs / (1000 * 60));
+                            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+                            if (diffMins < 60) {
+                                return (
+                                    <div className="bg-rose-600 text-white px-8 py-4 text-center flex flex-col items-center justify-center gap-1 animate-pulse">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80">Tiempo límite</span>
+                                        <span className="text-xs font-black uppercase tracking-widest">Cierra en {diffMins} {diffMins === 1 ? 'minuto' : 'minutos'}</span>
+                                    </div>
+                                );
+                            }
+
+                            if (diffHours < 24) {
+                                return (
+                                    <div className="bg-amber-500 text-white px-8 py-4 text-center flex flex-col items-center justify-center gap-1">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80">Entrega urgente</span>
+                                        <span className="text-xs font-black uppercase tracking-widest">Cierra en {diffHours} {diffHours === 1 ? 'hora' : 'horas'}</span>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="bg-emerald-500/10 dark:bg-emerald-500/5 px-8 py-3.5 border-b border-emerald-500/10 text-center flex items-center justify-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500">
+                                        Quedan {diffDays} {diffDays === 1 ? 'día' : 'días'}
+                                    </span>
+                                </div>
+                            );
+                        })()}
+
                         {/* Status Panel */}
                         <div className="p-8 space-y-8">
                             <div className="flex justify-between items-center">
-                                <div className={cn("px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em]")}
+                                <div className={cn("px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-black uppercase tracking-[0.2em]")}
                                     style={{
                                         backgroundColor: `${getActColor(activity.tipo)}1a`,
                                         color: getActColor(activity.tipo)
@@ -363,16 +432,37 @@ export default function ActivityDetailPage() {
                                     {activity.tipo}
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Puntaje</p>
+                                    <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest">Puntaje</p>
                                     <p className="text-2xl font-black" style={{ color: getActColor(activity.tipo) }}>{activity.puntajeMax} PTS</p>
                                 </div>
                             </div>
 
+                            {activity.categoria && (
+                                <div className="bg-slate-50/50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Categoría de Calificación</p>
+                                        <p className={cn("text-xs sm:text-sm font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                            {activity.categoria.config?.nombre || activity.categoria.nombre}
+                                        </p>
+                                    </div>
+                                    {activity.categoria.config?.peso !== undefined && (
+                                        <span className="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-black bg-primary/10 text-primary border border-primary/20">
+                                            {activity.categoria.config.peso}%
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="space-y-4">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <FileText size={12} /> Instrucciones
-                                </h4>
-                                <div className={cn("text-sm font-medium leading-relaxed", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                                <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 text-primary shadow-sm shrink-0" style={{ color: 'var(--aula-primary)', backgroundColor: 'color-mix(in srgb, var(--aula-primary), transparent 90%)' }}>
+                                        <FileText size={16} />
+                                    </div>
+                                    <h4 className="text-[12px] sm:text-xs font-black text-slate-700 dark:text-slate-350 uppercase tracking-widest">
+                                        Instrucciones de la Actividad
+                                    </h4>
+                                </div>
+                                <div className={cn("text-sm sm:text-[15px] font-bold leading-relaxed pl-1 text-slate-800 dark:text-slate-200")}>
                                     <MathRenderer text={activity.instrucciones || 'Sin instrucciones adicionales asignadas por el docente.'} />
                                 </div>
                             </div>
@@ -388,8 +478,8 @@ export default function ActivityDetailPage() {
                                         <User size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Facilitador a Cargo</p>
-                                        <div className={cn("text-xs font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                        <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Facilitador a Cargo</p>
+                                        <div className={cn("text-xs sm:text-sm font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                             <MathRenderer text={activity.facilitador || activity.docente || 'Delfor Vargas Urzagaste'} />
                                         </div>
                                     </div>
@@ -407,8 +497,8 @@ export default function ActivityDetailPage() {
                                             <CheckCircle2 size={18} />
                                         </div>
                                         <div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tu Estado</p>
-                                            <p className={cn("text-xs font-black uppercase", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                            <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Tu Estado</p>
+                                            <p className={cn("text-xs sm:text-sm font-black uppercase", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                                 {entregas.length > 0 ? 'Entregado' : 'Pendiente'}
                                             </p>
                                         </div>
@@ -421,7 +511,7 @@ export default function ActivityDetailPage() {
                 </aside>
 
                 {/* Main Content Area */}
-                <main className="lg:col-span-9">
+                <main className="lg:col-span-8">
                     {viewMode === 'submissions' ? (
                         <div className="space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -566,38 +656,40 @@ export default function ActivityDetailPage() {
                                                 />
                                             </div>
 
-                                            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                                                <button
-                                                    onClick={() => setFilterTab('all')}
-                                                    className={cn(
-                                                        "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
-                                                        filterTab === 'all' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                                                    )}
-                                                    style={filterTab === 'all' ? { color: 'var(--aula-primary)' } : {}}
-                                                >
-                                                    Todos
-                                                </button>
-                                                <button
-                                                    onClick={() => setFilterTab('pending')}
-                                                    className={cn(
-                                                        "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
-                                                        filterTab === 'pending' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                                                    )}
-                                                    style={filterTab === 'pending' ? { color: 'var(--aula-primary)' } : {}}
-                                                >
-                                                    Por Calificar
-                                                </button>
-                                                <button
-                                                    onClick={() => setFilterTab('graded')}
-                                                    className={cn(
-                                                        "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
-                                                        filterTab === 'graded' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                                                    )}
-                                                    style={filterTab === 'graded' ? { color: 'var(--aula-primary)' } : {}}
-                                                >
-                                                    Evaluados
-                                                </button>
-                                            </div>
+                                            {isFacilitator && (
+                                                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                                                    <button
+                                                        onClick={() => setFilterTab('all')}
+                                                        className={cn(
+                                                            "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                                                            filterTab === 'all' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                                                        )}
+                                                        style={filterTab === 'all' ? { color: 'var(--aula-primary)' } : {}}
+                                                    >
+                                                        Todos
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setFilterTab('pending')}
+                                                        className={cn(
+                                                            "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                                                            filterTab === 'pending' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                                                        )}
+                                                        style={filterTab === 'pending' ? { color: 'var(--aula-primary)' } : {}}
+                                                    >
+                                                        Por Calificar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setFilterTab('graded')}
+                                                        className={cn(
+                                                            "px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                                                            filterTab === 'graded' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                                                        )}
+                                                        style={filterTab === 'graded' ? { color: 'var(--aula-primary)' } : {}}
+                                                    >
+                                                        Evaluados
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* The Academic Ledger - Optimized for High Volume */}
@@ -1078,27 +1170,75 @@ export default function ActivityDetailPage() {
                                                                     )}
 
                                                                     {/* Botón de Envío - Color Primario Institucional */}
-                                                                    <button
-                                                                        onClick={handleSubmission}
-                                                                        disabled={isSubmitting}
-                                                                        className="group/btn relative w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] transition-all active:scale-95 disabled:opacity-50 shadow-lg"
-                                                                        style={{
-                                                                            backgroundColor: 'var(--aula-primary)',
-                                                                            color: 'white'
-                                                                        }}
-                                                                    >
-                                                                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                                                                        <div className="relative z-10 flex items-center justify-center gap-3">
-                                                                            {isSubmitting ? (
-                                                                                <Loader2 className="animate-spin" size={18} />
-                                                                            ) : (
-                                                                                <>
-                                                                                    <span>{entregas.length > 0 ? 'Actualizar Mi Entrega' : 'Formalizar Envío'}</span>
-                                                                                    <Send size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </button>
+                                                                    {(() => {
+                                                                        const now = new Date();
+                                                                        const start = activity.fechaInicio ? new Date(activity.fechaInicio) : null;
+                                                                        const end = activity.fechaFin ? new Date(activity.fechaFin) : null;
+                                                                        const notYetOpen = start && now < start;
+                                                                        const expired = end && now > end;
+                                                                        const isWindowClosed = notYetOpen || expired;
+
+                                                                        return (
+                                                                            <>
+                                                                                {isWindowClosed && (
+                                                                                    <div className={cn(
+                                                                                        "w-full p-4 rounded-2xl border flex items-start gap-4",
+                                                                                        notYetOpen
+                                                                                            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+                                                                                            : "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+                                                                                    )}>
+                                                                                        <div className={cn(
+                                                                                            "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                                                                                            notYetOpen ? "bg-amber-100 dark:bg-amber-900/40" : "bg-rose-100 dark:bg-rose-900/40"
+                                                                                        )}>
+                                                                                            {notYetOpen
+                                                                                                ? <Clock size={15} className="text-amber-600 dark:text-amber-400" />
+                                                                                                : <AlertCircle size={15} className="text-rose-600 dark:text-rose-400" />
+                                                                                            }
+                                                                                        </div>
+                                                                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                                                                            <span className={cn(
+                                                                                                "text-[9px] font-black uppercase tracking-[0.2em]",
+                                                                                                notYetOpen ? "text-amber-500" : "text-rose-500"
+                                                                                            )}>
+                                                                                                {notYetOpen ? "Actividad no disponible" : "Plazo vencido"}
+                                                                                            </span>
+                                                                                            <span className={cn(
+                                                                                                "text-xs font-bold leading-snug",
+                                                                                                notYetOpen ? "text-amber-800 dark:text-amber-300" : "text-rose-800 dark:text-rose-300"
+                                                                                            )}>
+                                                                                                {notYetOpen
+                                                                                                    ? `Habilitada el ${start!.toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`
+                                                                                                    : `Cerrada el ${end!.toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`
+                                                                                                }
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                <button
+                                                                                    onClick={handleSubmission}
+                                                                                    disabled={isSubmitting || !!isWindowClosed}
+                                                                                    className="group/btn relative w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+                                                                                    style={{
+                                                                                        backgroundColor: isWindowClosed ? '#94a3b8' : 'var(--aula-primary)',
+                                                                                        color: 'white'
+                                                                                    }}
+                                                                                >
+                                                                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                                                                                    <div className="relative z-10 flex items-center justify-center gap-3">
+                                                                                        {isSubmitting ? (
+                                                                                            <Loader2 className="animate-spin" size={18} />
+                                                                                        ) : (
+                                                                                            <>
+                                                                                                <span>{entregas.length > 0 ? 'Actualizar Mi Entrega' : 'Formalizar Envío'}</span>
+                                                                                                <Send size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                                                                                            </>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </button>
+                                                                            </>
+                                                                        );
+                                                                    })()}
 
                                                                     <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
                                                                         Delfor Vargas Urzagaste • Facilitador a Cargo
@@ -1184,43 +1324,43 @@ export default function ActivityDetailPage() {
                                                                         {entregas[0].archivoUrl && (
                                                                             <div className="space-y-4">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <FileText size={14} style={{ color: 'var(--aula-primary)' }} />
-                                                                                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Soporte Documental ({entregas[0].archivoUrl.split(',').filter(Boolean).length} elementos):</p>
+                                                                                    <Paperclip size={14} style={{ color: 'var(--aula-primary)' }} />
+                                                                                    <p className="text-[11px] sm:text-xs font-black text-slate-500 uppercase tracking-widest">Soporte Documental ({entregas[0].archivoUrl.split(',').filter(Boolean).length} elementos):</p>
                                                                                 </div>
-                                                                                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                                                                                <div className="grid grid-cols-1 gap-4">
                                                                                     {entregas[0].archivoUrl.split(',').filter(Boolean).map((url: string, idx: number) => (
                                                                                         <div key={idx} className={cn(
-                                                                                            "group/file relative flex items-center justify-between p-5 rounded-3xl border transition-all duration-300",
+                                                                                            "group/file relative flex items-center justify-between p-6 rounded-3xl border transition-all duration-300",
                                                                                             theme === 'dark' ? "bg-slate-900 border-slate-800 hover:border-primary/40 shadow-xl" : "bg-white border-slate-100 hover:border-primary/30 shadow-md shadow-slate-200/40"
                                                                                         )}>
-                                                                                            <div className="flex items-center gap-4">
-                                                                                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 group-hover/file:rotate-3 transition-all duration-500">
-                                                                                                    <Download size={22} />
+                                                                                            <div className="flex items-center gap-4 overflow-hidden">
+                                                                                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover/file:scale-110 group-hover/file:rotate-3 transition-all duration-500 shrink-0">
+                                                                                                    <FileText size={22} style={{ color: 'var(--aula-primary)' }} />
                                                                                                 </div>
                                                                                                 <div className="text-left overflow-hidden">
-                                                                                                    <p className={cn("text-[11px] font-black truncate w-32", theme === 'dark' ? "text-white" : "text-slate-900")}>
+                                                                                                    <p className={cn("text-xs sm:text-sm font-black truncate max-w-[160px] sm:max-w-xs md:max-w-md", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                                                                                         {url.split('/').pop()}
                                                                                                     </p>
-                                                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Expediente Oficial #{idx + 1}</p>
+                                                                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mt-1">Expediente Oficial #{idx + 1}</p>
                                                                                                 </div>
                                                                                             </div>
-                                                                                            <div className="flex items-center gap-3">
+                                                                                            <div className="flex items-center gap-3 shrink-0">
                                                                                                 <a
                                                                                                     href={getImageUrl(url)}
                                                                                                     target="_blank"
                                                                                                     rel="noopener noreferrer"
-                                                                                                    className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary hover:border-primary transition-all duration-300"
+                                                                                                    className="w-11 h-11 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-slate-400 dark:text-slate-300 hover:text-white hover:bg-[var(--aula-primary)] hover:border-[var(--aula-primary)] transition-all duration-300"
                                                                                                     title="Previsualizar"
                                                                                                 >
-                                                                                                    <Eye size={16} />
+                                                                                                    <Eye size={18} />
                                                                                                 </a>
                                                                                                 <a
                                                                                                     href={getImageUrl(url)}
                                                                                                     download
-                                                                                                    className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary hover:border-primary transition-all duration-300"
+                                                                                                    className="w-11 h-11 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-slate-400 dark:text-slate-300 hover:text-white hover:bg-emerald-600 hover:border-emerald-600 transition-all duration-300"
                                                                                                     title="Descargar"
                                                                                                 >
-                                                                                                    <Download size={16} />
+                                                                                                    <Download size={18} />
                                                                                                 </a>
                                                                                             </div>
                                                                                         </div>
@@ -1392,12 +1532,12 @@ function StatCard({ icon: Icon, label, value, color, theme }: any) {
 function MetaItem({ icon: Icon, label, value, accent, theme }: any) {
     return (
         <div className="flex items-center gap-3">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center transition-all", theme === 'dark' ? "bg-slate-800" : "bg-slate-50")}>
-                <Icon size={16} className={accent ? "text-rose-500" : ""} style={!accent ? { color: 'var(--aula-primary)' } : {}} />
+            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0", theme === 'dark' ? "bg-slate-800" : "bg-slate-50")}>
+                <Icon size={18} className={accent ? "text-rose-500" : ""} style={!accent ? { color: 'var(--aula-primary)' } : {}} />
             </div>
             <div>
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-                <p className={cn("text-[11px] font-black", theme === 'dark' ? "text-slate-200" : "text-slate-700")}>{value}</p>
+                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+                <p className={cn("text-xs sm:text-sm font-black", theme === 'dark' ? "text-slate-200" : "text-slate-700")}>{value}</p>
             </div>
         </div>
     );
@@ -1406,12 +1546,12 @@ function MetaItem({ icon: Icon, label, value, accent, theme }: any) {
 function InfoRow({ icon: Icon, label, value, theme }: any) {
     return (
         <div className="flex items-center gap-4 group">
-            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-950/40 flex items-center justify-center group-hover:scale-110 transition-transform" style={{ color: 'var(--aula-primary)' }}>
-                <Icon size={18} />
+            <div className="w-11 h-11 rounded-xl bg-slate-50 dark:bg-slate-950/40 flex items-center justify-center group-hover:scale-110 transition-all duration-300" style={{ color: 'var(--aula-primary)' }}>
+                <Icon size={20} />
             </div>
-            <div className="flex-1 border-b border-slate-100 dark:border-slate-800 pb-1 flex justify-between items-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
-                <span className={cn("text-xs font-black", theme === 'dark' ? "text-white" : "text-slate-700")}>{value}</span>
+            <div className="flex-1 border-b border-slate-100 dark:border-slate-800 pb-2 flex justify-between items-center">
+                <span className="text-[11px] sm:text-xs font-black text-slate-400 uppercase tracking-widest">{label}</span>
+                <span className={cn("text-sm sm:text-[15px] font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>{value}</span>
             </div>
         </div>
     );
