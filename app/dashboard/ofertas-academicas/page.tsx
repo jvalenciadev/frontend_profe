@@ -769,10 +769,11 @@ export default function OfertasAcademicasPage() {
     const uniqueGestiones = Array.from(new Set(versiones.map(v => v.gestion).filter(Boolean)));
 
     const autoVersionInfo = (() => {
-        if (!selectedMaster || !selectedGestion) return { targetVersion: null, siguienteNumero: 1, error: false };
+        if (!selectedMaster || !selectedGestion || !formData.sedeId) return { targetVersion: null, siguienteNumero: 1, error: false };
 
         const count = ofertas.filter(o =>
             o.programaId === selectedMaster.id &&
+            o.sedeId === formData.sedeId &&
             o.version?.gestion === selectedGestion &&
             o.estado !== 'eliminado'
         ).length;
@@ -1370,7 +1371,11 @@ export default function OfertasAcademicasPage() {
                                                     </select>
 
                                                     {selectedGestion && (
-                                                        autoVersionInfo.error ? (
+                                                        !formData.sedeId ? (
+                                                            <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-bold leading-tight">
+                                                                ⚠ Seleccione primero una Sede de Ejecución para calcular la versión correspondiente.
+                                                            </div>
+                                                        ) : autoVersionInfo.error ? (
                                                             <div className="mt-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-bold leading-tight">
                                                                 ⚠ No existe la Versión {autoVersionInfo.siguienteNumero} habilitada para la gestión {selectedGestion}. El administrador debe habilitarla primero en Configuración.
                                                             </div>
