@@ -539,7 +539,17 @@ export default function CourseDetailPage() {
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Currículo</p>
                         </div>
                         <div className="flex lg:flex-col overflow-x-auto lg:overflow-visible gap-2 lg:space-y-0.5 pb-4 lg:pb-0 scrollbar-none snap-x snap-mandatory w-full">
-                            {units.map((unit: any, idx: number) => (
+                        {units.map((unit: any, idx: number) => {
+                                // Calcular pendientes: actividades no entregadas, activas y no vencidas para el estudiante
+                                const unitPendingCount = !isFacilitator
+                                    ? (unit.actividades || []).filter((a: any) =>
+                                        a.tipo !== 'ASISTENCIA' &&
+                                        !a.userSubmitted &&
+                                        a.fechaFin &&
+                                        new Date(a.fechaFin).getTime() >= Date.now()
+                                    ).length
+                                    : 0;
+                                return (
                                 <button
                                     key={unit.id}
                                     onClick={() => changeActiveUnit(idx)}
@@ -559,18 +569,24 @@ export default function CourseDetailPage() {
                                         {idx + 1}
                                     </div>
                                     <span className={cn(
-                                        "text-sm font-bold leading-snug line-clamp-2",
+                                        "text-sm font-bold leading-snug line-clamp-2 flex-1",
                                         activeUnit === idx ? "text-slate-900 dark:text-white" : "text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
                                     )}>
                                         {unit.titulo}
                                     </span>
+                                    {unitPendingCount > 0 && (
+                                        <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[8px] font-black flex items-center justify-center shadow-sm shadow-amber-500/40">
+                                            {unitPendingCount}
+                                        </span>
+                                    )}
                                     {isFacilitator && (
                                         <div onClick={(e) => { e.stopPropagation(); setSelectedUnitToEdit(unit); setShowUnitEditor(true); }} className="absolute right-2 opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-primary cursor-pointer transition-all">
                                             <Edit3 size={14} />
                                         </div>
                                     )}
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </nav>
 
@@ -997,6 +1013,10 @@ function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className 
         );
     }
 
+    // Determinar si la actividad está pendiente para el estudiante
+    const isPending = !isFac && !act.userSubmitted && act.tipo !== 'ASISTENCIA' &&
+        act.fechaFin && new Date(act.fechaFin).getTime() >= Date.now();
+
     // ─── RESTO DE ACTIVIDADES: tarjeta completa ───────────────────────────
     return (
         <motion.div
@@ -1004,12 +1024,20 @@ function ActivityCard({ act, theme, isFac, onClick, onEdit, onDelete, className 
             onClick={onClick}
             className={cn(
                 "p-5 md:p-6 rounded-[2rem] border transition-all duration-500 cursor-pointer flex flex-col gap-4 relative group overflow-hidden",
+                // Borde izquierdo ámbar si está pendiente
+                isPending ? "border-l-4 border-amber-400" : "",
                 theme === 'dark'
-                    ? cn("bg-slate-900/40 border-slate-800/60", info.border)
-                    : cn("bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.06)]", info.border),
+                    ? cn("bg-slate-900/40 border-slate-800/60", !isPending && info.border)
+                    : cn("bg-white border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.06)]", !isPending && info.border),
                 className
             )}
         >
+            {/* Indicador de pendiente */}
+            {isPending && (
+                <div className="absolute top-4 right-4 px-2.5 py-1 rounded-lg bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/30 z-10 animate-pulse">
+                    Pendiente
+                </div>
+            )}
             {/* 1. Header: Type Badge, Category, Status & Actions */}
             <div className="flex flex-wrap items-center justify-between gap-3 w-full pb-2.5 border-b border-slate-100/50 dark:border-slate-800/30">
                 <div className="flex flex-wrap items-center gap-2">
