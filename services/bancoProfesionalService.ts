@@ -2,6 +2,8 @@ import api from '@/lib/api';
 
 export interface BancoProfesional {
     id: string;
+    createdAt?: string;
+    updatedAt?: string;
     licUniversitaria: string | null;
     licMescp: string | null;
     esMaestro: boolean;

@@ -341,6 +341,17 @@ export default function UsuariosPage() {
     };
 
     const filteredUsuarios = usuarios.filter(u => {
+        // Excluir rol POSTULACION_PROFE a menos que se busque explícitamente
+        const isPostulante = u.roles?.some(r => {
+            const name = typeof r === 'string' ? r : ('role' in r ? r.role?.name : (r as any)?.name);
+            return name === 'POSTULACION_PROFE';
+        });
+        const isSearching = searchTerm.trim().length > 0;
+
+        if (isPostulante && !isSearching) {
+            return false;
+        }
+
         const matchesSearch =
             u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.apellidos?.toLowerCase().includes(searchTerm.toLowerCase()) ||

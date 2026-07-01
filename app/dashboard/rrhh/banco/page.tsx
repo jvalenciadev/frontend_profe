@@ -23,6 +23,8 @@ import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/StatusBadge';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export default function BancoProfesionalPage() {
     const { config: profeConfig } = useProfe();
@@ -263,6 +265,12 @@ export default function BancoProfesionalPage() {
                                                 <Briefcase className="w-3 h-3 text-primary shrink-0" />
                                                 <span className="line-clamp-2">{getCargoName(p)}</span>
                                             </div>
+                                            {p.user?.departamento && (
+                                                <div className="flex items-center gap-2 text-[11px] font-bold text-foreground/80 uppercase">
+                                                    <MapPin className="w-3 h-3 text-primary shrink-0" />
+                                                    <span>{p.user.departamento}</span>
+                                                </div>
+                                            )}
                                             <div className="flex items-center gap-2 text-xs font-bold text-foreground/80">
                                                 <GraduationCap className="w-3 h-3 text-primary" />
                                                 {p.licUniversitaria || 'Sin Título Registrado'}
@@ -274,6 +282,18 @@ export default function BancoProfesionalPage() {
                                                 <UserCheck className="w-3 h-3" /> Personal Magisterio
                                             </div>
                                         )}
+
+                                        {/* Fechas de Registro y Modificación */}
+                                        <div className="flex items-center justify-between text-[9px] font-black text-muted-foreground uppercase border-t border-border/40 pt-3 mt-4 gap-2">
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Calendar className="w-3 h-3 text-primary shrink-0" />
+                                                <span>Postuló: {p.createdAt ? format(new Date(p.createdAt), 'dd/MM/yyyy') : '---'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Clock className="w-3 h-3 text-primary shrink-0" />
+                                                <span>Act: {p.updatedAt ? format(new Date(p.updatedAt), 'dd/MM/yyyy') : '---'}</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="mt-6 pt-4 border-t border-border/40 grid grid-cols-2 gap-2">
@@ -343,12 +363,26 @@ export default function BancoProfesionalPage() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50">
-                                        <Mail className="w-4 h-4 text-primary" />
-                                        <span className="text-xs font-bold">{selectedProf.user?.correo || 'No disponible'}</span>
+                                        <Mail className="w-4 h-4 text-primary shrink-0" />
+                                        <span className="text-xs font-bold truncate">{selectedProf.user?.correo || 'No disponible'}</span>
                                     </div>
                                     <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50">
-                                        <Phone className="w-4 h-4 text-primary" />
+                                        <Phone className="w-4 h-4 text-primary shrink-0" />
                                         <span className="text-xs font-bold">{selectedProf.celular || 'No disponible'}</span>
+                                    </div>
+                                    {selectedProf.user?.departamento && (
+                                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50 md:col-span-2">
+                                            <MapPin className="w-4 h-4 text-primary shrink-0" />
+                                            <span className="text-xs font-black uppercase">Postulado a Sede/Departamento: {selectedProf.user.departamento}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50 text-muted-foreground text-[10px] font-black uppercase tracking-wider col-span-1">
+                                        <Calendar className="w-4 h-4 text-primary shrink-0" />
+                                        <span>Fecha Postulación: {selectedProf.createdAt ? format(new Date(selectedProf.createdAt), "dd 'de' MMMM, yyyy", { locale: es }) : '---'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50 text-muted-foreground text-[10px] font-black uppercase tracking-wider col-span-1">
+                                        <Clock className="w-4 h-4 text-primary shrink-0" />
+                                        <span>Última Actualización: {selectedProf.updatedAt ? format(new Date(selectedProf.updatedAt), "dd 'de' MMMM, yyyy", { locale: es }) : '---'}</span>
                                     </div>
                                 </div>
                             </div>
