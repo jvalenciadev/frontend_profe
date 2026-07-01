@@ -154,7 +154,7 @@ export default function InscripcionesPage() {
 
         // Si hay un grupo seleccionado, filtramos por la oferta y el turno correspondientes
         if (selectedGroup) {
-            const [ofertaId, turnoId] = selectedGroup.split('-');
+            const [ofertaId, turnoId] = selectedGroup.split('|');
             params.programaId = ofertaId; // En el backend programaId corresponde a la oferta académica
             params.turnoId = turnoId;
         }
@@ -181,7 +181,7 @@ export default function InscripcionesPage() {
                 const isFull = cupoReal > 0 && count >= cupoReal;
 
                 flatStats.push({
-                    id: `${o.id}-${t.id}`,
+                    id: `${o.id}|${t.id}`,
                     ofertaId: o.id,
                     nombre: o.nombre,
                     codigo: o.codigo,
