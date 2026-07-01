@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getImageUrl } from '@/lib/utils';
-import { GraduationCap, BookOpen, User, LogOut, LayoutDashboard, Trophy, Bell, Search, MoreVertical } from 'lucide-react';
+import { GraduationCap, BookOpen, User, LogOut, LayoutDashboard, Trophy, Bell, Search, MoreVertical, X } from 'lucide-react';
 
 import { AulaProvider, useAula } from '@/contexts/AulaContext';
 import { ChevronLeft } from 'lucide-react';
@@ -58,6 +58,28 @@ function AulaContent({ children }: { children: React.ReactNode }) {
         }
     }, [isAuthenticated, isLoading, pathname, router, user]);
 
+    // ─── Conteo de notificaciones no leídas ──────────────────────────────
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        let cancelled = false;
+
+        const fetchUnread = async () => {
+            try {
+                const data = await aulaService.getNotificaciones();
+                if (!cancelled) {
+                    const count = (data || []).filter((n: any) => !n.leida).length;
+                    setUnreadCount(count);
+                }
+            } catch { /* silencioso */ }
+        };
+
+        fetchUnread();
+        const interval = setInterval(fetchUnread, 60_000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [isAuthenticated, pathname]);
+
     if (!mounted || isLoading) {
         return (
             <div
@@ -93,16 +115,12 @@ function AulaContent({ children }: { children: React.ReactNode }) {
     }
 
     const menuItems = [
-        {
-            icon: LayoutDashboard,
-            label: 'Mi Aula',
-            href: '/aula'
-        },
-        ...(isFacilitator ? [{ icon: GraduationCap, label: 'Docencia', href: '/aula/docencia' }] : []),
-        { icon: BookOpen, label: 'Mis Cursos', href: '/aula/cursos' },
-        { icon: GraduationCap, label: 'Calificaciones', href: '/aula/calificaciones' },
-        { icon: Bell, label: 'Notificaciones', href: '/aula/notificaciones' },
-        { icon: User, label: 'Perfil', href: '/aula/perfil' },
+        { icon: LayoutDashboard, label: 'Mi Aula', href: '/aula', badge: 0 },
+        ...(isFacilitator ? [{ icon: GraduationCap, label: 'Docencia', href: '/aula/docencia', badge: 0 }] : []),
+        { icon: BookOpen, label: 'Mis Cursos', href: '/aula/cursos', badge: 0 },
+        { icon: GraduationCap, label: 'Calificaciones', href: '/aula/calificaciones', badge: 0 },
+        { icon: Bell, label: 'Notificaciones', href: '/aula/notificaciones', badge: unreadCount },
+        { icon: User, label: 'Perfil', href: '/aula/perfil', badge: 0 },
     ];
 
 
@@ -178,10 +196,17 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                                             style={{ backgroundColor: 'var(--aula-primary)' }}
                                         />
                                     )}
-                                    <item.icon size={20} className={cn(
-                                        "transition-all duration-300",
-                                        isActive ? "scale-110" : "opacity-60 group-hover:opacity-100 group-hover:scale-110"
-                                    )} style={isActive ? { color: 'var(--aula-primary)' } : {}} />
+                                    <div className="relative shrink-0">
+                                        <item.icon size={20} className={cn(
+                                            "transition-all duration-300",
+                                            isActive ? "scale-110" : "opacity-60 group-hover:opacity-100 group-hover:scale-110"
+                                        )} style={isActive ? { color: 'var(--aula-primary)' } : {}} />
+                                        {(item as any).badge > 0 && (
+                                            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-rose-500 text-white text-[8px] font-black flex items-center justify-center shadow-lg shadow-rose-500/40 animate-pulse">
+                                                {(item as any).badge > 99 ? '99+' : (item as any).badge}
+                                            </span>
+                                        )}
+                                    </div>
                                     {!sidebarCollapsed && (
                                         <div className="flex-1 flex items-center justify-between overflow-hidden">
                                             <motion.span
@@ -191,6 +216,11 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                                             >
                                                 {item.label}
                                             </motion.span>
+                                            {(item as any).badge > 0 && !sidebarCollapsed && (
+                                                <span className="ml-2 min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
+                                                    {(item as any).badge > 99 ? '99+' : (item as any).badge}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
                                 </button>
@@ -258,16 +288,128 @@ function AulaContent({ children }: { children: React.ReactNode }) {
                         theme === 'dark' ? "bg-slate-900/90 border-slate-800" : "bg-white/90 border-slate-200"
                     )}>
                         {menuItems.slice(0, 4).map((item) => (
-                            <button key={item.href} onClick={() => router.push(item.href)} className={cn("p-4 transition-transform active:scale-90", pathname === item.href ? "text-[var(--aula-primary)]" : "text-slate-400")}>
+                            <button
+                                key={item.href}
+                                onClick={() => router.push(item.href)}
+                                className={cn(
+                                    "p-4 transition-transform active:scale-90 relative flex items-center justify-center",
+                                    pathname === item.href ? "text-[var(--aula-primary)]" : "text-slate-400"
+                                )}
+                            >
                                 <item.icon size={20} />
+                                {(item as any).badge > 0 && (
+                                    <span className="absolute top-2 right-2 min-w-[14px] h-3.5 px-0.5 rounded-full bg-rose-500 text-white text-[7px] font-black flex items-center justify-center shadow-md shadow-rose-500/40 animate-pulse">
+                                        {(item as any).badge > 99 ? '99+' : (item as any).badge}
+                                    </span>
+                                )}
                             </button>
                         ))}
-                        <button onClick={() => setMobileOpen(!mobileOpen)} className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+                        <button
+                            onClick={() => setMobileOpen(!mobileOpen)}
+                            className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg relative cursor-pointer"
+                        >
                             <MoreVertical size={20} />
+                            {/* Punto de alerta si hay alguna notificación pendiente en los items ocultos */}
+                            {menuItems.slice(4).some(item => (item as any).badge > 0) && (
+                                <span className="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900 animate-ping" />
+                            )}
                         </button>
                     </div>
                 </div>
             )}
+
+            {/* Ultra-Premium Mobile Drawer Menu */}
+            <AnimatePresence suppressor-hydration-warning="true">
+                {mobileOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setMobileOpen(false)}
+                            className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[110] md:hidden"
+                        />
+                        {/* Drawer */}
+                        <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className={cn(
+                                "fixed bottom-0 left-0 right-0 rounded-t-[3rem] p-8 border-t z-[120] md:hidden shadow-[0_-15px_30px_-5px_rgba(0,0,0,0.15)] flex flex-col gap-6",
+                                theme === 'dark' ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-100 text-slate-850"
+                            )}
+                        >
+                            <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Menú Navegación</span>
+                                <button onClick={() => setMobileOpen(false)} className="w-8 h-8 rounded-full bg-slate-150 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-700">
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 py-2">
+                                {menuItems.map((item) => {
+                                    const isActive = pathname === item.href;
+                                    return (
+                                        <button
+                                            key={item.href}
+                                            onClick={() => {
+                                                router.push(item.href);
+                                                setMobileOpen(false);
+                                            }}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center p-6 rounded-[2rem] border transition-all duration-300 relative",
+                                                isActive
+                                                    ? "bg-[var(--aula-primary)]/10 border-[var(--aula-primary)]/20 text-[var(--aula-primary)] font-black"
+                                                    : theme === 'dark' ? "bg-slate-800/50 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-100 text-slate-500"
+                                            )}
+                                        >
+                                            <item.icon size={24} className="mb-2" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-center">{item.label}</span>
+                                            {(item as any).badge > 0 && (
+                                                <span className="absolute top-4 right-4 min-w-[18px] h-4.5 px-1 rounded-full bg-rose-500 text-white text-[8px] font-black flex items-center justify-center shadow-lg shadow-rose-500/30">
+                                                    {(item as any).badge}
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Mobile User Section */}
+                            <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-100/50 dark:bg-slate-800/40 mt-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl border-2 border-white dark:border-slate-800 bg-slate-100 overflow-hidden">
+                                        {user?.imagen ? (
+                                            <img src={getImageUrl(user.imagen)} alt="User" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center font-black text-white" style={{ backgroundColor: 'var(--aula-primary)' }}>
+                                                {user?.nombre?.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 text-left">
+                                        <p className="text-[10px] font-black truncate">{user?.nombre}</p>
+                                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">
+                                            {typeof user?.roles?.[0] === 'string' ? user?.roles?.[0] : (user?.roles?.[0] as any)?.role?.name || 'Usuario'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setMobileOpen(false);
+                                        logout();
+                                    }}
+                                    className="p-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
+                                >
+                                    <LogOut size={16} />
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Main Content Area */}
             <main className="flex-1 h-screen overflow-y-auto relative scrollbar-none">

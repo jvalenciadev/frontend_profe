@@ -48,7 +48,9 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
         load();
     }, [moduloId]);
 
-    const percentage = stats.total > 0 ? (stats.P / stats.total) * 100 : 0;
+    const percentage = stats.total > 0
+        ? ((stats.P * 100 + stats.T * 80 + stats.L * 50) / stats.total)
+        : 0;
 
     if (loading) return (
         <div className="p-20 flex justify-center">
@@ -57,37 +59,57 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
     );
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-8">
             {/* Stats Header */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard
                     icon={Target}
-                    label="Asistencia Total"
+                    label="Asistencia Promedio"
                     value={`${Math.round(percentage)}%`}
                     color="indigo"
                     theme={theme}
                 />
                 <StatCard
                     icon={CheckCircle2}
-                    label="Presentes"
+                    label="Presentes (100%)"
                     value={stats.P}
                     color="emerald"
                     theme={theme}
                 />
                 <StatCard
                     icon={XCircle}
-                    label="Faltas"
+                    label="Faltas (0%)"
                     value={stats.F}
                     color="rose"
                     theme={theme}
                 />
                 <StatCard
                     icon={Clock}
-                    label="Tardanzas"
+                    label="Tardanzas (80%)"
                     value={stats.T}
                     color="amber"
                     theme={theme}
                 />
+            </div>
+
+            {/* Leyenda de Ponderaciones Premium */}
+            <div className={cn(
+                "p-8 rounded-[2.5rem] border flex flex-col lg:flex-row items-center justify-between gap-6",
+                theme === 'dark' ? "bg-slate-900/40 border-slate-800/80" : "bg-slate-50 border-slate-100"
+            )}>
+                <div className="flex items-center gap-4">
+                    <Zap size={22} className="text-primary animate-pulse shrink-0" />
+                    <div>
+                        <p className={cn("text-xs font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-800")}>Sistema de Calificación de Asistencia</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">El promedio total se calcula multiplicando cada estado de asistencia por su respectivo porcentaje de nota:</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-3 justify-center">
+                    <span className="px-4 py-2 rounded-2xl bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">Presente: 100%</span>
+                    <span className="px-4 py-2 rounded-2xl bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest border border-blue-500/20">Atraso: 80%</span>
+                    <span className="px-4 py-2 rounded-2xl bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20">Licencia: 50%</span>
+                    <span className="px-4 py-2 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20">Falta: 0%</span>
+                </div>
             </div>
 
             {/* Attendance List */}
@@ -184,10 +206,10 @@ function StatCard({ icon: Icon, label, value, color, theme }: any) {
 
 function StatusBadge({ estado }: { estado: string }) {
     const config: any = {
-        P: { label: 'Presente', bg: 'bg-emerald-500', icon: CheckCircle2 },
-        F: { label: 'Falta', bg: 'bg-rose-500', icon: XCircle },
-        L: { label: 'Licencia', bg: 'bg-amber-500', icon: AlertCircle },
-        T: { label: 'Atraso', bg: 'bg-blue-500', icon: Clock },
+        P: { label: 'Presente (100%)', bg: 'bg-emerald-500', icon: CheckCircle2 },
+        F: { label: 'Falta (0%)', bg: 'bg-rose-500', icon: XCircle },
+        L: { label: 'Licencia (50%)', bg: 'bg-amber-500', icon: AlertCircle },
+        T: { label: 'Atraso (80%)', bg: 'bg-blue-500', icon: Clock },
     };
     const { label, bg, icon: Icon } = config[estado] || config.P;
 

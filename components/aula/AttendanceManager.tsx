@@ -195,10 +195,10 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
 
     // Legend
     const STATUS_CONFIG: any = {
-        P: { label: 'Presente', color: 'emerald', description: 'El estudiante asistió a clase' },
-        F: { label: 'Falta', color: 'rose', description: 'Inasistencia no justificada' },
-        L: { label: 'Licencia', color: 'amber', description: 'Permiso o licencia médica' },
-        T: { label: 'Atraso', color: 'blue', description: 'Llegada después de la hora' },
+        P: { label: 'Presente (100%)', color: 'emerald', description: 'Nota completa de la sesión' },
+        F: { label: 'Falta (0%)', color: 'rose', description: 'Inasistencia (Sin nota)' },
+        L: { label: 'Licencia (50%)', color: 'amber', description: 'Licencia justificada (50% de la nota)' },
+        T: { label: 'Atraso (80%)', color: 'blue', description: 'Llegada tarde (80% de la nota)' },
     };
 
     const exportToPDF = async () => {
@@ -511,7 +511,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                                 active={reg.estado === 'P'}
                                                 label="P"
                                                 color="emerald"
-                                                fullName="Presente"
+                                                fullName="Presente (100%)"
                                                 onClick={() => updateEstado(reg.userId, 'P')}
                                                 theme={theme}
                                             />
@@ -519,7 +519,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                                 active={reg.estado === 'F'}
                                                 label="F"
                                                 color="rose"
-                                                fullName="Falta"
+                                                fullName="Falta (0%)"
                                                 onClick={() => updateEstado(reg.userId, 'F')}
                                                 theme={theme}
                                             />
@@ -527,7 +527,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                                 active={reg.estado === 'L'}
                                                 label="L"
                                                 color="amber"
-                                                fullName="Licencia"
+                                                fullName="Licencia (50%)"
                                                 onClick={() => updateEstado(reg.userId, 'L')}
                                                 theme={theme}
                                             />
@@ -535,7 +535,7 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                                 active={reg.estado === 'T'}
                                                 label="T"
                                                 color="blue"
-                                                fullName="Atraso"
+                                                fullName="Atraso (80%)"
                                                 onClick={() => updateEstado(reg.userId, 'T')}
                                                 theme={theme}
                                             />
