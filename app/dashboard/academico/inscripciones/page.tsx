@@ -141,8 +141,10 @@ export default function InscripcionesPage() {
 
 
     const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+    const [searchGroupTerm, setSearchGroupTerm] = useState('');
+    const [occupancyFilter, setOccupancyFilter] = useState<'all' | 'available' | 'full'>('all');
 
-    // Re-load items when page or search changes (debounced search would be better, but let's do it simple first)
+    // Re-load items when page or search changes
     useEffect(() => {
         const params: any = { page, limit: 50 };
         if (searchTerm) params.search = searchTerm;
@@ -150,8 +152,15 @@ export default function InscripcionesPage() {
         if (filterEstado) params.estadoInscripcionId = filterEstado;
         if (filterVersion) params.versionId = filterVersion;
 
+        // Si hay un grupo seleccionado, filtramos por la oferta y el turno correspondientes
+        if (selectedGroup) {
+            const [ofertaId, turnoId] = selectedGroup.split('-');
+            params.programaId = ofertaId; // En el backend programaId corresponde a la oferta académica
+            params.turnoId = turnoId;
+        }
+
         loadItems(params);
-    }, [page, searchTerm, filterSede, filterEstado, filterVersion]);
+    }, [page, searchTerm, filterSede, filterEstado, filterVersion, selectedGroup]);
 
     // Grouping logic for slots (Cupos)
     const groupedStats = useMemo(() => {
@@ -194,25 +203,27 @@ export default function InscripcionesPage() {
         return flatStats;
     }, [inscripciones, ofertas]);
 
-    // Ya no filtramos localmente lo que ya viene filtrado del servidor (search)
-    const filteredInscripciones = useMemo(() => {
-        return inscripciones.filter((ins) => {
-            // Los filtros de Sede/Estado/Version ya se aplican en el servidor
-            // Pero el Group Filter sigue siendo local sobre el conjunto actual
-            let matchesGroup = true;
-            if (selectedGroup) {
-                const group = groupedStats.find(g => g.id === selectedGroup);
-                if (group) {
-                    matchesGroup = (
-                        ins.programaId === group.ofertaId &&
-                        ins.turnoId === group.turnoId
-                    );
-                }
-            }
+    const filteredGroupedStats = useMemo(() => {
+        return groupedStats.filter(group => {
+            const matchesSearch =
+                group.nombre.toLowerCase().includes(searchGroupTerm.toLowerCase()) ||
+                group.codigo.toLowerCase().includes(searchGroupTerm.toLowerCase()) ||
+                group.sede.toLowerCase().includes(searchGroupTerm.toLowerCase()) ||
+                group.turno.toLowerCase().includes(searchGroupTerm.toLowerCase());
 
-            return matchesGroup;
+            const matchesStatus =
+                occupancyFilter === 'all' ||
+                (occupancyFilter === 'available' && !group.isFull) ||
+                (occupancyFilter === 'full' && group.isFull);
+
+            return matchesSearch && matchesStatus;
         });
-    }, [inscripciones, selectedGroup, groupedStats]);
+    }, [groupedStats, searchGroupTerm, occupancyFilter]);
+
+    // Ya no filtramos localmente lo que ya viene filtrado del servidor (search y group)
+    const filteredInscripciones = useMemo(() => {
+        return inscripciones;
+    }, [inscripciones]);
 
     const stats = useMemo(() => {
         const total = inscripciones.length;
@@ -726,87 +737,176 @@ export default function InscripcionesPage() {
 
             {/* DYNAMIC CUPOS & GROUPS PANEL */}
             <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-orange-500/10 rounded-lg">
-                        <ArrowRightCircle className="w-4 h-4 text-orange-500" />
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-orange-500/10 rounded-lg">
+                            <ArrowRightCircle className="w-4 h-4 text-orange-500" />
+                        </div>
+                        <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground text-primary italic">Control de Ocupación (SEDE / PROGRAMA-VERSIÓN / TURNO)</h2>
                     </div>
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground text-primary italic">Control de Ocupación (SEDE / PROGRAMA-VERSIÓN / TURNO)</h2>
+
+                    {/* Controles Creativos y Rápidos de Filtro */}
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:w-64 max-w-xs group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Filtrar grupos..."
+                                className="w-full h-10 pl-9 pr-3 rounded-xl bg-card border border-border/50 outline-none text-[11px] font-bold transition-all focus:border-primary focus:ring-2 focus:ring-primary/5 placeholder:text-muted-foreground/50"
+                                value={searchGroupTerm}
+                                onChange={(e) => setSearchGroupTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => setOccupancyFilter('all')}
+                                className={cn(
+                                    "h-10 px-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                    occupancyFilter === 'all'
+                                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                                )}
+                            >
+                                Todos
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setOccupancyFilter('available')}
+                                className={cn(
+                                    "h-10 px-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                    occupancyFilter === 'available'
+                                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                                )}
+                            >
+                                Disponibles
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setOccupancyFilter('full')}
+                                className={cn(
+                                    "h-10 px-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                    occupancyFilter === 'full'
+                                        ? "bg-rose-500 text-white shadow-md shadow-rose-500/20"
+                                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                                )}
+                            >
+                                Llenos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                        {filteredGroupedStats.length} grupo{filteredGroupedStats.length !== 1 ? 's' : ''} · {filteredGroupedStats.reduce((a, g) => a + g.inscritos, 0)} inscritos totales
+                    </span>
+                    {selectedGroup && (
+                        <button
+                            type="button"
+                            onClick={() => setSelectedGroup(null)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-600 transition-all border border-primary/20"
+                        >
+                            <X className="w-3 h-3" /> Limpiar selección
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {groupedStats.map((group) => (
-                        <Card
-                            key={group.id}
-                            onClick={() => setSelectedGroup(selectedGroup === group.id ? null : group.id)}
-                            className={cn(
-                                "p-4 border-border/40 cursor-pointer bg-card/50 backdrop-blur-xl relative overflow-hidden group transition-all",
-                                group.isFull ? "border-rose-500/30 bg-rose-500/[0.02]" : "hover:border-primary/30",
-                                selectedGroup === group.id ? "ring-2 ring-primary border-primary bg-primary/5 shadow-xl shadow-primary/10" : "scale-[0.98] opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:scale-100"
-                            )}
-                        >
-                            <div className="flex justify-between items-start mb-4 text-primary">
-                                <div className="space-y-2 max-w-[75%] relative">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="flex -space-x-1">
-                                            <span className="z-10 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-[9px] font-black border-2 border-card">{group.sede.charAt(0)}</span>
-                                            {group.version && (
-                                                <div className="z-20 inline-flex items-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-2 border-card shadow-md overflow-hidden h-6 transition-transform hover:scale-105 cursor-default">
-                                                    <span className="px-2.5 text-[10px] font-black tracking-widest uppercase">
-                                                        {group.version}
-                                                    </span>
-                                                    {group.gestion && (
-                                                        <span className="px-2 py-0.5 bg-black/20 text-[8px] font-bold tracking-widest italic border-l border-white/20 h-full flex items-center">
-                                                            {group.gestion}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-2 border-l-2 border-border/50">{group.codigo}</span>
-                                    </div>
-                                    <h3 className="text-[12px] font-black uppercase tracking-tight text-foreground leading-tight line-clamp-2">
-                                        {group.nombre}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-muted/30 px-2 py-1 rounded-md inline-flex">
-                                        <MapPin className="w-3 h-3 text-primary" /> {group.sede}
-                                        <span className="w-1 h-1 rounded-full bg-border" />
-                                        <Clock className="w-3 h-3 text-indigo-500" /> {group.turno}
-                                    </div>
-                                </div>
-                                <div className={cn(
-                                    "px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest",
-                                    group.cupo === 0 ? "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20" :
-                                        group.isFull ? "bg-rose-500 text-white" : "bg-primary/10 text-primary border border-primary/20"
-                                )}>
-                                    {group.cupo === 0 ? 'Ilimitado' : group.isFull ? 'Lleno' : 'Disponible'}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] font-black">
-                                    <span className="text-muted-foreground uppercase tracking-widest text-[8px]">Ocupación Actual</span>
-                                    <span className={cn(group.porcentaje > 90 ? "text-rose-500" : "text-foreground")}>
-                                        {group.inscritos} / {group.cupo > 0 ? group.cupo : '∞'}
-                                    </span>
-                                </div>
-                                <div className="h-2.5 bg-muted rounded-full overflow-hidden p-0.5 border border-border/20">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: group.cupo > 0 ? `${group.porcentaje}%` : '10%' }}
-                                        className={cn(
-                                            "h-full rounded-full transition-all duration-1000",
-                                            group.cupo === 0 ? "bg-indigo-300 opacity-60" :
-                                                group.porcentaje > 90 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" :
-                                                    group.porcentaje > 60 ? "bg-orange-500" : "bg-emerald-500"
-                                        )}
-                                    />
-                                </div>
-                                {group.cupo === 0 && (
-                                    <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Capacidad ilimitada</p>
+                    {filteredGroupedStats.length === 0 ? (
+                        <div className="col-span-full py-12 text-center border-2 border-dashed border-border/40 rounded-[2rem] bg-card/10">
+                            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground opacity-50">No se encontraron grupos con los filtros actuales</p>
+                        </div>
+                    ) : (
+                        filteredGroupedStats.map((group) => (
+                            <Card
+                                key={group.id}
+                                onClick={() => setSelectedGroup(selectedGroup === group.id ? null : group.id)}
+                                className={cn(
+                                    "p-4 border-border/40 cursor-pointer bg-card/50 backdrop-blur-xl relative overflow-hidden group transition-all",
+                                    group.isFull ? "border-rose-500/30 bg-rose-500/[0.02]" : "hover:border-primary/30",
+                                    selectedGroup === group.id ? "ring-2 ring-primary border-primary bg-primary/5 shadow-xl shadow-primary/10" : "scale-[0.98] opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:scale-100"
                                 )}
-                            </div>
-                        </Card>
-                    ))}
+                            >
+                                <div className="flex justify-between items-start mb-4 text-primary">
+                                    <div className="space-y-2 max-w-[75%] relative">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex -space-x-1">
+                                                <span className="z-10 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-[9px] font-black border-2 border-card">{group.sede.charAt(0)}</span>
+                                                {group.version && (
+                                                    <div className="z-20 inline-flex items-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-2 border-card shadow-md overflow-hidden h-6 transition-transform hover:scale-105 cursor-default">
+                                                        <span className="px-2.5 text-[10px] font-black tracking-widest uppercase">
+                                                            {group.version}
+                                                        </span>
+                                                        {group.gestion && (
+                                                            <span className="px-2 py-0.5 bg-black/20 text-[8px] font-bold tracking-widest italic border-l border-white/20 h-full flex items-center">
+                                                                {group.gestion}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-2 border-l-2 border-border/50">{group.codigo}</span>
+                                        </div>
+                                        <h3 className="text-[12px] font-black uppercase tracking-tight text-foreground leading-tight line-clamp-2">
+                                            {group.nombre}
+                                        </h3>
+                                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-muted/30 px-2 py-1 rounded-md inline-flex">
+                                            <MapPin className="w-3 h-3 text-primary" /> {group.sede}
+                                            <span className="w-1 h-1 rounded-full bg-border" />
+                                            <Clock className="w-3 h-3 text-indigo-500" /> {group.turno}
+                                        </div>
+                                    </div>
+                                    <div className={cn(
+                                        "px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest",
+                                        group.cupo === 0 ? "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20" :
+                                            group.isFull ? "bg-rose-500 text-white" : "bg-primary/10 text-primary border border-primary/20"
+                                    )}>
+                                        {group.cupo === 0 ? 'Ilimitado' : group.isFull ? 'Lleno' : 'Disponible'}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-black">
+                                        <span className="text-muted-foreground uppercase tracking-widest text-[8px]">Ocupación Actual</span>
+                                        <span className={cn(group.porcentaje > 90 ? "text-rose-500" : "text-foreground")}>
+                                            {group.inscritos} / {group.cupo > 0 ? group.cupo : '∞'}
+                                        </span>
+                                    </div>
+                                    <div className="h-2.5 bg-muted rounded-full overflow-hidden p-0.5 border border-border/20">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: group.cupo > 0 ? `${group.porcentaje}%` : '10%' }}
+                                            className={cn(
+                                                "h-full rounded-full transition-all duration-1000",
+                                                group.cupo === 0 ? "bg-indigo-300 opacity-60" :
+                                                    group.porcentaje > 90 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" :
+                                                        group.porcentaje > 60 ? "bg-orange-500" : "bg-emerald-500"
+                                            )}
+                                        />
+                                    </div>
+                                    {group.cupo === 0 && (
+                                        <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Capacidad ilimitada</p>
+                                    )}
+                                    {/* Botón Ver inscritos */}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedGroup(selectedGroup === group.id ? null : group.id); }}
+                                        className={cn(
+                                            "w-full mt-3 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
+                                            selectedGroup === group.id
+                                                ? "bg-primary text-white shadow-md"
+                                                : "bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                        )}
+                                    >
+                                        <Users className="w-3 h-3" />
+                                        {selectedGroup === group.id ? 'Mostrando inscritos ↓' : `Ver ${group.inscritos} inscritos`}
+                                    </button>
+                                </div>
+                            </Card>
+                        ))
+                    )}
                 </div>
             </div>
 
