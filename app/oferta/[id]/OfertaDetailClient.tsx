@@ -43,6 +43,188 @@ interface Props {
     profe: any;
 }
 
+// ─── HELPER: Validar Edad (17 a 120 años) y Calendario Real ────────────────
+export const isValidAge = (dateStr: string): { valid: boolean; error?: string } => {
+    if (!dateStr) return { valid: false, error: 'Por favor, ingresa tu fecha de nacimiento.' };
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+    const yr = Number(parts[0]);
+    const mo = Number(parts[1]);
+    const dy = Number(parts[2]);
+    if (isNaN(yr) || isNaN(mo) || isNaN(dy)) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+
+    if (mo < 1 || mo > 12) {
+        return { valid: false, error: 'El mes debe estar entre 01 y 12.' };
+    }
+
+    const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+    const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    if (dy < 1 || dy > diasPorMes[mo - 1]) {
+        return { valid: false, error: `El día ingresado (${dy}) no es válido para el mes especificado.` };
+    }
+
+    const born = new Date(yr, mo - 1, dy);
+    const now = new Date();
+    let age = now.getFullYear() - born.getFullYear();
+    const mDiff = now.getMonth() - born.getMonth();
+    if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+    if (age < 17) {
+        return { valid: false, error: 'La persona debe tener al menos 17 años de edad para registrarse.' };
+    }
+    if (age > 120) {
+        return { valid: false, error: 'Fecha de nacimiento no válida (mayor a 120 años).' };
+    }
+    return { valid: true };
+};
+
+
+// ─── COMPONENTE: Input de Fecha D/M/A (sin calendar nativo) ────────────────
+function DateInputDMY({
+    value,
+    onChange,
+    className = '',
+}: {
+    value: string;
+    onChange: (isoDate: string) => void;
+    className?: string;
+}) {
+    // Estado interno independiente: permite escritura parcial sin que el padre
+    // destruya lo escrito al recibir '' como valor incompleto.
+    const parse = (v: string) => {
+        if (!v) return { d: '', m: '', y: '' };
+        const [yr, mo, dy] = v.split('-');
+        return { d: dy ? String(Number(dy)) : '', m: mo ? String(Number(mo)) : '', y: yr || '' };
+    };
+    const init = parse(value);
+    const [d, setD] = React.useState(init.d);
+    const [m, setM] = React.useState(init.m);
+    const [y, setY] = React.useState(init.y);
+
+    // Sincronizar si el padre limpia el valor desde afuera (ej: reset del form)
+    const lastEmitted = React.useRef(value);
+    React.useEffect(() => {
+        if (value !== lastEmitted.current) {
+            lastEmitted.current = value;
+            if (!value) {
+                setD('');
+                setM('');
+                setY('');
+            } else {
+                const parsed = parse(value);
+                setD(parsed.d);
+                setM(parsed.m);
+                setY(parsed.y);
+            }
+        }
+    }, [value]);
+
+    const dayRef = React.useRef<HTMLInputElement>(null);
+    const monRef = React.useRef<HTMLInputElement>(null);
+    const yearRef = React.useRef<HTMLInputElement>(null);
+
+    const [ageError, setAgeError] = React.useState('');
+
+    const emit = (dd: string, mm: string, yy: string) => {
+        if (dd && mm && yy.length === 4) {
+            const dy = Number(dd), mo = Number(mm), yr = Number(yy);
+
+            // Validar existencia real del mes y día antes de evaluar la edad
+            if (mo < 1 || mo > 12) {
+                setAgeError('El mes debe estar entre 01 y 12.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+            const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+            const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            if (dy < 1 || dy > diasPorMes[mo - 1]) {
+                setAgeError('El día ingresado es inválido para ese mes.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+
+            const born = new Date(yr, mo - 1, dy);
+            const now = new Date();
+            let age = now.getFullYear() - born.getFullYear();
+            const mDiff = now.getMonth() - born.getMonth();
+            if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+            if (age < 17) {
+                setAgeError('La persona debe tener al menos 17 años.');
+            } else if (age > 120) {
+                setAgeError('Fecha de nacimiento inválida (más de 120 años).');
+            } else {
+                setAgeError('');
+            }
+
+            // Emitimos la fecha al padre para habilitar el botón, permitiendo al handler validar al hacer submit
+            const newVal = `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+            lastEmitted.current = newVal;
+            onChange(newVal);
+        } else {
+            setAgeError('');
+            lastEmitted.current = '';
+            onChange('');
+        }
+    };
+
+    const handleDay = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setD(n);
+        emit(n, m, y);
+        if (n.length === 2) monRef.current?.focus();
+    };
+    const handleMonth = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setM(n);
+        emit(d, n, y);
+        if (n.length === 2) yearRef.current?.focus();
+    };
+    const handleYear = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 4);
+        setY(n);
+        emit(d, m, n);
+    };
+
+    const fieldCls = 'h-14 w-full rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 outline-none font-black text-center text-slate-800 dark:text-white transition-all text-base focus:border-primary';
+
+    return (
+        <div className={`space-y-1.5 ${className}`}>
+            <div className="flex gap-1.5 items-end">
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={dayRef} type="tel" inputMode="numeric" maxLength={2}
+                        placeholder="DD" value={d} onChange={e => handleDay(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Día</span>
+                </div>
+                <span className="text-lg font-black text-slate-300 dark:text-white/20 mb-5">/</span>
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={monRef} type="tel" inputMode="numeric" maxLength={2}
+                        placeholder="MM" value={m} onChange={e => handleMonth(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Mes</span>
+                </div>
+                <span className="text-lg font-black text-slate-300 dark:text-white/20 mb-5">/</span>
+                <div className="flex-[1.6] flex flex-col gap-1">
+                    <input ref={yearRef} type="tel" inputMode="numeric" maxLength={4}
+                        placeholder="AAAA" value={y} onChange={e => handleYear(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Año</span>
+                </div>
+            </div>
+            {ageError && (
+                <p className="text-[10px] font-bold text-red-500 text-center tracking-tight flex items-center justify-center gap-1">
+                    <span>⚠</span> {ageError}
+                </p>
+            )}
+        </div>
+    );
+}
+
+
 export default function OfertaDetailClient({ initialPrograma, profe }: Props) {
     const router = useRouter();
     const [programa, setPrograma] = useState(initialPrograma);
@@ -485,9 +667,25 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
 
     const handleSearch = async () => {
         if (!ci || !fechaNacimiento) return toast.error('Complete la identificación');
+
+        const ageCheck = isValidAge(fechaNacimiento);
+        if (!ageCheck.valid) {
+            toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
+            return;
+        }
+
+        let ciLimpio = ci.trim();
+        let compLimpio = complemento.trim();
+
+        if (ciLimpio.includes('-')) {
+            const [c, co] = ciLimpio.split('-');
+            ciLimpio = c;
+            compLimpio = co;
+        }
+
         setIsSearching(true);
         try {
-            const data = await publicService.checkPersonaByDate(ci.trim(), fechaNacimiento, complemento.trim() || undefined, programa.id);
+            const data = await publicService.checkPersonaByDate(ciLimpio, fechaNacimiento, compLimpio || undefined, programa.id);
 
             if (data?.alreadyEnrolled) {
                 // REDIRECCIÓN A ÉXITO (MODO COMPROBANTE)
@@ -674,11 +872,17 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Número de Identidad (CI)</label>
-                                <input value={ci} onChange={e => setCi(e.target.value)} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-xl font-black focus:border-primary outline-none transition-all" placeholder="0000000" />
+                                <input value={ci} onChange={e => setCi(e.target.value)} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-xl font-black focus:border-primary outline-none transition-all" placeholder="Ej. 1234567 o 1234567-1B" />
+                                <p className="text-[9px] text-slate-400/80 font-bold uppercase tracking-tight pl-2">
+                                    Si tu CI tiene complemento, usa un guion (ej: 32165415-1B)
+                                </p>
                             </div>
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Fecha de Nacimiento</label>
-                                <input type="date" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} className="w-full h-16 px-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-base font-black focus:border-primary outline-none transition-all" />
+                                <DateInputDMY
+                                    value={fechaNacimiento}
+                                    onChange={v => setFechaNacimiento(v)}
+                                />
                             </div>
                             <button onClick={handleSearch} disabled={isSearching} className="w-full h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[11px] hover:brightness-110 active:scale-95 shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-4">
                                 {isSearching ? <Loader2 className="animate-spin h-5 w-5" /> : <Search className="h-5 w-5" />}
@@ -1137,7 +1341,7 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                         <div className="space-y-0.5">
                                             <p className="font-black text-[10px] uppercase tracking-widest text-amber-600">Registro Detectado</p>
                                             <p className="text-[11px] text-slate-500 leading-tight font-bold">
-                                                {personaFound 
+                                                {personaFound
                                                     ? "Usted ya se encuentra registrado en este programa académico."
                                                     : "Su registro e inscripción han sido procesados con éxito."}
                                             </p>
@@ -1272,8 +1476,8 @@ function InscripcionModal({ programa, onClose, brandColor }: { programa: any; on
                                 )}
                             </div>
 
-                            <button 
-                                onClick={onClose} 
+                            <button
+                                onClick={onClose}
                                 className="w-full h-14 sm:h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-[11px] hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/20"
                             >
                                 {isConfirmed ? 'Finalización Exitosa' : 'Cerrar Ventana'}

@@ -19,6 +19,7 @@ import publicService from '@/services/publicService';
 import Link from 'next/link';
 import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import YouTube from 'react-youtube';
+import React from 'react';
 
 // ─── TYPES ─────────────────────────────────────────────────────────────────
 type TipoPreg = 'SINGLE' | 'MULTIPLE' | 'TRUE_FALSE' | 'TEXTO';
@@ -121,9 +122,7 @@ function Timer_Cuestionario({ segundos, startTime, onExpire }: { segundos: numbe
     );
 }
 
-// ─── DESCARGO COMPONENT CON QR Y BARCODE ────────────────────────────────────
-function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionarioActivo }: any) {
-    const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionarioActivo, onBackToStart, onRegisterOther, onLogout }: any) {
     const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
     const fecha = new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
     const hora = new Date().toLocaleTimeString('es-BO');
@@ -131,67 +130,53 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
     const tipoConfig = {
         inscripcion: {
             label: 'Comprobante de Inscripción',
-            icon: <CheckCircle2 className="w-7 h-7 text-blue-600 dark:text-blue-500" />,
-            bgColor: 'bg-blue-600',
-            bgLight: 'bg-blue-50 dark:bg-blue-900/20',
-            borderColor: 'border-blue-200 dark:border-blue-800',
-            textColor: 'text-blue-600 dark:text-blue-500',
-            printHex: '#2563eb',
-            printBgHex: '#eff6ff'
+            accentHex: 'var(--primary)',
+            bgAccent: 'bg-primary',
+            bgLight: 'bg-primary/5 dark:bg-primary/10',
+            borderColor: 'border-primary/20 dark:border-primary/30',
+            textColor: 'text-primary dark:text-primary-400',
+            badgeBg: 'bg-primary',
+            printHex: '#1577a8',
+            printBgHex: '#f0f9ff'
         },
         asistencia: {
             label: 'Comprobante de Asistencia',
-            icon: <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-500" />,
-            bgColor: 'bg-emerald-600',
-            bgLight: 'bg-emerald-50 dark:bg-emerald-900/20',
+            accentHex: '#064e3b',
+            bgAccent: 'bg-emerald-900 dark:bg-emerald-800',
+            bgLight: 'bg-emerald-50 dark:bg-emerald-950/40',
             borderColor: 'border-emerald-200 dark:border-emerald-800',
-            textColor: 'text-emerald-600 dark:text-emerald-500',
-            printHex: '#059669',
+            textColor: 'text-emerald-900 dark:text-emerald-400',
+            badgeBg: 'bg-emerald-900 dark:bg-emerald-800',
+            printHex: '#064e3b',
             printBgHex: '#f0fdf4'
         },
         cuestionario: {
             label: 'Certificado de Evaluación',
-            icon: <Trophy className="w-7 h-7 text-amber-600 dark:text-amber-500" />,
-            bgColor: 'bg-amber-600',
-            bgLight: 'bg-amber-50 dark:bg-amber-900/20',
-            borderColor: 'border-amber-200 dark:border-amber-800',
-            textColor: 'text-amber-600 dark:text-amber-500',
-            printHex: '#d97706',
-            printBgHex: '#fffbeb'
+            accentHex: '#7f1d1d',
+            bgAccent: 'bg-red-900 dark:bg-red-800',
+            bgLight: 'bg-red-50 dark:bg-red-950/40',
+            borderColor: 'border-red-200 dark:border-red-800',
+            textColor: 'text-red-900 dark:text-red-400',
+            badgeBg: 'bg-red-900 dark:bg-red-800',
+            printHex: '#7f1d1d',
+            printBgHex: '#fef2f2'
         }
     };
 
     const config = tipoConfig[tipo as keyof typeof tipoConfig] || tipoConfig.inscripcion;
     const tipoLabel = config.label;
 
-    const urlVerificacion = typeof window !== 'undefined'
-        ? `${window.location.origin}/evento/${evento?.codigo || evento?.id}`
-        : '';
-
-    // Generar QR en canvas
-    useEffect(() => {
-        if (!qrCanvasRef.current || !urlVerificacion) return;
-        import('qrcode').then(QRCode => {
-            QRCode.toCanvas(qrCanvasRef.current, urlVerificacion, {
-                width: 120,
-                margin: 1,
-                color: { dark: '#000000', light: '#ffffff' }
-            });
-        });
-    }, [urlVerificacion]);
-
-    // Generar Barcode (CI) en canvas
     useEffect(() => {
         if (!barcodeCanvasRef.current || !persona?.ci) return;
         import('jsbarcode').then(({ default: JsBarcode }) => {
             JsBarcode(barcodeCanvasRef.current, String(persona.ci), {
                 format: 'CODE128',
-                width: 1.8,
-                height: 50,
+                width: 4.8,
+                height: 100,
                 displayValue: true,
-                fontSize: 12,
+                fontSize: 14,
                 textMargin: 4,
-                margin: 8,
+                margin: 6,
                 background: '#ffffff',
                 lineColor: '#000000',
             });
@@ -199,18 +184,10 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
     }, [persona?.ci]);
 
     const handlePrint = () => {
-        const el = document.getElementById('descargo-print');
-        if (!el) return;
-
-        // Capturar los canvas como imágenes base64 ANTES de abrir la ventana
-        const qrCanvas = qrCanvasRef.current;
         const barcodeCanvas = barcodeCanvasRef.current;
-        const qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : '';
         const barcodeDataUrl = barcodeCanvas ? barcodeCanvas.toDataURL('image/png') : '';
 
-        // Reemplazar los <canvas> por <img> con su dataURL
-        // (los canvas no se imprimen en ventanas nuevas)
-        const win = window.open('', '_blank', 'width=800,height=900');
+        const win = window.open('', '_blank', 'width=820,height=1000');
         if (!win) { window.print(); return; }
 
         win.document.documentElement.innerHTML = `
@@ -219,194 +196,429 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 <head>
   <meta charset="UTF-8" />
   <meta name="color-scheme" content="light">
-  <title>Comprobante PROFE - ${tipoLabel}</title>
+  <title>${tipoLabel} — PROFE Bolivia</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    body { font-family: 'Arial', sans-serif; background: white !important; color: #111 !important; padding: 32px; max-width: 700px; margin: 0 auto; }
-    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
-    .header-left { display: flex; align-items: center; gap: 16px; }
-    .icon-box { width: 52px; height: 52px; background: ${config.printBgHex}; border: 1px solid ${config.printHex}33; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: ${config.printHex}; }
-    .title { font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; color: ${config.printHex}; }
-    .subtitle { font-size: 11px; color: #64748b; margin-top: 2px; text-transform: uppercase; font-weight: bold; }
-    .qr-img { width: 90px; height: 90px; border: 1px solid #e2e8f0; border-radius: 10px; }
-    .qr-label { font-size: 8px; text-align: center; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; margin-top: 4px; font-weight: 700; }
-    .participante-box { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
-    .label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; }
-    .value { font-weight: 800; color: #0f172a; margin-top: 3px; font-size: 14px; }
-    .value.big { font-size: 18px; text-transform: uppercase; color: #000; }
-    .value.mono { font-family: monospace; font-size: 24px; font-weight: 900; letter-spacing: -1px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
-    .field { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
-    .aprobado { color: #16a34a; font-size: 20px; font-weight: 900; margin-top: 3px; }
-    .reprobado { color: #dc2626; font-size: 20px; font-weight: 900; margin-top: 3px;}
-    .barcode-section { border-top: 2px dashed #cbd5e1; padding-top: 20px; text-align: center; margin-top: 24px; }
-    .barcode-img { max-width: 100%; height: auto; border: 1px solid #e2e8f0; padding: 8px; border-radius: 8px; background: white; }
-    .footer { text-align: center; font-size: 10px; color: #64748b; margin-top: 16px; line-height: 1.6; }
-    .footer-highlight { font-weight: bold; color: ${config.printHex}; }
-    @media print { body { padding: 16px; } }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { font-family: 'Arial', sans-serif; background: #f1f5f9; color: #1e293b; }
+    .page { max-width: 740px; margin: 24px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+    .stripe { height: 8px; background: linear-gradient(90deg, ${config.printHex} 60%, ${config.printHex}99 100%); }
+    .header { background: ${config.printHex}; padding: 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .header-left { color: white; }
+    .org { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; margin-bottom: 6px; }
+    .doc-title { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1.1; }
+    .doc-sub { font-size: 11px; opacity: 0.75; margin-top: 6px; font-weight: 600; }
+    .body { padding: 28px; }
+    .participant-strip { background: ${config.printBgHex}; border-left: 4px solid ${config.printHex}; border-radius: 6px; padding: 14px 18px; margin-bottom: 20px; }
+    .p-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: ${config.printHex}; margin-bottom: 4px; }
+    .p-name { font-size: 20px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: -0.5px; }
+    .p-ci { font-size: 13px; font-family: monospace; font-weight: 700; color: #475569; margin-top: 2px; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+    .f-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; margin-bottom: 4px; }
+    .f-value { font-size: 13px; font-weight: 800; color: #1e293b; }
+    .f-value.accent { color: ${config.printHex}; }
+    .f-value.mono { font-family: monospace; font-size: 11px; word-break: break-all; }
+    .score-box { background: ${config.printBgHex}; border: 2px solid ${config.printHex}33; border-radius: 10px; padding: 16px; text-align: center; grid-column: 1 / -1; }
+    .score-num { font-size: 40px; font-weight: 900; color: ${config.printHex}; line-height: 1; }
+    .barcode-section { border-top: 1px dashed #cbd5e1; padding-top: 16px; text-align: center; }
+    .barcode-img { max-width: 480px; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; background: white; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .footer-text { font-size: 9px; color: #94a3b8; font-weight: 600; line-height: 1.5; }
+    .footer-badge { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: ${config.printHex}; border: 1px solid ${config.printHex}33; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+    @media print { body { background: white; } .page { margin: 0; border-radius: 0; box-shadow: none; } }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-left">
-      <div class="icon-box">✓</div>
-      <div>
-        <div class="title">${tipoLabel}</div>
-        <div class="subtitle">Sistema de Gestión Académica - PROFE</div>
+  <div class="page">
+    <div class="stripe"></div>
+    <div class="header">
+      <div class="header-left">
+        <div class="doc-title">${tipoLabel}</div>
+        <div class="doc-sub">Sistema de Gestión Académica PROFE · ${fecha}</div>
       </div>
     </div>
-    ${qrDataUrl ? `<div><img class="qr-img" src="${qrDataUrl}" alt="QR"/><div class="qr-label">Verificar</div></div>` : ''}
+    <div class="body">
+      <div class="participant-strip">
+        <div class="p-label">Participante / Titular</div>
+        <div class="p-name">${(persona?.nombre1 || '')} ${(persona?.nombre2 || '')} ${(persona?.apellido1 || '')} ${(persona?.apellido2 || '')}</div>
+        <div class="p-ci">C.I. ${persona?.ci || ''}</div>
+        ${(() => {
+                if (!persona?.fechaNacimiento) return '';
+                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
+                const localDate = new Date(y, m - 1, d);
+                return `<div class="p-ci" style="margin-top: 2px;">F. Nac. ${localDate.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })}</div>`;
+            })()}
+      </div>
+      <div class="fields">
+        <div class="field"><div class="f-label">Evento</div><div class="f-value">${evento?.nombre || ''}</div></div>
+        <div class="field"><div class="f-label">Tipo / Categoría</div><div class="f-value accent">${evento?.tipo?.nombre || 'Evento'}</div></div>
+        <div class="field"><div class="f-label">Fecha del Evento</div><div class="f-value">${formatDate(evento?.fecha)}</div></div>
+        <div class="field"><div class="f-label">Tipo de Documento</div><div class="f-value accent">${tipoLabel}</div></div>
+        ${resultado && !resultado.offline ? `
+        <div class="score-box">
+          <div class="f-label" style="margin-bottom:8px">Resultado de Evaluación — ${resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}</div>
+          <div class="score-num">${Math.min(resultado.nota ?? 0, 100)}<span style="font-size:20px;opacity:0.4"> / 100</span></div>
+          <div style="font-size:11px;color:#64748b;margin-top:6px">${resultado.puntaje} puntos obtenidos de ${resultado.puntajeMaximo}</div>
+        </div>` : ''}
+        <div class="field"><div class="f-label">Fecha de Emisión</div><div class="f-value">${fecha} · ${hora}</div></div>
+        ${inscripcionId ? `<div class="field"><div class="f-label">Código de Verificación</div><div class="f-value mono">${inscripcionId}</div></div>` : ''}
+      </div>
+      ${barcodeDataUrl ? `<div class="barcode-section"><div class="f-label" style="margin-bottom:10px">Identificación Única — Cédula de Identidad</div><img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode"/></div>` : ''}
+    </div>
+    <div class="footer">
+      <div class="footer-text">Documento oficial de inscripción generado automáticamente por el Sistema PROFE Bolivia.</div>
+      <div class="footer-badge">✓ Documento Oficial</div>
+    </div>
   </div>
-
-  <div class="participante-box">
-    <div class="label">Participante / Titular</div>
-    <div class="value big">${(persona?.nombre1 || '')} ${(persona?.nombre2 || '')} ${(persona?.apellido1 || '')} ${(persona?.apellido2 || '')}</div>
-  </div>
-
-  <div class="grid">
-    <div class="field"><div class="label">Cédula de Identidad</div><div class="value mono">${persona?.ci || ''}</div></div>
-    <div class="field"><div class="label">Evento</div><div class="value">${evento?.nombre || ''}</div></div>
-    <div class="field"><div class="label">Categoría de Evento</div><div class="value" style="color: ${config.printHex}; font-weight: 900;">${evento?.tipo?.nombre || 'Evento'}</div></div>
-    <div class="field"><div class="label">Fecha del evento</div><div class="value">${formatDate(evento?.fecha)}</div></div>
-    ${resultado && !resultado.offline ? `
-    <div class="field"><div class="label">Puntaje / Desempeño</div><div class="value mono">${resultado.puntaje} de ${resultado.puntajeMaximo} puntos</div></div>
-    <div class="field"><div class="label">Nota Final</div><div class="value" style="font-size: 20px; font-weight: 900;">${resultado.nota} / 100</div></div>
-    ` : ''}
-    <div class="field"><div class="label">Fecha de Emisión</div><div class="value">${fecha} · ${hora}</div></div>
-    ${inscripcionId ? `<div class="field"><div class="label">Código de Verificación</div><div class="value" style="font-size:11px;word-break:break-all; font-family: monospace;">${inscripcionId}</div></div>` : ''}
-  </div>
-
-  ${barcodeDataUrl ? `
-  <div class="barcode-section">
-    <div class="label" style="margin-bottom:12px">Identificación Única de Titular (Código de Barras)</div>
-    <img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode CI" />
-  </div>` : ''}
-
-  <div class="footer">
-    Este documento es un comprobante oficial generado automáticamente.<br/>
-    Escanea el código QR para validar la autenticidad de este documento en la plataforma <span class="footer-highlight">PROFE</span>.
-  </div>
-
   <script>window.onload = function() { window.print(); }<\/script>
 </body>
-            </html>`;
+</html>`;
         win.document.close();
     };
 
     return (
-        <div className="space-y-6">
+        <div className="w-full space-y-4">
+            {/* ── DOCUMENTO ── */}
             <div
                 id="descargo-print"
-                className={`bg-card border-2 ${config.borderColor} rounded-3xl p-8 space-y-6 shadow-xl shadow-black/5 print:border-slate-300 print:bg-white print:rounded-none print:shadow-none transition-colors duration-500`}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-2xl shadow-black/10 print:rounded-none print:shadow-none"
             >
-                {/* Header */}
-                <div className="flex items-center justify-between gap-4 border-b border-border pb-6">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl ${config.bgLight} border ${config.borderColor} flex items-center justify-center`}>
-                            {config.icon}
-                        </div>
-                        <div>
-                            <h2 className={`text-xl font-black uppercase tracking-tight ${config.textColor}`}>
+                {/* Stripe superior */}
+                <div className={`h-2 ${config.bgAccent}`} />
+
+                {/* Header institucional */}
+                <div className={`${config.bgAccent} px-5 py-6 sm:px-8 sm:py-8`}>
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-2xl font-black uppercase text-white tracking-tight leading-tight">
                                 {tipoLabel}
                             </h2>
-                            <p className="text-xs text-muted-foreground font-black uppercase tracking-widest mt-1">PROFE — Sistema de Gestión Académica</p>
                         </div>
-                    </div>
-                    {/* QR code */}
-                    <div className="shrink-0 text-center bg-white p-1.5 rounded-xl border border-border shadow-sm">
-                        <canvas ref={qrCanvasRef} className="w-[90px] h-[90px] rounded-xl border border-border bg-white" />
-                        <p className="text-[8px] text-muted-foreground mt-1 font-bold uppercase tracking-widest">Verificar</p>
                     </div>
                 </div>
 
-                {/* Datos principales */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-                    <div className="md:col-span-2 p-4 rounded-2xl bg-muted/30 border border-border">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Participante</span>
-                        <p className="font-black text-foreground uppercase text-lg mt-0.5">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                    {/* Participante — franja destacada */}
+                    <div className={`${config.bgLight} border-l-4 ${config.borderColor} rounded-r-xl px-4 py-3 sm:px-5 sm:py-4`}>
+                        <p className={`text-[9px] font-black uppercase tracking-[0.25em] ${config.textColor} mb-1`}>
+                            Participante / Titular
+                        </p>
+                        <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
                             {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
                         </p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">C.I.</span>
-                        <p className="font-black text-foreground text-2xl font-mono">{persona?.ci}</p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Evento</span>
-                        <p className="font-bold text-foreground">{evento?.nombre}</p>
-                    </div>
-
-                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Comprobante</span>
-                        <p className={`font-black uppercase text-sm ${config.textColor}`}>{tipoLabel}</p>
-                    </div>
-
-                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Fecha del evento</span>
-                        <p className="font-bold text-foreground text-sm">{formatDate(evento?.fecha)}</p>
-                    </div>
-
-                    {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
-                        <div className="md:col-span-2 p-6 rounded-[2rem] bg-primary/5 border-2 border-primary/10 flex flex-col items-center gap-2 text-center">
-                            <div className="mb-2">
-                                <span className="text-[9px] font-black uppercase text-primary/50 tracking-[0.2em]">Cuestionario:</span>
-                                <p className="text-xs font-black uppercase text-primary tracking-tight">{resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}</p>
-                            </div>
-                            <span className="text-[10px] font-black uppercase text-primary/60 tracking-[0.2em]">Resultado de Evaluación</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-black text-primary">{Math.min(resultado.nota ?? 0, 100)}</span>
-                                <span className="text-xl font-bold text-primary/40">/ 100</span>
-                            </div>
-                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
-                                {resultado.puntaje} puntos obtenidos de un total de {resultado.puntajeMaximo}
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
+                            <p className="text-xs sm:text-sm font-mono font-bold text-slate-500 dark:text-slate-400">
+                                C.I. {persona?.ci}
                             </p>
+                            {persona?.fechaNacimiento && (() => {
+                                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
+                                const localDate = new Date(y, m - 1, d);
+                                return (
+                                    <p className="text-xs sm:text-sm font-mono font-bold text-slate-500 dark:text-slate-400">
+                                        Nac. {localDate.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </p>
+                                );
+                            })()}
                         </div>
-                    )}
-
-                    <div className="space-y-1 bg-muted/30 p-3 rounded-xl border border-border">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Emitido el</span>
-                        <p className="font-bold text-foreground text-sm">{fecha} · {hora}</p>
                     </div>
 
-                    {inscripcionId && (
-                        <div className="space-y-1">
-                            <span className="text-[10px] font-black uppercase text-muted-foreground">Código de verificación</span>
-                            <p className="font-black text-foreground font-mono text-[11px] break-all">{inscripcionId}</p>
+                    {/* Grid de campos */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Evento</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-white leading-snug">{evento?.nombre}</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Tipo / Categoría</p>
+                            <p className={`text-sm font-black uppercase ${config.textColor}`}>{evento?.tipo?.nombre || 'Evento'}</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Fecha del Evento</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-white">{formatDate(evento?.fecha)}</p>
+                        </div>
+                        <div className={`${config.bgLight} border ${config.borderColor} rounded-xl p-3 sm:p-4`}>
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Tipo de Documento</p>
+                            <p className={`text-sm font-black uppercase ${config.textColor}`}>{tipoLabel}</p>
+                        </div>
+
+                        {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
+                            <div className={`col-span-1 sm:col-span-2 ${config.bgLight} border-2 ${config.borderColor} rounded-2xl p-5 flex flex-col items-center text-center gap-2`}>
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                    {resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}
+                                </p>
+                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Resultado de Evaluación</p>
+                                <div className="flex items-baseline gap-1">
+                                    <span className={`text-5xl font-black ${config.textColor}`}>{Math.min(resultado.nota ?? 0, 100)}</span>
+                                    <span className="text-2xl font-bold text-slate-300">/ 100</span>
+                                </div>
+                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                                    {resultado.puntaje} de {resultado.puntajeMaximo} puntos
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Fecha de Emisión</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-white">{fecha}</p>
+                            <p className="text-xs text-slate-400 font-mono">{hora}</p>
+                        </div>
+
+                        {inscripcionId && (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Código de Verificación</p>
+                                <p className="font-mono text-[10px] font-bold text-slate-600 dark:text-slate-300 break-all leading-relaxed">{inscripcionId}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Código de barras — CI */}
+                    {persona?.ci && (
+                        <div className="border-t border-dashed border-slate-200 dark:border-slate-700 pt-4 flex flex-col items-center gap-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400 flex items-center gap-1.5">
+                                <CreditCard className="w-3 h-3" />
+                                Identificación Única — Cédula de Identidad
+                            </p>
+                            <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 overflow-x-auto max-w-full flex justify-center">
+                                <canvas ref={barcodeCanvasRef} className="w-full max-w-[440px] h-auto mx-auto" />
+                            </div>
                         </div>
                     )}
-                </div>
 
-                {/* Barcode del CI */}
-                {persona?.ci && (
-                    <div className="border-t border-border pt-5 flex flex-col items-center gap-2">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                            <CreditCard className="w-3 h-3" />
-                            Código de barras — Cédula de Identidad
+                    {/* Footer institucional */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <p className="text-[10px] text-slate-400 text-center sm:text-left leading-relaxed">
+                            Documento oficial de inscripción generado automáticamente por el Sistema PROFE Bolivia.
                         </p>
-                        <div className="bg-white rounded-xl p-2 border border-border">
-                            <canvas ref={barcodeCanvasRef} />
+                        <div className={`shrink-0 px-3 py-1.5 rounded-full border ${config.borderColor} ${config.bgLight}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${config.textColor}`}>✓ Documento Oficial</span>
                         </div>
                     </div>
-                )}
-
-                <div className="border-t border-border pt-4 text-center text-[11px] text-muted-foreground leading-relaxed">
-                    Este documento es un comprobante oficial generado automáticamente por el Sistema PROFE Bolivia.
-                    Escanea el código QR para verificar el evento en línea.
                 </div>
             </div>
 
-            <button
-                onClick={handlePrint}
-                className={`w-full h-14 rounded-2xl ${config.bgColor} text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-black/10`}
-            >
-                <Download className="w-4 h-4" />
-                Imprimir / Guardar PDF
-            </button>
+            {/* Acciones del Comprobante */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <button
+                    onClick={handlePrint}
+                    className={`col-span-1 sm:col-span-2 h-14 rounded-2xl ${config.bgAccent} text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-black/10`}
+                >
+                    <Download className="w-4 h-4" />
+                    Imprimir / Guardar PDF
+                </button>
+
+                {onBackToStart && (
+                    <button
+                        onClick={onBackToStart}
+                        className="h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all border border-slate-200 dark:border-slate-700"
+                    >
+                        Volver al Inicio del Evento
+                    </button>
+                )}
+
+                {onRegisterOther && (
+                    <button
+                        onClick={onRegisterOther}
+                        className="h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all border border-slate-200 dark:border-slate-700"
+                    >
+                        Registrar otro
+                    </button>
+                )}
+
+                {onLogout && (
+                    <button
+                        onClick={onLogout}
+                        className="col-span-1 sm:col-span-2 h-12 rounded-2xl bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-950/40 active:scale-95 transition-all border border-red-200 dark:border-red-900/30"
+                    >
+                        Salir / Cerrar Sesión
+                    </button>
+                )}
+            </div>
         </div>
     );
 }
+
+
+// ─── HELPER: Validar Edad (15 a 130 años) y Calendario Real ────────────────
+export const isValidAge = (dateStr: string): { valid: boolean; error?: string } => {
+    if (!dateStr) return { valid: false, error: 'Por favor, ingresa tu fecha de nacimiento.' };
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+    const yr = Number(parts[0]);
+    const mo = Number(parts[1]);
+    const dy = Number(parts[2]);
+    if (isNaN(yr) || isNaN(mo) || isNaN(dy)) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+
+    if (mo < 1 || mo > 12) {
+        return { valid: false, error: 'El mes debe estar entre 01 y 12.' };
+    }
+
+    const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+    const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    if (dy < 1 || dy > diasPorMes[mo - 1]) {
+        return { valid: false, error: `El día ingresado (${dy}) no es válido para el mes especificado.` };
+    }
+
+    const born = new Date(yr, mo - 1, dy);
+    const now = new Date();
+    let age = now.getFullYear() - born.getFullYear();
+    const mDiff = now.getMonth() - born.getMonth();
+    if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+    if (age < 17) {
+        return { valid: false, error: 'La persona debe tener al menos 17 años de edad para registrarse.' };
+    }
+    if (age > 120) {
+        return { valid: false, error: 'Fecha de nacimiento no válida (mayor a 120 años).' };
+    }
+    return { valid: true };
+};
+
+
+// ─── COMPONENTE: Input de Fecha D/M/A (sin calendar nativo) ────────────────
+function DateInputDMY({
+    value,
+    onChange,
+    className = '',
+}: {
+    value: string;
+    onChange: (isoDate: string) => void;
+    className?: string;
+}) {
+    // Estado interno independiente: permite escritura parcial sin que el padre
+    // destruya lo escrito al recibir '' como valor incompleto.
+    const parse = (v: string) => {
+        if (!v) return { d: '', m: '', y: '' };
+        const [yr, mo, dy] = v.split('-');
+        return { d: dy ? String(Number(dy)) : '', m: mo ? String(Number(mo)) : '', y: yr || '' };
+    };
+    const init = parse(value);
+    const [d, setD] = React.useState(init.d);
+    const [m, setM] = React.useState(init.m);
+    const [y, setY] = React.useState(init.y);
+
+    // Sincronizar si el padre limpia el valor desde afuera (ej: reset del form)
+    const lastEmitted = React.useRef(value);
+    React.useEffect(() => {
+        if (value !== lastEmitted.current) {
+            lastEmitted.current = value;
+            if (!value) {
+                setD('');
+                setM('');
+                setY('');
+            } else {
+                const parsed = parse(value);
+                setD(parsed.d);
+                setM(parsed.m);
+                setY(parsed.y);
+            }
+        }
+    }, [value]);
+
+    const dayRef = React.useRef<HTMLInputElement>(null);
+    const monRef = React.useRef<HTMLInputElement>(null);
+    const yearRef = React.useRef<HTMLInputElement>(null);
+
+    const [ageError, setAgeError] = React.useState('');
+
+    const emit = (dd: string, mm: string, yy: string) => {
+        if (dd && mm && yy.length === 4) {
+            const dy = Number(dd), mo = Number(mm), yr = Number(yy);
+
+            // Validar existencia real del mes y día antes de evaluar la edad
+            if (mo < 1 || mo > 12) {
+                setAgeError('El mes debe estar entre 01 y 12.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+            const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+            const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            if (dy < 1 || dy > diasPorMes[mo - 1]) {
+                setAgeError('El día ingresado es inválido para ese mes.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+
+            const born = new Date(yr, mo - 1, dy);
+            const now = new Date();
+            let age = now.getFullYear() - born.getFullYear();
+            const mDiff = now.getMonth() - born.getMonth();
+            if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+            if (age < 15) {
+                setAgeError('La persona debe tener al menos 15 años.');
+            } else if (age > 130) {
+                setAgeError('Fecha de nacimiento inválida (más de 130 años).');
+            } else {
+                setAgeError('');
+            }
+
+            // Emitimos la fecha al padre para habilitar el botón, permitiendo al handler validar al hacer submit
+            const newVal = `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+            lastEmitted.current = newVal;
+            onChange(newVal);
+        } else {
+            setAgeError('');
+            lastEmitted.current = '';
+            onChange('');
+        }
+    };
+
+    const handleDay = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setD(n);
+        emit(n, m, y);
+        if (n.length === 2) monRef.current?.focus();
+    };
+    const handleMonth = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setM(n);
+        emit(d, n, y);
+        if (n.length === 2) yearRef.current?.focus();
+    };
+    const handleYear = (v: string) => {
+        const n = v.replace(/\D/g, '').slice(0, 4);
+        setY(n);
+        emit(d, m, n);
+    };
+
+    const fieldCls = 'h-14 w-full rounded-xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-black text-center text-foreground transition-all text-base';
+
+    return (
+        <div className={`space-y-1.5 ${className}`}>
+            <div className="flex gap-1.5 items-end">
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={dayRef} type="tel" inputMode="numeric" maxLength={2}
+                        placeholder="DD" value={d} onChange={e => handleDay(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest text-center">Día</span>
+                </div>
+                <span className="text-lg font-black text-muted-foreground/30 mb-5">/</span>
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={monRef} type="tel" inputMode="numeric" maxLength={2}
+                        placeholder="MM" value={m} onChange={e => handleMonth(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest text-center">Mes</span>
+                </div>
+                <span className="text-lg font-black text-muted-foreground/30 mb-5">/</span>
+                <div className="flex-[1.6] flex flex-col gap-1">
+                    <input ref={yearRef} type="tel" inputMode="numeric" maxLength={4}
+                        placeholder="AAAA" value={y} onChange={e => handleYear(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest text-center">Año</span>
+                </div>
+            </div>
+            {ageError && (
+                <p className="text-[10px] font-bold text-red-500 text-center tracking-tight flex items-center justify-center gap-1">
+                    <span>⚠</span> {ageError}
+                </p>
+            )}
+        </div>
+    );
+}
+
 
 // ─── MAIN PAGE ───────────────────────────────────────────────────────────────
 export default function EventoPublicoPage() {
@@ -484,16 +696,29 @@ export default function EventoPublicoPage() {
 
     // Handle query params
     useEffect(() => {
+        if (!evento) return; // esperar a que cargue el evento
         const stepParam = searchParams.get('step');
         const codeParam = searchParams.get('code');
 
         if (stepParam === 'asistencia') {
+            if (!evento.asistencia || !evento.codigoAsistencia) {
+                // Asistencia desactivada o sin código activo: no mostrar el formulario, volver a info
+                setStep('info');
+                if (typeof window !== 'undefined') {
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+                return;
+            }
             setStep('asistencia');
             if (codeParam) {
                 setForm(prev => ({ ...prev, codigoAsistencia: codeParam.toUpperCase() }));
             }
+            // Limpiar query params de la URL para que recargar la página mande al principal
+            if (typeof window !== 'undefined') {
+                window.history.replaceState(null, '', window.location.pathname);
+            }
         }
-    }, [searchParams]);
+    }, [searchParams, evento]);
     const [persona, setPersona] = useState<any>(null);
     const [inscripcion, setInscripcion] = useState<any>(null);
     const [progreso, setProgreso] = useState<any[]>([]);
@@ -590,11 +815,13 @@ export default function EventoPublicoPage() {
     const [confirmInscripcionModal, setConfirmInscripcionModal] = useState(false);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [inscripcionCerradaModal, setInscripcionCerradaModal] = useState(false);
+    const [asistenciaErrorModal, setAsistenciaErrorModal] = useState(false);
+    const [asistenciaErrorMsg, setAsistenciaErrorMsg] = useState('');
 
 
     // Helper centralizado para determinar si un paso está completado (Senior Pattern: Single Source of Truth)
     const isStepFinished = useCallback((cId: string) => {
-        const c = evento?.cuestionarios.find((x: any) => x.id === cId);
+        const c = evento?.cuestionarios?.find((x: any) => x.id === cId);
         if (!c) return false;
         const p = progreso?.find((x: any) => x.id === cId);
         const sinPreguntas = (!c.cantidadPreguntas || c.cantidadPreguntas === 0) && (!c.preguntas || c.preguntas.length === 0);
@@ -896,6 +1123,12 @@ export default function EventoPublicoPage() {
     const handleBuscarPersona = async () => {
         if (!form.ci || !form.fechaNacimiento) return;
 
+        const ageCheck = isValidAge(form.fechaNacimiento);
+        if (!ageCheck.valid) {
+            toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
+            return;
+        }
+
         let ciLimpio = form.ci;
         let compLimpio = form.complemento;
 
@@ -1016,7 +1249,11 @@ export default function EventoPublicoPage() {
 
             // Si intenta hacer cuestionario sin estar inscrito
             if (cuestionarioActivo) {
-                toast.error('Debes estar inscrito para realizar esta evaluación.');
+                toast.error('¡Aún no estás inscrito!', {
+                    description: 'Debes registrarte en este evento.',
+                    className: 'p-4 text-sm font-bold border-2 border-red-500/20 shadow-xl',
+                    duration: 6000
+                });
                 // No retornamos aquí para dejar que siga al flujo de inscripción abajo
             }
 
@@ -1070,6 +1307,12 @@ export default function EventoPublicoPage() {
 
     const handleInscribirse = async () => {
         if (!evento) return;
+
+        const ageCheck = isValidAge(form.fechaNacimiento);
+        if (!ageCheck.valid) {
+            toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
+            return;
+        }
 
         const nuevosErrores: Record<string, boolean> = {};
 
@@ -1144,11 +1387,23 @@ export default function EventoPublicoPage() {
             if (cuestionarioActivo && !isEditingProfile) {
                 handleEmpezarCuestionario(cuestionarioActivo);
                 toast.success('¡Inscripción exitosa! Iniciando evaluación...');
+            } else if (!isEditingProfile) {
+                const tieneCuestionarios = evt?.cuestionarios && evt.cuestionarios.length > 0;
+                if (tieneCuestionarios) {
+                    // Hay evaluaciones disponibles: regresar al portal
+                    setStep('info');
+                    toast.success('¡Registro completado con éxito! Ya puedes realizar tus evaluaciones.');
+                } else {
+                    // Sin cuestionarios: mostrar comprobante de inscripción directamente
+                    setStep('descargo');
+                    toast.success('¡Registro completado con éxito! Aquí está tu comprobante de inscripción.');
+                }
             } else {
+                // Edición de perfil
                 setStep('info');
-                toast.success(isEditingProfile ? '¡Tus datos han sido actualizados con éxito!' : '¡Registro completado con éxito! Ya puedes realizar tus evaluaciones.');
+                toast.success('¡Tus datos han sido actualizados con éxito!');
+                setIsEditingProfile(false);
             }
-            if (isEditingProfile) setIsEditingProfile(false);
         } catch (e: any) {
             if (e?.response?.data?.message?.includes('inscrito')) {
                 // Ya inscrito
@@ -1168,8 +1423,19 @@ export default function EventoPublicoPage() {
     const handleRegistrarAsistencia = async () => {
         if (!evento) return;
 
+        if (!evento.asistencia || !evento.codigoAsistencia) {
+            toast.error('El registro de asistencia no está activo para este evento.');
+            return;
+        }
+
         if (!form.ci || !form.fechaNacimiento || !form.codigoAsistencia) {
             toast.error('Por favor completa los datos de identificación y el código de asistencia.');
+            return;
+        }
+
+        const ageCheck = isValidAge(form.fechaNacimiento);
+        if (!ageCheck.valid) {
+            toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
             return;
         }
 
@@ -1183,7 +1449,8 @@ export default function EventoPublicoPage() {
             }
             setStep('descargo');
         } catch (e: any) {
-            toast.error(e?.response?.data?.message || 'Error al registrar asistencia');
+            setAsistenciaErrorMsg(e.message || 'No se pudo registrar la asistencia. Por favor, verifica el código e inténtalo de nuevo.');
+            setAsistenciaErrorModal(true);
         } finally {
             setSubmitting(false);
         }
@@ -1574,11 +1841,112 @@ export default function EventoPublicoPage() {
                                 )}
 
 
+                                {/* ── PARTICIPANTE IDENTIFICADO (siempre visible si persona está definida) ── */}
+                                {persona && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-6 rounded-3xl bg-primary/5 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-4"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                                <User className="w-7 h-7 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-primary tracking-widest">Participante Identificado</p>
+                                                <h3 className="font-black text-foreground uppercase tracking-tight">{persona.nombre1} {persona.apellido1}</h3>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    setForm(prev => ({
+                                                        ...prev,
+                                                        nombre1: persona.nombre1 || '',
+                                                        nombre2: persona.nombre2 || '',
+                                                        apellido1: persona.apellido1 || '',
+                                                        apellido2: persona.apellido2 || '',
+                                                        correo: persona.correo || '',
+                                                        celular: persona.celular || '',
+                                                        ci: persona.ci || prev.ci,
+                                                        fechaNacimiento: persona.fechaNacimiento || prev.fechaNacimiento,
+                                                        departamentoId: persona.departamentoId || prev.departamentoId,
+                                                        modalidadId: inscripcion?.modalidadId || prev.modalidadId,
+                                                    }));
+                                                    setIsPersonaExistente(true);
+                                                    setIsEditingProfile(true);
+                                                    setStep('inscripcion');
+                                                    toast.info('Modifica tus datos personales y haz clic en "Vista Previa".');
+                                                }}
+                                                className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20"
+                                            >
+                                                <Edit2 className="w-3.5 h-3.5" />
+                                                Editar Datos
+                                            </button>
+                                            <button
+                                                onClick={() => setStep('descargo')}
+                                                className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200"
+                                            >
+                                                <Download className="w-3.5 h-3.5" />
+                                                Descargar Comprobante
+                                            </button>
+                                            <button
+                                                onClick={() => handleReset()}
+                                                className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-red-50"
+                                            >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                Cambiar de Usuario
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
 
+                                {/* ── EVENTO SIN CUESTIONARIOS: Mostrar comprobante de inscripción ── */}
+                                {persona && (evento.cuestionarios?.length || 0) === 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 16 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                                        className="relative overflow-hidden rounded-3xl border-2 border-emerald-500/30 shadow-xl shadow-emerald-500/10"
+                                        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, var(--card) 50%, rgba(16,185,129,0.04) 100%)' }}
+                                    >
+                                        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-36 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none" />
+                                        <div className="relative z-10 p-8 md:p-10 flex flex-col items-center text-center gap-6">
+                                            <div className="relative">
+                                                <div className="absolute inset-0 rounded-full bg-emerald-500/15 blur-xl scale-150" />
+                                                <div className="relative w-20 h-20 rounded-[1.8rem] bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border-2 border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                                                    <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 max-w-md">
+                                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-1">
+                                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500">Inscripción Confirmada · Oficial</span>
+                                                </div>
+                                                <h3 className="text-2xl font-black uppercase text-foreground tracking-tight leading-none">
+                                                    ¡Inscripción Exitosa!
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                                                    Tu inscripción al evento <strong className="text-foreground">{evento.nombre}</strong> ha sido registrada correctamente. Descarga tu comprobante oficial.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => setStep('descargo')}
+                                                className="group/btn relative h-14 px-10 rounded-2xl bg-emerald-500 text-white font-black uppercase text-xs tracking-[0.25em] shadow-xl shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
+                                            >
+                                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                                                <span className="relative flex items-center justify-center gap-3">
+                                                    <Download className="w-5 h-5" />
+                                                    Ver Comprobante de Inscripción
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
 
-                                {/* ── PORTAL DE EVALUACIÓN (GATED) ── */}
+                                {/* ── PORTAL DE EVALUACIÓN (solo si hay cuestionarios) ── */}
                                 {(evento.cuestionarios?.length || 0) > 0 && evento.estado !== 'finalizado' && (
-                                    !persona ? (() => {
+                                    !persona && (() => {
                                         const firstCues = sortedCuestionarios[0];
                                         const firstStart = firstCues ? new Date(firstCues.fechaInicio) : null;
                                         const isWaiting = firstStart && firstStart > new Date();
@@ -1678,65 +2046,9 @@ export default function EventoPublicoPage() {
                                                 </div>
                                             </motion.div>
                                         );
-                                    })() : (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="p-6 rounded-3xl bg-primary/5 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-4"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                                    <User className="w-7 h-7 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-primary tracking-widest">Participante Identificado</p>
-                                                    <h3 className="font-black text-foreground uppercase tracking-tight">{persona.nombre1} {persona.apellido1}</h3>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap items-center gap-3">
-                                                <button
-                                                    onClick={() => {
-                                                        setForm(prev => ({
-                                                            ...prev,
-                                                            nombre1: persona.nombre1 || '',
-                                                            nombre2: persona.nombre2 || '',
-                                                            apellido1: persona.apellido1 || '',
-                                                            apellido2: persona.apellido2 || '',
-                                                            correo: persona.correo || '',
-                                                            celular: persona.celular || '',
-                                                            ci: persona.ci || prev.ci,
-                                                            fechaNacimiento: persona.fechaNacimiento || prev.fechaNacimiento,
-                                                            departamentoId: persona.departamentoId || prev.departamentoId,
-                                                            modalidadId: inscripcion?.modalidadId || prev.modalidadId,
-                                                        }));
-                                                        setIsPersonaExistente(true);
-                                                        setIsEditingProfile(true);
-                                                        setStep('inscripcion');
-                                                        toast.info('Modifica tus datos personales y haz clic en "Vista Previa".');
-                                                    }}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20"
-                                                >
-                                                    <Edit2 className="w-3.5 h-3.5" />
-                                                    Editar Datos
-                                                </button>
-                                                <button
-                                                    onClick={() => setStep('descargo')}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200"
-                                                >
-                                                    <Download className="w-3.5 h-3.5" />
-                                                    Descargar Comprobante
-                                                </button>
-                                                <button
-                                                    onClick={() => handleReset()}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-red-50"
-                                                >
-                                                    <RotateCcw className="w-3.5 h-3.5" />
-                                                    Cambiar de Usuario
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    )
+                                    })()
                                 )}
+
 
                                 {/* Transmisión en Vivo o Video del Evento */}
                                 {!persona && evento.urlVideo && (() => {
@@ -1812,7 +2124,7 @@ export default function EventoPublicoPage() {
                                         </div>
 
                                         {/* ── BANNER EVENTO COMPLETADO ── */}
-                                        {evento.cuestionarios.every((c: any) => isStepFinished(c.id)) && (() => {
+                                        {(evento.cuestionarios?.length > 0) && evento.cuestionarios.every((c: any) => isStepFinished(c.id)) && (() => {
                                             // Fecha más tardía de los cuestionarios (cierre general)
                                             const ultimaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
                                                 const d = new Date(c.fechaFin);
@@ -1839,78 +2151,86 @@ export default function EventoPublicoPage() {
                                                     <div className="absolute top-8 right-14 text-emerald-400/20 text-sm select-none pointer-events-none">✦</div>
                                                     <div className="absolute bottom-5 left-6 text-primary/20 text-lg select-none pointer-events-none">✦</div>
 
-                                                    <div className="relative z-10 p-7 md:p-10 flex flex-col items-center text-center gap-6">
+                                                    <div className="relative z-10 p-8 md:p-12 flex flex-col items-center text-center gap-8">
                                                         {/* Trophy icon with ring glow */}
                                                         <div className="relative">
                                                             <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl scale-150 animate-pulse" />
-                                                            <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border-2 border-emerald-500/40 flex items-center justify-center shadow-xl shadow-emerald-500/20">
-                                                                <Trophy className="w-12 h-12 text-emerald-400" />
+                                                            <div className="relative w-28 h-28 rounded-[2.5rem] bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border-2 border-emerald-500/40 flex items-center justify-center shadow-xl shadow-emerald-500/20">
+                                                                <Trophy className="w-14 h-14 text-emerald-400" />
                                                             </div>
                                                         </div>
 
                                                         {/* Main text */}
-                                                        <div className="space-y-2 max-w-lg">
-                                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 mb-1">
-                                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400">Logro Desbloqueado · Verificado</span>
+                                                        <div className="space-y-3 max-w-xl">
+                                                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/25 mb-1">
+                                                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-400">Logro Desbloqueado · Verificado</span>
                                                             </div>
-                                                            <h3 className="text-3xl font-black uppercase text-foreground tracking-tight leading-none">
+                                                            <h3 className="text-4xl sm:text-5xl font-black uppercase text-foreground tracking-tight leading-none">
                                                                 ¡Evento Completado!
                                                             </h3>
-                                                            <p className="text-sm text-muted-foreground font-medium leading-relaxed max-w-sm mx-auto">
+                                                            <p className="text-sm sm:text-base text-muted-foreground font-medium leading-relaxed max-w-md mx-auto">
                                                                 Has cumplido con <strong className="text-foreground">todos los requisitos</strong> y evaluaciones del evento. Tu certificado oficial está siendo generado.
                                                             </p>
                                                         </div>
 
                                                         {/* Stats strip */}
-                                                        <div className="flex flex-wrap justify-center gap-3 w-full max-w-md">
-                                                            <div className="flex-1 min-w-[120px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/8 border border-emerald-500/20">
-                                                                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                        <div className="flex flex-wrap justify-center gap-4 w-full max-w-lg">
+                                                            <div className="flex-1 min-w-[140px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/20">
+                                                                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
                                                                 <div className="text-left">
-                                                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Estado</p>
-                                                                    <p className="text-xs font-black text-emerald-400 mt-0.5">Aprobado</p>
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-none">Estado</p>
+                                                                    <p className="text-sm sm:text-base font-black text-emerald-400 mt-1">Aprobado</p>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex-1 min-w-[120px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary/8 border border-primary/20">
-                                                                <Award className="w-4 h-4 text-primary shrink-0" />
+                                                            <div className="flex-1 min-w-[140px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-primary/8 border border-primary/20">
+                                                                <Award className="w-5 h-5 text-primary shrink-0" />
                                                                 <div className="text-left">
-                                                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Certificado</p>
-                                                                    <p className="text-xs font-black text-primary mt-0.5">Digital oficial</p>
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-none">Certificado</p>
+                                                                    <p className="text-sm sm:text-base font-black text-primary mt-1">Digital oficial</p>
                                                                 </div>
                                                             </div>
                                                             {fechaCertLabel && (
-                                                                <div className="flex-1 min-w-[140px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border/60">
-                                                                    <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                                <div className="flex-1 min-w-[160px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-card border border-border/60">
+                                                                    <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
                                                                     <div className="text-left">
-                                                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none">Disponible el</p>
-                                                                        <p className="text-xs font-black text-foreground mt-0.5">{fechaCertLabel}</p>
+                                                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-none">Disponible el</p>
+                                                                        <p className="text-sm sm:text-base font-black text-foreground mt-1">{fechaCertLabel}</p>
                                                                     </div>
                                                                 </div>
                                                             )}
                                                         </div>
 
                                                         {/* Certificate info footer */}
-                                                        <div className="w-full max-w-md p-4 rounded-2xl bg-muted/20 border border-border/50 space-y-2">
-                                                            <div className="flex items-center gap-2 justify-center">
-                                                                <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                                                                    <Award className="w-3 h-3 text-primary" />
+                                                        <div className="w-full max-w-lg p-5 sm:p-6 rounded-2xl bg-muted/20 border border-border/50 space-y-4">
+                                                            <div className="flex items-center gap-2.5 justify-center">
+                                                                <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                                                    <Award className="w-4 h-4 text-primary" />
                                                                 </div>
-                                                                <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Ministerio de Educación · Portal de Certificación</p>
+                                                                <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground">Ministerio de Educación · Portal de Certificación</p>
                                                             </div>
-                                                            <p className="text-[9px] text-muted-foreground/70 font-bold leading-relaxed text-center">
+                                                            <p className="text-xs sm:text-sm text-muted-foreground/80 font-bold leading-relaxed text-center">
                                                                 El certificado digital incorpora firma digital autorizada y código QR para verificación inmediata a nivel nacional.
                                                             </p>
-                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center pt-1 border-t border-border/40">
-                                                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
-                                                                    <ShieldCheck className="w-2.5 h-2.5" /> Firma digital y QR
-                                                                </span>
-                                                                <span className="text-[8px] font-black uppercase tracking-wider text-primary flex items-center gap-1">
-                                                                    <Download className="w-2.5 h-2.5" /> Descarga con C.I.
-                                                                </span>
-                                                                <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                                                                    <Globe className="w-2.5 h-2.5" /> certificados.minedu.gob.bo
-                                                                </span>
+                                                            <div className="flex flex-wrap gap-2 justify-center pb-1 border-b border-border/30 w-full">
+                                                                <div className="px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                                                    <ShieldCheck className="w-3.5 h-3.5" /> Firma digital y QR
+                                                                </div>
+                                                                <div className="px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[10px] sm:text-xs font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                                                    <Download className="w-3.5 h-3.5" /> Descarga con C.I.
+                                                                </div>
                                                             </div>
+                                                            {/* CTA Principal */}
+                                                            <a
+                                                                href="https://certificados.minedu.gob.bo"
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="w-full h-12 rounded-2xl bg-primary hover:opacity-90 text-white text-xs sm:text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-primary/40 active:scale-95"
+                                                            >
+                                                                <Globe className="w-4 h-4" />
+                                                                certificados.minedu.gob.bo
+                                                                <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                                                            </a>
                                                         </div>
                                                     </div>
                                                 </motion.div>
@@ -3142,7 +3462,7 @@ export default function EventoPublicoPage() {
                                                 <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                             </button>
                                         )}
-                                        {evento.asistencia && (
+                                        {evento.asistencia && evento.codigoAsistencia && (
                                             <button onClick={() => setStep('asistencia')}
                                                 className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
                                                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
@@ -3191,51 +3511,56 @@ export default function EventoPublicoPage() {
                                                 <div className="relative group">
                                                     <input
                                                         type="text"
-                                                        placeholder="Ej. 1234567"
+                                                        placeholder="1234567 o 1234567-1B"
                                                         value={form.ci}
                                                         onChange={e => setForm(p => ({ ...p, ci: e.target.value }))}
                                                         className="w-full h-16 px-6 pt-2 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary focus:bg-card outline-none font-black text-xl text-foreground transition-all group-hover:bg-muted/50"
                                                     />
                                                     <div className="absolute top-2 left-6 text-[9px] font-bold text-muted-foreground/50 uppercase">Nro. Carnet</div>
                                                 </div>
+                                                <p className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-tight pl-2">
+                                                    Si tu CI tiene complemento, usa un guion (ej: 32165415-1B)
+                                                </p>
                                             </div>
 
-                                            <div className="space-y-4">
+                                            <div className="space-y-3">
                                                 <div className="flex items-center gap-2">
                                                     <Calendar className="w-4 h-4 text-primary" />
                                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest pl-1">Fecha de Nacimiento</label>
                                                 </div>
-                                                <div className="relative group">
-                                                    <input
-                                                        type="date"
-                                                        value={form.fechaNacimiento}
-                                                        onChange={e => setForm(p => ({ ...p, fechaNacimiento: e.target.value }))}
-                                                        className="w-full h-16 px-6 pt-2 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary focus:bg-card outline-none font-black text-lg text-foreground transition-all group-hover:bg-muted/50"
-                                                    />
-                                                    <div className="absolute top-2 left-6 text-[9px] font-bold text-muted-foreground/50 uppercase">Día / Mes / Año</div>
-                                                </div>
+                                                <DateInputDMY
+                                                    value={form.fechaNacimiento}
+                                                    onChange={v => setForm(p => ({ ...p, fechaNacimiento: v }))}
+                                                />
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                                            <button
-                                                onClick={() => setStep('info')}
-                                                className="h-16 px-8 rounded-2xl border-2 border-border font-black uppercase text-xs tracking-widest text-muted-foreground hover:bg-muted/20 transition-all flex items-center justify-center gap-3"
-                                            >
-                                                <ChevronLeft className="w-5 h-5" />
-                                                Cancelar
-                                            </button>
+                                        <div className="flex flex-col gap-3 pt-4">
                                             <button
                                                 onClick={handleBuscarPersona}
                                                 disabled={!form.ci || !form.fechaNacimiento || submitting}
-                                                className="flex-1 h-16 rounded-2xl bg-primary text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                                                className="w-full h-16 rounded-2xl font-black uppercase text-sm tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-40
+                                                    bg-gradient-to-r from-primary to-primary/80 text-white
+                                                    shadow-[0_8px_30px_-4px] shadow-primary/50
+                                                    hover:shadow-[0_12px_40px_-4px] hover:shadow-primary/60
+                                                    hover:scale-[1.02] active:scale-[0.98]
+                                                    disabled:shadow-none disabled:scale-100"
                                             >
-                                                {submitting ? <RefreshCw className="w-5 h-5 animate-spin" /> : (
+                                                {submitting ? (
+                                                    <RefreshCw className="w-5 h-5 animate-spin" />
+                                                ) : (
                                                     <>
                                                         Validar y Continuar
                                                         <ArrowRight className="w-5 h-5" />
                                                     </>
                                                 )}
+                                            </button>
+                                            <button
+                                                onClick={() => setStep('info')}
+                                                className="w-full h-12 rounded-2xl border border-muted/30 hover:border-muted/60 hover:bg-muted/10 font-black uppercase text-xs tracking-widest text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Cancelar
                                             </button>
                                         </div>
 
@@ -3603,7 +3928,7 @@ export default function EventoPublicoPage() {
                         )}
 
                         {/* ── STEP ASISTENCIA ── */}
-                        {step === 'asistencia' && (
+                        {step === 'asistencia' && evento?.asistencia && evento?.codigoAsistencia && (
                             <motion.div key="asist" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="bg-card border border-border rounded-3xl p-8 space-y-6">
                                 <div>
                                     <h2 className="text-2xl font-black uppercase tracking-tight text-foreground">Registrar Asistencia</h2>
@@ -3612,15 +3937,19 @@ export default function EventoPublicoPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">CI</label>
-                                        <input type="text" placeholder="12345678" value={form.ci}
+                                        <input type="text" placeholder="12345678 o 12345678-1B" value={form.ci}
                                             onChange={e => setForm(p => ({ ...p, ci: e.target.value }))}
                                             className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-black text-foreground transition-all" />
+                                        <p className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-tight pl-1 mt-1">
+                                            Si tu CI tiene complemento, usa un guion (ej: 32165415-1B)
+                                        </p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Fecha de Nacimiento</label>
-                                        <input type="date" value={form.fechaNacimiento}
-                                            onChange={e => setForm(p => ({ ...p, fechaNacimiento: e.target.value }))}
-                                            className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-black text-foreground transition-all" />
+                                        <DateInputDMY
+                                            value={form.fechaNacimiento}
+                                            onChange={v => setForm(p => ({ ...p, fechaNacimiento: v }))}
+                                        />
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Código de Asistencia</label>
@@ -3629,14 +3958,28 @@ export default function EventoPublicoPage() {
                                             className="w-full h-16 px-8 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-black text-xl text-center tracking-[0.4em] text-foreground transition-all uppercase" />
                                     </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button onClick={() => setStep('info')} className="h-14 px-6 rounded-2xl text-xs font-black uppercase text-muted-foreground hover:text-foreground transition-all">
-                                        Volver
+                                <div className="flex flex-col gap-3 pt-2">
+                                    <button
+                                        onClick={handleRegistrarAsistencia}
+                                        disabled={!form.ci || !form.fechaNacimiento || !form.codigoAsistencia || submitting}
+                                        className="w-full h-16 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-40
+                                            bg-gradient-to-r from-primary to-primary/80 text-white
+                                            shadow-[0_8px_30px_-4px] shadow-primary/50
+                                            hover:shadow-[0_12px_40px_-4px] hover:shadow-primary/60
+                                            hover:scale-[1.02] active:scale-[0.98]
+                                            disabled:shadow-none disabled:scale-100"
+                                    >
+                                        {submitting
+                                            ? <RefreshCw className="w-5 h-5 animate-spin" />
+                                            : <CheckCircle2 className="w-5 h-5" />
+                                        }
+                                        {submitting ? 'Procesando…' : 'Registrar Asistencia'}
                                     </button>
-                                    <button onClick={handleRegistrarAsistencia} disabled={!form.ci || !form.fechaNacimiento || !form.codigoAsistencia || submitting}
-                                        className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2">
-                                        {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                        Registrar Asistencia
+                                    <button
+                                        onClick={() => setStep('info')}
+                                        className="w-full h-12 rounded-2xl text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-foreground border border-muted/30 hover:border-muted/60 hover:bg-muted/10 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        ← Volver
                                     </button>
                                 </div>
                             </motion.div>
@@ -4645,29 +4988,10 @@ export default function EventoPublicoPage() {
                                     resultado={resultado}
                                     inscripcionId={inscripcion?.id}
                                     cuestionarioActivo={cuestionarioActivo}
+                                    onBackToStart={() => setStep('info')}
+                                    onRegisterOther={() => handleReset()}
+                                    onLogout={() => router.back()}
                                 />
-                                <div className="flex flex-col gap-3 mt-6">
-                                    <button
-                                        onClick={() => setStep('info')}
-                                        className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <ArrowLeft className="w-4 h-4" /> Volver al Inicio del Evento
-                                    </button>
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={() => handleReset()}
-                                            className="flex-1 h-14 rounded-2xl bg-muted text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all"
-                                        >
-                                            Registrar otro
-                                        </button>
-                                        <button
-                                            onClick={() => router.back()}
-                                            className="px-8 h-14 rounded-2xl bg-muted/40 text-muted-foreground font-black text-xs uppercase hover:text-foreground transition-all"
-                                        >
-                                            Salir
-                                        </button>
-                                    </div>
-                                </div>
                             </motion.div>
                         )}
 
@@ -4784,87 +5108,134 @@ export default function EventoPublicoPage() {
 
             {/* ── MODAL: No puedes adelantar el video ── */}
             <AnimatePresence>
-                {videoWarningModal && (
-                    <motion.div
-                        key="video-warning"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
-                        onClick={() => setVideoWarningModal(false)}
-                    >
+                {
+                    videoWarningModal && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.85, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.85, y: 20 }}
-                            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-                            className="bg-card border-2 border-red-500/30 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl shadow-red-500/10 space-y-6 text-center"
-                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            key="video-warning"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+                            onClick={() => setVideoWarningModal(false)}
                         >
-                            <div className="w-20 h-20 rounded-[1.5rem] bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center mx-auto">
-                                <Video className="w-9 h-9 text-red-500" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
-                                    Video Incompleto
-                                </h3>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                    <strong className="text-red-400">No puedes adelantar el v&iacute;deo.</strong><br />
-                                    Debes verlo completo para habilitar la evaluaci&oacute;n. El v&iacute;deo se ha reiniciado desde el principio.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setVideoWarningModal(false)}
-                                className="w-full h-12 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest hover:bg-red-400 transition-all"
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.85, y: 20 }}
+                                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                                className="bg-card border-2 border-red-500/30 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl shadow-red-500/10 space-y-6 text-center"
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                             >
-                                Entendido, ver&eacute; el v&iacute;deo completo
-                            </button>
+                                <div className="w-20 h-20 rounded-[1.5rem] bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center mx-auto">
+                                    <Video className="w-9 h-9 text-red-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                                        Video Incompleto
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        <strong className="text-red-400">No puedes adelantar el v&iacute;deo.</strong><br />
+                                        Debes verlo completo para habilitar la evaluaci&oacute;n. El v&iacute;deo se ha reiniciado desde el principio.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setVideoWarningModal(false)}
+                                    className="w-full h-12 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest hover:bg-red-400 transition-all"
+                                >
+                                    Entendido, ver&eacute; el v&iacute;deo completo
+                                </button>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )
+                }
+            </AnimatePresence >
 
             {/* ── MODAL: Asistencia ya registrada ── */}
             <AnimatePresence>
-                {yaRegistradaModal && (
-                    <motion.div
-                        key="already-registered"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
-                        onClick={() => setYaRegistradaModal(false)}
-                    >
+                {
+                    yaRegistradaModal && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.85, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.85, y: 20 }}
-                            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-                            className="bg-card border-2 border-primary/30 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl shadow-primary/10 space-y-6 text-center"
-                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            key="already-registered"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+                            onClick={() => setYaRegistradaModal(false)}
                         >
-                            <div className="w-20 h-20 rounded-[1.5rem] bg-primary/10 border-2 border-primary/20 flex items-center justify-center mx-auto">
-                                <CheckCircle2 className="w-9 h-9 text-primary" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
-                                    Asistencia Verificada
-                                </h3>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                    ¡Hola <strong className="text-foreground">{persona?.nombre1}</strong>!
-                                    Tu asistencia ya se encontraba registrada correctamente de forma previa.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setYaRegistradaModal(false)}
-                                className="w-full h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.85, y: 20 }}
+                                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                                className="bg-card border-2 border-primary/30 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl shadow-primary/10 space-y-6 text-center"
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                             >
-                                <Download className="w-4 h-4" /> Generar Comprobante
-                            </button>
+                                <div className="w-20 h-20 rounded-[1.5rem] bg-primary/10 border-2 border-primary/20 flex items-center justify-center mx-auto">
+                                    <CheckCircle2 className="w-9 h-9 text-primary" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                                        Asistencia Verificada
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        ¡Hola <strong className="text-foreground">{persona?.nombre1}</strong>!
+                                        Tu asistencia ya se encontraba registrada correctamente de forma previa.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setYaRegistradaModal(false)}
+                                    className="w-full h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Download className="w-4 h-4" /> Generar Comprobante
+                                </button>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )
+                }
+            </AnimatePresence >
+
+            {/* ── MODAL: Error en Asistencia ── */}
+            <AnimatePresence>
+                {
+                    asistenciaErrorModal && (
+                        <motion.div
+                            key="asistencia-error"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+                            onClick={() => setAsistenciaErrorModal(false)}
+                        >
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.85, y: 20 }}
+                                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                                className="bg-card border-2 border-red-500/30 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl shadow-red-500/10 space-y-6 text-center"
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            >
+                                <div className="w-20 h-20 rounded-[1.5rem] bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center mx-auto text-red-500">
+                                    <AlertTriangle className="w-9 h-9" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                                        No se pudo registrar
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {asistenciaErrorMsg || 'Hubo un inconveniente al validar tu asistencia.'}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setAsistenciaErrorModal(false)}
+                                    className="w-full h-12 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                >
+                                    Entendido
+                                </button>
+                            </motion.div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence >
         </>
     );
 }

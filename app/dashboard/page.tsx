@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { AuditLogsModal } from '@/components/AuditLogsModal';
+
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadialBarChart, RadialBar
@@ -131,6 +133,8 @@ export default function DashboardPage() {
     const [metrics, setMetrics] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'academy' | 'events' | 'finance'>('overview');
+    const [isAuditOpen, setIsAuditOpen] = useState(false);
+
 
     useEffect(() => {
         const fetchMetrics = async () => {
@@ -274,6 +278,15 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
+                    <Can action="read" subject="AuditLog">
+                        <button
+                            onClick={() => setIsAuditOpen(true)}
+                            className="h-10 px-5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all text-[11px] font-black uppercase tracking-widest flex items-center gap-2"
+                        >
+                            <Activity className="w-3.5 h-3.5 text-primary" />
+                            Auditoría
+                        </button>
+                    </Can>
                     <button className="h-10 px-5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all text-[11px] font-black uppercase tracking-widest">
                         Exportar
                     </button>
@@ -883,6 +896,11 @@ export default function DashboardPage() {
                     </div>
                 </motion.div>
             )}
+
+            <AuditLogsModal
+                isOpen={isAuditOpen}
+                onClose={() => setIsAuditOpen(false)}
+            />
         </div>
     );
 }

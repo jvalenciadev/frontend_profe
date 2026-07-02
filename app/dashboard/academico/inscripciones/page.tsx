@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useInscripcions } from '@/features/inscripcion/application/useInscripcions';
 import { useOfertas } from '@/features/oferta/application/useOfertas';
 import { sedeService } from '@/services/sedeService';
@@ -41,6 +41,7 @@ import {
     ArrowRightCircle,
     Tag,
     ChevronDown,
+    ChevronUp,
     ArrowLeftRight,
     Sparkles,
     Check,
@@ -60,6 +61,192 @@ import { useProfe } from '@/contexts/ProfeContext';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { InscritosModal } from '@/components/academico/InscritosModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
+
+// ─── HELPER: Validar Edad (17 a 120 años) y Calendario Real ────────────────
+export const isValidAge = (dateStr: string): { valid: boolean; error?: string } => {
+    if (!dateStr) return { valid: false, error: 'Por favor, ingresa tu fecha de nacimiento.' };
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+    const yr = Number(parts[0]);
+    const mo = Number(parts[1]);
+    const dy = Number(parts[2]);
+    if (isNaN(yr) || isNaN(mo) || isNaN(dy)) return { valid: false, error: 'Fecha de nacimiento inválida.' };
+
+    if (mo < 1 || mo > 12) {
+        return { valid: false, error: 'El mes debe estar entre 01 y 12.' };
+    }
+
+    const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+    const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    if (dy < 1 || dy > diasPorMes[mo - 1]) {
+        return { valid: false, error: `El día ingresado (${dy}) no es válido para el mes especificado.` };
+    }
+
+    const born = new Date(yr, mo - 1, dy);
+    const now = new Date();
+    let age = now.getFullYear() - born.getFullYear();
+    const mDiff = now.getMonth() - born.getMonth();
+    if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+    if (age < 17) {
+        return { valid: false, error: 'La persona debe tener al menos 17 años de edad para registrarse.' };
+    }
+    if (age > 120) {
+        return { valid: false, error: 'Fecha de nacimiento no válida (mayor a 120 años).' };
+    }
+    return { valid: true };
+};
+
+
+// ─── COMPONENTE: Input de Fecha D/M/A (sin calendar nativo) ────────────────
+function DateInputDMY({
+    value,
+    onChange,
+    className = '',
+    disabled = false,
+}: {
+    value: string;
+    onChange: (isoDate: string) => void;
+    className?: string;
+    disabled?: boolean;
+}) {
+    // Estado interno independiente: permite escritura parcial sin que el padre
+    // destruya lo escrito al recibir '' como valor incompleto.
+    const parse = (v: string) => {
+        if (!v) return { d: '', m: '', y: '' };
+        const [yr, mo, dy] = v.split('-');
+        return { d: dy ? String(Number(dy)) : '', m: mo ? String(Number(mo)) : '', y: yr || '' };
+    };
+    const init = parse(value);
+    const [d, setD] = React.useState(init.d);
+    const [m, setM] = React.useState(init.m);
+    const [y, setY] = React.useState(init.y);
+
+    // Sincronizar si el padre limpia el valor desde afuera (ej: reset del form o autocompletado de MAP)
+    const lastEmitted = React.useRef(value);
+    React.useEffect(() => {
+        if (value !== lastEmitted.current) {
+            lastEmitted.current = value;
+            if (!value) {
+                setD('');
+                setM('');
+                setY('');
+            } else {
+                const parsed = parse(value);
+                setD(parsed.d);
+                setM(parsed.m);
+                setY(parsed.y);
+            }
+        }
+    }, [value]);
+
+    const dayRef = React.useRef<HTMLInputElement>(null);
+    const monRef = React.useRef<HTMLInputElement>(null);
+    const yearRef = React.useRef<HTMLInputElement>(null);
+
+    const [ageError, setAgeError] = React.useState('');
+
+    const emit = (dd: string, mm: string, yy: string) => {
+        if (dd && mm && yy.length === 4) {
+            const dy = Number(dd), mo = Number(mm), yr = Number(yy);
+
+            // Validar existencia real del mes y día antes de evaluar la edad
+            if (mo < 1 || mo > 12) {
+                setAgeError('El mes debe estar entre 01 y 12.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+            const esBisiesto = yr % 4 === 0 && (yr % 100 !== 0 || yr % 400 === 0);
+            const diasPorMes = [31, esBisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            if (dy < 1 || dy > diasPorMes[mo - 1]) {
+                setAgeError('El día ingresado es inválido para ese mes.');
+                lastEmitted.current = '';
+                onChange('');
+                return;
+            }
+
+            const born = new Date(yr, mo - 1, dy);
+            const now = new Date();
+            let age = now.getFullYear() - born.getFullYear();
+            const mDiff = now.getMonth() - born.getMonth();
+            if (mDiff < 0 || (mDiff === 0 && now.getDate() < born.getDate())) age--;
+
+            if (age < 17) {
+                setAgeError('La persona debe tener al menos 17 años.');
+            } else if (age > 120) {
+                setAgeError('Fecha de nacimiento inválida (más de 120 años).');
+            } else {
+                setAgeError('');
+            }
+
+            // Emitimos la fecha al padre para habilitar el botón, permitiendo al handler validar al hacer submit
+            const newVal = `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+            lastEmitted.current = newVal;
+            onChange(newVal);
+        } else {
+            setAgeError('');
+            lastEmitted.current = '';
+            onChange('');
+        }
+    };
+
+    const handleDay = (v: string) => {
+        if (disabled) return;
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setD(n);
+        emit(n, m, y);
+        if (n.length === 2) monRef.current?.focus();
+    };
+    const handleMonth = (v: string) => {
+        if (disabled) return;
+        const n = v.replace(/\D/g, '').slice(0, 2);
+        setM(n);
+        emit(d, n, y);
+        if (n.length === 2) yearRef.current?.focus();
+    };
+    const handleYear = (v: string) => {
+        if (disabled) return;
+        const n = v.replace(/\D/g, '').slice(0, 4);
+        setY(n);
+        emit(d, m, n);
+    };
+
+    const fieldCls = 'h-11 w-full rounded-xl border border-border/50 bg-white dark:bg-slate-900 outline-none font-bold text-center text-slate-800 dark:text-white transition-all text-xs focus:border-primary disabled:opacity-75 disabled:bg-muted/10';
+
+    return (
+        <div className={`space-y-1.5 ${className}`}>
+            <div className="flex gap-1.5 items-end">
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={dayRef} type="tel" inputMode="numeric" maxLength={2} disabled={disabled}
+                        placeholder="DD" value={d} onChange={e => handleDay(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Día</span>
+                </div>
+                <span className="text-lg font-black text-slate-300 dark:text-white/20 mb-3">/</span>
+                <div className="flex-1 flex flex-col gap-1">
+                    <input ref={monRef} type="tel" inputMode="numeric" maxLength={2} disabled={disabled}
+                        placeholder="MM" value={m} onChange={e => handleMonth(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Mes</span>
+                </div>
+                <span className="text-lg font-black text-slate-300 dark:text-white/20 mb-3">/</span>
+                <div className="flex-[1.6] flex flex-col gap-1">
+                    <input ref={yearRef} type="tel" inputMode="numeric" maxLength={4} disabled={disabled}
+                        placeholder="AAAA" value={y} onChange={e => handleYear(e.target.value)}
+                        className={`${fieldCls} ${ageError ? 'border-red-500/60' : ''}`} />
+                    <span className="text-[9px] font-black uppercase text-slate-400 text-center">Año</span>
+                </div>
+            </div>
+            {ageError && (
+                <p className="text-[10px] font-bold text-red-500 text-center tracking-tight flex items-center justify-center gap-1">
+                    <span>⚠</span> {ageError}
+                </p>
+            )}
+        </div>
+    );
+}
 
 export default function InscripcionesPage() {
     const { items: inscripciones, loading, loadItems, createItem: createInscripcion, updateItem: updateInscripcion, deleteItem } = useInscripcions();
@@ -143,6 +330,8 @@ export default function InscripcionesPage() {
     const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
     const [searchGroupTerm, setSearchGroupTerm] = useState('');
     const [occupancyFilter, setOccupancyFilter] = useState<'all' | 'available' | 'full'>('all');
+    const [expandedSedes, setExpandedSedes] = useState<{ [key: string]: boolean }>({});
+
 
     // Re-load items when page or search changes
     useEffect(() => {
@@ -169,8 +358,8 @@ export default function InscripcionesPage() {
         ofertas.forEach(o => {
             // Process each turno of the offer as a separate slot
             (o.turnos || []).forEach((t: any) => {
-                const count = inscripciones.filter(ins =>
-                    ins.programaId === o.id &&
+                const offerInscripciones = (o as any).inscripciones || [];
+                const count = offerInscripciones.filter((ins: any) =>
                     ins.turnoId === t.id &&
                     ['INSCRITO', 'CONFIRMADO'].includes(ins.estadoInscripcion?.nombre)
                 ).length;
@@ -201,7 +390,7 @@ export default function InscripcionesPage() {
         });
 
         return flatStats;
-    }, [inscripciones, ofertas]);
+    }, [ofertas]);
 
     const filteredGroupedStats = useMemo(() => {
         return groupedStats.filter(group => {
@@ -219,6 +408,36 @@ export default function InscripcionesPage() {
             return matchesSearch && matchesStatus;
         });
     }, [groupedStats, searchGroupTerm, occupancyFilter]);
+
+    // Group filtered groups by Sede
+    const groupedBySede = useMemo(() => {
+        const map: { [sedeName: string]: any[] } = {};
+        filteredGroupedStats.forEach(g => {
+            const key = g.sede || 'General';
+            if (!map[key]) map[key] = [];
+            map[key].push(g);
+        });
+        return map;
+    }, [filteredGroupedStats]);
+
+    // Toggle expand/collapse all
+    const toggleAllSedes = (expand: boolean) => {
+        const keys = Object.keys(groupedBySede);
+        const newState: any = {};
+        keys.forEach(k => {
+            newState[k] = expand;
+        });
+        setExpandedSedes(newState);
+    };
+
+    // Auto-expand the first Sede on load if nothing is expanded
+    useEffect(() => {
+        const keys = Object.keys(groupedBySede);
+        if (keys.length > 0 && Object.keys(expandedSedes).length === 0) {
+            setExpandedSedes({ [keys[0]]: true });
+        }
+    }, [groupedBySede]);
+
 
     // Ya no filtramos localmente lo que ya viene filtrado del servidor (search y group)
     const filteredInscripciones = useMemo(() => {
@@ -278,18 +497,38 @@ export default function InscripcionesPage() {
             return;
         }
 
+        // Validate birth date if provided
+        if (newPersonaData.fechaNacimiento) {
+            const ageCheck = isValidAge(newPersonaData.fechaNacimiento);
+            if (!ageCheck.valid) {
+                toast.error(ageCheck.error || 'Fecha de nacimiento inválida.');
+                return;
+            }
+        }
+
+        // Parse CI complement if input includes hyphen (ej: 1234567-1B)
+        let ciLimpio = newPersonaData.ci.trim();
+        let complemento: string | undefined;
+        if (ciLimpio.includes('-')) {
+            const [c, co] = ciLimpio.split('-');
+            ciLimpio = c;
+            complemento = co || undefined;
+        }
+
         setPersonaRegistering(true);
         try {
             const matchingRole = roles.find(r => r.name?.toUpperCase().includes('PARTICIPANTE') || r.nombre?.toUpperCase().includes('PARTICIPANTE'));
             const roleIds = matchingRole ? [matchingRole.id] : [];
 
             const payload: any = {
-                username: newPersonaData.ci.trim(),
-                password: newPersonaData.ci.trim().length >= 6 ? newPersonaData.ci.trim() : newPersonaData.ci.trim().padEnd(6, '0'),
-                ci: newPersonaData.ci.trim(),
+                username: ciLimpio,
+                password: ciLimpio.length >= 6 ? ciLimpio : ciLimpio.padEnd(6, '0'),
+                ci: ciLimpio,
+                per_ci: ciLimpio,
+                ...(complemento ? { complemento, per_complemento: complemento } : {}),
                 nombre: newPersonaData.nombre.trim(),
                 apellidos: newPersonaData.apellidos.trim(),
-                correo: newPersonaData.correo.trim() || `${newPersonaData.ci.trim()}@profe.edu.bo`,
+                correo: newPersonaData.correo.trim() || `${ciLimpio}@profe.edu.bo`,
                 celular: newPersonaData.celular.trim() || undefined,
                 roleIds,
                 activo: true
@@ -798,116 +1037,189 @@ export default function InscripcionesPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                        {filteredGroupedStats.length} grupo{filteredGroupedStats.length !== 1 ? 's' : ''} · {filteredGroupedStats.reduce((a, g) => a + g.inscritos, 0)} inscritos totales
-                    </span>
-                    {selectedGroup && (
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                            {filteredGroupedStats.length} grupo{filteredGroupedStats.length !== 1 ? 's' : ''} · {filteredGroupedStats.reduce((a, g) => a + g.inscritos, 0)} inscritos totales
+                        </span>
+                        {selectedGroup && (
+                            <button
+                                type="button"
+                                onClick={() => setSelectedGroup(null)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-600 transition-all border border-primary/20"
+                            >
+                                <X className="w-3 h-3" /> Limpiar selección
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={() => setSelectedGroup(null)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-600 transition-all border border-primary/20"
+                            onClick={() => toggleAllSedes(true)}
+                            className="px-2.5 py-1 bg-muted/40 hover:bg-muted text-[8px] font-black uppercase tracking-widest rounded-lg border border-border/40 text-muted-foreground hover:text-foreground transition-all"
                         >
-                            <X className="w-3 h-3" /> Limpiar selección
+                            Expandir Todos
                         </button>
-                    )}
+                        <button
+                            type="button"
+                            onClick={() => toggleAllSedes(false)}
+                            className="px-2.5 py-1 bg-muted/40 hover:bg-muted text-[8px] font-black uppercase tracking-widest rounded-lg border border-border/40 text-muted-foreground hover:text-foreground transition-all"
+                        >
+                            Colapsar Todos
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="space-y-4">
                     {filteredGroupedStats.length === 0 ? (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-border/40 rounded-[2rem] bg-card/10">
+                        <div className="py-12 text-center border-2 border-dashed border-border/40 rounded-[2rem] bg-card/10">
                             <p className="text-xs font-black uppercase tracking-widest text-muted-foreground opacity-50">No se encontraron grupos con los filtros actuales</p>
                         </div>
                     ) : (
-                        filteredGroupedStats.map((group) => (
-                            <Card
-                                key={group.id}
-                                onClick={() => setSelectedGroup(selectedGroup === group.id ? null : group.id)}
-                                className={cn(
-                                    "p-4 border-border/40 cursor-pointer bg-card/50 backdrop-blur-xl relative overflow-hidden group transition-all",
-                                    group.isFull ? "border-rose-500/30 bg-rose-500/[0.02]" : "hover:border-primary/30",
-                                    selectedGroup === group.id ? "ring-2 ring-primary border-primary bg-primary/5 shadow-xl shadow-primary/10" : "scale-[0.98] opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:scale-100"
-                                )}
-                            >
-                                <div className="flex justify-between items-start mb-4 text-primary">
-                                    <div className="space-y-2 max-w-[75%] relative">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="flex -space-x-1">
-                                                <span className="z-10 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-[9px] font-black border-2 border-card">{group.sede.charAt(0)}</span>
-                                                {group.version && (
-                                                    <div className="z-20 inline-flex items-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-2 border-card shadow-md overflow-hidden h-6 transition-transform hover:scale-105 cursor-default">
-                                                        <span className="px-2.5 text-[10px] font-black tracking-widest uppercase">
-                                                            {group.version}
-                                                        </span>
-                                                        {group.gestion && (
-                                                            <span className="px-2 py-0.5 bg-black/20 text-[8px] font-bold tracking-widest italic border-l border-white/20 h-full flex items-center">
-                                                                {group.gestion}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-2 border-l-2 border-border/50">{group.codigo}</span>
-                                        </div>
-                                        <h3 className="text-[12px] font-black uppercase tracking-tight text-foreground leading-tight line-clamp-2">
-                                            {group.nombre}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-muted/30 px-2 py-1 rounded-md inline-flex">
-                                            <MapPin className="w-3 h-3 text-primary" /> {group.sede}
-                                            <span className="w-1 h-1 rounded-full bg-border" />
-                                            <Clock className="w-3 h-3 text-indigo-500" /> {group.turno}
-                                        </div>
-                                    </div>
-                                    <div className={cn(
-                                        "px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest",
-                                        group.cupo === 0 ? "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20" :
-                                            group.isFull ? "bg-rose-500 text-white" : "bg-primary/10 text-primary border border-primary/20"
-                                    )}>
-                                        {group.cupo === 0 ? 'Ilimitado' : group.isFull ? 'Lleno' : 'Disponible'}
-                                    </div>
-                                </div>
+                        Object.keys(groupedBySede).map((sedeName) => {
+                            const sedeGroups = groupedBySede[sedeName];
+                            const isExpanded = !!expandedSedes[sedeName];
 
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[10px] font-black">
-                                        <span className="text-muted-foreground uppercase tracking-widest text-[8px]">Ocupación Actual</span>
-                                        <span className={cn(group.porcentaje > 90 ? "text-rose-500" : "text-foreground")}>
-                                            {group.inscritos} / {group.cupo > 0 ? group.cupo : '∞'}
-                                        </span>
-                                    </div>
-                                    <div className="h-2.5 bg-muted rounded-full overflow-hidden p-0.5 border border-border/20">
-                                        <motion.div
-                                            initial={{ width: 0 }}
-                                            animate={{ width: group.cupo > 0 ? `${group.porcentaje}%` : '10%' }}
-                                            className={cn(
-                                                "h-full rounded-full transition-all duration-1000",
-                                                group.cupo === 0 ? "bg-indigo-300 opacity-60" :
-                                                    group.porcentaje > 90 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" :
-                                                        group.porcentaje > 60 ? "bg-orange-500" : "bg-emerald-500"
-                                            )}
-                                        />
-                                    </div>
-                                    {group.cupo === 0 && (
-                                        <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Capacidad ilimitada</p>
-                                    )}
-                                    {/* Botón Ver inscritos */}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); setSelectedGroup(selectedGroup === group.id ? null : group.id); }}
-                                        className={cn(
-                                            "w-full mt-3 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
-                                            selectedGroup === group.id
-                                                ? "bg-primary text-white shadow-md"
-                                                : "bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                        )}
+                            // Consolidate stats for this Sede
+                            const totalInscritosSede = sedeGroups.reduce((acc, g) => acc + g.inscritos, 0);
+                            const totalCupoSede = sedeGroups.reduce((acc, g) => acc + g.cupo, 0);
+                            const sedePercentage = totalCupoSede > 0 ? Math.min(100, Math.round((totalInscritosSede / totalCupoSede) * 100)) : 0;
+
+                            return (
+                                <div key={sedeName} className="border border-border/40 rounded-2xl bg-card/30 backdrop-blur-md overflow-hidden transition-all shadow-sm hover:shadow-md">
+                                    {/* Sede Accordion Header */}
+                                    <div
+                                        onClick={() => setExpandedSedes(prev => ({ ...prev, [sedeName]: !isExpanded }))}
+                                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 cursor-pointer select-none hover:bg-muted/10 transition-colors"
                                     >
-                                        <Users className="w-3 h-3" />
-                                        {selectedGroup === group.id ? 'Mostrando inscritos ↓' : `Ver ${group.inscritos} inscritos`}
-                                    </button>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm border border-primary/20">
+                                                {sedeName.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black uppercase tracking-wider text-foreground leading-none mb-1">{sedeName}</h3>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{sedeGroups.length} grupo{sedeGroups.length !== 1 ? 's' : ''}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Consolidate occupancy info */}
+                                        <div className="flex items-center gap-4 w-full sm:w-auto shrink-0">
+                                            <div className="flex-1 sm:w-48 text-right space-y-1">
+                                                <div className="flex justify-between text-[9px] font-black uppercase tracking-wider">
+                                                    <span className="text-muted-foreground">Ocupación Sede</span>
+                                                    <span className="text-foreground">{totalInscritosSede} / {totalCupoSede > 0 ? totalCupoSede : '∞'} ({sedePercentage}%)</span>
+                                                </div>
+                                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden p-0.5 border border-border/20">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full rounded-full transition-all duration-1000",
+                                                            sedePercentage > 90 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.4)]" :
+                                                                sedePercentage > 60 ? "bg-orange-500" : "bg-emerald-500"
+                                                        )}
+                                                        style={{ width: `${totalCupoSede > 0 ? sedePercentage : 10}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <button className="p-1.5 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Collapsible content (Grilla de grupos de la sede) */}
+                                    <AnimatePresence initial={false}>
+                                        {isExpanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.25 }}
+                                                className="border-t border-border/30 bg-muted/5"
+                                            >
+                                                <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                    {sedeGroups.map((group) => (
+                                                        <Card
+                                                            key={group.id}
+                                                            onClick={() => setSelectedGroup(selectedGroup === group.id ? null : group.id)}
+                                                            className={cn(
+                                                                "p-3.5 border-border/30 cursor-pointer bg-card/60 backdrop-blur-xl relative overflow-hidden group transition-all rounded-xl",
+                                                                group.isFull ? "border-rose-500/20 bg-rose-500/[0.01]" : "hover:border-primary/20",
+                                                                selectedGroup === group.id ? "ring-2 ring-primary border-primary bg-primary/5 shadow-lg shadow-primary/5" : "scale-[0.98] opacity-80 hover:opacity-100 hover:scale-100"
+                                                            )}
+                                                        >
+                                                            <div className="flex justify-between items-start mb-3 text-primary">
+                                                                <div className="space-y-1 max-w-[80%]">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        {group.version && (
+                                                                            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 text-[8px] font-black tracking-widest uppercase border border-indigo-500/10">
+                                                                                {group.version}
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest pl-1.5 border-l border-border/40">{group.codigo}</span>
+                                                                    </div>
+                                                                    <h4 className="text-[11px] font-black uppercase tracking-tight text-foreground leading-tight line-clamp-2 mt-1">
+                                                                        {group.nombre}
+                                                                    </h4>
+                                                                    <div className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                                                                        <Clock className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                                                        <span>{group.turno}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border shrink-0",
+                                                                    group.cupo === 0 ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" :
+                                                                        group.isFull ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : "bg-primary/10 text-primary border-primary/20"
+                                                                )}>
+                                                                    {group.cupo === 0 ? 'Ilimitado' : group.isFull ? 'Lleno' : 'Libre'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="space-y-1.5 mt-2 pt-2 border-t border-border/20">
+                                                                <div className="flex justify-between text-[9px] font-black">
+                                                                    <span className="text-muted-foreground uppercase tracking-widest text-[7px]">Ocupado</span>
+                                                                    <span className={cn(group.porcentaje > 90 ? "text-rose-500" : "text-foreground")}>
+                                                                        {group.inscritos} / {group.cupo > 0 ? group.cupo : '∞'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="h-2 bg-muted rounded-full overflow-hidden p-0.5 border border-border/10">
+                                                                    <motion.div
+                                                                        initial={{ width: 0 }}
+                                                                        animate={{ width: group.cupo > 0 ? `${group.porcentaje}%` : '10%' }}
+                                                                        className={cn(
+                                                                            "h-full rounded-full transition-all duration-1000",
+                                                                            group.cupo === 0 ? "bg-indigo-300 opacity-60" :
+                                                                                group.porcentaje > 90 ? "bg-rose-500" :
+                                                                                    group.porcentaje > 60 ? "bg-orange-500" : "bg-emerald-500"
+                                                                        )}
+                                                                    />
+                                                                </div>
+                                                                {/* Botón Ver inscritos */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedGroup(selectedGroup === group.id ? null : group.id); }}
+                                                                    className={cn(
+                                                                        "w-full mt-2 h-7 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1",
+                                                                        selectedGroup === group.id
+                                                                            ? "bg-primary text-white shadow-sm"
+                                                                            : "bg-muted/40 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                                                    )}
+                                                                >
+                                                                    <Users className="w-2.5 h-2.5" />
+                                                                    {selectedGroup === group.id ? 'Seleccionado' : `Filtrar (${group.inscritos})`}
+                                                                </button>
+                                                            </div>
+                                                        </Card>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
-                            </Card>
-                        ))
+                            );
+                        })
                     )}
                 </div>
+
             </div>
 
             {/* Inscriptions Table Card */}
@@ -1280,11 +1592,14 @@ export default function InscripcionesPage() {
                                                         required
                                                         autoComplete="off"
                                                         name="reg_ci"
-                                                        placeholder="Ej: 1234567"
+                                                        placeholder="Ej: 1234567 o 1234567-1B"
                                                         className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold"
                                                         value={newPersonaData.ci}
                                                         onChange={(e) => setNewPersonaData({ ...newPersonaData, ci: e.target.value })}
                                                     />
+                                                    <span className="text-[8px] text-muted-foreground/80 font-bold block ml-1">
+                                                        Si tiene complemento usar guion (ej: 1234567-1B)
+                                                    </span>
                                                 </div>
                                                 <div className="space-y-1.5 md:col-span-2">
                                                     <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Nombres *</label>
@@ -1316,14 +1631,10 @@ export default function InscripcionesPage() {
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">Fecha de Nacimiento</label>
-                                                    <input
-                                                        type="date"
-                                                        autoComplete="off"
-                                                        name="reg_fecha_nacimiento"
-                                                        className="w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold read-only:opacity-75 read-only:bg-muted/10"
+                                                    <DateInputDMY
                                                         value={newPersonaData.fechaNacimiento}
-                                                        onChange={(e) => setNewPersonaData({ ...newPersonaData, fechaNacimiento: e.target.value })}
-                                                        readOnly={!!mapPersonaFound}
+                                                        onChange={v => setNewPersonaData(prev => ({ ...prev, fechaNacimiento: v }))}
+                                                        disabled={!!mapPersonaFound}
                                                     />
                                                 </div>
                                             </div>

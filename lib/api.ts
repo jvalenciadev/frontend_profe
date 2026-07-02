@@ -89,14 +89,6 @@ const handleResponseError = (error: any) => {
 
     if (isSilent) return Promise.reject(error);
 
-    if (status === 401) {
-        Cookies.remove('token');
-        Cookies.remove('user');
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
-        }
-    }
-
     // Extraer mensaje legible del backend (NestJS usa { statusCode, message, error })
     let userMessage: string | null = null;
     if (backendError) {
@@ -104,6 +96,24 @@ const handleResponseError = (error: any) => {
             userMessage = backendError.message;
         } else if (Array.isArray(backendError.message)) {
             userMessage = backendError.message.join(', ');
+        }
+    }
+
+    const isPublicRoute = error.config?.url?.includes('/public/');
+    if (isPublicRoute) {
+        // Para rutas públicas, no disparamos Toasts ni ErrorStore globales para no tumbar la página.
+        // Re-lanzamos el error enriquecido para que la vista/formulario lo maneje localmente.
+        const enrichedError = new Error(userMessage || error.message || 'Error desconocido');
+        (enrichedError as any).status = status;
+        (enrichedError as any).originalError = error;
+        return Promise.reject(enrichedError);
+    }
+
+    if (status === 401) {
+        Cookies.remove('token');
+        Cookies.remove('user');
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
         }
     }
 
