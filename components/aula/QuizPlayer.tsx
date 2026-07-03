@@ -67,6 +67,7 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
 
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [countdown, setCountdown] = useState<string>('');
 
     useEffect(() => {
         setMounted(true);
@@ -94,6 +95,39 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
     };
 
     useEffect(() => { loadLobby(); }, [actividadId]);
+
+    // ── Countdown al cierre/apertura ──────────────────────────────────────
+    const formatCountdown = (ms: number): string => {
+        if (ms <= 0) return '';
+        const totalSecs = Math.floor(ms / 1000);
+        const days = Math.floor(totalSecs / 86400);
+        const hours = Math.floor((totalSecs % 86400) / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+        if (days > 0) return `${days}d ${hours}h ${mins}m`;
+        if (hours > 0) return `${hours}h ${mins}m ${secs}s`;
+        if (mins > 0) return `${mins}m ${secs}s`;
+        return `${secs}s`;
+    };
+
+    useEffect(() => {
+        const tick = () => {
+            if (!cuestionario) return;
+            const now = Date.now();
+            const fechaInicio = cuestionario.actividad?.fechaInicio ? new Date(cuestionario.actividad.fechaInicio).getTime() : null;
+            const fechaFin = cuestionario.actividad?.fechaFin ? new Date(cuestionario.actividad.fechaFin).getTime() : null;
+            if (fechaInicio && now < fechaInicio) {
+                setCountdown(formatCountdown(fechaInicio - now));
+            } else if (fechaFin && now < fechaFin) {
+                setCountdown(formatCountdown(fechaFin - now));
+            } else {
+                setCountdown('');
+            }
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [cuestionario]);
 
     // Lógica Anti-Copia
     useEffect(() => {
@@ -417,103 +451,167 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                             <p className={cn("text-sm font-medium", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>Este cuestionario solo puede realizarse desde un dispositivo móvil (celular o tablet). Descarga la aplicación o ingresa desde tu móvil para realizarlo.</p>
                                         </div>
                                     </div>
-                                ) : lobbyData.intentosRestantes > 0 || hasActiveIntento ? (
-                                    <div className="space-y-4">
-                                        {!hasActiveIntento && (
-                                            <div className={cn("p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4", discapacidad ? "bg-primary/10 border-primary/40 shadow-lg shadow-primary/10" : "bg-slate-50 border-slate-100 dark:bg-slate-800/20 dark:border-slate-800")}>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", discapacidad ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-400")}>
-                                                        <CheckCircle2 size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <p className={cn("text-[10px] font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>Modo Accesibilidad</p>
-                                                        <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Persona con discapacidad (+15 min extra)</p>
-                                                    </div>
-                                                </div>
-                                                <button onClick={() => {
-                                                    if (!discapacidad) {
-                                                        setShowPassPrompt(true);
-                                                    } else {
-                                                        setDiscapacidad(false);
-                                                        setFacilitadorPass('');
-                                                    }
-                                                }}
-                                                    className={cn("w-12 h-6 rounded-full transition-all relative shrink-0", discapacidad ? "bg-primary" : "bg-slate-300 dark:bg-slate-700")}>
-                                                    <div className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all", discapacidad ? "left-[26px]" : "left-0.5")} />
-                                                </button>
+                                ) : (() => {
+                                    const now = new Date();
+                                    const fechaInicio = cuestionario.actividad?.fechaInicio ? new Date(cuestionario.actividad.fechaInicio) : null;
+                                    const fechaFin = cuestionario.actividad?.fechaFin ? new Date(cuestionario.actividad.fechaFin) : null;
+
+                                    // Aún no ha abierto
+                                    if (fechaInicio && now < fechaInicio) {
+                                        return (
+                                            <div className="p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center space-y-3">
+                                                <Lock size={32} className="text-indigo-500 mx-auto" />
+                                                <p className="text-indigo-600 font-black text-[11px] uppercase tracking-widest">Evaluación aún no disponible</p>
+                                                <p className={cn("text-xs font-bold", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                                                    Abre el {fechaInicio.toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                                {countdown && (
+                                                    <p className="text-indigo-500 font-black text-xl tracking-tight tabular-nums">
+                                                        ⏳ {countdown}
+                                                    </p>
+                                                )}
                                             </div>
-                                        )}
+                                        );
+                                    }
 
-                                        {showPassPrompt && !discapacidad && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-5 rounded-2xl bg-primary/5 border-2 border-primary/20 space-y-3">
-                                                <div className="flex items-center gap-2 text-primary">
-                                                    <Lock size={14} />
-                                                    <p className="text-[10px] font-black uppercase tracking-widest">Autorización del Facilitador</p>
-                                                </div>
-                                                <p className="text-[9px] text-slate-500 font-bold uppercase leading-tight">El facilitador a cargo debe ingresar su contraseña para autorizar el tiempo extra.</p>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="password"
-                                                        value={facilitadorPass}
-                                                        onChange={(e) => setFacilitadorPass(e.target.value)}
-                                                        placeholder="Contraseña del docente..."
-                                                        className="flex-1 h-10 px-4 rounded-xl border-2 border-primary/20 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:border-primary transition-all"
-                                                    />
-                                                    <button
-                                                        disabled={verifyingPass}
-                                                        onClick={async () => {
-                                                            if (!facilitadorPass.trim()) return;
-                                                            try {
-                                                                setVerifyingPass(true);
-                                                                const res = await aulaService.verificarFacilitador(cuestionario.id, facilitadorPass);
-                                                                if (res.isAuthorized) {
-                                                                    setDiscapacidad(true);
-                                                                    setShowPassPrompt(false);
-                                                                    toast.success('Autorización concedida');
-                                                                } else {
-                                                                    toast.error('Contraseña incorrecta o no autorizado');
-                                                                }
-                                                            } catch {
-                                                                toast.error('Error al validar facilitador');
-                                                            } finally {
-                                                                setVerifyingPass(false);
-                                                            }
-                                                        }}
-                                                        className="px-4 h-10 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                                                    >
-                                                        {verifyingPass ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Validar'}
-                                                    </button>
-                                                </div>
-                                            </motion.div>
-                                        )}
-
-                                        {discapacidad && !hasActiveIntento && (
-                                            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
-                                                <AlertTriangle size={16} className="text-rose-500 shrink-0 mt-0.5" />
-                                                <p className="text-[9px] font-black uppercase text-rose-600 leading-tight">
-                                                    ADVERTENCIA: Si declara ser persona con discapacidad sin serlo, su evaluación será ANULADA automáticamente. Esta acción queda registrada.
+                                    // Ya venció — solo bloquear si NO hay intento activo en curso
+                                    if (fechaFin && now > fechaFin && !hasActiveIntento) {
+                                        return (
+                                            <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-3">
+                                                <Lock size={32} className="text-rose-500 mx-auto" />
+                                                <p className="text-rose-600 font-black text-[11px] uppercase tracking-widest">Evaluación cerrada</p>
+                                                <p className={cn("text-xs font-bold", theme === 'dark' ? "text-slate-400" : "text-slate-600")}>
+                                                    El período de evaluación finalizó el {fechaFin.toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
-                                        )}
-                                        <button
-                                            onClick={startQuiz}
-                                            disabled={starting}
-                                            className={cn(
-                                                "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
-                                                hasActiveIntento
-                                                    ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
-                                                    : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
+                                        );
+                                    }
+
+                                    // Calcular urgencia del countdown
+                                    const msLeft = fechaFin ? fechaFin.getTime() - now.getTime() : Infinity;
+                                    const urgency = msLeft < 60 * 60 * 1000 ? 'red' : msLeft < 24 * 60 * 60 * 1000 ? 'amber' : 'green';
+
+                                    return lobbyData.intentosRestantes > 0 || hasActiveIntento ? (
+                                        <div className="space-y-4">
+                                            {/* Countdown al cierre */}
+                                            {countdown && fechaFin && (
+                                                <div className={cn(
+                                                    "p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all",
+                                                    urgency === 'red' ? "bg-rose-500/10 border-rose-500/30" :
+                                                        urgency === 'amber' ? "bg-amber-500/10 border-amber-500/30" :
+                                                            "bg-emerald-500/10 border-emerald-500/20"
+                                                )}>
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock size={14} className={urgency === 'red' ? 'text-rose-500' : urgency === 'amber' ? 'text-amber-500' : 'text-emerald-500'} />
+                                                        <p className={cn("text-[9px] font-black uppercase tracking-widest",
+                                                            urgency === 'red' ? 'text-rose-600' : urgency === 'amber' ? 'text-amber-600' : 'text-emerald-600'
+                                                        )}>
+                                                            {urgency === 'red' ? '¡Cierra muy pronto!' : urgency === 'amber' ? 'Tiempo restante' : 'Disponible hasta'}
+                                                        </p>
+                                                    </div>
+                                                    <p className={cn("font-black text-base tabular-nums tracking-tight",
+                                                        urgency === 'red' ? 'text-rose-500' : urgency === 'amber' ? 'text-amber-500' : 'text-emerald-500'
+                                                    )}>
+                                                        {countdown}
+                                                    </p>
+                                                </div>
                                             )}
-                                        >
-                                            {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
-                                            {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-center font-black text-xs uppercase tracking-widest">
-                                        Has agotado todos tus intentos
-                                    </div>
-                                )}
+                                            {!hasActiveIntento && (
+                                                <div className={cn("p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4", discapacidad ? "bg-primary/10 border-primary/40 shadow-lg shadow-primary/10" : "bg-slate-50 border-slate-100 dark:bg-slate-800/20 dark:border-slate-800")}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", discapacidad ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-400")}>
+                                                            <CheckCircle2 size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className={cn("text-[10px] font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-slate-900")}>Modo Accesibilidad</p>
+                                                            <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Persona con discapacidad (+15 min extra)</p>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => {
+                                                        if (!discapacidad) {
+                                                            setShowPassPrompt(true);
+                                                        } else {
+                                                            setDiscapacidad(false);
+                                                            setFacilitadorPass('');
+                                                        }
+                                                    }}
+                                                        className={cn("w-12 h-6 rounded-full transition-all relative shrink-0", discapacidad ? "bg-primary" : "bg-slate-300 dark:bg-slate-700")}>
+                                                        <div className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all", discapacidad ? "left-[26px]" : "left-0.5")} />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {showPassPrompt && !discapacidad && (
+                                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-5 rounded-2xl bg-primary/5 border-2 border-primary/20 space-y-3">
+                                                    <div className="flex items-center gap-2 text-primary">
+                                                        <Lock size={14} />
+                                                        <p className="text-[10px] font-black uppercase tracking-widest">Autorización del Facilitador</p>
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-500 font-bold uppercase leading-tight">El facilitador a cargo debe ingresar su contraseña para autorizar el tiempo extra.</p>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="password"
+                                                            value={facilitadorPass}
+                                                            onChange={(e) => setFacilitadorPass(e.target.value)}
+                                                            placeholder="Contraseña del docente..."
+                                                            className="flex-1 h-10 px-4 rounded-xl border-2 border-primary/20 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:border-primary transition-all"
+                                                        />
+                                                        <button
+                                                            disabled={verifyingPass}
+                                                            onClick={async () => {
+                                                                if (!facilitadorPass.trim()) return;
+                                                                try {
+                                                                    setVerifyingPass(true);
+                                                                    const res = await aulaService.verificarFacilitador(cuestionario.id, facilitadorPass);
+                                                                    if (res.isAuthorized) {
+                                                                        setDiscapacidad(true);
+                                                                        setShowPassPrompt(false);
+                                                                        toast.success('Autorización concedida');
+                                                                    } else {
+                                                                        toast.error('Contraseña incorrecta o no autorizado');
+                                                                    }
+                                                                } catch {
+                                                                    toast.error('Error al validar facilitador');
+                                                                } finally {
+                                                                    setVerifyingPass(false);
+                                                                }
+                                                            }}
+                                                            className="px-4 h-10 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                                        >
+                                                            {verifyingPass ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Validar'}
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+
+                                            {discapacidad && !hasActiveIntento && (
+                                                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
+                                                    <AlertTriangle size={16} className="text-rose-500 shrink-0 mt-0.5" />
+                                                    <p className="text-[9px] font-black uppercase text-rose-600 leading-tight">
+                                                        ADVERTENCIA: Si declara ser persona con discapacidad sin serlo, su evaluación será ANULADA automáticamente. Esta acción queda registrada.
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={startQuiz}
+                                                disabled={starting}
+                                                className={cn(
+                                                    "w-full h-20 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl",
+                                                    hasActiveIntento
+                                                        ? "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
+                                                        : "bg-primary text-white hover:scale-[1.02] shadow-primary/20"
+                                                )}
+                                            >
+                                                {starting ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" /> : hasActiveIntento ? <Rocket size={20} /> : <Play size={20} />}
+                                                {hasActiveIntento ? 'Continuar Intento en curso' : 'Iniciar Nueva Evaluación'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-center font-black text-xs uppercase tracking-widest">
+                                            Has agotado todos tus intentos
+                                        </div>
+                                    );
+                                })()}
                                 <button onClick={onClose} className="w-full mt-4 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-primary transition-colors">Volver al aula</button>
                             </div>
                         </div>
