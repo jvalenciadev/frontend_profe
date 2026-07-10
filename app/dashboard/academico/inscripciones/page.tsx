@@ -817,6 +817,10 @@ export default function InscripcionesPage() {
             toast.warning('Debe seleccionar programa y turno');
             return;
         }
+        if (!formData.estadoInscripcionId) {
+            toast.warning('Debe seleccionar el estado de inscripción');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -2420,7 +2424,7 @@ export default function InscripcionesPage() {
                         ) : (
                             <button
                                 type="submit"
-                                disabled={isSubmitting || !formData.personaId || !formData.programaId || !formData.turnoId}
+                                disabled={isSubmitting || !formData.personaId || !formData.programaId || !formData.turnoId || !formData.estadoInscripcionId}
                                 className="h-14 px-8 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01]"
                             >
                                 {isSubmitting ? (
