@@ -744,7 +744,7 @@ export default function InscripcionesPage() {
             const oferta = ofertas.find((o: any) => o.id === inscripcion.programaId);
             if (oferta && oferta.version) setSelectedVersionId(oferta.version.id);
 
-            setCurrentStep(2); // Jump to academic data when editing
+            setCurrentStep(3); // Jump to program/turno selection when editing
             setPersonaSearch(inscripcion.persona ? `${inscripcion.persona.nombre} ${inscripcion.persona.apellidos}` : '');
             setFormData({
                 personaId: inscripcion.personaId || '',
@@ -792,13 +792,15 @@ export default function InscripcionesPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation for new record flow
-        if (currentStep === 1 && !editingInscripcion) {
-            if (!formData.personaId) {
-                toast.warning('Debe seleccionar a una persona');
-                return;
-            }
-            setCurrentStep(2);
+        // Solo procesar si estamos en el paso final (4) o editando
+        if (!editingInscripcion && currentStep !== 4) return;
+
+        if (!formData.personaId) {
+            toast.warning('Debe seleccionar a una persona');
+            return;
+        }
+        if (!formData.programaId || !formData.turnoId) {
+            toast.warning('Debe seleccionar programa y turno');
             return;
         }
 
@@ -826,6 +828,7 @@ export default function InscripcionesPage() {
             setIsSubmitting(false);
         }
     };
+
 
     const confirmDelete = (id: string) => {
         setConfirmDeleteState({ open: true, id, loading: false });
@@ -1499,7 +1502,9 @@ export default function InscripcionesPage() {
                             <div className="flex items-center gap-0 mt-6 border-t border-border/20 pt-4">
                                 {[
                                     { id: 1, label: 'Participante', icon: User },
-                                    { id: 2, label: 'Oferta Académica', icon: GraduationCap },
+                                    { id: 2, label: 'Versión', icon: GraduationCap },
+                                    { id: 3, label: 'Programa', icon: MapPin },
+                                    { id: 4, label: 'Estado', icon: BookOpen },
                                 ].map((s, idx) => {
                                     const isActive = currentStep === s.id;
                                     const isDone = currentStep > s.id;
@@ -1510,7 +1515,7 @@ export default function InscripcionesPage() {
                                                 disabled={!isDone}
                                                 onClick={() => isDone && setCurrentStep(s.id)}
                                                 className={cn(
-                                                    'flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all text-[9px] font-black uppercase tracking-widest',
+                                                    'flex items-center gap-2 px-3 py-1.5 rounded-full transition-all text-[8px] font-black uppercase tracking-widest',
                                                     isActive
                                                         ? 'bg-primary text-primary-foreground shadow-lg'
                                                         : isDone
@@ -1535,12 +1540,12 @@ export default function InscripcionesPage() {
                                                     )}
                                                 </div>
                                                 <s.icon className="w-3 h-3" />
-                                                <span>{s.label}</span>
+                                                <span className="hidden sm:inline">{s.label}</span>
                                             </button>
-                                            {idx < 1 && (
+                                            {idx < 3 && (
                                                 <div
                                                     className={cn(
-                                                        'h-0.5 w-8 mx-2 rounded-full transition-all',
+                                                        'h-0.5 w-6 mx-1 rounded-full transition-all',
                                                         currentStep > s.id ? 'bg-primary' : 'bg-border'
                                                     )}
                                                 />
@@ -2044,140 +2049,152 @@ export default function InscripcionesPage() {
                                         </>
                                     )}
                                 </motion.div>
-                            ) : (
+                            ) : currentStep === 2 ? (
                                 <motion.div
                                     key="step2"
                                     initial={{ opacity: 0, x: 16 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -16 }}
                                     transition={{ duration: 0.2 }}
-                                    className="space-y-6"
+                                    className="space-y-5"
                                 >
-                                    {/* Selected Persona Pill */}
+                                    {/* Participante pill */}
                                     {personaSearch && (
                                         <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-primary/5 border border-primary/10 w-fit">
                                             <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-primary text-[10px] font-black">
                                                 {personaSearch.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                                             </div>
-                                            <span className="text-[11px] font-black text-primary uppercase tracking-wide">
-                                                {personaSearch}
-                                            </span>
+                                            <span className="text-[11px] font-black text-primary uppercase tracking-wide">{personaSearch}</span>
                                         </div>
                                     )}
+                                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                        <GraduationCap className="w-3.5 h-3.5 text-primary" />
+                                        Seleccione la Versión Académica
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
+                                        {uniqueVersions.map((v: any) => {
+                                            const isSelected = selectedVersionId === v.id;
+                                            return (
+                                                <button
+                                                    key={v.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedVersionId(v.id);
+                                                        setFormData({ ...formData, programaId: '', sedeId: '', turnoId: '' });
+                                                    }}
+                                                    className={cn(
+                                                        'relative p-4 rounded-2xl border-2 text-left transition-all group overflow-hidden',
+                                                        isSelected
+                                                            ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                                            : 'border-border/40 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-sm'
+                                                    )}
+                                                >
+                                                    {isSelected && (
+                                                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                                            <Check className="w-3 h-3 text-white" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="px-2.5 py-0.5 rounded-full bg-primary text-white text-[9px] font-black tracking-widest uppercase">
+                                                            {v.nombre} {v.numero}
+                                                        </span>
+                                                        {v.gestion && (
+                                                            <span className="text-[9px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                                                                {v.gestion}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className={cn(
+                                                        'text-[11px] font-black uppercase tracking-tight leading-tight',
+                                                        isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary transition-colors'
+                                                    )}>
+                                                        {v.programaNombre}
+                                                    </p>
+                                                    {v.codigo && (
+                                                        <p className="text-[8px] font-black text-muted-foreground/50 uppercase tracking-widest mt-1">
+                                                            {v.codigo}
+                                                        </p>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                        {uniqueVersions.length === 0 && (
+                                            <div className="col-span-2 py-12 text-center text-muted-foreground text-[11px] font-bold uppercase tracking-widest">
+                                                No hay versiones académicas disponibles
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            ) : currentStep === 3 ? (
+                                <motion.div
+                                    key="step3"
+                                    initial={{ opacity: 0, x: 16 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -16 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="space-y-6"
+                                >
+                                    {/* Breadcrumb versión seleccionada */}
+                                    {selectedVersionId && (() => {
+                                        const v = uniqueVersions.find((x: any) => x.id === selectedVersionId);
+                                        return v ? (
+                                            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-primary/5 border border-primary/10 w-fit">
+                                                <GraduationCap className="w-3.5 h-3.5 text-primary" />
+                                                <span className="text-[10px] font-black text-primary uppercase tracking-wide">{v.nombre} {v.numero} · {v.gestion}</span>
+                                            </div>
+                                        ) : null;
+                                    })()}
 
-                                    {/* 1. Version Selection */}
+                                    {/* Programas disponibles */}
                                     <div className="space-y-3">
                                         <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                            <GraduationCap className="w-3.5 h-3.5 text-primary" />
-                                            1. Programa y Versión Académica
+                                            <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                            Programa Académico
                                         </label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                                            {uniqueVersions
-                                                .filter((v: any) => (editingInscripcion ? v.id === selectedVersionId : true))
-                                                .map((v: any) => {
-                                                    const isSelected = selectedVersionId === v.id;
+                                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                            {ofertas
+                                                .filter((o: any) => o.version?.id === selectedVersionId)
+                                                .map((o: any) => {
+                                                    const isSelected = formData.programaId === o.id;
                                                     return (
                                                         <button
-                                                            key={v.id}
+                                                            key={o.id}
                                                             type="button"
-                                                            disabled={!!editingInscripcion}
                                                             onClick={() => {
-                                                                if (!editingInscripcion) {
-                                                                    setSelectedVersionId(v.id);
-                                                                    setFormData({ ...formData, programaId: '', sedeId: '', turnoId: '' });
+                                                                let newTurnoId = o?.turnos?.[0]?.id || '';
+                                                                if (formData.turnoId && formData.programaId) {
+                                                                    const oldOferta = ofertas.find((old: any) => old.id === formData.programaId);
+                                                                    const oldTurno = oldOferta?.turnos?.find((t: any) => t.id === formData.turnoId);
+                                                                    if (oldTurno) {
+                                                                        const matchingTurno = o?.turnos?.find((t: any) => t.turnoConfig?.nombre === oldTurno.turnoConfig?.nombre);
+                                                                        if (matchingTurno) newTurnoId = matchingTurno.id;
+                                                                    }
                                                                 }
+                                                                setFormData({ ...formData, programaId: o.id, sedeId: o.sedeId, turnoId: newTurnoId });
                                                             }}
                                                             className={cn(
-                                                                'relative p-4 rounded-2xl border-2 text-left transition-all group overflow-hidden',
+                                                                'flex items-center justify-between w-full px-4 py-3 rounded-xl border-2 transition-all text-left',
                                                                 isSelected
-                                                                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                                                                    : 'border-border/40 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-sm'
+                                                                    ? 'border-primary bg-primary/5 shadow-md'
+                                                                    : 'border-border/40 bg-white dark:bg-slate-900 hover:border-primary/40'
                                                             )}
                                                         >
-                                                            {isSelected && (
-                                                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                                                    <Check className="w-3 h-3 text-white" />
-                                                                </div>
-                                                            )}
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span className="px-2.5 py-0.5 rounded-full bg-primary text-white text-[9px] font-black tracking-widest uppercase">
-                                                                    {v.nombre} {v.numero}
-                                                                </span>
-                                                                {v.gestion && (
-                                                                    <span className="text-[9px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                                                                        {v.gestion}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className={cn(
-                                                                'text-[11px] font-black uppercase tracking-tight leading-tight',
-                                                                isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary transition-colors'
-                                                            )}>
-                                                                {v.programaNombre}
-                                                            </p>
-                                                            {v.codigo && (
-                                                                <p className="text-[8px] font-black text-muted-foreground/50 uppercase tracking-widest mt-1">
-                                                                    {v.codigo}
+                                                            <div>
+                                                                <p className={cn('text-[11px] font-black uppercase tracking-tight', isSelected ? 'text-primary' : 'text-foreground')}>
+                                                                    {o.nombre}
                                                                 </p>
-                                                            )}
+                                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                                                                    {o.codigo && <span>{o.codigo} · </span>}{o.sede?.nombre || 'General'}
+                                                                </p>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
                                                         </button>
                                                     );
                                                 })}
                                         </div>
                                     </div>
 
-                                    {/* 2. Sede selection */}
-                                    <AnimatePresence>
-                                        {selectedVersionId && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="space-y-3 pt-4 border-t border-border/30"
-                                            >
-                                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
-                                                    2. Sede / Modalidad
-                                                </label>
-                                                <div className="flex flex-wrap gap-2.5">
-                                                    {ofertas
-                                                        .filter((o: any) => o.version?.id === selectedVersionId)
-                                                        .map((o: any) => {
-                                                            const isSelected = formData.programaId === o.id;
-                                                            return (
-                                                                <button
-                                                                    key={o.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        let newTurnoId = o?.turnos?.[0]?.id || '';
-                                                                        if (formData.turnoId && formData.programaId) {
-                                                                            const oldOferta = ofertas.find((old: any) => old.id === formData.programaId);
-                                                                            const oldTurno = oldOferta?.turnos?.find((t: any) => t.id === formData.turnoId);
-                                                                            if (oldTurno) {
-                                                                                const matchingTurno = o?.turnos?.find((t: any) => t.turnoConfig?.nombre === oldTurno.turnoConfig?.nombre);
-                                                                                if (matchingTurno) newTurnoId = matchingTurno.id;
-                                                                            }
-                                                                        }
-                                                                        setFormData({ ...formData, programaId: o.id, sedeId: o.sedeId, turnoId: newTurnoId });
-                                                                    }}
-                                                                    className={cn(
-                                                                        'flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-wider',
-                                                                        isSelected
-                                                                            ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.01]'
-                                                                            : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/50 hover:shadow-sm'
-                                                                    )}
-                                                                >
-                                                                    <MapPin className={cn('w-3.5 h-3.5', isSelected ? 'text-white/85' : 'text-primary/60')} />
-                                                                    {o.sede?.nombre || 'General'}
-                                                                    {isSelected && <Check className="w-3.5 h-3.5 ml-1" />}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    {/* 3. Turno Selection */}
+                                    {/* Turno selection */}
                                     <AnimatePresence>
                                         {formData.programaId && (
                                             <motion.div
@@ -2187,7 +2204,7 @@ export default function InscripcionesPage() {
                                             >
                                                 <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                                                     <Clock className="w-3.5 h-3.5 text-primary" />
-                                                    3. Horario / Turno Asignado
+                                                    Horario / Turno
                                                 </label>
                                                 <div className="flex flex-wrap gap-2.5">
                                                     {(ofertas.find(o => o.id === formData.programaId)?.turnos || []).map((t: any) => {
@@ -2200,8 +2217,8 @@ export default function InscripcionesPage() {
                                                                 className={cn(
                                                                     'flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-wider',
                                                                     isSelected
-                                                                        ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20 scale-[1.01]'
-                                                                        : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/50 hover:shadow-sm'
+                                                                        ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20'
+                                                                        : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/50'
                                                                 )}
                                                             >
                                                                 <Clock className={cn('w-3.5 h-3.5', isSelected ? 'text-white/85' : 'text-primary/60')} />
@@ -2215,77 +2232,33 @@ export default function InscripcionesPage() {
                                         )}
                                     </AnimatePresence>
 
-                                    {/* 4. Estado Academico */}
-                                    {estadosInscripcion.length > 0 && (
-                                        <div className="space-y-3 pt-4 border-t border-border/30">
-                                            <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                <BookOpen className="w-3.5 h-3.5 text-primary" />
-                                                4. Estado del Registro Académico
-                                            </label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {estadosInscripcion.map((est: any) => {
-                                                    const isSelected = formData.estadoInscripcionId === est.id;
-                                                    const colorMap: Record<string, string> = {
-                                                        INSCRITO: 'border-emerald-500 bg-emerald-500 hover:bg-emerald-600',
-                                                        PREINSCRITO: 'border-amber-500 bg-amber-500 hover:bg-amber-600',
-                                                        BAJA: 'border-rose-500 bg-rose-500 hover:bg-rose-600',
-                                                    };
-                                                    const activeColor = colorMap[est.nombre] ?? 'border-primary bg-primary hover:bg-primary/90';
-                                                    return (
-                                                        <button
-                                                            key={est.id}
-                                                            type="button"
-                                                            onClick={() => setFormData({ ...formData, estadoInscripcionId: est.id })}
-                                                            className={cn(
-                                                                'px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase tracking-widest transition-all',
-                                                                isSelected
-                                                                    ? `${activeColor} text-white shadow-lg`
-                                                                    : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/40'
-                                                            )}
-                                                        >
-                                                            {est.nombre}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Summary preview card */}
+                                    {/* Summary preview */}
                                     <AnimatePresence>
                                         {formData.programaId && formData.turnoId && (
                                             <motion.div
                                                 initial={{ opacity: 0, y: 12 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                className="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-900/10 space-y-3"
+                                                className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-900/10"
                                             >
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 mb-3">
                                                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                                                        Resumen de Matrícula
-                                                    </span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Selección Confirmada</span>
                                                 </div>
                                                 {(() => {
-                                                    const selectedOferta = ofertas.find(o => o.id === formData.programaId);
+                                                    const sel = ofertas.find(o => o.id === formData.programaId);
                                                     return (
-                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px] font-bold">
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[10px] font-bold">
                                                             <div>
                                                                 <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Programa</p>
-                                                                <p className="font-black text-foreground line-clamp-1">{selectedOferta?.nombre}</p>
+                                                                <p className="font-black text-foreground line-clamp-1">{sel?.nombre}</p>
                                                             </div>
                                                             <div>
                                                                 <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Sede</p>
-                                                                <p className="font-black text-foreground">{selectedOferta?.sede?.nombre || 'General'}</p>
+                                                                <p className="font-black text-foreground">{sel?.sede?.nombre || 'General'}</p>
                                                             </div>
                                                             <div>
                                                                 <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Turno</p>
-                                                                <p className="font-black text-foreground">
-                                                                    {selectedOferta?.turnos?.find((t: any) => t.id === formData.turnoId)?.turnoConfig?.nombre || 'Turno Único'}
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-muted-foreground uppercase tracking-widest text-[8px] mb-0.5">Costo</p>
-                                                                <p className="font-black text-primary">Bs. {selectedOferta?.costo?.toLocaleString() || 0}</p>
+                                                                <p className="font-black text-foreground">{sel?.turnos?.find((t: any) => t.id === formData.turnoId)?.turnoConfig?.nombre || 'Único'}</p>
                                                             </div>
                                                         </div>
                                                     );
@@ -2293,6 +2266,100 @@ export default function InscripcionesPage() {
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="step4"
+                                    initial={{ opacity: 0, x: 16 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -16 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="space-y-6"
+                                >
+                                    {/* Summary pill */}
+                                    {formData.programaId && (() => {
+                                        const sel = ofertas.find(o => o.id === formData.programaId);
+                                        const turno = sel?.turnos?.find((t: any) => t.id === formData.turnoId);
+                                        return (
+                                            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-1">
+                                                <p className="text-[11px] font-black text-primary uppercase tracking-tight">{sel?.nombre}</p>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                    {sel?.sede?.nombre || 'General'} · {turno?.turnoConfig?.nombre || 'Turno Único'}
+                                                </p>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Estado */}
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                            <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                            Estado del Registro Académico
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {estadosInscripcion.map((est: any) => {
+                                                const isSelected = formData.estadoInscripcionId === est.id;
+                                                const colorMap: Record<string, string> = {
+                                                    INSCRITO: 'border-emerald-500 bg-emerald-500 hover:bg-emerald-600',
+                                                    PREINSCRITO: 'border-amber-500 bg-amber-500 hover:bg-amber-600',
+                                                    BAJA: 'border-rose-500 bg-rose-500 hover:bg-rose-600',
+                                                };
+                                                const activeColor = colorMap[est.nombre] ?? 'border-primary bg-primary hover:bg-primary/90';
+                                                return (
+                                                    <button
+                                                        key={est.id}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, estadoInscripcionId: est.id })}
+                                                        className={cn(
+                                                            'px-4 py-2.5 rounded-xl border-2 text-[9px] font-black uppercase tracking-widest transition-all',
+                                                            isSelected
+                                                                ? `${activeColor} text-white shadow-lg`
+                                                                : 'border-border/40 bg-white dark:bg-slate-900 text-foreground hover:border-primary/40'
+                                                        )}
+                                                    >
+                                                        {est.nombre}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Campos extra */}
+                                    {camposExtra.length > 0 && (
+                                        <div className="space-y-4 pt-4 border-t border-border/30">
+                                            <div className="flex items-center gap-2">
+                                                <Star className="w-3.5 h-3.5 text-amber-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Información Complementaria</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {camposExtra.map((field: any) => {
+                                                    const fieldType = (field.tipo ?? '').toString().toLowerCase().trim();
+                                                    let options: string[] = [];
+                                                    if (Array.isArray(field.opciones)) options = field.opciones;
+                                                    else if (typeof field.opciones === 'string') {
+                                                        try { options = field.opciones.startsWith('[') ? JSON.parse(field.opciones) : field.opciones.split(',').map((s: string) => s.trim()); } catch { }
+                                                    }
+                                                    const baseInput = 'w-full h-11 px-4 rounded-xl border border-border/50 bg-white dark:bg-slate-900 focus:border-primary outline-none text-xs font-bold';
+                                                    return (
+                                                        <div key={field.id} className="space-y-1.5">
+                                                            <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block ml-1">{field.label}{field.esObligatorio && <span className="text-rose-500 ml-1">*</span>}</label>
+                                                            {['seleccion_unica', 'seleccion unica', 'select', 'single_select'].includes(fieldType) ? (
+                                                                <div className="relative">
+                                                                    <select className={cn(baseInput, 'appearance-none cursor-pointer pr-10')} value={userExtraResponses[field.id] || ''} onChange={e => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })} required={field.esObligatorio}>
+                                                                        <option value="" disabled>Seleccione...</option>
+                                                                        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                                    </select>
+                                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                                                </div>
+                                                            ) : (
+                                                                <input className={baseInput} type={['number', 'numero'].includes(fieldType) ? 'number' : ['date', 'fecha'].includes(fieldType) ? 'date' : 'text'} value={userExtraResponses[field.id] || ''} onChange={e => setUserExtraResponses({ ...userExtraResponses, [field.id]: e.target.value })} placeholder={`${field.label}...`} required={field.esObligatorio} />
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -2302,7 +2369,11 @@ export default function InscripcionesPage() {
                     <div className="shrink-0 px-8 py-5 bg-white dark:bg-slate-900 border-t border-border/40 flex justify-between items-center gap-4 pl-9">
                         <button
                             type="button"
-                            onClick={() => (currentStep > 1 && !editingInscripcion ? setCurrentStep(1) : setIsModalOpen(false))}
+                            onClick={() => {
+                                if (editingInscripcion) { setIsModalOpen(false); return; }
+                                if (currentStep > 1) setCurrentStep(currentStep - 1);
+                                else setIsModalOpen(false);
+                            }}
                             className="h-12 px-5 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all flex items-center gap-2"
                         >
                             <ChevronLeft className="w-4 h-4" />
@@ -2311,39 +2382,42 @@ export default function InscripcionesPage() {
 
                         <p className="hidden md:flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
                             <Info className="w-3.5 h-3.5 text-primary/50" />
-                            {currentStep === 1
-                                ? 'Seleccione al participante para continuar'
-                                : 'Seleccione programa, sede y turno'}
+                            {currentStep === 1 ? 'Seleccione al participante'
+                                : currentStep === 2 ? 'Seleccione la versión académica'
+                                    : currentStep === 3 ? 'Seleccione programa, sede y turno'
+                                        : 'Seleccione el estado e información complementaria'}
                         </p>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || !formData.personaId || (currentStep === 2 && (!formData.programaId || !formData.turnoId))}
-                            className="h-14 px-8 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01]"
-                        >
-                            {isSubmitting ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    {currentStep === 1 && !editingInscripcion ? (
-                                        <>
-                                            <span>Datos Académicos</span>
-                                            <ArrowRightCircle className="w-4 h-4" />
-                                        </>
-                                    ) : editingInscripcion ? (
-                                        <>
-                                            <CheckCircle2 className="w-5 h-5" />
-                                            <span>Guardar Cambios</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Stamp className="w-5 h-5" />
-                                            <span>Confirmar Matrícula</span>
-                                        </>
-                                    )}
-                                </>
-                            )}
-                        </button>
+                        {/* Avanzar pasos o confirmar */}
+                        {!editingInscripcion && currentStep < 4 ? (
+                            <button
+                                type="button"
+                                disabled={
+                                    (currentStep === 1 && !formData.personaId) ||
+                                    (currentStep === 2 && !selectedVersionId) ||
+                                    (currentStep === 3 && (!formData.programaId || !formData.turnoId))
+                                }
+                                onClick={() => setCurrentStep(currentStep + 1)}
+                                className="h-14 px-8 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01]"
+                            >
+                                <span>{currentStep === 1 ? 'Elegir Versión' : currentStep === 2 ? 'Elegir Programa' : 'Elegir Estado'}</span>
+                                <ArrowRightCircle className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || !formData.personaId || !formData.programaId || !formData.turnoId}
+                                className="h-14 px-8 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01]"
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : editingInscripcion ? (
+                                    <><CheckCircle2 className="w-5 h-5" /><span>Guardar Cambios</span></>
+                                ) : (
+                                    <><Stamp className="w-5 h-5" /><span>Confirmar Matrícula</span></>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </form>
             </Modal>
