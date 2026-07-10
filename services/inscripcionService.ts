@@ -33,7 +33,9 @@ export const inscripcionService = {
     },
 
     getByOferta: async (ofertaId: string) => {
-        const { data } = await api.get<any>(`/inscripciones-clean?programaId=${ofertaId}`);
+        // limit=500 prevents the default 50-record cap from truncating results.
+        // programaId bypasses the per-user sedeId filter in the backend repository.
+        const { data } = await api.get<any>(`/inscripciones-clean?programaId=${ofertaId}&limit=500`);
         return Array.isArray(data) ? data : (data.data || []);
     },
 
