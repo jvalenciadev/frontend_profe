@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { QRCodeSVG } from 'qrcode.react';
 import { useRouter } from 'next/navigation';
 
@@ -315,6 +316,48 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
         }
     };
 
+    const exportToExcel = () => {
+        if (!selectedSesion) return;
+        try {
+            const dataToExport = filteredRegistros.map((reg) => {
+                const fechaStr = format(parseLocalDate(selectedSesion.fecha), "dd/MM/yyyy");
+                let asistenciaLabel = 'No registrado';
+                if (reg.estado === 'P') asistenciaLabel = 'Presente';
+                else if (reg.estado === 'F') asistenciaLabel = 'Falta';
+                else if (reg.estado === 'L') asistenciaLabel = 'Licencia';
+                else if (reg.estado === 'T') asistenciaLabel = 'Atraso';
+
+                return {
+                    'CI': reg.ci || 'S/N',
+                    'Nombre Completo': reg.nombre,
+                    'Asistencia': asistenciaLabel,
+                    'Fecha': fechaStr
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+
+            // Ajustar el ancho de las columnas
+            const maxNameLen = Math.max(...dataToExport.map(item => (item['Nombre Completo'] || '').length), 15);
+            worksheet['!cols'] = [
+                { wch: 15 }, // CI
+                { wch: maxNameLen + 5 }, // Nombre Completo
+                { wch: 15 }, // Asistencia
+                { wch: 15 }  // Fecha
+            ];
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Asistencia');
+
+            const fechaArchivo = format(parseLocalDate(selectedSesion.fecha), 'yyyy-MM-dd');
+            XLSX.writeFile(workbook, `Asistencia_${fechaArchivo}.xlsx`);
+            toast.success('Reporte Excel generado correctamente');
+        } catch (err) {
+            console.error('Error al exportar a Excel:', err);
+            toast.error('Error al generar el archivo Excel');
+        }
+    };
+
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-20 gap-4">
             <div className="w-16 h-16 rounded-full border-4 border-slate-100 dark:border-slate-800 border-t-primary animate-spin" />
@@ -463,6 +506,12 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                         className="h-10 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 flex items-center gap-2 font-black text-[9px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                                     >
                                         {isGeneratingPDF ? <Printer size={14} className="animate-spin" /> : <Download size={14} />} PDF
+                                    </button>
+                                    <button
+                                        onClick={exportToExcel}
+                                        className="h-10 px-4 rounded-xl border-2 border-emerald-500/40 text-emerald-600 bg-emerald-500/5 dark:text-emerald-400 flex items-center gap-2 font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500/10 transition-all shadow-sm"
+                                    >
+                                        <FileDown size={14} /> Excel
                                     </button>
                                     <button
                                         onClick={() => setRegistros(rs => rs.map(r => ({ ...r, estado: 'P' })))}

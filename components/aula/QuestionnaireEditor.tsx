@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { aulaService } from '@/services/aulaService';
 import {
-    AlertTriangle, AlignLeft, ArrowUpDown, BarChart2, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Circle, Clock, Download, FileJson, GripVertical, HelpCircle, List, Plus, RefreshCw, Save, Settings, ToggleLeft, Trash2, TrendingUp, Trophy, Upload, Users, X, Sigma
+    AlertTriangle, AlignLeft, ArrowUpDown, BarChart2, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Circle, Clock, Download, FileJson, GripVertical, HelpCircle, List, Plus, RefreshCw, Save, Settings, ToggleLeft, Trash2, TrendingUp, Trophy, Upload, Users, X, Sigma, Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -106,6 +106,9 @@ export default function QuestionnaireEditor({
     const [reseting, setReseting] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [intentoToReset, setIntentoToReset] = useState<string | null>(null);
+
+    // Búsqueda en pestaña Resultados
+    const [searchResult, setSearchResult] = useState('');
 
     const isDark = theme === 'dark';
     const puntajeMax = 100;
@@ -989,6 +992,24 @@ export default function QuestionnaireEditor({
                                     </button>
                                 </div>
 
+                                {intentos.length > 0 && (
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por CI, Nombre o Apellido..."
+                                            value={searchResult}
+                                            onChange={(e) => setSearchResult(e.target.value)}
+                                            className={cn(
+                                                "w-full pl-12 pr-4 h-12 rounded-xl border font-bold text-xs outline-none transition-all",
+                                                isDark
+                                                    ? "bg-slate-800/40 border-slate-700 text-white focus:border-primary placeholder-slate-500"
+                                                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-primary placeholder-slate-400"
+                                            )}
+                                        />
+                                    </div>
+                                )}
+
                                 {loadingIntentos ? (
                                     <div className="py-20 flex items-center justify-center">
                                         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -998,43 +1019,89 @@ export default function QuestionnaireEditor({
                                         <Users size={48} className="mx-auto text-slate-200 mb-4" />
                                         <p className="text-slate-400 font-bold">Ningún participante ha iniciado el cuestionario aún.</p>
                                     </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {intentos.map(intento => {
-                                            const fin = intento.estado === 'finalizado';
-                                            const pct = fin && puntajeMax > 0 ? ((intento.puntajeTotal || 0) / puntajeMax * 100) : 0;
-                                            const aprobado = pct >= 60;
-                                            return (
-                                                <div key={intento.id} className={cn('p-5 rounded-2xl border flex items-center gap-4', isDark ? 'bg-slate-800/40 border-slate-700' : 'bg-white border-slate-200')}>
-                                                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0">
-                                                        {(intento.user?.nombre || '?')[0].toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className={cn('font-black text-sm truncate', isDark ? 'text-white' : 'text-slate-900')}>
-                                                            {intento.user?.nombre} {intento.user?.apellidos}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-400 font-medium">
-                                                            Intento #{intento.numero} • {new Date(intento.iniciadoEn).toLocaleDateString('es-ES')}
-                                                        </p>
-                                                    </div>
-                                                    {fin ? (
-                                                        <div className="flex items-center gap-3 shrink-0">
-                                                            <div className="text-right">
-                                                                <p className={cn('font-black text-lg leading-none', aprobado ? 'text-emerald-600' : 'text-rose-500')}>{intento.puntajeTotal?.toFixed(1)} pts</p>
-                                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{pct.toFixed(0)}%</p>
-                                                            </div>
-                                                            <div className={cn('px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest', aprobado ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600')}>
-                                                                {aprobado ? '✓ Aprobado' : '✗ Reprobado'}
+                                ) : (() => {
+                                    const filteredResultIntentos = intentos.filter(intento => {
+                                        if (!searchResult) return true;
+                                        const term = searchResult.toLowerCase();
+                                        const ciStr = intento.user?.ci?.toString() || '';
+                                        const nombre = (intento.user?.nombre || '').toLowerCase();
+                                        const apellidos = (intento.user?.apellidos || '').toLowerCase();
+                                        const fullName = `${nombre} ${apellidos}`;
+                                        return ciStr.includes(term) || nombre.includes(term) || apellidos.includes(term) || fullName.includes(term);
+                                    });
+
+                                    if (filteredResultIntentos.length === 0) {
+                                        return (
+                                            <div className="py-12 text-center">
+                                                <p className="text-slate-400 font-bold text-xs">No se encontraron resultados para la búsqueda.</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="space-y-3">
+                                            {filteredResultIntentos.map(intento => {
+                                                const fin = intento.estado === 'finalizado';
+                                                const pct = fin && puntajeMax > 0 ? ((intento.puntajeTotal || 0) / puntajeMax * 100) : 0;
+                                                const aprobado = pct >= 60;
+
+                                                const fechaIni = new Date(intento.iniciadoEn);
+                                                const fechaStr = fechaIni.toLocaleDateString('es-ES');
+                                                const horaInicioStr = fechaIni.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+                                                let duracionStr = '';
+                                                if (fin && intento.finalizadoEn) {
+                                                    const fechaFin = new Date(intento.finalizadoEn);
+                                                    const diffMs = Math.max(0, fechaFin.getTime() - fechaIni.getTime());
+                                                    const mins = Math.floor(diffMs / 60000);
+                                                    const secs = Math.floor((diffMs % 60000) / 1000);
+                                                    duracionStr = `${mins} min ${secs} s`;
+                                                }
+
+                                                return (
+                                                    <div key={intento.id} className={cn('p-5 rounded-2xl border flex items-center gap-4', isDark ? 'bg-slate-800/40 border-slate-700' : 'bg-white border-slate-200')}>
+                                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0">
+                                                            {(intento.user?.nombre || '?')[0].toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={cn('font-black text-sm truncate', isDark ? 'text-white' : 'text-slate-900')}>
+                                                                {intento.user?.nombre} {intento.user?.apellidos}
+                                                            </p>
+                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-slate-400 font-medium">
+                                                                <span className="font-bold text-primary">CI: {intento.user?.ci?.toString() || 'S/N'}</span>
+                                                                <span>•</span>
+                                                                <span>Intento #{intento.numero}</span>
+                                                                <span>•</span>
+                                                                <span>Fecha: {fechaStr}</span>
+                                                                <span>•</span>
+                                                                <span>Hora: {horaInicioStr}</span>
+                                                                {fin && duracionStr && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <span className="font-bold text-slate-500 dark:text-slate-300">Duración: {duracionStr}</span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                    ) : (
-                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 shrink-0">En progreso...</span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                                        {fin ? (
+                                                            <div className="flex items-center gap-3 shrink-0">
+                                                                <div className="text-right">
+                                                                    <p className={cn('font-black text-lg leading-none', aprobado ? 'text-emerald-600' : 'text-rose-500')}>{intento.puntajeTotal?.toFixed(1)} pts</p>
+                                                                    <p className="text-[9px] text-slate-400 font-bold uppercase">{pct.toFixed(0)}%</p>
+                                                                </div>
+                                                                <div className={cn('px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest', aprobado ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600')}>
+                                                                    {aprobado ? '✓ Aprobado' : '✗ Reprobado'}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 shrink-0">En progreso...</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </motion.div>
                         )}
 
