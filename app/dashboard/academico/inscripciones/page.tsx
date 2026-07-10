@@ -341,11 +341,11 @@ export default function InscripcionesPage() {
         if (filterEstado) params.estadoInscripcionId = filterEstado;
         if (filterVersion) params.versionId = filterVersion;
 
-        // Si hay un grupo seleccionado, filtramos por la oferta y el turno correspondientes
+        // Si hay un grupo seleccionado, filtramos solo por programaId en el backend.
+        // El turnoId se aplica en el cliente para no excluir inscripciones con turnoId null.
         if (selectedGroup) {
-            const [ofertaId, turnoId] = selectedGroup.split('|');
-            params.programaId = ofertaId; // En el backend programaId corresponde a la oferta académica
-            params.turnoId = turnoId;
+            const [ofertaId] = selectedGroup.split('|');
+            params.programaId = ofertaId;
         }
 
         loadItems(params);
@@ -439,10 +439,17 @@ export default function InscripcionesPage() {
     }, [groupedBySede]);
 
 
-    // Ya no filtramos localmente lo que ya viene filtrado del servidor (search y group)
+    // Filtrar localmente por turnoId cuando hay un grupo seleccionado.
+    // El backend devuelve todos los inscritos del programa; aquí afinamos por turno.
     const filteredInscripciones = useMemo(() => {
-        return inscripciones;
-    }, [inscripciones]);
+        if (!selectedGroup) return inscripciones;
+        const [, turnoId] = selectedGroup.split('|');
+        // Incluir inscripciones que tienen exactamente ese turnoId,
+        // o aquellas con turnoId null (inscripciones sin turno asignado pertenecientes al programa)
+        return inscripciones.filter(ins =>
+            (ins as any).turnoId === turnoId || (ins as any).turnoId == null
+        );
+    }, [inscripciones, selectedGroup]);
 
     const stats = useMemo(() => {
         const total = inscripciones.length;
