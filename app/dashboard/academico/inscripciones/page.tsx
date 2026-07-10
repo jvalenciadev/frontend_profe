@@ -339,7 +339,10 @@ export default function InscripcionesPage() {
         if (searchTerm) params.search = searchTerm;
         if (filterSede) params.sedeId = filterSede;
         if (filterEstado) params.estadoInscripcionId = filterEstado;
-        if (filterVersion) params.versionId = filterVersion;
+        
+        // Solo aplicar filtro de versión si NO hay un grupo específico seleccionado,
+        // para evitar conflictos si la oferta seleccionada no coincide por cruce de filtros.
+        if (filterVersion && !selectedGroup) params.versionId = filterVersion;
 
         // Si hay un grupo seleccionado, filtramos solo por programaId en el backend.
         // El turnoId se aplica en el cliente para no excluir inscripciones con turnoId null.
@@ -380,6 +383,7 @@ export default function InscripcionesPage() {
                     turnoId: t.id,
                     programaId: o.programaId,
                     version: o.version?.nombre ? `${o.version.nombre} ${o.version.numero}` : '',
+                    versionId: o.version?.id,
                     gestion: o.version?.gestion || '',
                     inscritos: count,
                     cupo: cupoReal,
@@ -405,9 +409,12 @@ export default function InscripcionesPage() {
                 (occupancyFilter === 'available' && !group.isFull) ||
                 (occupancyFilter === 'full' && group.isFull);
 
-            return matchesSearch && matchesStatus;
+            // Filtrar las tarjetas de grupos para que pertenezcan a la versión seleccionada
+            const matchesVersion = !filterVersion || group.versionId === filterVersion;
+
+            return matchesSearch && matchesStatus && matchesVersion;
         });
-    }, [groupedStats, searchGroupTerm, occupancyFilter]);
+    }, [groupedStats, searchGroupTerm, occupancyFilter, filterVersion]);
 
     // Group filtered groups by Sede
     const groupedBySede = useMemo(() => {
