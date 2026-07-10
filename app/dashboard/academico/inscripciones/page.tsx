@@ -457,21 +457,34 @@ export default function InscripcionesPage() {
     }, [inscripciones]);
 
     const uniqueVersions = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, any>();
         ofertas.forEach((o: any) => {
             if (o.version) {
-                map.set(o.version.id, {
-                    id: o.version.id,
-                    nombre: o.version.nombre,
-                    numero: o.version.numero,
-                    gestion: o.version.gestion,
-                    programaNombre: o.nombre,
-                    codigo: o.codigo
-                });
+                const existing = map.get(o.version.id);
+                if (existing) {
+                    // Acumular nombres únicos de programa
+                    if (!existing.programaNombres.includes(o.nombre)) {
+                        existing.programaNombres.push(o.nombre);
+                    }
+                } else {
+                    map.set(o.version.id, {
+                        id: o.version.id,
+                        nombre: o.version.nombre,
+                        numero: o.version.numero,
+                        gestion: o.version.gestion,
+                        programaNombres: [o.nombre],
+                        codigo: o.version.codigo || o.codigo
+                    });
+                }
             }
         });
-        return Array.from(map.values());
+        // Añadir programaNombre como string para compatibilidad
+        return Array.from(map.values()).map(v => ({
+            ...v,
+            programaNombre: v.programaNombres.join(' · ')
+        }));
     }, [ofertas]);
+
 
     useEffect(() => {
         // loadItems(); // Removido: el useEffect de paginación lo cargará
