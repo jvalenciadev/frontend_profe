@@ -87,5 +87,11 @@ export const userService = {
     deleteCampoExtra: async (id: string) => {
         const { data } = await api.delete(`/users/campos-extra/${id}`);
         return data;
+    },
+
+    // Importación masiva de operadores (usuarios)
+    bulkImport: async (payload: { roleIds: string[]; usuarios: any[] }) => {
+        const { data } = await api.post('/users/bulk-import', payload);
+        return data;
     }
 };

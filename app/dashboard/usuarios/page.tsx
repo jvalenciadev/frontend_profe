@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 import { userService } from '@/services/userService';
 import { authService } from '@/services/authService';
 import { roleService } from '@/services/roleService';
@@ -51,7 +52,9 @@ import {
     Download,
     Settings2,
     Award,
-    Briefcase
+    Briefcase,
+    ArrowLeftRight,
+    Upload
 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -90,6 +93,16 @@ export default function UsuariosPage() {
     const [viewingUserBP, setViewingUserBP] = useState<any | null>(null);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
     const [userToReset, setUserToReset] = useState<User | null>(null);
+
+    // Bulk Migration State
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkFile, setBulkFile] = useState<File | null>(null);
+    const [bulkData, setBulkData] = useState<any[]>([]);
+    const [selectedBulkRoleIds, setSelectedBulkRoleIds] = useState<string[]>([]);
+    const [isMigrating, setIsMigrating] = useState(false);
+    const [migrationProgress, setMigrationProgress] = useState(0);
+    const [migrationReport, setMigrationReport] = useState<{ success: number; errors: any[] } | null>(null);
+
     const [formData, setFormData] = useState({
         username: '',
         nombre: '',
@@ -123,6 +136,108 @@ export default function UsuariosPage() {
     useEffect(() => {
         loadData();
     }, []);
+
+    const handleBulkFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setBulkFile(file);
+        setMigrationReport(null);
+        setMigrationProgress(0);
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws);
+                setBulkData(data);
+                toast.success(`${data.length} registros cargados del archivo`);
+            } catch (err) {
+                console.error(err);
+                toast.error('Error al procesar el archivo Excel');
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const startBulkMigration = async () => {
+        if (selectedBulkRoleIds.length === 0) {
+            toast.warning('Seleccione al menos un rol para los operadores');
+            return;
+        }
+        if (bulkData.length === 0) {
+            toast.warning('Suba un archivo de Excel válido');
+            return;
+        }
+
+        setIsMigrating(true);
+        setMigrationReport(null);
+        setMigrationProgress(0);
+
+        try {
+            const rawUsuarios = bulkData.map(row => ({
+                ci: row.ci || row.CI || row.documento || row.DOCUMENTO,
+                complemento: row.complemento || row.COMPLEMENTO,
+                nombre: row.nombre || row.NOMBRE || row.nombres || row.NOMBRES,
+                apellidos: row.apellidos || row.APELLIDOS || row.apellido || row.APELLIDO,
+                correo: row.correo || row.CORREO || row.email || row.EMAIL,
+                username: row.username || row.USERNAME || row.usuario || row.USUARIO,
+                password: row.password || row.PASSWORD || row.contraseña || row.CONTRASEÑA,
+                celular: row.celular || row.CELULAR || row.telefono || row.TELEFONO,
+                cargo: row.cargo || row.CARGO,
+                licenciatura: row.licenciatura || row.LICENCIATURA,
+                genero: row.genero || row.GENERO,
+                direccion: row.direccion || row.DIRECCION,
+            })).filter(u => u.ci && u.nombre && u.apellidos);
+
+            if (rawUsuarios.length === 0) {
+                toast.error('El archivo no contiene registros válidos (debe tener CI, Nombre y Apellidos)');
+                setIsMigrating(false);
+                return;
+            }
+
+            const chunkSize = 50;
+            const chunks = [];
+            for (let i = 0; i < rawUsuarios.length; i += chunkSize) {
+                chunks.push(rawUsuarios.slice(i, i + chunkSize));
+            }
+
+            let totalSuccess = 0;
+            let totalErrors: any[] = [];
+
+            for (let i = 0; i < chunks.length; i++) {
+                const res = await userService.bulkImport({
+                    roleIds: selectedBulkRoleIds,
+                    usuarios: chunks[i]
+                });
+
+                totalSuccess += res.success;
+                totalErrors = [...totalErrors, ...res.errors];
+
+                setMigrationProgress(Math.round(((i + 1) / chunks.length) * 100));
+            }
+
+            const finalReport = { success: totalSuccess, errors: totalErrors };
+            setMigrationReport(finalReport);
+            toast.success(`Migración finalizada: ${totalSuccess} creados, ${totalErrors.length} errores`);
+            loadData();
+
+            if (totalErrors.length === 0) {
+                setTimeout(() => {
+                    setIsBulkModalOpen(false);
+                    setBulkFile(null);
+                    setBulkData([]);
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
+            toast.error('Error durante la migración masiva');
+        } finally {
+            setIsMigrating(false);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -422,6 +537,23 @@ export default function UsuariosPage() {
                             <span className="hidden sm:inline">Campos Extras</span>
                             <span className="sm:hidden">Extras</span>
                         </Link>
+                    </Can>
+                    <Can action="create" subject="User">
+                        <button
+                            onClick={() => {
+                                setMigrationReport(null);
+                                setMigrationProgress(0);
+                                setBulkFile(null);
+                                setBulkData([]);
+                                setSelectedBulkRoleIds([]);
+                                setIsBulkModalOpen(true);
+                            }}
+                            className="h-10 md:h-14 px-4 md:px-6 rounded-2xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 font-black text-xs uppercase tracking-[0.2em] hover:bg-indigo-600 hover:text-white active:scale-95 transition-all flex items-center gap-2 shrink-0"
+                        >
+                            <ArrowLeftRight className="w-4 h-4" />
+                            <span className="hidden sm:inline">Migrar Excel</span>
+                            <span className="sm:hidden">Migrar</span>
+                        </button>
                     </Can>
                     <Can action="create" subject="User">
                         <button
@@ -1233,6 +1365,169 @@ export default function UsuariosPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Modal de Migración Masiva desde Excel */}
+            <Modal
+                isOpen={isBulkModalOpen}
+                onClose={() => {
+                    if (!isMigrating) {
+                        setIsBulkModalOpen(false);
+                        setBulkFile(null);
+                        setBulkData([]);
+                    }
+                }}
+                title={undefined}
+                size="2xl"
+            >
+                <div className="flex flex-col bg-slate-50 dark:bg-slate-950">
+                    <div className="p-8 bg-white dark:bg-slate-900 border-b border-border/40">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/20">
+                                <ArrowLeftRight className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black uppercase tracking-tighter italic leading-none">
+                                    Migración <span className="text-indigo-600">Masiva</span>
+                                </h3>
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Importación de operadores vía Excel / CSV</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-8 space-y-6">
+                        {/* Selector de Roles por Defecto */}
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Roles por Defecto a Asignar</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {roles.map((role) => {
+                                    const isSelected = selectedBulkRoleIds.includes(role.id);
+                                    return (
+                                        <button
+                                            key={role.id}
+                                            type="button"
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setSelectedBulkRoleIds(selectedBulkRoleIds.filter(id => id !== role.id));
+                                                } else {
+                                                    setSelectedBulkRoleIds([...selectedBulkRoleIds, role.id]);
+                                                }
+                                            }}
+                                            className={cn(
+                                                "h-12 px-4 rounded-xl border text-xs font-bold flex items-center justify-between transition-all",
+                                                isSelected 
+                                                    ? "bg-indigo-500/10 border-indigo-500 text-indigo-600" 
+                                                    : "bg-white dark:bg-slate-900 border-border text-foreground hover:border-indigo-500/50"
+                                            )}
+                                        >
+                                            <span>{role.name}</span>
+                                            {isSelected && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* File Upload Zone */}
+                        <div className="p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem] bg-white dark:bg-slate-900 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/50 transition-all group cursor-pointer relative overflow-hidden">
+                            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform", bulkFile ? "bg-emerald-500 text-white" : "bg-indigo-500/10 text-indigo-600")}>
+                                {bulkFile ? <CheckCircle2 className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-black uppercase tracking-tight">{bulkFile ? bulkFile.name : 'Seleccionar Archivo Excel'}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    {bulkData.length > 0 ? `${bulkData.length} registros detectados` : 'Formatos permitidos: .xlsx, .csv'}
+                                </p>
+                            </div>
+                            <input
+                                type="file"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                accept=".xlsx, .csv"
+                                onChange={handleBulkFile}
+                                disabled={isMigrating}
+                            />
+                        </div>
+
+                        {/* Plantilla Excel de Ayuda */}
+                        <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+                            <span className="font-bold text-foreground">Columnas esperadas en el archivo:</span>
+                            <p className="font-mono text-[10px] whitespace-pre-wrap leading-relaxed">
+                                ci (obligatorio), nombre (obligatorio), apellidos (obligatorio), correo (opcional), username (opcional), password (opcional), celular (opcional), cargo (opcional), licenciatura (opcional), genero (opcional), direccion (opcional)
+                            </p>
+                        </div>
+
+                        {/* Barra de Progreso */}
+                        {isMigrating && (
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 animate-pulse">Registrando operadores...</span>
+                                    <span className="text-[10px] font-black text-indigo-600">{migrationProgress}%</span>
+                                </div>
+                                <div className="h-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <motion.div
+                                        className="h-full bg-indigo-500"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${migrationProgress}%` }}
+                                        transition={{ duration: 0.5 }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Reporte de Migración */}
+                        {migrationReport && (
+                            <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2">
+                                <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Reporte Final:</span>
+                                    <div className="flex gap-4">
+                                        <span className="text-xs font-black text-emerald-600">✓ {migrationReport.success} Exitosos</span>
+                                        <span className="text-xs font-black text-rose-600">✗ {migrationReport.errors.length} Errores</span>
+                                    </div>
+                                </div>
+
+                                {migrationReport.errors.length > 0 && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest ml-1">Listado de Errores</label>
+                                        <div className="border border-rose-500/20 rounded-2xl overflow-hidden divide-y divide-rose-500/10">
+                                            {migrationReport.errors.map((err, idx) => (
+                                                <div key={idx} className="p-3 bg-rose-500/5 flex justify-between gap-4 text-[11px]">
+                                                    <span className="font-black text-rose-600 font-mono">CI: {err.ci}</span>
+                                                    <span className="font-bold text-rose-500/90 text-right">{err.error}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Botones de Acción */}
+                        <div className="flex gap-3 pt-4">
+                            <button
+                                type="button"
+                                disabled={isMigrating || bulkData.length === 0 || selectedBulkRoleIds.length === 0}
+                                onClick={startBulkMigration}
+                                className="h-16 w-full rounded-[2rem] bg-indigo-600 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-3"
+                            >
+                                <CheckCircle2 className="w-5 h-5" />
+                                Iniciar Migración
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isMigrating}
+                                onClick={() => {
+                                    setIsBulkModalOpen(false);
+                                    setBulkFile(null);
+                                    setBulkData([]);
+                                }}
+                                className="h-16 w-full rounded-[2rem] border border-border text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
 
             {/* Modal de Vista de Información */}
             <Modal
