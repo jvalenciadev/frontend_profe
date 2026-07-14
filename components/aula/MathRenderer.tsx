@@ -17,7 +17,7 @@ function markdownToHtml(mdText: string): string {
         html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, text, url) => {
             const cleanUrl = url.replace(/&amp;/g, '&');
             links.push({ text, url: cleanUrl });
-            return `@@PLACEHOLDER_LINK_${links.length - 1}@@`;
+            return `@@LINKPLACEHOLDER${links.length - 1}@@`;
         });
 
         // 2. Extraer URLs crudas (que empiecen con http:// o https://)
@@ -26,7 +26,7 @@ function markdownToHtml(mdText: string): string {
         html = html.replace(urlRegex, (url) => {
             const cleanUrl = url.replace(/&amp;/g, '&');
             rawUrls.push(cleanUrl);
-            return `@@PLACEHOLDER_RAW_URL_${rawUrls.length - 1}@@`;
+            return `@@RAWURLPLACEHOLDER${rawUrls.length - 1}@@`;
         });
 
         // Parsear Tablas Markdown
@@ -106,14 +106,14 @@ function markdownToHtml(mdText: string): string {
         const externalIcon = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path></svg>`;
 
         // Restaurar Enlaces Markdown
-        html = html.replace(/@@PLACEHOLDER_LINK_(\d+)@@/g, (match, index) => {
+        html = html.replace(/@@LINKPLACEHOLDER(\d+)@@/g, (match, index) => {
             const idx = parseInt(index, 10);
             const { text, url } = links[idx];
             return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${text} ${externalIcon}</a>`;
         });
 
         // Restaurar URLs crudas
-        html = html.replace(/@@PLACEHOLDER_RAW_URL_(\d+)@@/g, (match, index) => {
+        html = html.replace(/@@RAWURLPLACEHOLDER(\d+)@@/g, (match, index) => {
             const idx = parseInt(index, 10);
             const url = rawUrls[idx];
             return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${url} ${externalIcon}</a>`;
