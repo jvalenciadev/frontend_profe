@@ -65,6 +65,11 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showQRModal, setShowQRModal] = useState(false);
+    const [showCodigoModal, setShowCodigoModal] = useState(false);
+    const [codigoData, setCodigoData] = useState<{ codigo: string; expiracion: string } | null>(null);
+    const [codigoLoading, setCodigoLoading] = useState(false);
+    const [codigoRemaining, setCodigoRemaining] = useState(0);
+    const codigoTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [showConfirmCreate, setShowConfirmCreate] = useState(false);
     const [isPresencial, setIsPresencial] = useState(true);
@@ -119,6 +124,36 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
     const handleOpenQRModal = (sesion: any) => {
         setShowQRModal(true);
         fetchQrToken(sesion.id);
+    };
+
+    // Countdown del Código alfanumérico
+    useEffect(() => {
+        if (!showCodigoModal || codigoRemaining <= 0) return;
+        codigoTimerRef.current = setInterval(() => {
+            setCodigoRemaining(prev => {
+                if (prev <= 1) { clearInterval(codigoTimerRef.current!); return 0; }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(codigoTimerRef.current!);
+    }, [showCodigoModal, codigoRemaining > 0]);
+
+    const handleGenerarCodigo = async (sesion: any) => {
+        setCodigoLoading(true);
+        setCodigoData(null);
+        if (codigoTimerRef.current) clearInterval(codigoTimerRef.current);
+        try {
+            const data = await aulaService.generarCodigoAsistencia(sesion.id, 15);
+            setCodigoData(data);
+            const secs = Math.floor((new Date(data.expiracion).getTime() - Date.now()) / 1000);
+            setCodigoRemaining(secs);
+            setShowCodigoModal(true);
+            toast.success('Código generado — válido 15 minutos');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Error al generar el código');
+        } finally {
+            setCodigoLoading(false);
+        }
     };
 
     const formatQrTime = (secs: number) => {
@@ -501,6 +536,14 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                                         <QrCode size={14} /> QR
                                     </button>
                                     <button
+                                        onClick={() => handleGenerarCodigo(selectedSesion)}
+                                        disabled={codigoLoading}
+                                        className="h-10 px-4 rounded-xl border-2 border-violet-500/40 text-violet-600 dark:text-violet-400 bg-violet-500/5 flex items-center gap-2 font-black text-[9px] uppercase tracking-widest hover:bg-violet-500/10 transition-all shadow-sm disabled:opacity-50"
+                                    >
+                                        {codigoLoading ? <div className="w-3.5 h-3.5 border-2 border-violet-400/30 border-t-violet-500 rounded-full animate-spin" /> : <Shield size={14} />}
+                                        Código
+                                    </button>
+                                    <button
                                         onClick={exportToPDF}
                                         disabled={isGeneratingPDF}
                                         className="h-10 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 flex items-center gap-2 font-black text-[9px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
@@ -784,6 +827,105 @@ export default function AttendanceManager({ moduloId, theme: themeProp, moduloDa
                         </div>
                     );
                 })()}
+            </AnimatePresence>
+
+            {/* ── Modal: Código Alfanumérico ─────────────────────────────────────── */}
+            <AnimatePresence>
+                {showCodigoModal && codigoData && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.88, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.88, y: 20 }}
+                            className="max-w-sm w-full rounded-[3rem] overflow-hidden shadow-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+                        >
+                            {/* Header */}
+                            <div className="p-8 pb-4">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+                                            <Shield size={20} className="text-violet-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Código de Asistencia</p>
+                                            <p className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>
+                                                {selectedSesion?.actividad?.titulo || 'Sesión de Asistencia'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => { setShowCodigoModal(false); clearInterval(codigoTimerRef.current!); }}
+                                        className={cn("w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-110", theme === 'dark' ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-800")}
+                                    >
+                                        <X size={15} />
+                                    </button>
+                                </div>
+
+                                {/* Código en grande */}
+                                <div className={cn("rounded-3xl p-8 text-center border-2 mb-6 transition-colors duration-500", codigoRemaining <= 60 ? "border-rose-400 bg-rose-50 dark:bg-rose-950/20" : codigoRemaining <= 180 ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-900/10")}>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-3">Escribe este código en el aula</p>
+                                    <div className="flex items-center justify-center gap-2 my-2">
+                                        {codigoData.codigo.split('').map((char, i) => (
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "w-12 h-16 rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg transition-colors duration-500",
+                                                    codigoRemaining <= 60
+                                                        ? "bg-rose-500 text-white shadow-rose-500/30"
+                                                        : codigoRemaining <= 180
+                                                            ? "bg-amber-500 text-white shadow-amber-500/30"
+                                                            : "bg-violet-600 text-white shadow-violet-500/30"
+                                                )}
+                                            >
+                                                {char}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Countdown */}
+                                {codigoRemaining > 0 ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                            <span className={cn(codigoRemaining <= 60 ? "text-rose-500" : codigoRemaining <= 180 ? "text-amber-500" : "text-slate-400")}>
+                                                {codigoRemaining <= 60 ? "¡Expira pronto!" : codigoRemaining <= 180 ? "Menos de 3 min" : "Tiempo restante"}
+                                            </span>
+                                            <span className={cn("font-black tabular-nums", codigoRemaining <= 60 ? "text-rose-500" : codigoRemaining <= 180 ? "text-amber-500" : "text-violet-600")}>
+                                                {formatQrTime(codigoRemaining)}
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                            <div
+                                                className={cn("h-full rounded-full transition-all duration-1000", codigoRemaining <= 60 ? "bg-rose-500" : codigoRemaining <= 180 ? "bg-amber-500" : "bg-violet-500")}
+                                                style={{ width: `${(codigoRemaining / (15 * 60)) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-3">
+                                        <p className="text-rose-500 font-black text-xs uppercase tracking-widest">Código expirado</p>
+                                    </div>
+                                )}
+
+                                {/* Info */}
+                                <div className={cn("rounded-2xl p-3 text-xs flex items-start gap-2 mt-4", theme === 'dark' ? "bg-slate-800 text-slate-400" : "bg-slate-50 text-slate-500")}>
+                                    <Shield size={12} className="shrink-0 mt-0.5 text-violet-500" />
+                                    <span className="font-medium leading-relaxed">Código de un solo uso · válido 15 min · los participantes lo ingresan en la sección Asistencia de su aula.</span>
+                                </div>
+
+                                {/* Renovar */}
+                                <button
+                                    onClick={() => handleGenerarCodigo(selectedSesion)}
+                                    disabled={codigoLoading}
+                                    className="mt-4 w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-700"
+                                >
+                                    {codigoLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RefreshCw size={14} />}
+                                    {codigoRemaining <= 0 ? 'Generar Nuevo Código' : 'Renovar Código'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
             </AnimatePresence>
 
             <ConfirmCreateModal

@@ -43,6 +43,21 @@ export default function DashboardLayout({
         if (!isLoading && isAuthenticated) {
             const { hasRole, isSuperAdmin } = (useAuth as any).getState?.() || {}; // Esto es solo descriptivo, usaremos las variables del scope
 
+            // Si es PARTICIPANTE y no es staff/admin, redirigir al aula
+            const isParticipante = user?.roles?.some((r: any) =>
+                (typeof r === 'string' ? r : (r.role?.name || r.name)) === 'PARTICIPANTE'
+            );
+            const isStaff = user?.roles?.some((r: any) =>
+                ['SUPER_ADMIN', 'ADMINISTRADOR', 'TECNICO', 'FACILITADOR'].includes(
+                    typeof r === 'string' ? r : (r.role?.name || r.name)
+                )
+            );
+
+            if (isParticipante && !isStaff) {
+                router.push('/aula');
+                return;
+            }
+
             // Si es POSTULANTE, solo puede estar en /dashboard/mi-ficha o perfil
             const isPostulante = user?.roles?.some((r: any) =>
                 (typeof r === 'string' ? r : (r.role?.name || r.name)) === 'POSTULACION_PROFE'

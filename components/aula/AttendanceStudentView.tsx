@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { aulaService } from '@/services/aulaService';
 import {
     CheckCircle2,
@@ -10,11 +10,14 @@ import {
     AlertCircle,
     Calendar,
     Zap,
-    Target
+    Target,
+    Shield,
+    KeyRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface AttendanceStudentViewProps {
     moduloId: string;
@@ -25,6 +28,74 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
     const [historial, setHistorial] = useState<any[]>([]);
     const [stats, setStats] = useState({ P: 0, F: 0, L: 0, T: 0, total: 0 });
     const [loading, setLoading] = useState(true);
+
+    // ─── Estado para ingreso de código ───────────────────────────────────────
+    const CODE_LENGTH = 6;
+    const [codeChars, setCodeChars] = useState<string[]>(Array(CODE_LENGTH).fill(''));
+    const [submitting, setSubmitting] = useState(false);
+    const [submitResult, setSubmitResult] = useState<'success' | 'already' | 'error' | null>(null);
+    const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(CODE_LENGTH).fill(null));
+
+    const handleCodeKey = (index: number, value: string) => {
+        if (!/^[a-zA-Z0-9]$/.test(value)) return;
+        const next = [...codeChars];
+        next[index] = value.toUpperCase();
+        setCodeChars(next);
+        if (index < CODE_LENGTH - 1) inputRefs.current[index + 1]?.focus();
+    };
+
+    const handleCodeBackspace = (index: number) => {
+        const next = [...codeChars];
+        if (next[index]) {
+            next[index] = '';
+        } else if (index > 0) {
+            next[index - 1] = '';
+            inputRefs.current[index - 1]?.focus();
+        }
+        setCodeChars(next);
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const pasted = e.clipboardData.getData('text').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, CODE_LENGTH);
+        if (pasted.length === 0) return;
+        const next = [...codeChars];
+        pasted.split('').forEach((c, i) => { if (i < CODE_LENGTH) next[i] = c; });
+        setCodeChars(next);
+        const lastFilled = Math.min(pasted.length, CODE_LENGTH - 1);
+        inputRefs.current[lastFilled]?.focus();
+        e.preventDefault();
+    };
+
+    const handleMarcarCodigo = async () => {
+        const codigo = codeChars.join('');
+        if (codigo.length < CODE_LENGTH) {
+            toast.error('Ingresa el código completo de 6 caracteres');
+            return;
+        }
+        setSubmitting(true);
+        setSubmitResult(null);
+        try {
+            const res = await aulaService.marcarAsistenciaCodigo(moduloId, codigo);
+            if (res.alreadyRegistered) {
+                setSubmitResult('already');
+                toast.info('Tu asistencia ya estaba registrada');
+            } else {
+                setSubmitResult('success');
+                toast.success('¡Asistencia registrada correctamente!');
+                // Refrescar historial
+                const data = await aulaService.getMiAsistencia(moduloId);
+                setHistorial(data);
+            }
+            setCodeChars(Array(CODE_LENGTH).fill(''));
+            inputRefs.current[0]?.focus();
+        } catch (err: any) {
+            setSubmitResult('error');
+            const msg = err.response?.data?.message || 'Código inválido o expirado';
+            toast.error(msg);
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         const load = async () => {
@@ -60,6 +131,83 @@ export default function AttendanceStudentView({ moduloId, theme }: AttendanceStu
 
     return (
         <div className="space-y-8">
+            {/* ── Registrar Asistencia por Código ─────────────────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                    "p-8 rounded-[2.5rem] border relative overflow-hidden",
+                    theme === 'dark' ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100 shadow-2xl shadow-violet-100/60"
+                )}
+            >
+                {/* Decorative glow */}
+                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+                        <KeyRound size={20} className="text-violet-600" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Registrar Asistencia</p>
+                        <p className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-slate-800")}>Ingresa el código del Facilitador</p>
+                    </div>
+                </div>
+
+                {/* Inputs de código */}
+                <div className="flex gap-2 sm:gap-3 justify-center mb-6" onPaste={handlePaste}>
+                    {codeChars.map((char, i) => (
+                        <input
+                            key={i}
+                            ref={el => { inputRefs.current[i] = el; }}
+                            type="text"
+                            inputMode="text"
+                            maxLength={1}
+                            value={char}
+                            onChange={e => handleCodeKey(i, e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Backspace') { e.preventDefault(); handleCodeBackspace(i); } }}
+                            className={cn(
+                                "w-12 h-16 sm:w-14 sm:h-18 rounded-2xl text-center text-2xl font-black uppercase border-2 transition-all focus:outline-none focus:scale-105 caret-transparent",
+                                char
+                                    ? "border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 shadow-lg shadow-violet-500/20"
+                                    : theme === 'dark'
+                                        ? "border-slate-700 bg-slate-800 text-white focus:border-violet-500"
+                                        : "border-slate-200 bg-slate-50 text-slate-800 focus:border-violet-400"
+                            )}
+                        />
+                    ))}
+                </div>
+
+                {/* Resultado */}
+                <AnimatePresence mode="wait">
+                    {submitResult && (
+                        <motion.div
+                            key={submitResult}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            className={cn(
+                                "flex items-center gap-2 p-3 rounded-2xl text-xs font-black uppercase tracking-widest mb-4",
+                                submitResult === 'success' ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600" :
+                                    submitResult === 'already' ? "bg-amber-50 dark:bg-amber-950/20 text-amber-600" :
+                                        "bg-rose-50 dark:bg-rose-950/20 text-rose-600"
+                            )}
+                        >
+                            {submitResult === 'success' ? <CheckCircle2 size={14} /> : submitResult === 'already' ? <AlertCircle size={14} /> : <XCircle size={14} />}
+                            {submitResult === 'success' ? '¡Asistencia registrada!' : submitResult === 'already' ? 'Ya estabas registrado' : 'Código inválido o expirado'}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <button
+                    onClick={handleMarcarCodigo}
+                    disabled={submitting || codeChars.some(c => !c)}
+                    className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-black text-sm uppercase tracking-widest text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 shadow-lg shadow-violet-500/20 bg-violet-600 hover:bg-violet-700"
+                >
+                    {submitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Shield size={16} />}
+                    {submitting ? 'Verificando...' : 'Confirmar Asistencia'}
+                </button>
+            </motion.div>
+
             {/* Stats Header */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard

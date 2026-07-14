@@ -480,7 +480,7 @@ export default function ActivityDetailPage() {
                                     <div>
                                         <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Facilitador a Cargo</p>
                                         <div className={cn("text-xs sm:text-sm font-black uppercase tracking-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
-                                            <MathRenderer text={activity.facilitador || activity.docente || 'Delfor Vargas Urzagaste'} />
+                                            <MathRenderer text={activity.facilitador || activity.docente || 'Facilitador Designado'} />
                                         </div>
                                     </div>
                                 </div>
@@ -1241,7 +1241,7 @@ export default function ActivityDetailPage() {
                                                                     })()}
 
                                                                     <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
-                                                                        {activity?.facilitador || activity?.docente || 'Delfor Vargas Urzagaste'} • Facilitador a Cargo
+                                                                        {activity?.facilitador || activity?.docente || 'Facilitador Designado'} • Facilitador a Cargo
                                                                     </p>
                                                                 </div>
                                                             </div>

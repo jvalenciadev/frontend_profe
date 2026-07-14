@@ -254,6 +254,20 @@ export const aulaService = {
         return response.data;
     },
 
+    generarCodigoAsistencia: async (sesionId: string, expiraEnMinutos = 15): Promise<{
+        codigo: string; expiracion: string;
+    }> => {
+        const response = await aulaApi.post(`/asistencia/sesion/${sesionId}/generar-codigo`, { expiraEnMinutos });
+        return response.data;
+    },
+
+    marcarAsistenciaCodigo: async (moduloId: string, codigo: string): Promise<{
+        success: boolean; message: string; alreadyRegistered: boolean;
+    }> => {
+        const response = await aulaApi.post(`/asistencia/marcar-codigo`, { moduloId, codigo });
+        return response.data;
+    },
+
     // ─── CUESTIONARIOS ────────────────────────────────────────────
     getCuestionario: async (id: string) => {
         const response = await aulaApi.get(`/cuestionarios/${id}`);
