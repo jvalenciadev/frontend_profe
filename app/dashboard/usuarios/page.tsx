@@ -137,6 +137,14 @@ export default function UsuariosPage() {
         loadData();
     }, []);
 
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            loadUsers(searchTerm);
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchTerm]);
+
     const handleBulkFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -222,7 +230,7 @@ export default function UsuariosPage() {
             const finalReport = { success: totalSuccess, errors: totalErrors };
             setMigrationReport(finalReport);
             toast.success(`Migración finalizada: ${totalSuccess} creados, ${totalErrors.length} errores`);
-            loadData();
+            loadUsers(searchTerm);
 
             if (totalErrors.length === 0) {
                 setTimeout(() => {
@@ -239,19 +247,29 @@ export default function UsuariosPage() {
         }
     };
 
+    const loadUsers = async (search?: string) => {
+        try {
+            setLoading(true);
+            const usersData = await userService.getAll(search);
+            setUsuarios(usersData);
+        } catch (error) {
+            console.error('Error loading users:', error);
+            toast.error('Error al cargar la lista de usuarios');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const loadData = async () => {
         try {
             setLoading(true);
-            const [usersData, rolesData, deptsData, sedesData, cargosData] = await Promise.all([
-                userService.getAll(),
+            const [rolesData, deptsData, sedesData, cargosData] = await Promise.all([
                 roleService.getAll(),
                 departmentService.getAll(),
                 sedeService.getAll(),
                 cargoService.getAll()
             ]);
-            console.log('[DEBUG] Usuarios Page - Users:', usersData);
             console.log('[DEBUG] Usuarios Page - Roles Master:', rolesData);
-            setUsuarios(usersData);
             setRoles(rolesData);
             setDepartments(deptsData);
             setSedes(sedesData);
@@ -384,7 +402,7 @@ export default function UsuariosPage() {
                 toast.success('Nueva identidad registrada');
             }
             setIsModalOpen(false);
-            loadData();
+            loadUsers(searchTerm);
         } catch (error) {
             console.error('Error saving user:', error);
             toast.error('Fallo en la sincronización de datos');
@@ -396,7 +414,7 @@ export default function UsuariosPage() {
             await userService.delete(id);
             toast.success('Operador removido');
             setIsDeleting(null);
-            loadData();
+            loadUsers(searchTerm);
         } catch (error) {
             console.error('Error deleting user:', error);
             toast.error('Error en la remoción técnica');

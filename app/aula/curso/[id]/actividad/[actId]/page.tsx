@@ -1241,7 +1241,7 @@ export default function ActivityDetailPage() {
                                                                     })()}
 
                                                                     <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-tighter opacity-60">
-                                                                        Delfor Vargas Urzagaste • Facilitador a Cargo
+                                                                        {activity?.facilitador || activity?.docente || 'Delfor Vargas Urzagaste'} • Facilitador a Cargo
                                                                     </p>
                                                                 </div>
                                                             </div>
