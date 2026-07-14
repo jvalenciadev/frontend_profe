@@ -403,7 +403,11 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                     <h1 className={cn("text-2xl md:text-4xl font-black leading-tight", theme === 'dark' ? "text-white" : "text-slate-900")}>
                                         {cuestionario?.actividad?.titulo}
                                     </h1>
-                                    <p className="text-slate-400 font-bold mt-2 text-xs md:text-sm leading-relaxed">{cuestionario?.actividad?.instrucciones}</p>
+                                    {cuestionario?.actividad?.instrucciones && (
+                                        <div className="text-slate-400 font-bold mt-2 text-xs md:text-sm leading-relaxed">
+                                            <MathRenderer text={cuestionario.actividad.instrucciones} />
+                                        </div>
+                                    )}
                                 </div>
                             </header>
 
@@ -466,8 +470,9 @@ export default function QuizPlayer({ actividadId, theme, onClose }: QuizPlayerPr
                                                     Abre el {fechaInicio.toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                                 {countdown && (
-                                                    <p className="text-indigo-500 font-black text-xl tracking-tight tabular-nums">
-                                                        ⏳ {countdown}
+                                                    <p className="inline-flex items-center gap-2 text-indigo-500 font-black text-xl tracking-tight tabular-nums">
+                                                        <Timer size={20} className="shrink-0 animate-pulse" />
+                                                        {countdown}
                                                     </p>
                                                 )}
                                             </div>

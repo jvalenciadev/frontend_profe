@@ -4,14 +4,22 @@ import React from 'react';
 import { InlineMath, BlockMath } from 'react-katex';
 import { cn } from '@/lib/utils';
 
+// Iconos SVG inline usados en friendlyLabel (sin emojis, máxima compatibilidad cross-platform)
+const SVG_DRIVE = `<svg class="w-3.5 h-3.5 inline shrink-0" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 27h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>`;
+const SVG_DOCS = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+const SVG_VIDEO = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>`;
+const SVG_PDF = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>`;
+const SVG_FILE = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`;
+const SVG_LINK = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>`;
+
 // Determina una etiqueta amigable según el tipo/dominio de la URL
 function friendlyLabel(url: string, externalIcon: string): string {
-    if (/drive\.google\.com/i.test(url)) return `📄 Ver en Drive ${externalIcon}`;
-    if (/docs\.google\.com/i.test(url)) return `📝 Abrir Documento ${externalIcon}`;
-    if (/youtube\.com|youtu\.be/i.test(url)) return `▶️ Ver Video ${externalIcon}`;
-    if (/\.(pdf)($|\?)/i.test(url)) return `📥 Descargar PDF ${externalIcon}`;
-    if (/\.(docx?|xlsx?|pptx?)($|\?)/i.test(url)) return `📥 Descargar Archivo ${externalIcon}`;
-    return `🔗 Abrir Enlace ${externalIcon}`;
+    if (/drive\.google\.com/i.test(url)) return `${SVG_DRIVE} Ver en Drive ${externalIcon}`;
+    if (/docs\.google\.com/i.test(url)) return `${SVG_DOCS} Abrir Documento ${externalIcon}`;
+    if (/youtube\.com|youtu\.be/i.test(url)) return `${SVG_VIDEO} Ver Video ${externalIcon}`;
+    if (/\.(pdf)($|\?)/i.test(url)) return `${SVG_PDF} Descargar PDF ${externalIcon}`;
+    if (/\.(docx?|xlsx?|pptx?)($|\?)/i.test(url)) return `${SVG_FILE} Descargar Archivo ${externalIcon}`;
+    return `${SVG_LINK} Abrir Enlace ${externalIcon}`;
 }
 
 // Helper function declared in the top level with try-catch block
@@ -45,11 +53,11 @@ function markdownToHtml(mdText: string): string {
             const cleanUrl = url.replace(/&amp;/g, '&');
             // Limpiar cualquier etiqueta interna del texto del link (como <em> de cursivas rotas anteriores)
             const cleanText = text.replace(/<[^>]+>/g, '').trim();
-            
+
             // Si el texto interno es la misma URL o una URL aproximada, usamos la etiqueta inteligente
             const isTextUrl = /^https?:\/\/[^\s]+$/i.test(cleanText) || cleanText.includes('/') || cleanText.toLowerCase() === cleanUrl.toLowerCase();
             const label = isTextUrl ? friendlyLabel(cleanUrl, externalIcon) : `${cleanText} ${externalIcon}`;
-            
+
             return storeLink(`<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${label}</a>`);
         });
 
