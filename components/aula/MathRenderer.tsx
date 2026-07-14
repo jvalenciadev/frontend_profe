@@ -23,17 +23,35 @@ function markdownToHtml(mdText: string): string {
         const linkClass = "inline-flex items-center gap-1.5 text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 font-semibold text-xs px-3 py-1 rounded-full shadow-sm hover:shadow-md transition-all duration-200 no-underline mx-0.5 align-middle";
         const externalIcon = `<svg class="w-3 h-3 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path></svg>`;
 
-        // PASO 1: Convertir enlaces y URLs a HTML en una sola pasada ANTES de aplicar
-        // negritas/cursivas. Esto evita que guiones bajos dentro de las URLs sean
-        // interpretados como marcadores de cursiva (_texto_).
-        const combinedLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)|(https?:\/\/[^\s<]+[^.,;?!"')\]\s<])/g;
-        html = html.replace(combinedLinkRegex, (_match, mdLinkText, mdLinkUrl, rawUrl) => {
-            const url = (mdLinkUrl || rawUrl).replace(/&amp;/g, '&');
-            const label = mdLinkText ? `${mdLinkText} ${externalIcon}` : friendlyLabel(url, externalIcon);
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${label}</a>`;
+        // Mapa de enlaces temporales: clave → HTML final.
+        // Usamos el carácter de control \x02 (STX, ASCII 2) como delimitador porque:
+        //   - Nunca puede aparecer en texto ingresado por el usuario.
+        //   - La regex de cursiva /_([^_]+)_/ NO lo puede procesar (no es guión bajo).
+        // Esto garantiza que los URLs con guiones bajos (ej. Google Drive) sean inmunes
+        // al parser de negritas/cursivas.
+        const linkMap = new Map<string, string>();
+        let linkIdx = 0;
+
+        function storeLink(linkHtml: string): string {
+            const key = `\x02L${linkIdx++}\x02`;
+            linkMap.set(key, linkHtml);
+            return key;
+        }
+
+        // PASO 1 — Extraer enlaces Markdown [texto](url) → guardar en mapa
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_m, text, url) => {
+            const cleanUrl = url.replace(/&amp;/g, '&');
+            return storeLink(`<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${text} ${externalIcon}</a>`);
         });
 
-        // Parsear Tablas Markdown
+        // PASO 2 — Extraer URLs crudas (http/https) → guardar en mapa con etiqueta amigable
+        const rawUrlRegex = /(https?:\/\/[^\s<]+[^.,;?!"')\]\s<])/g;
+        html = html.replace(rawUrlRegex, (url) => {
+            const cleanUrl = url.replace(/&amp;/g, '&');
+            return storeLink(`<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${friendlyLabel(cleanUrl, externalIcon)}</a>`);
+        });
+
+        // PASO 3 — Parsear Tablas Markdown
         const tableRegex = /((?:\|[^\n]+\|\r?\n?)+)/g;
         html = html.replace(tableRegex, (tableBlock) => {
             const lines = tableBlock.trim().split(/\r?\n/).filter(line => line.startsWith('|'));
@@ -67,15 +85,13 @@ function markdownToHtml(mdText: string): string {
             return tableHtml;
         });
 
-        // Negrita
+        // PASO 4 — Negrita / Cursiva (seguro: las URLs ya están en el mapa, no en el texto)
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-
-        // Cursiva (seguro: ya no hay URLs raw en el texto)
         html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
         html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
 
-        // Listas
+        // PASO 5 — Listas
         const mdLines = html.split('\n');
         let inList = false;
         const processedLines = mdLines.map(line => {
@@ -83,27 +99,24 @@ function markdownToHtml(mdText: string): string {
             const listMatch = trimmed.match(/^[-*]\s+(.*)$/);
             if (listMatch) {
                 let prefix = '';
-                if (!inList) {
-                    inList = true;
-                    prefix = '<ul class="list-disc pl-5 my-2 space-y-1">';
-                }
+                if (!inList) { inList = true; prefix = '<ul class="list-disc pl-5 my-2 space-y-1">'; }
                 return `${prefix}<li>${listMatch[1]}</li>`;
             } else {
                 let suffix = '';
-                if (inList) {
-                    inList = false;
-                    suffix = '</ul>';
-                }
+                if (inList) { inList = false; suffix = '</ul>'; }
                 return suffix + line;
             }
         });
-        if (inList) {
-            processedLines.push('</ul>');
-        }
+        if (inList) processedLines.push('</ul>');
         html = processedLines.join('\n');
 
-        // Saltos de línea
+        // PASO 6 — Saltos de línea
         html = html.replace(/\n/g, '<br />');
+
+        // PASO 7 — Restaurar todos los enlaces desde el mapa
+        linkMap.forEach((linkHtml, key) => {
+            html = html.split(key).join(linkHtml);
+        });
 
         return html;
     } catch (e) {
