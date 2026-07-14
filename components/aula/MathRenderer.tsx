@@ -38,13 +38,28 @@ function markdownToHtml(mdText: string): string {
             return key;
         }
 
+        // PASO 0 — Extraer y unificar enlaces HTML preexistentes (ej. generados por editores WYSIWYG)
+        // para darles el formato de botón premium y evitar anidamiento de etiquetas <a>.
+        const existingHtmlLinkRegex = /<a\s+(?:[^>]*?\s+)?href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        html = html.replace(existingHtmlLinkRegex, (_match, url, text) => {
+            const cleanUrl = url.replace(/&amp;/g, '&');
+            // Limpiar cualquier etiqueta interna del texto del link (como <em> de cursivas rotas anteriores)
+            const cleanText = text.replace(/<[^>]+>/g, '').trim();
+            
+            // Si el texto interno es la misma URL o una URL aproximada, usamos la etiqueta inteligente
+            const isTextUrl = /^https?:\/\/[^\s]+$/i.test(cleanText) || cleanText.includes('/') || cleanText.toLowerCase() === cleanUrl.toLowerCase();
+            const label = isTextUrl ? friendlyLabel(cleanUrl, externalIcon) : `${cleanText} ${externalIcon}`;
+            
+            return storeLink(`<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${label}</a>`);
+        });
+
         // PASO 1 — Extraer enlaces Markdown [texto](url) → guardar en mapa
         html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_m, text, url) => {
             const cleanUrl = url.replace(/&amp;/g, '&');
             return storeLink(`<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${text} ${externalIcon}</a>`);
         });
 
-        // PASO 2 — Extraer URLs crudas (http/https) → guardar en mapa con etiqueta amigable
+        // PASO 2 — Extraer URLs crudas (http/https) que no estén dentro de ningún tag HTML → guardar en mapa con etiqueta amigable
         const rawUrlRegex = /(https?:\/\/[^\s<]+[^.,;?!"')\]\s<])/g;
         html = html.replace(rawUrlRegex, (url) => {
             const cleanUrl = url.replace(/&amp;/g, '&');
