@@ -4,29 +4,33 @@ import React from 'react';
 import { InlineMath, BlockMath } from 'react-katex';
 import { cn } from '@/lib/utils';
 
+// Determina una etiqueta amigable según el tipo/dominio de la URL
+function friendlyLabel(url: string, externalIcon: string): string {
+    if (/drive\.google\.com/i.test(url)) return `📄 Ver en Drive ${externalIcon}`;
+    if (/docs\.google\.com/i.test(url)) return `📝 Abrir Documento ${externalIcon}`;
+    if (/youtube\.com|youtu\.be/i.test(url)) return `▶️ Ver Video ${externalIcon}`;
+    if (/\.(pdf)($|\?)/i.test(url)) return `📥 Descargar PDF ${externalIcon}`;
+    if (/\.(docx?|xlsx?|pptx?)($|\?)/i.test(url)) return `📥 Descargar Archivo ${externalIcon}`;
+    return `🔗 Abrir Enlace ${externalIcon}`;
+}
+
 // Helper function declared in the top level with try-catch block
 function markdownToHtml(mdText: string): string {
     if (!mdText) return '';
     try {
         let html = mdText;
 
-        const links: { text: string; url: string }[] = [];
-        const rawUrls: string[] = [];
+        const linkClass = "inline-flex items-center gap-1.5 text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 font-semibold text-xs px-3 py-1 rounded-full shadow-sm hover:shadow-md transition-all duration-200 no-underline mx-0.5 align-middle";
+        const externalIcon = `<svg class="w-3 h-3 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path></svg>`;
 
-        // 1. Extraer enlaces Markdown: [texto](url)
-        html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, text, url) => {
-            const cleanUrl = url.replace(/&amp;/g, '&');
-            links.push({ text, url: cleanUrl });
-            return `@@LINKPLACEHOLDER${links.length - 1}@@`;
-        });
-
-        // 2. Extraer URLs crudas (que empiecen con http:// o https://)
-        // Evitamos URLs que ya estén dentro de placeholders, cuidando de no incluir puntuación al final
-        const urlRegex = /(https?:\/\/[^\s<]+[^.,;?!"')\]\s<])/g;
-        html = html.replace(urlRegex, (url) => {
-            const cleanUrl = url.replace(/&amp;/g, '&');
-            rawUrls.push(cleanUrl);
-            return `@@RAWURLPLACEHOLDER${rawUrls.length - 1}@@`;
+        // PASO 1: Convertir enlaces y URLs a HTML en una sola pasada ANTES de aplicar
+        // negritas/cursivas. Esto evita que guiones bajos dentro de las URLs sean
+        // interpretados como marcadores de cursiva (_texto_).
+        const combinedLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)|(https?:\/\/[^\s<]+[^.,;?!"')\]\s<])/g;
+        html = html.replace(combinedLinkRegex, (_match, mdLinkText, mdLinkUrl, rawUrl) => {
+            const url = (mdLinkUrl || rawUrl).replace(/&amp;/g, '&');
+            const label = mdLinkText ? `${mdLinkText} ${externalIcon}` : friendlyLabel(url, externalIcon);
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${label}</a>`;
         });
 
         // Parsear Tablas Markdown
@@ -67,7 +71,7 @@ function markdownToHtml(mdText: string): string {
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
 
-        // Cursiva
+        // Cursiva (seguro: ya no hay URLs raw en el texto)
         html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
         html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
 
@@ -100,24 +104,6 @@ function markdownToHtml(mdText: string): string {
 
         // Saltos de línea
         html = html.replace(/\n/g, '<br />');
-
-        // 3. Estilo premium e ícono SVG para los enlaces restaurados
-        const linkClass = "inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-extrabold hover:text-sky-800 dark:hover:text-sky-300 underline underline-offset-4 decoration-2 decoration-sky-500/30 hover:decoration-sky-500 transition-colors";
-        const externalIcon = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path></svg>`;
-
-        // Restaurar Enlaces Markdown
-        html = html.replace(/@@LINKPLACEHOLDER(\d+)@@/g, (match, index) => {
-            const idx = parseInt(index, 10);
-            const { text, url } = links[idx];
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${text} ${externalIcon}</a>`;
-        });
-
-        // Restaurar URLs crudas
-        html = html.replace(/@@RAWURLPLACEHOLDER(\d+)@@/g, (match, index) => {
-            const idx = parseInt(index, 10);
-            const url = rawUrls[idx];
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${linkClass}">${url} ${externalIcon}</a>`;
-        });
 
         return html;
     } catch (e) {
