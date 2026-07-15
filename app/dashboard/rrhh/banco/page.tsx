@@ -25,8 +25,10 @@ import { toast } from 'sonner';
 import { StatusBadge } from '@/components/StatusBadge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAbility } from '@/hooks/useAbility';
 
 export default function BancoProfesionalPage() {
+    const { can } = useAbility();
     const { config: profeConfig } = useProfe();
     const [professionals, setProfessionals] = useState<BancoProfesional[]>([]);
     const [cargos, setCargos] = useState<Cargo[]>([]);
@@ -66,10 +68,12 @@ export default function BancoProfesionalPage() {
     const loadData = async () => {
         try {
             setLoading(true);
+            const canReadCargo = can('read', 'Cargo');
+            const canReadRole = can('read', 'Role');
             const [profData, cargoData, roleData, configData] = await Promise.all([
                 bancoProfesionalService.getAll(),
-                cargoService.getAll(),
-                roleService.getAll(),
+                canReadCargo ? cargoService.getAll() : Promise.resolve([]),
+                canReadRole ? roleService.getAll() : Promise.resolve([]),
                 bancoProfesionalService.getConfig()
             ]);
             setProfessionals(profData);
@@ -77,6 +81,7 @@ export default function BancoProfesionalPage() {
             setRoles(roleData); // No filtrar aquí, RRHH necesita ver todos los roles (Bajas, Postulación, etc.)
             setConfig(configData);
         } catch (error) {
+            console.error('Error loading data:', error);
             toast.error('Error al cargar datos');
         } finally {
             setLoading(false);

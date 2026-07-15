@@ -20,8 +20,10 @@ import { toast } from 'sonner';
 import { Can } from '@/components/Can';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { getImageUrl } from '@/lib/utils';
+import { useAbility } from '@/hooks/useAbility';
 
 export default function GaleriasPage() {
+    const { can } = useAbility();
     const [galerias, setGalerias] = useState<any[]>([]);
     const [sedes, setSedes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,9 +47,10 @@ export default function GaleriasPage() {
     const loadData = async () => {
         try {
             setLoading(true);
+            const canReadSede = can('read', 'Sede');
             const [galData, sedesData] = await Promise.all([
                 galeriaService.getAll(),
-                sedeService.getAll()
+                canReadSede ? sedeService.getAll() : Promise.resolve([])
             ]);
             setGalerias(galData);
             setSedes(sedesData);

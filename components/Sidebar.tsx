@@ -41,7 +41,7 @@ interface MenuItem {
     title: string;
     href: string;
     icon?: React.ElementType;
-    permission?: { action: string; subject: string };
+    permission?: { action: string; subject: string } | { action: string; subject: string }[];
     children?: MenuItem[];
     badge?: string;
 }
@@ -61,7 +61,7 @@ const menuItems: MenuItem[] = [
             { title: 'Departamentos', href: '/dashboard/territorial/departamentos', permission: { action: 'read', subject: 'Departamento' }, },
             { title: 'Provincias', href: '/dashboard/territorial/provincias', permission: { action: 'read', subject: 'Provincia' }, },
             { title: 'Sedes', href: '/dashboard/territorial/sedes', permission: { action: 'read', subject: 'Sede' }, },
-            { title: 'Galerías', href: '/dashboard/territorial/galerias', permission: { action: 'read', subject: 'Galeria' }, },
+            { title: 'Galerías', href: '/dashboard/territorial/galerias', permission: [{ action: 'read', subject: 'Galeria' }, { action: 'read', subject: 'Sede' }], },
             { title: 'Distritos', href: '/dashboard/territorial/distritos', permission: { action: 'read', subject: 'Distrito' }, },
         ],
     },
@@ -103,7 +103,7 @@ const menuItems: MenuItem[] = [
         icon: Users,
         children: [
             { title: 'Cargos', href: '/dashboard/rrhh/cargos', permission: { action: 'read', subject: 'Cargo' } },
-            { title: 'Banco Profesional', href: '/dashboard/rrhh/banco', permission: { action: 'read', subject: 'bp_posgrado' } },
+            { title: 'Banco Profesional', href: '/dashboard/rrhh/banco', permission: [{ action: 'read', subject: 'bp_posgrado' }, { action: 'read', subject: 'Cargo' }] },
         ],
     },
     {
@@ -181,6 +181,9 @@ export function Sidebar() {
                 .filter(item => {
                     // Si el ítem tiene un permiso explícito, lo validamos
                     if (item.permission) {
+                        if (Array.isArray(item.permission)) {
+                            return item.permission.every(p => can(p.action, p.subject));
+                        }
                         return can(item.permission.action, item.permission.subject);
                     }
                     // Si no tiene permiso pero TIENE hijos, se mantiene temporalmente para filtrar sus hijos
@@ -267,11 +270,6 @@ export function Sidebar() {
         );
     };
 
-    const canViewItem = (item: MenuItem): boolean => {
-        if (isSuperAdmin) return true;
-        if (!item.permission) return true;
-        return can(item.permission.action, item.permission.subject);
-    };
 
     const getRoleName = () => {
         const roles = user?.roles || [];
