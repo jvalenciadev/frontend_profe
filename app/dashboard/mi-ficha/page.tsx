@@ -217,6 +217,28 @@ export default function MiFichaPage() {
             return;
         }
 
+        const nombre = ficha.user?.nombre || ficha.nombre;
+        const apellidos = ficha.user?.apellidos || ficha.apellidos;
+        const ci = ficha.user?.ci || ficha.ci;
+        const fechaNac = ficha.user?.fechaNacimiento || ficha.fechaNacimiento;
+
+        if (!ci) {
+            toast.error('El número de documento (CI) es obligatorio.');
+            return;
+        }
+        if (!nombre || !nombre.trim()) {
+            toast.error('El nombre es obligatorio.');
+            return;
+        }
+        if (!apellidos || !apellidos.trim()) {
+            toast.error('Los apellidos son obligatorios.');
+            return;
+        }
+        if (!fechaNac) {
+            toast.error('La fecha de nacimiento es obligatoria.');
+            return;
+        }
+
         try {
             setSubmitting(true);
             await bancoProfesionalService.updateMiFicha({
@@ -235,11 +257,11 @@ export default function MiFichaPage() {
                 genero: ficha.genero,
                 estadoCivil: ficha.estadoCivil,
                 imagen: ficha.user?.imagen || ficha.imagen,
-                nombre: ficha.user?.nombre || ficha.nombre,
-                apellidos: ficha.user?.apellidos || ficha.apellidos,
-                ci: ficha.user?.ci || ficha.ci ? Number(ficha.user?.ci || ficha.ci) : undefined,
-                correo: ficha.user?.correo || ficha.correo,
-                fechaNac: ficha.user?.fechaNacimiento || ficha.fechaNacimiento,
+                nombre: nombre,
+                apellidos: apellidos,
+                ci: ci ? Number(ci) : undefined,
+                correo: currentEmail,
+                fechaNac: fechaNac,
                 rda: ficha.user?.rda || ficha.rda ? Number(ficha.user?.rda || ficha.rda) : undefined,
                 rdaPdf: ficha.rdaPdf,
                 verificationCode: verificationCode, // Enviar código si el correo cambió
@@ -607,7 +629,7 @@ export default function MiFichaPage() {
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cédula de Identidad (CI)</label>
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cédula de Identidad (CI) <span className="text-rose-500">*</span></label>
                                                         <div className="relative">
                                                             <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                             <Input
@@ -615,11 +637,12 @@ export default function MiFichaPage() {
                                                                 onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, ci: e.target.value } : undefined, ci: e.target.value })}
                                                                 placeholder="Nro de Documento"
                                                                 className="pl-11 h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                                required
                                                             />
                                                         </div>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Fecha de Nacimiento</label>
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Fecha de Nacimiento <span className="text-rose-500">*</span></label>
                                                         <div className="relative">
                                                             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                             <Input
@@ -627,6 +650,7 @@ export default function MiFichaPage() {
                                                                 value={ficha.user?.fechaNacimiento?.split('T')[0] || (ficha as any).fechaNacimiento?.split('T')[0] || ''}
                                                                 onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, fechaNacimiento: e.target.value } : undefined, fechaNacimiento: e.target.value } as any)}
                                                                 className="pl-11 h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                                required
                                                             />
                                                         </div>
                                                     </div>
@@ -634,21 +658,23 @@ export default function MiFichaPage() {
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nombre(s)</label>
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nombre(s) <span className="text-rose-500">*</span></label>
                                                         <Input
                                                             value={ficha.user?.nombre || ficha.nombre || ''}
                                                             onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, nombre: e.target.value } : undefined, nombre: e.target.value })}
                                                             placeholder="Nombres"
                                                             className="h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                            required
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Apellidos</label>
+                                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Apellidos <span className="text-rose-500">*</span></label>
                                                         <Input
                                                             value={ficha.user?.apellidos || ficha.apellidos || ''}
                                                             onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, apellidos: e.target.value } : undefined, apellidos: e.target.value })}
                                                             placeholder="Apellidos"
                                                             className="h-14 rounded-2xl bg-muted/30 border-transparent focus:bg-background"
+                                                            required
                                                         />
                                                     </div>
                                                 </div>
