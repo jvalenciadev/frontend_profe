@@ -44,11 +44,11 @@ export default function MigrationModal({
             const data = await aulaService.exportarCurso(moduloId, turnoId || undefined);
 
             // Crear el blob del JSON
-            const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-                JSON.stringify(data, null, 2)
-            )}`;
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
             const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute('href', jsonString);
+            downloadAnchor.setAttribute('href', url);
 
             // Nombre de archivo descriptivo
             const sanitizeTitle = (cursoTitulo || 'curso')
@@ -60,6 +60,7 @@ export default function MigrationModal({
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
+            URL.revokeObjectURL(url);
 
             toast.success('Estructura académica exportada con éxito');
         } catch (err: any) {
