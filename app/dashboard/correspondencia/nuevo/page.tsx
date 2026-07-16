@@ -123,7 +123,7 @@ export default function NuevaNotaPage() {
         // Lógica Senior: Obtener Base64 real para MHTML
         let base64Image = "";
         try {
-            const response = await fetch("/fondo_doc.jpg");
+            const response = await fetch("/fondo_doc_profe.jpg");
             const blob = await response.blob();
             const rawBase64 = await new Promise<string>((resolve) => {
                 const reader = new FileReader();
@@ -197,7 +197,7 @@ export default function NuevaNotaPage() {
             <tr><td class="meta-label" style="padding-bottom: 3pt;">Fecha:</td><td class="meta-value" style="padding-bottom: 3pt;">La Paz, ${currentDateFormatted}</td></tr>
         </table>
         
-        <div style="border-top: solid black 2.25pt; margin-top: 8pt; margin-bottom: 12pt; font-size: 1pt; line-height: 1pt;"></div>
+        <hr style="border: none; border-top: solid black 2.25pt; margin-top: 8pt; margin-bottom: 12pt;" />
         <div class="content-body">${contenido || '---'}</div>
     </div>
     
@@ -212,6 +212,12 @@ export default function NuevaNotaPage() {
                 <v:imagedata src="cid:${imageCid}" />
             </v:shape>
             <![endif]-->
+        </p>
+    </div>
+    
+    <div style='mso-element:footer; position:absolute; top:-1000px;' id=f1>
+        <p class="MsoFooter" style='margin:0; border-top: solid black 1.0pt; padding-top: 6pt; font-size: 1pt; line-height: 1pt;'>
+            &nbsp;
         </p>
     </div>
 </body>
@@ -231,8 +237,8 @@ export default function NuevaNotaPage() {
             'Content-Type: image/jpeg',
             'Content-Transfer-Encoding: base64',
             `Content-ID: <${imageCid}>`,
-            'Content-Location: fondo_doc.jpg',
-            'Content-Disposition: inline; filename="fondo_doc.jpg"',
+            'Content-Location: fondo_doc_profe.jpg',
+            'Content-Disposition: inline; filename="fondo_doc_profe.jpg"',
             '',
             base64Image,
             '',
