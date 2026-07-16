@@ -257,7 +257,14 @@ export default function NuevaNotaPage() {
         if (!success || !e.target.files?.[0]) return;
         const file = e.target.files[0];
 
-        // Lógica Senior: Validación de tamaño (5MB = 5 * 1024 * 1024 bytes)
+        // Validación de tipo de archivo (Solo PDF)
+        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+            toast.error('Tipo de archivo no válido. Solo se admiten documentos PDF.');
+            e.target.value = ''; // Limpiar el input
+            return;
+        }
+
+        // Validación de tamaño (Límite máximo de 5MB = 5 * 1024 * 1024 bytes)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             toast.error('El archivo es demasiado grande. El límite máximo es de 5MB.');
