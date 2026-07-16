@@ -216,7 +216,7 @@ export default function NuevaNotaPage() {
     </div>
     
     <div style='mso-element:footer; position:absolute; top:-1000px;' id=f1>
-        <p class="MsoFooter" style='margin:0; border-top: solid black 1.0pt; padding-top: 6pt; font-size: 1pt; line-height: 1pt;'>
+        <p class="MsoFooter" style='margin:0;'>
             &nbsp;
         </p>
     </div>
