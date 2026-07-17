@@ -217,11 +217,11 @@ export default function BandejaPage() {
         const actions = [];
         const ultimoMovimiento = doc.seguimientos?.[0];
 
-        // 1. El REMITENTE solo puede enviar si está en ELABORACION, CANCELADO o DEVUELTO (reenviar)
-        if ((doc.estado === 'ELABORACION' || doc.estado === 'CANCELADO' || doc.estado === 'DEVUELTO') && rol === 'REMITENTE') {
+        // 1. El REMITENTE solo puede enviar si está en ELABORACION o DEVUELTO (reenviar)
+        if ((doc.estado === 'ELABORACION' || doc.estado === 'DEVUELTO') && rol === 'REMITENTE') {
             actions.push({
                 accion: 'ENVIO',
-                label: doc.estado === 'DEVUELTO' ? 'Corregir y Reenviar' : (doc.estado === 'CANCELADO' ? 'Reenviar Documento' : 'Enviar Oficialmente'),
+                label: doc.estado === 'DEVUELTO' ? 'Corregir y Reenviar' : 'Enviar Oficialmente',
                 color: 'bg-primary text-white shadow-primary/20'
             });
         }
