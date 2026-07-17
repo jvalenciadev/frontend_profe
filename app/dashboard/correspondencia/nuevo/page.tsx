@@ -42,6 +42,7 @@ export default function NuevaNotaPage() {
     const { user } = useAuth();
     const { can } = useAbility();
     const router = useRouter();
+    const changePdfRef = useRef<HTMLInputElement>(null);
     const [tipo, setTipo] = useState<CorTipoDocumento>('INFORME');
     const [hr, setHr] = useState('');
     const [referencia, setReferencia] = useState('');
@@ -398,9 +399,16 @@ export default function NuevaNotaPage() {
                                     <input type="file" accept="application/pdf" className="hidden" onChange={handleUploadPdf} disabled={uploading} />
                                 </label>
                             )}
-                            <p className="mt-4 text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center">
-                                {vias.length > 0 ? '⚠️ El documento pasará por VÍA primero.' : 'El documento irá al DESTINATARIO.'}
-                            </p>
+                            <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center">
+                                {vias.length > 0 ? (
+                                    <>
+                                        <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                        <span>El documento pasará por VÍA primero.</span>
+                                    </>
+                                ) : (
+                                    <span>El documento irá al DESTINATARIO.</span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -430,12 +438,38 @@ export default function NuevaNotaPage() {
                                 <div className="flex-1 bg-muted/10 p-0 overflow-hidden">
                                     <embed src={`${previewUrl || getImageUrl(pdfUrl)}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full h-full" />
                                 </div>
-                                <div className="p-6 bg-card border-t border-border flex justify-end gap-4">
-                                    <button onClick={() => setShowPreview(false)} className="px-8 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all">Cancelar</button>
-                                    <button onClick={handleConfirmarEnvio} disabled={confirming} className="px-8 h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-                                        {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                        {confirming ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}
-                                    </button>
+                                <div className="p-6 bg-card border-t border-border flex flex-wrap justify-between items-center gap-3">
+                                    {/* Izquierda: Cambiar PDF */}
+                                    <label
+                                        className={cn(
+                                            "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer border border-border hover:bg-muted",
+                                            uploading && "opacity-50 pointer-events-none"
+                                        )}
+                                    >
+                                        {uploading
+                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                            : <Upload className="w-4 h-4" />
+                                        }
+                                        {uploading ? 'Subiendo...' : 'Cambiar PDF'}
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            className="hidden"
+                                            disabled={uploading}
+                                            onChange={async (e) => {
+                                                await handleUploadPdf(e);
+                                            }}
+                                        />
+                                    </label>
+
+                                    {/* Derecha: Cancelar + Confirmar */}
+                                    <div className="flex gap-3 ml-auto">
+                                        <button onClick={() => setShowPreview(false)} className="px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all">Cancelar</button>
+                                        <button onClick={handleConfirmarEnvio} disabled={confirming || uploading} className="px-6 h-10 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50">
+                                            {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                            {confirming ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}
+                                        </button>
+                                    </div>
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -468,9 +502,10 @@ export default function NuevaNotaPage() {
                                     </p>
                                 </div>
 
-                                <div className="w-full p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20">
+                                <div className="w-full p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                                     <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">
-                                        ⚠️ Esta acción es irreversible
+                                        Esta acción es irreversible
                                     </p>
                                 </div>
 
