@@ -56,6 +56,8 @@ export default function NuevaNotaPage() {
     const [showPreview, setShowPreview] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [discarding, setDiscarding] = useState(false);
+    const [showDiscardModal, setShowDiscardModal] = useState(false);
 
     useEffect(() => {
         if (user && remitentes.length === 0) {
@@ -75,6 +77,33 @@ export default function NuevaNotaPage() {
 
     const updateCargo = (setter: any) => (id: string, val: string) => {
         setter((prev: any) => prev.map((u: any) => u.id === id ? { ...u, cargoLiteral: val } : u));
+    };
+
+    const handleDescartarCITE = () => {
+        if (!success || discarding) return;
+        setShowDiscardModal(true);
+    };
+
+    const handleConfirmarDescarte = async () => {
+        if (!success || discarding) return;
+        setDiscarding(true);
+        try {
+            await avanzarEstado(success.id, 'CANCELAR', 'Documento descartado por el remitente antes de ser enviado.');
+            localStorage.removeItem('profe_current_cor_id');
+            setShowDiscardModal(false);
+            setSuccess(null);
+            setReferencia('');
+            setContenido('');
+            setDestinatarios([]);
+            setVias([]);
+            setPdfUrl(null);
+            setPreviewUrl(null);
+            toast.success('El CITE ha sido cancelado y el formulario reiniciado');
+        } catch (err) {
+            toast.error('Error al descartar el documento');
+        } finally {
+            setDiscarding(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -294,11 +323,21 @@ export default function NuevaNotaPage() {
 
     useEffect(() => {
         const recoverDraft = async () => {
+            if (!user) return; // Lógica Senior: Esperar a que el usuario esté disponible
             const savedId = localStorage.getItem('profe_current_cor_id');
             if (savedId && !success) {
                 try {
                     const { data } = await api.get(`/correspondencia/buscar-id/${savedId}`);
                     if (data && data.estado === 'ELABORACION') {
+                        // Verificar que el usuario logueado sea remitente de este documento
+                        const esRemitente = data.participantes?.some(
+                            (p: any) => p.rol === 'REMITENTE' && p.userId === user.id
+                        );
+                        if (!esRemitente) {
+                            localStorage.removeItem('profe_current_cor_id');
+                            return;
+                        }
+
                         setTipo(data.tipo);
                         setReferencia(data.referencia || '');
                         setContenido(data.contenido || '');
@@ -322,7 +361,7 @@ export default function NuevaNotaPage() {
             }
         };
         recoverDraft();
-    }, []);
+    }, [user, success]);
 
     // Guard de render: sin permisos de escritura, no mostrar la UI
     if (!can('manage', 'CorDocumento') && !can('create', 'CorDocumento')) return null;
@@ -364,6 +403,18 @@ export default function NuevaNotaPage() {
                             </p>
                         </div>
                     </div>
+
+                    {/* Botón para Descartar y Empezar de nuevo */}
+                    <div className="pt-4 flex justify-center">
+                        <button
+                            onClick={handleDescartarCITE}
+                            disabled={discarding}
+                            className="h-12 px-6 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {discarding ? <Loader2 className="w-4 h-4 animate-spin text-rose-500" /> : <X className="w-4 h-4 text-rose-500" />}
+                            Descartar CITE y empezar de nuevo
+                        </button>
+                    </div>
                 </motion.div>
                 <AnimatePresence>
                     {showPreview && pdfUrl && (
@@ -384,6 +435,60 @@ export default function NuevaNotaPage() {
                                     <button onClick={handleConfirmarEnvio} disabled={confirming} className="px-8 h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
                                         {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                         {confirming ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+
+                    {/* Modal de Confirmación de Descarte */}
+                    {showDiscardModal && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xl"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                className="bg-card border border-rose-500/20 rounded-[2.5rem] shadow-2xl shadow-rose-500/10 w-full max-w-md p-10 flex flex-col items-center gap-6 text-center"
+                            >
+                                {/* Icono de advertencia */}
+                                <div className="w-20 h-20 rounded-[1.5rem] bg-rose-500/10 flex items-center justify-center">
+                                    <AlertCircle className="w-10 h-10 text-rose-500" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black tracking-tight">¿Descartar <span className="text-rose-500">CITE</span>?</h3>
+                                    <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                                        Esta acción cancelará el CITE <span className="font-black text-foreground">{success?.cite}</span> y reiniciará el formulario. El número de CITE <span className="font-black text-rose-500">no podrá recuperarse</span>.
+                                    </p>
+                                </div>
+
+                                <div className="w-full p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">
+                                        ⚠️ Esta acción es irreversible
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-3 w-full">
+                                    <button
+                                        onClick={() => setShowDiscardModal(false)}
+                                        disabled={discarding}
+                                        className="flex-1 h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all disabled:opacity-50"
+                                    >
+                                        Conservar CITE
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmarDescarte}
+                                        disabled={discarding}
+                                        className="flex-1 h-12 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shadow-rose-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {discarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                                        {discarding ? 'Cancelando...' : 'Sí, descartar'}
                                     </button>
                                 </div>
                             </motion.div>
