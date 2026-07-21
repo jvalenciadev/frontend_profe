@@ -1432,8 +1432,8 @@ export default function UsuariosPage() {
                                             }}
                                             className={cn(
                                                 "h-12 px-4 rounded-xl border text-xs font-bold flex items-center justify-between transition-all",
-                                                isSelected 
-                                                    ? "bg-indigo-500/10 border-indigo-500 text-indigo-600" 
+                                                isSelected
+                                                    ? "bg-indigo-500/10 border-indigo-500 text-indigo-600"
                                                     : "bg-white dark:bg-slate-900 border-border text-foreground hover:border-indigo-500/50"
                                             )}
                                         >

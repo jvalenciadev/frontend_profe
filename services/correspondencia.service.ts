@@ -32,6 +32,12 @@ export interface CorSeguimiento {
     archivoUrl: string | null;
 }
 
+export interface CorTenantInfo {
+    id: string;
+    nombre: string;
+    abreviacion: string;
+}
+
 export interface CorDocumento {
     id: string;
     tipo: CorTipoDocumento;
@@ -42,6 +48,8 @@ export interface CorDocumento {
     referencia: string;
     contenido: string | null;
     estado: string;
+    tenantId?: string | null;
+    tenantInfo?: CorTenantInfo | null;
     createdAt: string;
     participantes: CorParticipante[];
     seguimientos: CorSeguimiento[];
@@ -49,6 +57,54 @@ export interface CorDocumento {
     diasMora?: number;
     alerta?: boolean;
     nivelAlerta?: 'NORMAL' | 'MORA' | 'CRITICO';
+}
+
+export interface CorHistorialItem {
+    id: string;
+    fecha: string;
+    accion: string;
+    detalle: string | null;
+    archivoUrl: string | null;
+    documento: {
+        id: string;
+        cite: string;
+        hr: string | null;
+        tipo: CorTipoDocumento;
+        referencia: string;
+        estado: string;
+        tenantId: string | null;
+        createdAt: string;
+    };
+    usuario: CorUsuario & { tenantId?: string | null };
+    destinatario: (CorUsuario & { tenantId?: string | null }) | null;
+    docTenant: CorTenantInfo;
+    userTenant: CorTenantInfo;
+    destTenant: CorTenantInfo | null;
+}
+
+export interface CorHistorialTenantResponse {
+    historial: CorHistorialItem[];
+    departamentos: CorTenantInfo[];
+    statsByTenant: Array<{
+        tenantId: string;
+        abreviacion: string;
+        nombre: string;
+        totalMovimientos: number;
+        creaciones: number;
+        derivaciones: number;
+        recepciones: number;
+        archivados: number;
+    }>;
+}
+
+/**
+ * Obtener historial y auditoría de hojas de ruta por TENANT_ID
+ */
+export async function obtenerHistorialTenants(tenantId?: string): Promise<CorHistorialTenantResponse> {
+    const { data } = await api.get<CorHistorialTenantResponse>('/correspondencia/historial-tenants', {
+        params: tenantId ? { tenantId } : undefined,
+    });
+    return data;
 }
 
 export interface CreateCorrespondenciaPayload {
