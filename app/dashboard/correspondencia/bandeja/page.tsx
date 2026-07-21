@@ -50,8 +50,8 @@ const DEPARTAMENTOS_LIST = [
     { id: 'PT', label: 'Potosí (PT)', sigla: 'PT' },
     { id: 'TJ', label: 'Tarija (TJ)', sigla: 'TJ' },
     { id: 'SC', label: 'Santa Cruz (SC)', sigla: 'SC' },
-    { id: 'BE', label: 'Beni (BE)', sigla: 'BE' },
-    { id: 'PA', label: 'Pando (PA)', sigla: 'PA' },
+    { id: 'BN', label: 'Beni (BN)', sigla: 'BN' },
+    { id: 'PD', label: 'Pando (PD)', sigla: 'PD' },
 ];
 
 export default function BandejaPage() {
