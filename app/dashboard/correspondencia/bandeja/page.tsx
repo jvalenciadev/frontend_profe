@@ -916,6 +916,16 @@ export default function BandejaPage() {
                                                         </p>
                                                         <p className="text-xs font-bold mt-0.5">{item.usuario?.nombre} {item.usuario?.apellidos}</p>
                                                         <p className="text-[9px] text-muted-foreground uppercase">{item.usuario?.cargoStr || 'Funcionario'}</p>
+
+                                                        {item.destinatario && (
+                                                            <div className="mt-2 pt-1.5 border-t border-border/40">
+                                                                <p className="text-[9px] font-black uppercase text-primary flex items-center gap-1">
+                                                                    <Send className="w-3 h-3 text-primary" /> Enviado a (Destinatario)
+                                                                </p>
+                                                                <p className="text-xs font-bold mt-0.5 text-foreground">{item.destinatario.nombre} {item.destinatario.apellidos}</p>
+                                                                <p className="text-[9px] text-muted-foreground uppercase">{item.destinatario.cargoStr || 'Destinatario'}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div>
