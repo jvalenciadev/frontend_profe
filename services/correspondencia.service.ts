@@ -74,6 +74,12 @@ export interface CorHistorialItem {
         estado: string;
         tenantId: string | null;
         createdAt: string;
+        creador?: {
+            id: string;
+            nombre: string;
+            apellidos: string;
+            cargoStr?: string | null;
+        } | null;
     };
     usuario: CorUsuario & { tenantId?: string | null };
     destinatario: (CorUsuario & { tenantId?: string | null }) | null;

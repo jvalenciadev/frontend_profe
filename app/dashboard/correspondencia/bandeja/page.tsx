@@ -542,44 +542,62 @@ export default function BandejaPage() {
                                         </div>
 
                                         <div className="divide-y divide-border/30">
-                                            {group.docs.map((doc: any) => (
-                                                <div key={doc.id}
-                                                    onClick={() => setSelected(selected?.id === doc.id ? null : doc)}
-                                                    className={cn("p-6 hover:bg-primary/5 cursor-pointer transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4",
-                                                        selected?.id === doc.id && "bg-primary/5")}>
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="w-12 h-12 rounded-2xl bg-muted flex flex-col items-center justify-center shrink-0 border border-border/50">
-                                                            <span className="text-[8px] font-black leading-none mb-1 opacity-50">{doc.gestion}</span>
-                                                            <Hash className="w-4 h-4 text-primary" />
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-black tracking-tight">{doc.cite}</span>
-                                                                {doc.hr && (
-                                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 text-[9px] font-black border border-emerald-500/20">
-                                                                        HR: {doc.hr}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs font-bold text-muted-foreground mt-1 line-clamp-1">{doc.referencia}</p>
-                                                        </div>
-                                                    </div>
+                                            {group.docs.map((doc: any) => {
+                                                const ultimoSeguimiento = doc.seguimientos?.[0];
+                                                const remitente = doc.participantes?.find((p: any) => p.rol === 'REMITENTE')?.usuario;
+                                                const remitenteNombre = remitente ? `${remitente.nombre} ${remitente.apellidos}` : null;
 
-                                                    <div className="flex items-center justify-end gap-4">
-                                                        <span className={cn(
-                                                            'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border',
-                                                            ESTADO_LABELS[doc.estado]?.color ?? 'bg-muted text-muted-foreground'
-                                                        )}>
-                                                            {ESTADO_LABELS[doc.estado]?.label ?? doc.estado}
-                                                        </span>
-                                                        <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(doc.cite)}`}
-                                                            onClick={e => e.stopPropagation()}
-                                                            className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-all">
-                                                            <FileText className="w-4 h-4" />
-                                                        </Link>
+                                                return (
+                                                    <div key={doc.id}
+                                                        onClick={() => setSelected(selected?.id === doc.id ? null : doc)}
+                                                        className={cn("p-6 hover:bg-primary/5 cursor-pointer transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4",
+                                                            selected?.id === doc.id && "bg-primary/5")}>
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="w-12 h-12 rounded-2xl bg-muted flex flex-col items-center justify-center shrink-0 border border-border/50">
+                                                                <span className="text-[8px] font-black leading-none mb-1 opacity-50">{doc.gestion}</span>
+                                                                <Hash className="w-4 h-4 text-primary" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-black tracking-tight">{doc.cite}</span>
+                                                                    {doc.hr && (
+                                                                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 text-[9px] font-black border border-emerald-500/20">
+                                                                            HR: {doc.hr}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs font-bold text-muted-foreground mt-1 line-clamp-1">{doc.referencia}</p>
+                                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-medium text-muted-foreground mt-1">
+                                                                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                                                        <User className="w-3 h-3 text-emerald-500" />
+                                                                        Creador: {remitenteNombre || 'N/A'}
+                                                                    </span>
+                                                                    {ultimoSeguimiento?.usuario && (
+                                                                        <span className="flex items-center gap-1">
+                                                                            <User className="w-3 h-3 text-primary" />
+                                                                            Último: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-end gap-4">
+                                                            <span className={cn(
+                                                                'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border',
+                                                                ESTADO_LABELS[doc.estado]?.color ?? 'bg-muted text-muted-foreground'
+                                                            )}>
+                                                                {ESTADO_LABELS[doc.estado]?.label ?? doc.estado}
+                                                            </span>
+                                                            <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(doc.cite)}`}
+                                                                onClick={e => e.stopPropagation()}
+                                                                className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-all">
+                                                                <FileText className="w-4 h-4" />
+                                                            </Link>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))
@@ -616,6 +634,8 @@ export default function BandejaPage() {
                                             {filtered.map((doc: any) => {
                                                 const ultimoSeguimiento = doc.seguimientos?.[0];
                                                 const deptSigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
+                                                const remitente = doc.participantes?.find((p: any) => p.rol === 'REMITENTE')?.usuario;
+                                                const remitenteNombre = remitente ? `${remitente.nombre} ${remitente.apellidos}` : null;
 
                                                 return (
                                                     <motion.tr key={doc.id}
@@ -657,11 +677,19 @@ export default function BandejaPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-8 py-6">
-                                                            <div className="space-y-1">
+                                                            <div className="space-y-1.5">
                                                                 <p className="text-sm font-bold text-foreground leading-tight">{doc.referencia}</p>
-                                                                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-                                                                    <User className="w-3 h-3" />
-                                                                    <span>Último: {ultimoSeguimiento?.usuario?.nombre} {ultimoSeguimiento?.usuario?.apellidos}</span>
+                                                                <div className="flex flex-col gap-1 text-[10px] font-medium text-muted-foreground pt-0.5">
+                                                                    <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                                                                        <User className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                                        <span>Creador: {remitenteNombre || 'N/A'}</span>
+                                                                    </div>
+                                                                    {ultimoSeguimiento?.usuario && (
+                                                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                                            <User className="w-3 h-3 text-primary shrink-0" />
+                                                                            <span>Último: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </td>
@@ -857,7 +885,7 @@ export default function BandejaPage() {
                                                 </div>
 
                                                 {/* Detalle del Trámite y Funcionario */}
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-border/30 pt-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-border/30 pt-4">
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
                                                             <FileText className="w-3 h-3" /> Documento & HR
@@ -872,7 +900,19 @@ export default function BandejaPage() {
 
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
-                                                            <User className="w-3 h-3" /> Ejecutado por
+                                                            <User className="w-3 h-3 text-emerald-500" /> Creador Original
+                                                        </p>
+                                                        <p className="text-xs font-bold mt-0.5 text-foreground">
+                                                            {item.documento?.creador ? `${item.documento.creador.nombre} ${item.documento.creador.apellidos}` : 'Remitente N/A'}
+                                                        </p>
+                                                        <p className="text-[9px] text-muted-foreground uppercase">
+                                                            {item.documento?.creador?.cargoStr || 'Elaborador del CITE'}
+                                                        </p>
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                                                            <User className="w-3 h-3 text-primary" /> Ejecutado por
                                                         </p>
                                                         <p className="text-xs font-bold mt-0.5">{item.usuario?.nombre} {item.usuario?.apellidos}</p>
                                                         <p className="text-[9px] text-muted-foreground uppercase">{item.usuario?.cargoStr || 'Funcionario'}</p>
