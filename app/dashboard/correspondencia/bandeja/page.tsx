@@ -285,10 +285,10 @@ export default function BandejaPage() {
                         </button>
                     </div>
 
-                    {(accionSeleccionada === 'DERIVACION' || accionSeleccionada === 'RECEPCION') && (
+                    {(accionSeleccionada === 'DERIVACION' || accionSeleccionada === 'RECEPCION' || isReenvioDevolucion) && (
                         <div className="space-y-4">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                {accionSeleccionada === 'DERIVACION' ? '¿A quién derivar?' : 'Derivar a (Opcional - Envío Directo)'}
+                                {isReenvioDevolucion ? 'Reenviar a (Seleccionar VÍA o Destinatario)' : accionSeleccionada === 'DERIVACION' ? '¿A quién derivar?' : 'Derivar a (Opcional - Envío Directo)'}
                             </p>
                             <UserSearchInline onSelect={setNuevoDest} selected={nuevoDest} />
                         </div>
@@ -337,7 +337,11 @@ export default function BandejaPage() {
                 {/* 1. DOCUMENTO DEVUELTO */}
                 {isDevuelto ? (
                     <>
-                        <button onClick={() => setAccionSeleccionada('ENVIO')}
+                        <button onClick={() => {
+                            const devueltoPor = doc.seguimientos?.[0]?.usuario;
+                            setNuevoDest(devueltoPor ?? null);
+                            setAccionSeleccionada('ENVIO');
+                        }}
                             className="h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2 col-span-2 shadow-lg shadow-primary/20">
                             <RefreshCw className="w-4 h-4" /> Subsanar Observación y Reenviar
                         </button>
