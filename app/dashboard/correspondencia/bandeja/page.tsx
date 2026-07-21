@@ -42,7 +42,6 @@ type TabType = typeof TABS[number]['id'];
 
 const DEPARTAMENTOS_LIST = [
     { id: 'TODOS', label: 'Todos los Departamentos', sigla: 'TODOS' },
-    { id: 'NAC', label: 'Dirección Nacional (NAC)', sigla: 'NAC' },
     { id: 'MESC', label: 'Dirección Nacional (MESC)', sigla: 'MESC' },
     { id: 'LP', label: 'La Paz (LP)', sigla: 'LP' },
     { id: 'CB', label: 'Cochabamba (CB)', sigla: 'CB' },
