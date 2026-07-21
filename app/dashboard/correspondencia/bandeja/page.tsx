@@ -264,6 +264,9 @@ export default function BandejaPage() {
 
     const renderActions = (doc: CorDocumento) => {
         const isDevuelto = doc.estado === 'DEVUELTO';
+        const miParticipante = doc.participantes?.find((p: any) => p.userId === user?.id);
+        const miRol = miParticipante?.rol || (tab === 'enviados' ? 'REMITENTE' : 'DESTINATARIO');
+        const isRemitente = miRol === 'REMITENTE';
 
         if (accionSeleccionada) {
             const isReenvioDevolucion = isDevuelto && (accionSeleccionada === 'ENVIO' || accionSeleccionada === 'DERIVACION');
@@ -328,7 +331,7 @@ export default function BandejaPage() {
 
         return (
             <div className="grid grid-cols-2 gap-3 mt-4">
-                {/* SI EL DOCUMENTO FUE DEVUELTO */}
+                {/* 1. DOCUMENTO DEVUELTO */}
                 {isDevuelto ? (
                     <>
                         <button onClick={() => setAccionSeleccionada('ENVIO')}
@@ -340,32 +343,16 @@ export default function BandejaPage() {
                             Editar Contenido del Borrador
                         </Link>
                     </>
-                ) : (
+                ) : isRemitente || tab === 'enviados' ? (
+                    /* 2. SI EL USUARIO ES EL REMITENTE (O PESTAÑA ENVIADOS) */
                     <>
-                        {/* TAB RECIBIDOS */}
-                        {tab === 'recibidos' && (
-                            <>
-                                <button onClick={() => setAccionSeleccionada('RECEPCION')}
-                                    className="h-12 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4" /> Recibir Trámite
-                                </button>
-                                <button onClick={() => setAccionSeleccionada('DERIVACION')}
-                                    className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                    <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
-                                </button>
-                                <button onClick={() => setAccionSeleccionada('DEVOLUCION')}
-                                    className="h-12 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                    <AlertCircle className="w-4 h-4" /> Devolver al Remitente
-                                </button>
-                                <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
-                                    className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                    <Archive className="w-4 h-4" /> Archivar Definitivamente
-                                </button>
-                            </>
+                        {doc.estado !== 'ARCHIVADO' && doc.estado !== 'CANCELADO' && (
+                            <button onClick={() => handleAvanzar(doc, 'CANCELAR')} disabled={avanzando}
+                                className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Cancelar Envío
+                            </button>
                         )}
-
-                        {/* TAB BORRADORES / EN PROCESO */}
-                        {tab === 'enProceso' && (
+                        {doc.estado === 'BORRADOR' && (
                             <>
                                 <button onClick={() => handleAvanzar(doc, 'ENVIO')} disabled={avanzando}
                                     className="h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2 col-span-2 shadow-lg shadow-primary/20">
@@ -375,21 +362,29 @@ export default function BandejaPage() {
                                     className="h-12 rounded-xl border border-border font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all flex items-center justify-center gap-2 col-span-2">
                                     Editar Borrador
                                 </Link>
-                                <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
-                                    className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                    <Archive className="w-4 h-4" /> Archivar Definitivamente
-                                </button>
                             </>
                         )}
-
-                        {/* TAB ENVIADOS: SOLAMENTE PERMITE CANCELAR ENVIO (SIN ARCHIVAR) */}
-                        {tab === 'enviados' && (
-                            <>
-                                <button onClick={() => handleAvanzar(doc, 'CANCELAR')} disabled={avanzando}
-                                    className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                    {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Cancelar Envío
-                                </button>
-                            </>
+                    </>
+                ) : (
+                    /* 3. SI EL USUARIO ES EL DESTINATARIO / VIA EN RECIBIDOS */
+                    <>
+                        <button onClick={() => setAccionSeleccionada('RECEPCION')}
+                            className="h-12 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" /> Recibir Trámite
+                        </button>
+                        <button onClick={() => setAccionSeleccionada('DERIVACION')}
+                            className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                            <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
+                        </button>
+                        <button onClick={() => setAccionSeleccionada('DEVOLUCION')}
+                            className="h-12 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                            <AlertCircle className="w-4 h-4" /> Devolver al Remitente
+                        </button>
+                        {doc.estado !== 'ARCHIVADO' && (
+                            <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
+                                className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                <Archive className="w-4 h-4" /> Archivar Definitivamente
+                            </button>
                         )}
                     </>
                 )}
@@ -1070,6 +1065,69 @@ export default function BandejaPage() {
                                     <ShieldCheck className="w-4 h-4 text-emerald-500" /> Acciones de Gestión Legal
                                 </p>
                                 {renderActions(selected)}
+                            </div>
+
+                            {/* HISTORIAL / LISTA DE SEGUIMIENTO COMPLETA DE ESTE TRÁMITE */}
+                            <div className="space-y-4 pt-6 border-t border-border/50">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <Activity className="w-4 h-4 text-primary" /> Historial de Movimientos (Trazabilidad)
+                                </p>
+
+                                {(!selected.seguimientos || selected.seguimientos.length === 0) ? (
+                                    <p className="text-xs text-muted-foreground italic">Sin movimientos registrados aún.</p>
+                                ) : (
+                                    <div className="relative border-l-2 border-primary/20 ml-3 space-y-4 pl-4">
+                                        {selected.seguimientos.map((seg: any) => (
+                                            <div key={seg.id} className="relative group">
+                                                <div className="absolute -left-[23px] top-1.5 w-3 h-3 rounded-full bg-primary border-2 border-card shadow-sm" />
+                                                
+                                                <div className="bg-muted/40 border border-border/50 rounded-2xl p-4 space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={cn(
+                                                            "px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase border",
+                                                            seg.accion === 'CREACION' ? "bg-blue-500/10 text-blue-600 border-blue-500/20" :
+                                                            seg.accion === 'RECEPCION' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                                                            seg.accion === 'DERIVACION' ? "bg-purple-500/10 text-purple-600 border-purple-500/20" :
+                                                            seg.accion === 'DEVOLUCION' ? "bg-orange-500/10 text-orange-600 border-orange-500/20" :
+                                                            "bg-primary/10 text-primary border-primary/20"
+                                                        )}>
+                                                            {seg.accion}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-muted-foreground flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" /> {new Date(seg.fecha).toLocaleString()}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="text-xs font-bold space-y-1">
+                                                        <p className="text-foreground">
+                                                            <span className="text-muted-foreground font-medium text-[9px] uppercase">Ejecutado por: </span>
+                                                            {seg.usuario ? `${seg.usuario.nombre} ${seg.usuario.apellidos}` : 'Sistema'}
+                                                        </p>
+                                                        {seg.destinatario && (
+                                                            <p className="text-emerald-600">
+                                                                <span className="text-muted-foreground font-medium text-[9px] uppercase">Enviado a: </span>
+                                                                {seg.destinatario.nombre} {seg.destinatario.apellidos}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {seg.detalle && (
+                                                        <p className="text-[11px] italic text-muted-foreground bg-background/60 p-2.5 rounded-xl border border-border/40">
+                                                            "{seg.detalle}"
+                                                        </p>
+                                                    )}
+
+                                                    {seg.archivoUrl && (
+                                                        <a href={getImageUrl(seg.archivoUrl)} target="_blank" rel="noreferrer"
+                                                            className="inline-flex items-center gap-1.5 text-[9px] font-black text-emerald-600 hover:underline pt-1">
+                                                            <Download className="w-3 h-3" /> Descargar PDF de esta acción
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
