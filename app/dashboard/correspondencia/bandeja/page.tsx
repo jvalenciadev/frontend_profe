@@ -430,7 +430,7 @@ export default function BandejaPage() {
                 <div>
                     <h1 className="text-4xl font-black tracking-tighter flex items-center gap-3">
                         <Inbox className="w-8 h-8 text-primary" />
-                        Bandeja de Gestión Institucional
+                        Bandeja Vía PROFE
                     </h1>
                     <p className="text-muted-foreground font-medium mt-2">
                         Control de Trámites, Hojas de Ruta y Auditoría de <span className="font-bold text-primary">cor_seguimiento</span> por Departamento.

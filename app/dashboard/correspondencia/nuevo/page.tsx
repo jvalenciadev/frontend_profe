@@ -539,7 +539,7 @@ export default function NuevaNotaPage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
                 <div className="space-y-4">
                     <div className="flex items-center gap-3"><span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">Professional Drafting System</span></div>
-                    <h1 className="text-6xl font-black tracking-tighter leading-none">Nueva <span className="text-primary italic">Correspondencia</span></h1>
+                    <h1 className="text-6xl font-black tracking-tighter leading-none">Nueva <span className="text-primary italic">Vía PROFE</span></h1>
                 </div>
                 <div className="flex items-center gap-3 bg-card/50 p-2 rounded-2xl border border-border/50 backdrop-blur-xl">
                     <button onClick={handleSubmit} disabled={loading} className="h-12 px-8 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">

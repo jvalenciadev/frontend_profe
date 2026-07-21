@@ -102,7 +102,7 @@ export default function SeguimientoPage() {
                             Ecosistema PROFE
                         </span>
                         <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-tight">
-                            Seguimiento de <span className="text-primary">Correspondencia</span>
+                            Seguimiento <span className="text-primary">Vía PROFE</span>
                         </h1>
                         <p className="text-muted-foreground text-sm font-medium max-w-lg leading-relaxed">
                             Ingrese la <strong>Hoja de Ruta (HR)</strong> para rastrear el estado y el historial completo del documento. La HR es el identificador único global del sistema.

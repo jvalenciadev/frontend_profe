@@ -88,7 +88,7 @@ const menuItems: MenuItem[] = [
         ]
     },
     {
-        title: 'Correspondencia',
+        title: 'Vía PROFE',
         href: '/dashboard/correspondencia',
         icon: Mail,
         children: [
