@@ -8,7 +8,7 @@ import {
     User, RefreshCw, ChevronRight, Loader2, AlertCircle,
     Send, Archive, Hash, X, ShieldCheck, Download, ArrowRight,
     FileUp, Building2, Layers, History, GitBranch, Filter, BarChart3,
-    ChevronDown, Activity
+    ChevronDown, Activity, Landmark, MapPin, Copy, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -35,20 +35,24 @@ const TABS = [
     { id: 'enviados', label: 'Enviados', icon: Send },
     { id: 'enProceso', label: 'Borradores', icon: Clock },
     { id: 'archivados', label: 'Archivados', icon: Archive },
+    { id: 'historial', label: 'Historial de Auditoría', icon: History },
 ] as const;
 
-const TENANTS_LIST = [
-    { id: 'TODOS', label: 'Todas las Sedes / Tenants' },
-    { id: 'NAC', label: '🏛️ NAC - Dirección Nacional' },
-    { id: 'LP', label: '📍 LP - La Paz' },
-    { id: 'CB', label: '📍 CB - Cochabamba' },
-    { id: 'CH', label: '📍 CH - Chuquisaca' },
-    { id: 'OR', label: '📍 OR - Oruro' },
-    { id: 'PT', label: '📍 PT - Potosí' },
-    { id: 'TJ', label: '📍 TJ - Tarija' },
-    { id: 'SC', label: '📍 SC - Santa Cruz' },
-    { id: 'BE', label: '📍 BE - Beni' },
-    { id: 'PA', label: '📍 PA - Pando' },
+type TabType = typeof TABS[number]['id'];
+
+const DEPARTAMENTOS_LIST = [
+    { id: 'TODOS', label: 'Todos los Departamentos', sigla: 'TODOS' },
+    { id: 'NAC', label: 'Dirección Nacional (NAC)', sigla: 'NAC' },
+    { id: 'MESC', label: 'Dirección Nacional (MESC)', sigla: 'MESC' },
+    { id: 'LP', label: 'La Paz (LP)', sigla: 'LP' },
+    { id: 'CB', label: 'Cochabamba (CB)', sigla: 'CB' },
+    { id: 'CH', label: 'Chuquisaca (CH)', sigla: 'CH' },
+    { id: 'OR', label: 'Oruro (OR)', sigla: 'OR' },
+    { id: 'PT', label: 'Potosí (PT)', sigla: 'PT' },
+    { id: 'TJ', label: 'Tarija (TJ)', sigla: 'TJ' },
+    { id: 'SC', label: 'Santa Cruz (SC)', sigla: 'SC' },
+    { id: 'BE', label: 'Beni (BE)', sigla: 'BE' },
+    { id: 'PA', label: 'Pando (PA)', sigla: 'PA' },
 ];
 
 export default function BandejaPage() {
@@ -56,11 +60,10 @@ export default function BandejaPage() {
     const { can } = useAbility();
     const router = useRouter();
 
-    // — Vista Principal: Bandeja o Historial —
-    const [mainView, setMainView] = useState<'bandeja' | 'historial'>('bandeja');
+    // — Pestaña Activa —
+    const [tab, setTab] = useState<TabType>('recibidos');
 
     // — Bandeja State —
-    const [tab, setTab] = useState<typeof TABS[number]['id']>('recibidos');
     const [bandeja, setBandeja] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -68,11 +71,11 @@ export default function BandejaPage() {
     const [selected, setSelected] = useState<CorDocumento | null>(null);
     const [avanzando, setAvanzando] = useState(false);
 
-    // — Agrupación por TENANT_ID —
+    // — Agrupación y Filtro por Departamento —
     const [vistaAgrupada, setVistaAgrupada] = useState(false);
-    const [selectedTenantFilter, setSelectedTenantFilter] = useState('TODOS');
+    const [selectedDeptFilter, setSelectedDeptFilter] = useState('TODOS');
 
-    // — Historial por TENANT_ID State —
+    // — Historial de Auditoría State —
     const [historialData, setHistorialData] = useState<CorHistorialTenantResponse | null>(null);
     const [loadingHistorial, setLoadingHistorial] = useState(false);
     const [historialSearch, setHistorialSearch] = useState('');
@@ -85,7 +88,7 @@ export default function BandejaPage() {
     const [uploading, setUploading] = useState(false);
     const [detalle, setDetalle] = useState('');
 
-    // Guard CASL: redirige si no tiene permiso
+    // Guard CASL
     useEffect(() => {
         if (!can('read', 'CorDocumento')) {
             router.replace('/dashboard');
@@ -108,29 +111,29 @@ export default function BandejaPage() {
     const fetchHistorial = useCallback(async () => {
         setLoadingHistorial(true);
         try {
-            const tenantParam = selectedTenantFilter !== 'TODOS' ? selectedTenantFilter : undefined;
-            const data = await obtenerHistorialTenants(tenantParam);
+            const deptParam = selectedDeptFilter !== 'TODOS' ? selectedDeptFilter : undefined;
+            const data = await obtenerHistorialTenants(deptParam);
             setHistorialData(data);
         } catch (err: any) {
-            toast.error('Error al cargar historial por TENANT_ID');
+            toast.error('Error al cargar el historial de auditoría');
         } finally {
             setLoadingHistorial(false);
         }
-    }, [selectedTenantFilter]);
+    }, [selectedDeptFilter]);
 
     useEffect(() => {
-        if (mainView === 'bandeja') {
-            fetchBandeja();
+        if (tab === 'historial') {
+            fetchHistorial();
         } else {
-            fetchHistorial();
+            fetchBandeja();
         }
-    }, [mainView, fetchBandeja, fetchHistorial]);
+    }, [tab, fetchBandeja, fetchHistorial]);
 
     useEffect(() => {
-        if (mainView === 'historial') {
+        if (tab === 'historial') {
             fetchHistorial();
         }
-    }, [selectedTenantFilter, mainView, fetchHistorial]);
+    }, [selectedDeptFilter, tab, fetchHistorial]);
 
     // Limpiar estado del panel de acción al cambiar documento seleccionado
     useEffect(() => {
@@ -140,26 +143,26 @@ export default function BandejaPage() {
         setDetalle('');
     }, [selected?.id]);
 
-    const docs = bandeja?.[tab] || [];
+    const docs = tab !== 'historial' ? (bandeja?.[tab] || []) : [];
 
-    // Documentos filtrados por búsqueda y por TENANT_ID
+    // Documentos filtrados por búsqueda y por Departamento
     const filtered = useMemo(() => {
         return docs.filter((doc: any) => {
             const docSigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
-            const matchTenant = selectedTenantFilter === 'TODOS' || docSigla === selectedTenantFilter || doc.tenantId === selectedTenantFilter;
+            const matchDept = selectedDeptFilter === 'TODOS' || docSigla === selectedDeptFilter || doc.tenantId === selectedDeptFilter;
             const matchSearch = !search || [doc.cite, doc.hr, doc.referencia]
                 .some(s => s?.toLowerCase().includes(search.toLowerCase()));
-            return matchTenant && matchSearch;
+            return matchDept && matchSearch;
         });
-    }, [docs, search, selectedTenantFilter]);
+    }, [docs, search, selectedDeptFilter]);
 
-    // Agrupamiento por TENANT_ID para la vista de tarjetas agrupadas
-    const groupedByTenant = useMemo(() => {
+    // Agrupamiento por Departamento para la vista de tarjetas agrupadas
+    const groupedByDept = useMemo(() => {
         const map = new Map<string, { tenantId: string; nombre: string; abreviacion: string; docs: CorDocumento[] }>();
 
         filtered.forEach((doc: any) => {
             const sigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
-            const nombre = doc.tenantInfo?.nombre || `Sede ${sigla}`;
+            const nombre = doc.tenantInfo?.nombre || `Departamento ${sigla}`;
             const key = sigla;
 
             if (!map.has(key)) {
@@ -182,6 +185,7 @@ export default function BandejaPage() {
         return historialData.historial.filter((item: CorHistorialItem) => {
             const matchAccion = historialAccionFilter === 'TODAS' || item.accion === historialAccionFilter;
             const matchSearch = !historialSearch || [
+                item.id,
                 item.documento?.cite,
                 item.documento?.hr,
                 item.documento?.referencia,
@@ -212,7 +216,7 @@ export default function BandejaPage() {
                 RECEPCION: 'Recepción confirmada',
                 DERIVACION: 'Documento derivado correctamente',
                 DEVOLUCION: 'Documento devuelto al remitente',
-                CANCELAR: 'Envío cancelado correctamente',
+                CANCELAR: 'Operación realizada correctamente',
                 ARCHIVADO: 'Documento archivado',
             };
             toast.success(mensajes[accion] ?? `Acción "${accion}" registrada`);
@@ -250,6 +254,11 @@ export default function BandejaPage() {
         } finally {
             setUploading(false);
         }
+    };
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(`${label} copiado al portapapeles`);
     };
 
     const renderActions = (doc: CorDocumento) => {
@@ -425,108 +434,95 @@ export default function BandejaPage() {
                         Bandeja de Gestión Institucional
                     </h1>
                     <p className="text-muted-foreground font-medium mt-2">
-                        Control de Trámites, Hojas de Ruta y Auditoría Segmentada por <span className="font-bold text-primary">TENANT_ID / Sede</span>.
+                        Control de Trámites, Hojas de Ruta y Auditoría de <span className="font-bold text-primary">cor_seguimiento</span> por Departamento.
                     </p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Botón Switch de Vista: Bandeja vs Historial por TENANT */}
-                    <div className="flex items-center bg-card p-1 rounded-2xl border border-border shadow-sm">
-                        <button onClick={() => setMainView('bandeja')}
-                            className={cn('px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2',
-                                mainView === 'bandeja' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground')}>
-                            <Inbox className="w-3.5 h-3.5" /> Bandeja
-                        </button>
-                        <button onClick={() => setMainView('historial')}
-                            className={cn('px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2',
-                                mainView === 'historial' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground')}>
-                            <History className="w-3.5 h-3.5 text-amber-300" /> Historial Hojas de Ruta
-                        </button>
-                    </div>
-
-                    <button onClick={mainView === 'bandeja' ? fetchBandeja : fetchHistorial} disabled={loading || loadingHistorial}
-                        className="w-12 h-12 rounded-xl border border-border hover:bg-accent flex items-center justify-center transition-all">
+                    <button onClick={tab === 'historial' ? fetchHistorial : fetchBandeja} disabled={loading || loadingHistorial}
+                        className="w-12 h-12 rounded-2xl border border-border/60 hover:bg-accent flex items-center justify-center transition-all bg-card shadow-sm">
                         <RefreshCw className={cn('w-4 h-4', (loading || loadingHistorial) && 'animate-spin text-primary')} />
                     </button>
 
                     <Link href="/dashboard/correspondencia/nuevo"
-                        className="px-6 h-12 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
+                        className="px-6 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
                         <ArrowUpRight className="w-4 h-4" /> Nuevo Documento
                     </Link>
                 </div>
             </div>
 
-            {/* SECCIÓN 1: VISTA DE BANDEJA */}
-            {mainView === 'bandeja' && (
-                <>
-                    {/* Barra de Filtros Superior: Tabs + Buscador + Agrupación por TENANT_ID */}
-                    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                        {/* Tabs de estado */}
-                        <div className="flex flex-wrap items-center gap-2 bg-card/50 p-1.5 rounded-2xl border border-border/50 backdrop-blur-md">
-                            {TABS.map(t => (
-                                <button key={t.id} onClick={() => { setTab(t.id); setSelected(null); }}
-                                    className={cn('px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2',
-                                        tab === t.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-accent')}>
-                                    <t.icon className="w-3.5 h-3.5" />
-                                    {t.label}
-                                </button>
-                            ))}
+            {/* Barra de Filtros Superior: Tabs + Buscador + Agrupación por Departamento */}
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                {/* Tabs Principales integradas */}
+                <div className="flex flex-wrap items-center gap-2 bg-card/60 p-1.5 rounded-2xl border border-border/60 backdrop-blur-md shadow-sm">
+                    {TABS.map(t => (
+                        <button key={t.id} onClick={() => { setTab(t.id); setSelected(null); }}
+                            className={cn('px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2',
+                                tab === t.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-accent')}>
+                            <t.icon className="w-3.5 h-3.5" />
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+
+                {tab !== 'historial' && (
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto flex-1">
+                        {/* Buscador */}
+                        <div className="relative flex-1 group w-full">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder="Buscar por CITE, HR o asunto..."
+                                className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border/60 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none font-bold text-sm transition-all shadow-sm" />
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto flex-1">
-                            {/* Buscador */}
-                            <div className="relative flex-1 group w-full">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                    placeholder="Buscar por CITE, HR o asunto..."
-                                    className="w-full h-12 pl-11 pr-4 rounded-2xl bg-card border border-border/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none font-bold text-sm transition-all" />
-                            </div>
-
-                            {/* Selector de TENANT_ID */}
-                            <div className="relative w-full sm:w-64">
-                                <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                <select value={selectedTenantFilter} onChange={e => setSelectedTenantFilter(e.target.value)}
-                                    className="w-full h-12 pl-10 pr-8 rounded-2xl bg-card border border-border/50 font-black text-[11px] uppercase tracking-wider outline-none focus:border-primary appearance-none cursor-pointer">
-                                    {TENANTS_LIST.map(t => (
-                                        <option key={t.id} value={t.id}>{t.label}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40 pointer-events-none" />
-                            </div>
-
-                            {/* Toggle Vista Lista vs Vista Agrupada por TENANT */}
-                            <button onClick={() => setVistaAgrupada(!vistaAgrupada)}
-                                className={cn('h-12 px-4 rounded-2xl border border-border font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shrink-0',
-                                    vistaAgrupada ? 'bg-primary/10 text-primary border-primary/30' : 'bg-card text-muted-foreground hover:bg-accent')}>
-                                {vistaAgrupada ? <Layers className="w-4 h-4" /> : <GitBranch className="w-4 h-4" />}
-                                {vistaAgrupada ? 'Agrupado por TENANT_ID' : 'Vista Lista'}
-                            </button>
+                        {/* Selector de Departamento */}
+                        <div className="relative w-full sm:w-64">
+                            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                            <select value={selectedDeptFilter} onChange={e => setSelectedDeptFilter(e.target.value)}
+                                className="w-full h-12 pl-10 pr-8 rounded-2xl bg-card border border-border/60 font-black text-[11px] uppercase tracking-wider outline-none focus:border-primary appearance-none cursor-pointer shadow-sm">
+                                {DEPARTAMENTOS_LIST.map(d => (
+                                    <option key={d.id} value={d.id}>{d.label}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40 pointer-events-none" />
                         </div>
+
+                        {/* Toggle Vista Lista vs Vista Agrupada por Departamento */}
+                        <button onClick={() => setVistaAgrupada(!vistaAgrupada)}
+                            className={cn('h-12 px-4 rounded-2xl border border-border/60 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shrink-0 shadow-sm',
+                                vistaAgrupada ? 'bg-primary/10 text-primary border-primary/30' : 'bg-card text-muted-foreground hover:bg-accent')}>
+                            {vistaAgrupada ? <Layers className="w-4 h-4" /> : <GitBranch className="w-4 h-4" />}
+                            {vistaAgrupada ? 'Agrupado por Departamento' : 'Vista Lista'}
+                        </button>
                     </div>
+                )}
+            </div>
 
-                    {/* Mensaje de Error */}
-                    {error && (
-                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
-                            <AlertCircle className="w-5 h-5 shrink-0" />
-                            <p className="font-bold text-sm">{error}</p>
-                        </div>
-                    )}
+            {/* Mensaje de Error */}
+            {error && (
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <p className="font-bold text-sm">{error}</p>
+                </div>
+            )}
 
-                    {/* VISTA 1A: AGRUPADA POR TENANT_ID */}
+            {/* SECCIÓN BANDEJA: VISTAS (LISTA O AGRUPADA) */}
+            {tab !== 'historial' && (
+                <>
                     {vistaAgrupada ? (
                         <div className="space-y-8">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-36 gap-4 bg-card rounded-[2.5rem] border border-border/50">
                                     <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Agrupando Documentos por TENANT_ID...</p>
+                                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Agrupando Documentos por Departamento...</p>
                                 </div>
-                            ) : groupedByTenant.length === 0 ? (
+                            ) : groupedByDept.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 bg-card rounded-[2.5rem] border border-border/50">
                                     <Building2 className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                                    <h3 className="text-lg font-black text-muted-foreground">No se encontraron trámites para este TENANT_ID</h3>
+                                    <h3 className="text-lg font-black text-muted-foreground">No se encontraron trámites para este Departamento</h3>
                                 </div>
                             ) : (
-                                groupedByTenant.map((group) => (
+                                groupedByDept.map((group) => (
                                     <div key={group.abreviacion} className="bg-card border border-border/60 rounded-[2.5rem] overflow-hidden shadow-lg">
                                         <div className="px-8 py-5 bg-accent/40 border-b border-border/50 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
@@ -535,8 +531,9 @@ export default function BandejaPage() {
                                                 </div>
                                                 <div>
                                                     <h3 className="font-black text-base tracking-tight">{group.nombre}</h3>
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                                        TENANT_ID: <span className="text-primary font-mono">{group.tenantId}</span>
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                                                        <Building2 className="w-3 h-3 text-primary" />
+                                                        Departamento: <span className="text-primary font-mono">{group.abreviacion}</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -590,7 +587,7 @@ export default function BandejaPage() {
                             )}
                         </div>
                     ) : (
-                        /* VISTA 1B: TABLA LISTA TRADICIONAL CON BADGE DE TENANT */
+                        /* VISTA LISTA TRADICIONAL */
                         <div className="bg-card border border-border/50 rounded-[2.5rem] overflow-hidden shadow-xl min-h-[400px]">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-40 gap-4">
@@ -610,7 +607,7 @@ export default function BandejaPage() {
                                     <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="border-b border-border/50 bg-muted/30">
-                                                <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Identificación / Tenant</th>
+                                                <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Identificación / Departamento</th>
                                                 <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Referencia y Custodia</th>
                                                 <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado</th>
                                                 <th className="px-8 py-5 text-right text-[10px] font-black text-muted-foreground uppercase tracking-widest">Acciones</th>
@@ -619,7 +616,7 @@ export default function BandejaPage() {
                                         <tbody className="divide-y divide-border/30">
                                             {filtered.map((doc: any) => {
                                                 const ultimoSeguimiento = doc.seguimientos?.[0];
-                                                const tenantSigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
+                                                const deptSigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
 
                                                 return (
                                                     <motion.tr key={doc.id}
@@ -641,8 +638,8 @@ export default function BandejaPage() {
                                                                 <div>
                                                                     <div className="flex items-center gap-2 mb-1">
                                                                         <span className="text-xs font-black tracking-tight">{doc.cite}</span>
-                                                                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest border border-primary/20">
-                                                                            {tenantSigla}
+                                                                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest border border-primary/20 flex items-center gap-1">
+                                                                            <Building2 className="w-2.5 h-2.5" /> {deptSigla}
                                                                         </span>
                                                                     </div>
                                                                     {doc.hr && (
@@ -686,7 +683,7 @@ export default function BandejaPage() {
                                                                             doc.nivelAlerta === 'MORA' ? "text-orange-600" : "text-muted-foreground"
                                                                     )}>
                                                                         <Clock className="w-2.5 h-2.5" />
-                                                                        {doc.diasMora} Días en Custodia {doc.alerta && "⚠️ MORA"}
+                                                                        {doc.diasMora} Días en Custodia {doc.alerta && <ShieldAlert className="w-3 h-3 text-red-500 inline ml-0.5" />}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -715,10 +712,10 @@ export default function BandejaPage() {
                 </>
             )}
 
-            {/* SECCIÓN 2: HISTORIAL CREATIVO DE HOJAS DE RUTA POR TENANT_ID */}
-            {mainView === 'historial' && (
-                <div className="space-y-8">
-                    {/* KPIs por TENANT */}
+            {/* SECCIÓN 2: HISTORIAL DE AUDITORÍA (COR_SEGUIMIENTO & SEGUIMIENTO_ID) */}
+            {tab === 'historial' && (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    {/* KPIs por Departamento */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
@@ -726,7 +723,7 @@ export default function BandejaPage() {
                                 <Activity className="w-5 h-5 text-primary" />
                             </div>
                             <h3 className="text-3xl font-black">{historialFiltrado.length}</h3>
-                            <p className="text-[10px] font-bold text-muted-foreground mt-1">Registros de trazabilidad</p>
+                            <p className="text-[10px] font-bold text-muted-foreground mt-1">Registros en cor_seguimiento</p>
                         </div>
 
                         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
@@ -737,12 +734,12 @@ export default function BandejaPage() {
                             <h3 className="text-3xl font-black">
                                 {historialFiltrado.filter(i => i.accion === 'CREACION').length}
                             </h3>
-                            <p className="text-[10px] font-bold text-emerald-600 mt-1">Nuevos trámites asignados</p>
+                            <p className="text-[10px] font-bold text-emerald-600 mt-1">Nuevos trámites registrados</p>
                         </div>
 
                         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Derivaciones Inter-Sede</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Derivaciones Inter-Departamento</span>
                                 <ArrowUpRight className="w-5 h-5 text-amber-500" />
                             </div>
                             <h3 className="text-3xl font-black">
@@ -763,16 +760,17 @@ export default function BandejaPage() {
                         </div>
                     </div>
 
-                    {/* Toolbar del Historial */}
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-3xl border border-border/50 shadow-sm">
+                    {/* Toolbar de Filtros para Historial */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-3xl border border-border/60 shadow-sm">
                         <div className="relative flex-1 w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <input type="text" value={historialSearch} onChange={e => setHistorialSearch(e.target.value)}
-                                placeholder="Buscar en el historial por CITE, HR, funcionario o detalle..."
+                                placeholder="Buscar por seguimiento_id, CITE, HR, funcionario o detalle..."
                                 className="w-full h-11 pl-11 pr-4 rounded-2xl bg-muted/40 border border-border text-xs font-bold outline-none focus:border-primary" />
                         </div>
 
-                        <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            {/* Filtro por Acción */}
                             <select value={historialAccionFilter} onChange={e => setHistorialAccionFilter(e.target.value)}
                                 className="h-11 px-4 rounded-2xl bg-muted/40 border border-border font-black text-[10px] uppercase tracking-wider outline-none focus:border-primary cursor-pointer">
                                 <option value="TODAS">Todas las Acciones</option>
@@ -784,21 +782,22 @@ export default function BandejaPage() {
                                 <option value="ARCHIVADO">ARCHIVADO</option>
                             </select>
 
-                            <select value={selectedTenantFilter} onChange={e => setSelectedTenantFilter(e.target.value)}
+                            {/* Filtro por Departamento */}
+                            <select value={selectedDeptFilter} onChange={e => setSelectedDeptFilter(e.target.value)}
                                 className="h-11 px-4 rounded-2xl bg-muted/40 border border-border font-black text-[10px] uppercase tracking-wider outline-none focus:border-primary cursor-pointer">
-                                {TENANTS_LIST.map(t => (
-                                    <option key={t.id} value={t.id}>{t.label}</option>
+                                {DEPARTAMENTOS_LIST.map(d => (
+                                    <option key={d.id} value={d.id}>{d.label}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
-                    {/* Timeline de Hojas de Ruta */}
+                    {/* Timeline de Seguimiento Auditable cor_seguimiento */}
                     <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl">
                         {loadingHistorial ? (
                             <div className="flex flex-col items-center justify-center py-32 gap-4">
                                 <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Cargando Historial por TENANT_ID...</p>
+                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Cargando Historial de cor_seguimiento...</p>
                             </div>
                         ) : historialFiltrado.length === 0 ? (
                             <div className="text-center py-20">
@@ -813,60 +812,84 @@ export default function BandejaPage() {
 
                                     return (
                                         <div key={item.id} className="relative group">
+                                            {/* Indicador de Nodo en Timeline */}
                                             <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full bg-card border-4 border-primary shadow-md flex items-center justify-center" />
 
                                             <div className="bg-muted/30 border border-border/60 rounded-3xl p-6 hover:border-primary/40 transition-all shadow-sm">
+                                                {/* Header del Registro de Auditoría */}
                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary font-black text-[10px] uppercase border border-primary/20">
-                                                            {origenSigla}
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {/* departamento origen */}
+                                                        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary font-black text-[10px] uppercase border border-primary/20 flex items-center gap-1">
+                                                            <Building2 className="w-3 h-3" /> {origenSigla}
                                                         </span>
                                                         <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
-                                                        <span className="px-3 py-1 rounded-full bg-accent text-foreground font-black text-[10px] uppercase border border-border">
-                                                            {destSigla}
+                                                        {/* departamento destino */}
+                                                        <span className="px-3 py-1 rounded-full bg-accent text-foreground font-black text-[10px] uppercase border border-border flex items-center gap-1">
+                                                            <Building2 className="w-3 h-3 text-muted-foreground" /> {destSigla}
                                                         </span>
-                                                        <span className="text-[10px] font-bold text-muted-foreground ml-2">
-                                                            {new Date(item.fecha).toLocaleString()}
+                                                        <span className="text-[10px] font-bold text-muted-foreground ml-2 flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" /> {new Date(item.fecha).toLocaleString()}
                                                         </span>
                                                     </div>
 
-                                                    <span className={cn(
-                                                        "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                                                        item.accion === 'CREACION' ? "bg-blue-500/10 text-blue-600 border-blue-500/20" :
-                                                            item.accion === 'RECEPCION' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
-                                                                item.accion === 'DERIVACION' ? "bg-purple-500/10 text-purple-600 border-purple-500/20" :
-                                                                    item.accion === 'DEVOLUCION' ? "bg-orange-500/10 text-orange-600 border-orange-500/20" :
-                                                                        "bg-accent text-muted-foreground border-border"
-                                                    )}>
-                                                        {item.accion}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Badge de seguimiento_id */}
+                                                        <button onClick={() => copyToClipboard(item.id, 'seguimiento_id')}
+                                                            title="Haz clic para copiar seguimiento_id"
+                                                            className="px-2.5 py-1 rounded-lg bg-card border border-border/80 text-muted-foreground hover:text-primary hover:border-primary/50 text-[9px] font-mono font-bold transition-all flex items-center gap-1">
+                                                            <Hash className="w-3 h-3 text-primary" />
+                                                            <span className="truncate max-w-[120px]">id: {item.id.slice(0, 8)}...</span>
+                                                            <Copy className="w-2.5 h-2.5 opacity-60" />
+                                                        </button>
+
+                                                        {/* Badge de Acción */}
+                                                        <span className={cn(
+                                                            "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                                            item.accion === 'CREACION' ? "bg-blue-500/10 text-blue-600 border-blue-500/20" :
+                                                                item.accion === 'RECEPCION' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                                                                    item.accion === 'DERIVACION' ? "bg-purple-500/10 text-purple-600 border-purple-500/20" :
+                                                                        item.accion === 'DEVOLUCION' ? "bg-orange-500/10 text-orange-600 border-orange-500/20" :
+                                                                            "bg-accent text-muted-foreground border-border"
+                                                        )}>
+                                                            {item.accion}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
+                                                {/* Detalle del Trámite y Funcionario */}
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-border/30 pt-4">
                                                     <div>
-                                                        <p className="text-[9px] font-black uppercase text-muted-foreground">Documento & HR</p>
-                                                        <p className="text-xs font-black text-primary">{item.documento?.cite}</p>
+                                                        <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                                                            <FileText className="w-3 h-3" /> Documento & HR
+                                                        </p>
+                                                        <p className="text-xs font-black text-primary mt-0.5">{item.documento?.cite}</p>
                                                         {item.documento?.hr && (
-                                                            <span className="inline-block mt-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono text-[9px] font-bold">
+                                                            <span className="inline-block mt-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono text-[9px] font-bold border border-emerald-500/20">
                                                                 HR: {item.documento.hr}
                                                             </span>
                                                         )}
                                                     </div>
 
                                                     <div>
-                                                        <p className="text-[9px] font-black uppercase text-muted-foreground">Ejecutado por</p>
-                                                        <p className="text-xs font-bold">{item.usuario?.nombre} {item.usuario?.apellidos}</p>
+                                                        <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                                                            <User className="w-3 h-3" /> Ejecutado por
+                                                        </p>
+                                                        <p className="text-xs font-bold mt-0.5">{item.usuario?.nombre} {item.usuario?.apellidos}</p>
                                                         <p className="text-[9px] text-muted-foreground uppercase">{item.usuario?.cargoStr || 'Funcionario'}</p>
                                                     </div>
 
                                                     <div>
-                                                        <p className="text-[9px] font-black uppercase text-muted-foreground">Observaciones / Detalle</p>
-                                                        <p className="text-xs font-medium italic text-foreground/80 line-clamp-2">
+                                                        <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                                                            <Activity className="w-3 h-3" /> Observaciones / Detalle
+                                                        </p>
+                                                        <p className="text-xs font-medium italic text-foreground/80 line-clamp-2 mt-0.5">
                                                             "{item.detalle || 'Sin observaciones'}"
                                                         </p>
                                                     </div>
                                                 </div>
 
+                                                {/* Adjunto PDF de Resguardo */}
                                                 {item.archivoUrl && (
                                                     <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between">
                                                         <span className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1.5">
@@ -924,9 +947,9 @@ export default function BandejaPage() {
 
                                     {selected.tenantInfo && (
                                         <div className="flex items-center justify-between text-xs font-bold">
-                                            <span className="text-muted-foreground">Sede / Tenant:</span>
-                                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase border border-primary/20">
-                                                {selected.tenantInfo.nombre} ({selected.tenantInfo.abreviacion})
+                                            <span className="text-muted-foreground">Departamento:</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase border border-primary/20 flex items-center gap-1">
+                                                <Building2 className="w-2.5 h-2.5" /> {selected.tenantInfo.nombre} ({selected.tenantInfo.abreviacion})
                                             </span>
                                         </div>
                                     )}
