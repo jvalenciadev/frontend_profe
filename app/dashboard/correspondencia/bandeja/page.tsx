@@ -87,6 +87,9 @@ export default function BandejaPage() {
     const [uploading, setUploading] = useState(false);
     const [detalle, setDetalle] = useState('');
 
+    // Modal de Confirmación de Devolución
+    const [confirmDevolucion, setConfirmDevolucion] = useState<{ doc: CorDocumento; creador: any } | null>(null);
+
     // Guard CASL
     useEffect(() => {
         if (!can('read', 'CorDocumento')) {
@@ -376,7 +379,10 @@ export default function BandejaPage() {
                             className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                             <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
                         </button>
-                        <button onClick={() => setAccionSeleccionada('DEVOLUCION')}
+                        <button onClick={() => {
+                            const creador = doc.participantes?.find((p: any) => p.rol === 'REMITENTE');
+                            setConfirmDevolucion({ doc, creador: creador?.usuario ?? null });
+                        }}
                             className="h-12 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
                             <AlertCircle className="w-4 h-4" /> Devolver al Remitente
                         </button>
@@ -453,6 +459,82 @@ export default function BandejaPage() {
 
     return (
         <div className="space-y-8 pb-20">
+
+            {/* ===== MODAL DE CONFIRMACIÓN DE DEVOLUCIÓN ===== */}
+            <AnimatePresence>
+                {confirmDevolucion && (
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+                            onClick={() => setConfirmDevolucion(null)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[201] w-full max-w-md bg-card border border-orange-500/30 rounded-[2.5rem] shadow-[0_0_80px_rgba(249,115,22,0.2)] p-10 space-y-6">
+
+                            <div className="flex items-start gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center shrink-0">
+                                    <AlertCircle className="w-7 h-7 text-orange-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-black tracking-tight">¿Confirmar Devolución?</h3>
+                                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                                        El documento será enviado de vuelta al creador original del trámite.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/20 space-y-2">
+                                <p className="text-[9px] font-black uppercase text-orange-500 tracking-widest">Documento</p>
+                                <p className="text-sm font-black">{confirmDevolucion.doc.cite}</p>
+                                {confirmDevolucion.doc.hr && (
+                                    <p className="text-xs text-muted-foreground font-bold">HR: {confirmDevolucion.doc.hr}</p>
+                                )}
+                                <p className="text-[11px] italic text-foreground/80 line-clamp-2">"{confirmDevolucion.doc.referencia}"</p>
+                            </div>
+
+                            {confirmDevolucion.creador && (
+                                <div className="flex items-center gap-3 p-3 rounded-2xl bg-accent/50 border border-border/50">
+                                    <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-[11px] font-black shrink-0">
+                                        {confirmDevolucion.creador.nombre?.[0]}
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Se devolverá al Creador Original</p>
+                                        <p className="text-xs font-black">{confirmDevolucion.creador.nombre} {confirmDevolucion.creador.apellidos}</p>
+                                        <p className="text-[9px] text-muted-foreground">{confirmDevolucion.creador.cargoStr}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase text-muted-foreground">Motivo de la Devolución (Obligatorio)</p>
+                                <textarea
+                                    value={detalle}
+                                    onChange={e => setDetalle(e.target.value)}
+                                    placeholder="Describa el motivo de la devolución u observación al remitente..."
+                                    className="w-full h-24 p-3 text-xs rounded-xl bg-muted/50 border border-border outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 font-medium resize-none transition-all"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => { setConfirmDevolucion(null); setDetalle(''); }}
+                                    className="h-12 rounded-xl border border-border font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all">
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={!detalle.trim() || avanzando}
+                                    onClick={async () => {
+                                        await handleAvanzar(confirmDevolucion.doc, 'DEVOLUCION');
+                                        setConfirmDevolucion(null);
+                                    }}
+                                    className="h-12 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20">
+                                    {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
+                                    Confirmar Devolución
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
             {/* Header Principal */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
