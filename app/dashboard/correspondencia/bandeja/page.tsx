@@ -963,9 +963,9 @@ export default function BandejaPage() {
                         </div>
 
                         <div className="flex-1 space-y-8 overflow-y-auto pr-4">
-                            <div className="p-6 rounded-3xl bg-muted/30 border border-border/50">
-                                <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">Documento Seleccionado</p>
-                                <div className="mb-4">
+                            <div className="p-6 rounded-3xl bg-muted/30 border border-border/50 space-y-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">Documento Seleccionado</p>
                                     <h3 className="text-lg font-black tracking-tighter leading-tight">{selected.cite}</h3>
                                     {selected.hr && (
                                         <div className="mt-1 flex items-center gap-1.5">
@@ -973,8 +973,23 @@ export default function BandejaPage() {
                                             <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-black tracking-wide border border-emerald-500/20">{selected.hr}</span>
                                         </div>
                                     )}
+                                    <p className="text-xs font-bold text-foreground/90 mt-2 line-clamp-2 italic">"{selected.referencia}"</p>
                                 </div>
-                                <div className="space-y-3">
+
+                                {/* Botón Directo: Ver Documento PDF / Detalle */}
+                                {selected.archivoPdf ? (
+                                    <a href={getImageUrl(selected.archivoPdf)} target="_blank" rel="noreferrer"
+                                        className="w-full h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
+                                        <FileText className="w-4 h-4" /> Ver Documento PDF
+                                    </a>
+                                ) : (
+                                    <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(selected.cite)}`}
+                                        className="w-full h-11 rounded-xl bg-primary/10 text-primary border border-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shadow-sm">
+                                        <FileText className="w-4 h-4" /> Ver Detalle Documento
+                                    </Link>
+                                )}
+
+                                <div className="space-y-3 pt-2 border-t border-border/40">
                                     <div className="flex items-center justify-between text-xs font-bold">
                                         <span className="text-muted-foreground">Estado Actual:</span>
                                         <span className="text-primary">{ESTADO_LABELS[selected.estado]?.label}</span>
@@ -1015,7 +1030,7 @@ export default function BandejaPage() {
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-8 border-t border-border">
+                        <div className="mt-auto pt-6 border-t border-border flex flex-col gap-2">
                             <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(selected.hr || selected.cite)}`}
                                 className="w-full h-14 rounded-2xl border border-border font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-accent transition-all">
                                 Ver Historial Completo <ArrowRight className="w-4 h-4" />
