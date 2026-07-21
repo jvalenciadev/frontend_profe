@@ -260,12 +260,20 @@ export default function BandejaPage() {
         toast.success(`${label} copiado al portapapeles`);
     };
 
+
+
     const renderActions = (doc: CorDocumento) => {
+        const isDevuelto = doc.estado === 'DEVUELTO';
+
         if (accionSeleccionada) {
+            const isReenvioDevolucion = isDevuelto && (accionSeleccionada === 'ENVIO' || accionSeleccionada === 'DERIVACION');
+
             return (
                 <div className="space-y-6 mt-4 p-6 rounded-[2rem] bg-accent/30 border border-accent/50 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Confirmar {accionSeleccionada}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                            {isReenvioDevolucion ? 'Subsanar Observación y Reenviar' : `Confirmar ${accionSeleccionada}`}
+                        </span>
                         <button onClick={() => { setAccionSeleccionada(null); setNuevoDest(null); setArchivoUrl(null); }} className="text-muted-foreground hover:text-foreground">
                             <X className="w-4 h-4" />
                         </button>
@@ -281,7 +289,9 @@ export default function BandejaPage() {
                     )}
 
                     <div className="space-y-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Archivo Adjunto (Opcional - Máx 5MB)</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                            {isReenvioDevolucion ? 'Adjuntar Nuevo Documento Corregido (PDF de Subsanación)' : 'Archivo Adjunto (Opcional - Máx 5MB)'}
+                        </p>
                         <div className="relative group">
                             <input type="file" accept="application/pdf" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                             <div className={cn(
@@ -289,7 +299,7 @@ export default function BandejaPage() {
                                 archivoUrl ? "bg-emerald-500/10 border-emerald-500 text-emerald-600" : "bg-card border-border group-hover:border-primary/50 group-hover:bg-primary/5"
                             )}>
                                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : archivoUrl ? <CheckCircle2 className="w-5 h-5" /> : <FileUp className="w-5 h-5 opacity-40" />}
-                                <span className="text-[10px] font-black uppercase">{uploading ? 'Subiendo...' : archivoUrl ? 'Archivo Listo' : 'Subir Respuesta PDF'}</span>
+                                <span className="text-[10px] font-black uppercase">{uploading ? 'Subiendo...' : archivoUrl ? 'Documento Corregido Listo' : isReenvioDevolucion ? 'Subir PDF Corregido' : 'Subir Respuesta PDF'}</span>
                             </div>
                         </div>
                         {archivoUrl && (
@@ -300,14 +310,17 @@ export default function BandejaPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Detalle o Comentario</p>
-                        <textarea value={detalle} onChange={e => setDetalle(e.target.value)} placeholder="Escriba observaciones de custodia..."
-                            className="w-full h-24 p-3 text-xs rounded-xl bg-card border border-border outline-none focus:border-primary" />
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                            {isReenvioDevolucion ? 'Detalle de Subsanación / Respuesta a la Observación' : 'Detalle o Comentario'}
+                        </p>
+                        <textarea value={detalle} onChange={e => setDetalle(e.target.value)}
+                            placeholder={isReenvioDevolucion ? "Describa las correcciones realizadas para subsanar..." : "Escriba observaciones de custodia..."}
+                            className="w-full h-24 p-3 text-xs rounded-xl bg-card border border-border outline-none focus:border-primary font-medium" />
                     </div>
 
-                    <button onClick={() => handleAvanzar(doc, accionSeleccionada)} disabled={avanzando}
+                    <button onClick={() => handleAvanzar(doc, isDevuelto ? 'ENVIO' : accionSeleccionada)} disabled={avanzando}
                         className="w-full h-12 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
-                        {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Operación'}
+                        {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : isReenvioDevolucion ? 'Confirmar Subsanación y Reenviar' : 'Confirmar Operación'}
                     </button>
                 </div>
             );
@@ -315,50 +328,70 @@ export default function BandejaPage() {
 
         return (
             <div className="grid grid-cols-2 gap-3 mt-4">
-                {tab === 'recibidos' && (
+                {/* SI EL DOCUMENTO FUE DEVUELTO */}
+                {isDevuelto ? (
                     <>
-                        <button onClick={() => setAccionSeleccionada('RECEPCION')}
-                            className="h-12 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                            <CheckCircle2 className="w-4 h-4" /> Recibir Trámite
-                        </button>
-                        <button onClick={() => setAccionSeleccionada('DERIVACION')}
-                            className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                            <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
-                        </button>
-                        <button onClick={() => setAccionSeleccionada('DEVOLUCION')}
-                            className="h-12 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                            <AlertCircle className="w-4 h-4" /> Devolver al Remitente
-                        </button>
-                    </>
-                )}
-
-                {tab === 'enProceso' && (
-                    <>
-                        <button onClick={() => handleAvanzar(doc, 'ENVIO')} disabled={avanzando}
+                        <button onClick={() => setAccionSeleccionada('ENVIO')}
                             className="h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2 col-span-2 shadow-lg shadow-primary/20">
-                            {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Oficializar y Enviar
+                            <RefreshCw className="w-4 h-4" /> Subsanar Observación y Reenviar
                         </button>
                         <Link href={`/dashboard/correspondencia/nuevo?id=${doc.id}`}
                             className="h-12 rounded-xl border border-border font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all flex items-center justify-center gap-2 col-span-2">
-                            Editar Borrador
+                            Editar Contenido del Borrador
                         </Link>
                     </>
-                )}
-
-                {tab === 'enviados' && (
+                ) : (
                     <>
-                        <button onClick={() => handleAvanzar(doc, 'CANCELAR')} disabled={avanzando}
-                            className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                            {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Cancelar Envío
-                        </button>
-                    </>
-                )}
+                        {/* TAB RECIBIDOS */}
+                        {tab === 'recibidos' && (
+                            <>
+                                <button onClick={() => setAccionSeleccionada('RECEPCION')}
+                                    className="h-12 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4" /> Recibir Trámite
+                                </button>
+                                <button onClick={() => setAccionSeleccionada('DERIVACION')}
+                                    className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                    <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
+                                </button>
+                                <button onClick={() => setAccionSeleccionada('DEVOLUCION')}
+                                    className="h-12 rounded-xl bg-orange-500/10 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                    <AlertCircle className="w-4 h-4" /> Devolver al Remitente
+                                </button>
+                                <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
+                                    className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                    <Archive className="w-4 h-4" /> Archivar Definitivamente
+                                </button>
+                            </>
+                        )}
 
-                {doc.estado !== 'ARCHIVADO' && (
-                    <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
-                        className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                        <Archive className="w-4 h-4" /> Archivar Definitivamente
-                    </button>
+                        {/* TAB BORRADORES / EN PROCESO */}
+                        {tab === 'enProceso' && (
+                            <>
+                                <button onClick={() => handleAvanzar(doc, 'ENVIO')} disabled={avanzando}
+                                    className="h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2 col-span-2 shadow-lg shadow-primary/20">
+                                    {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Oficializar y Enviar
+                                </button>
+                                <Link href={`/dashboard/correspondencia/nuevo?id=${doc.id}`}
+                                    className="h-12 rounded-xl border border-border font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all flex items-center justify-center gap-2 col-span-2">
+                                    Editar Borrador
+                                </Link>
+                                <button onClick={() => handleAvanzar(doc, 'ARCHIVADO')} disabled={avanzando}
+                                    className="h-12 rounded-xl bg-accent text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                    <Archive className="w-4 h-4" /> Archivar Definitivamente
+                                </button>
+                            </>
+                        )}
+
+                        {/* TAB ENVIADOS: SOLAMENTE PERMITE CANCELAR ENVIO (SIN ARCHIVAR) */}
+                        {tab === 'enviados' && (
+                            <>
+                                <button onClick={() => handleAvanzar(doc, 'CANCELAR')} disabled={avanzando}
+                                    className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
+                                    {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Cancelar Envío
+                                </button>
+                            </>
+                        )}
+                    </>
                 )}
             </div>
         );
