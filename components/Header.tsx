@@ -23,7 +23,8 @@ import {
 import Link from 'next/link';
 import { cn, getImageUrl } from '@/lib/utils';
 import { useProfe } from '@/contexts/ProfeContext';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ComunicadoApi } from '@/features/comunicado/infrastructure/ComunicadoApi';
 import { Comunicado } from '@/features/comunicado/domain/Comunicado';
@@ -142,458 +143,438 @@ export function Header() {
 
     const pageTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : 'Dashboard';
 
-    return (
-        <header className="h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 transition-all duration-300 bg-background/80 backdrop-blur-xl border-b border-border/40 shadow-sm">
-            {/* Left: Menu + Breadcrumb */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-                <button
-                    onClick={() => setMobileSidebarOpen(true)}
-                    className="md:hidden p-2 rounded-xl bg-card border border-border shadow-sm text-muted-foreground hover:text-primary active:scale-95 transition-all shrink-0"
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // ── Portal modal institucional (renderiza en document.body para evitar clipping por z-index/overflow) ──
+    const modalContent = mounted && selectedNotif ? (() => {
+        const n = selectedNotif;
+        const imp = (n.importancia || 'normal').toUpperCase();
+        const isAdminType = n.tipo === 'ADMINISTRATIVO';
+
+        const impColor = imp === 'URGENTE'
+            ? { bg: '#b91c1c', border: '#ef4444', label: 'URGENTE' }
+            : imp === 'IMPORTANTE'
+                ? { bg: '#b45309', border: '#f59e0b', label: 'IMPORTANTE' }
+                : isAdminType
+                    ? { bg: '#6d28d9', border: '#8b5cf6', label: 'ADMINISTRATIVO' }
+                    : { bg: '#1e40af', border: '#3b82f6', label: 'GENERAL' };
+
+        return createPortal(
+            <AnimatePresence>
+                <motion.div
+                    key="notif-modal-portal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setSelectedNotif(null)}
                 >
-                    <Menu className="w-4.5 h-4.5" />
-                </button>
-
-                {/* Breadcrumb */}
-                <nav className="hidden sm:flex items-center gap-1.5 min-w-0">
-                    {breadcrumbs.map((crumb, i) => (
-                        <div key={crumb.href} className="flex items-center gap-1.5 min-w-0">
-                            {i < breadcrumbs.length - 1 ? (
-                                <>
-                                    <Link
-                                        href={crumb.href}
-                                        className="text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider truncate"
-                                    >
-                                        {crumb.label}
-                                    </Link>
-                                    <ChevronRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />
-                                </>
-                            ) : (
-                                <span className="text-[11px] font-black text-foreground uppercase tracking-wider truncate">
-                                    {crumb.label}
-                                </span>
-                            )}
-                        </div>
-                    ))}
-                </nav>
-
-                {/* Mobile: Just the page title */}
-                <span className="sm:hidden text-sm font-black tracking-tight text-foreground uppercase truncate">
-                    {pageTitle}
-                </span>
-
-                {/* Search bar */}
-                <div className={cn(
-                    "relative ml-2 transition-all duration-500",
-                    searchFocused ? "w-64 lg:w-80" : "w-36 lg:w-52"
-                )}>
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <Search className={cn("w-3.5 h-3.5 transition-colors", searchFocused ? "text-primary" : "text-muted-foreground")} />
-                    </div>
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        onFocus={() => setSearchFocused(true)}
-                        onBlur={() => setSearchFocused(false)}
-                        placeholder="Buscar..."
-                        className="w-full h-9 pl-9 pr-4 rounded-xl bg-muted/40 border border-transparent focus:border-primary/30 focus:bg-card transition-all outline-none text-xs font-medium placeholder:text-muted-foreground/50"
-                    />
-                </div>
-            </div>
-
-            {/* Right: Actions */}
-            <div className="flex items-center gap-1.5 lg:gap-2 shrink-0 ml-2">
-                {/* Server Status */}
-                <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Online</span>
-                    </div>
-                    <div className="w-px h-3 bg-emerald-500/20" />
-                    <Wifi className="w-3 h-3 text-emerald-500" />
-                </div>
-
-                {/* Clock */}
-                <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border/50">
-                    <Clock className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-[10px] font-black tabular-nums text-foreground">{time}</span>
-                </div>
-
-                {/* Theme Toggle */}
-                <button
-                    onClick={toggleTheme}
-                    className="w-9 h-9 rounded-xl bg-card border border-border/50 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all"
-                >
-                    <AnimatePresence mode="wait" initial={false}>
-                        <motion.div
-                            key={theme}
-                            initial={{ scale: 0.5, opacity: 0, rotate: -90 }}
-                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                            exit={{ scale: 0.5, opacity: 0, rotate: 90 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                        </motion.div>
-                    </AnimatePresence>
-                </button>
-
-                {/* Bell & Notifications Popover */}
-                <div className="relative" ref={notifRef}>
-                    <button
-                        onClick={() => setIsNotifOpen(!isNotifOpen)}
-                        className={cn(
-                            "w-9 h-9 rounded-xl border flex items-center justify-center transition-all relative",
-                            isNotifOpen
-                                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105"
-                                : "bg-card border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
-                        )}
-                        title="Comunicados y Notificaciones"
+                    <motion.div
+                        initial={{ scale: 0.94, opacity: 0, y: 16 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.94, opacity: 0, y: 16 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                        onClick={e => e.stopPropagation()}
+                        className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden text-card-foreground"
                     >
-                        <Bell className={cn("w-4 h-4", unreadCount > 0 && "animate-bounce")} />
-                        {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-600 text-white font-black text-[9px] rounded-full flex items-center justify-center ring-2 ring-background shadow-md">
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                            </span>
-                        )}
-                    </button>
+                        {/* Header institucional */}
+                        <div
+                            className="px-6 py-4 flex items-start gap-3.5 relative text-white"
+                            style={{ background: impColor.bg }}
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                                {imp === 'URGENTE' ? (
+                                    <AlertCircle className="w-5 h-5 text-white" />
+                                ) : imp === 'IMPORTANTE' || isAdminType ? (
+                                    <Shield className="w-5 h-5 text-white" />
+                                ) : (
+                                    <Megaphone className="w-5 h-5 text-white" />
+                                )}
+                            </div>
 
-                    {/* Popover Menu */}
-                    <AnimatePresence>
-                        {isNotifOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 12, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 12, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute right-0 mt-3 w-80 sm:w-96 bg-card border border-border/80 rounded-3xl shadow-2xl z-50 overflow-hidden backdrop-blur-2xl"
-                            >
-                                {/* Header */}
-                                <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/30">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                            <Bell className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-xs font-black uppercase tracking-wider text-foreground">Comunicados</h4>
-                                            <p className="text-[10px] font-bold text-muted-foreground">{unreadCount} no leídos</p>
-                                        </div>
-                                    </div>
-
-                                    {unreadCount > 0 && (
-                                        <button
-                                            onClick={() => markAsRead()}
-                                            className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1"
-                                        >
-                                            <CheckCheck className="w-3.5 h-3.5" />
-                                            Marcar vistos
-                                        </button>
+                            <div className="flex-1 min-w-0 pr-8">
+                                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
+                                        {impColor.label}
+                                    </span>
+                                    {n.tipo && n.tipo !== impColor.label && (
+                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
+                                            {n.tipo}
+                                        </span>
                                     )}
-                                </div>
-
-                                {/* Comunicados List */}
-                                <div className="max-h-80 overflow-y-auto divide-y divide-border/40 custom-scrollbar">
-                                    {comunicados.length === 0 ? (
-                                        <div className="p-8 text-center text-muted-foreground">
-                                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                                            <p className="text-xs font-bold uppercase tracking-widest">Sin comunicados recientes</p>
-                                        </div>
-                                    ) : (
-                                        comunicados.map(c => {
-                                            const isRead = readIds.includes(c.id);
-                                            const imp = (c.importancia || 'normal').toUpperCase();
-                                            const isUrgent = imp === 'URGENTE';
-                                            const isImportante = imp === 'IMPORTANTE';
-                                            const isAdminType = c.tipo === 'ADMINISTRATIVO';
-
-                                            return (
-                                                <button
-                                                    key={c.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        markAsRead(c.id);
-                                                        setSelectedNotif(c);
-                                                        setIsNotifOpen(false);
-                                                    }}
-                                                    className={cn(
-                                                        "w-full text-left p-4 flex gap-3 hover:bg-muted/50 transition-all group relative",
-                                                        !isRead && "bg-primary/5"
-                                                    )}
-                                                >
-                                                    {/* Unread indicator dot */}
-                                                    {!isRead && (
-                                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                                    )}
-
-                                                    {/* Icon badge */}
-                                                    <div className={cn(
-                                                        "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-black shadow-sm",
-                                                        isUrgent
-                                                            ? "bg-red-500/10 text-red-600 border border-red-200 dark:border-red-900/50"
-                                                            : isImportante
-                                                                ? "bg-amber-500/10 text-amber-600 border border-amber-200 dark:border-amber-900/50"
-                                                                : isAdminType
-                                                                    ? "bg-purple-500/10 text-purple-600 border border-purple-200 dark:border-purple-900/50"
-                                                                    : "bg-primary/10 text-primary border border-primary/20"
-                                                    )}>
-                                                        {isUrgent ? (
-                                                            <AlertCircle className="w-4 h-4" />
-                                                        ) : isImportante ? (
-                                                            <Shield className="w-4 h-4" />
-                                                        ) : isAdminType ? (
-                                                            <Shield className="w-4 h-4" />
-                                                        ) : (
-                                                            <Megaphone className="w-4 h-4" />
-                                                        )}
-                                                    </div>
-
-                                                    {/* Content */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                                            {/* Importancia badge */}
-                                                            <span className={cn(
-                                                                "text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest",
-                                                                isUrgent
-                                                                    ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                                                                    : isImportante
-                                                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                                                                        : "bg-muted text-muted-foreground"
-                                                            )}>
-                                                                {imp}
-                                                            </span>
-                                                            {/* Tipo badge */}
-                                                            <span className={cn(
-                                                                "text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest",
-                                                                isAdminType
-                                                                    ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                                                                    : "bg-muted text-muted-foreground"
-                                                            )}>
-                                                                {c.tipo || 'GENERAL'}
-                                                            </span>
-                                                            <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-                                                                {c.tenant ? c.tenant.nombre : 'Global'}
-                                                            </span>
-                                                        </div>
-
-
-                                                        <h5 className="text-xs font-black uppercase italic tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                                                            {c.nombre}
-                                                        </h5>
-
-                                                        <p className="text-[11px] text-muted-foreground font-medium line-clamp-2 mt-0.5 leading-snug">
-                                                            {c.descripcion}
-                                                        </p>
-
-                                                        <p className="text-[9px] font-bold text-muted-foreground/60 mt-1.5 flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" />
-                                                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : ''}
-                                                        </p>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })
-                                    )}
-                                </div>
-
-                                {/* Footer */}
-                                <div className="p-3 bg-muted/40 border-t border-border/60 text-center">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-center gap-1.5 py-1">
-                                        <Bell className="w-3 h-3" /> {comunicados.length} comunicado{comunicados.length !== 1 ? 's' : ''} reciente{comunicados.length !== 1 ? 's' : ''}
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 border border-emerald-400/30">
+                                        {n.tenant ? n.tenant.nombre : 'Global'}
                                     </span>
                                 </div>
-                            </motion.div>
+                                <h3 className="text-base font-black uppercase italic tracking-tight text-white leading-snug">
+                                    {n.nombre}
+                                </h3>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setSelectedNotif(null)}
+                                className="absolute top-3.5 right-3.5 w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Imagen institucional si existe */}
+                        {n.imagen && (
+                            <div className="w-full max-h-64 overflow-hidden bg-muted border-b border-border">
+                                <img
+                                    src={getImageUrl(n.imagen)}
+                                    alt={n.nombre}
+                                    className="w-full h-full object-cover"
+                                    onError={e => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            </div>
                         )}
-                    </AnimatePresence>
+
+                        {/* Detalle / Contenido */}
+                        <div className="p-6 space-y-4">
+                            {n.descripcion && (
+                                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap font-medium">
+                                    {n.descripcion}
+                                </p>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-3 border-t border-border/60 text-xs font-semibold text-muted-foreground">
+                                <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
+                                <span>
+                                    {n.createdAt
+                                        ? new Date(n.createdAt).toLocaleDateString('es-ES', {
+                                            day: '2-digit',
+                                            month: 'long',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })
+                                        : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Footer modal */}
+                        <div className="px-6 py-3.5 bg-muted/40 border-t border-border flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                                <Bell className="w-3.5 h-3.5" /> Comunicado Oficial
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedNotif(null)}
+                                className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white rounded-xl transition-opacity hover:opacity-90 active:scale-95"
+                                style={{ background: impColor.bg }}
+                            >
+                                Entendido
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            </AnimatePresence>,
+            document.body
+        );
+    })() : null;
+
+    return (
+        <>
+            <header className="h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 transition-all duration-300 bg-background/80 backdrop-blur-xl border-b border-border/40 shadow-sm">
+                {/* Left: Menu + Breadcrumb */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <button
+                        onClick={() => setMobileSidebarOpen(true)}
+                        className="md:hidden p-2 rounded-xl bg-card border border-border shadow-sm text-muted-foreground hover:text-primary active:scale-95 transition-all shrink-0"
+                    >
+                        <Menu className="w-4.5 h-4.5" />
+                    </button>
+
+                    {/* Breadcrumb */}
+                    <nav className="hidden sm:flex items-center gap-1.5 min-w-0">
+                        {breadcrumbs.map((crumb, i) => (
+                            <div key={crumb.href} className="flex items-center gap-1.5 min-w-0">
+                                {i < breadcrumbs.length - 1 ? (
+                                    <>
+                                        <Link
+                                            href={crumb.href}
+                                            className="text-[11px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider truncate"
+                                        >
+                                            {crumb.label}
+                                        </Link>
+                                        <ChevronRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                                    </>
+                                ) : (
+                                    <span className="text-[11px] font-black text-foreground uppercase tracking-wider truncate">
+                                        {crumb.label}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </nav>
+
+                    {/* Mobile: Just the page title */}
+                    <span className="sm:hidden text-sm font-black tracking-tight text-foreground uppercase truncate">
+                        {pageTitle}
+                    </span>
+
+                    {/* Search bar */}
+                    <div className={cn(
+                        "relative ml-2 transition-all duration-500",
+                        searchFocused ? "w-64 lg:w-80" : "w-36 lg:w-52"
+                    )}>
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <Search className={cn("w-3.5 h-3.5 transition-colors", searchFocused ? "text-primary" : "text-muted-foreground")} />
+                        </div>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            onFocus={() => setSearchFocused(true)}
+                            onBlur={() => setSearchFocused(false)}
+                            placeholder="Buscar..."
+                            className="w-full h-9 pl-9 pr-4 rounded-xl bg-muted/40 border border-transparent focus:border-primary/30 focus:bg-card transition-all outline-none text-xs font-medium placeholder:text-muted-foreground/50"
+                        />
+                    </div>
                 </div>
 
-                {/* ── Modal de detalle de comunicado (solo lectura, sin permisos) ── */}
-                <AnimatePresence>
-                    {selectedNotif && (() => {
-                        const n = selectedNotif;
-                        const imp = (n.importancia || 'normal').toUpperCase();
-                        const isAdminType = n.tipo === 'ADMINISTRATIVO';
+                {/* Right: Actions */}
+                <div className="flex items-center gap-1.5 lg:gap-2 shrink-0 ml-2">
+                    {/* Server Status */}
+                    <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Online</span>
+                        </div>
+                        <div className="w-px h-3 bg-emerald-500/20" />
+                        <Wifi className="w-3 h-3 text-emerald-500" />
+                    </div>
 
-                        // Paleta dinámica por importancia
-                        const palette = imp === 'URGENTE'
-                            ? {
-                                grad: 'linear-gradient(135deg, #dc2626 0%, #991b1b 60%, #7f1d1d 100%)',
-                                glow: 'rgba(220,38,38,0.35)',
-                                badge: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-                                ring: 'ring-red-500/40',
-                                accent: '#dc2626',
-                                label: 'URGENTE',
-                                icon: <AlertCircle className="w-7 h-7 text-white" />,
-                                pulse: true,
-                            }
-                            : imp === 'IMPORTANTE'
-                            ? {
-                                grad: 'linear-gradient(135deg, #d97706 0%, #b45309 60%, #92400e 100%)',
-                                glow: 'rgba(217,119,6,0.35)',
-                                badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-                                ring: 'ring-amber-500/40',
-                                accent: '#d97706',
-                                label: 'IMPORTANTE',
-                                icon: <Shield className="w-7 h-7 text-white" />,
-                                pulse: false,
-                            }
-                            : {
-                                grad: isAdminType
-                                    ? 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 60%, #3b0764 100%)'
-                                    : 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 60%, #075985 100%)',
-                                glow: isAdminType ? 'rgba(124,58,237,0.30)' : 'rgba(14,165,233,0.30)',
-                                badge: isAdminType
-                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                                    : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
-                                ring: isAdminType ? 'ring-purple-500/40' : 'ring-sky-500/40',
-                                accent: isAdminType ? '#7c3aed' : '#0ea5e9',
-                                label: 'NORMAL',
-                                icon: <Megaphone className="w-7 h-7 text-white" />,
-                                pulse: false,
-                            };
+                    {/* Clock */}
+                    <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border/50">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-black tabular-nums text-foreground">{time}</span>
+                    </div>
 
-                        return (
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="w-9 h-9 rounded-xl bg-card border border-border/50 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all"
+                    >
+                        <AnimatePresence mode="wait" initial={false}>
                             <motion.div
-                                key="notif-modal"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-                                style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.60)' }}
-                                onClick={() => setSelectedNotif(null)}
+                                key={theme}
+                                initial={{ scale: 0.5, opacity: 0, rotate: -90 }}
+                                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                                exit={{ scale: 0.5, opacity: 0, rotate: 90 }}
+                                transition={{ duration: 0.2 }}
                             >
+                                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            </motion.div>
+                        </AnimatePresence>
+                    </button>
+
+                    {/* Bell & Notifications Popover */}
+                    <div className="relative" ref={notifRef}>
+                        <button
+                            onClick={() => setIsNotifOpen(!isNotifOpen)}
+                            className={cn(
+                                "w-9 h-9 rounded-xl border flex items-center justify-center transition-all relative",
+                                isNotifOpen
+                                    ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105"
+                                    : "bg-card border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
+                            )}
+                            title="Comunicados y Notificaciones"
+                        >
+                            <Bell className={cn("w-4 h-4", unreadCount > 0 && "animate-bounce")} />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-600 text-white font-black text-[9px] rounded-full flex items-center justify-center ring-2 ring-background shadow-md">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Popover Menu */}
+                        <AnimatePresence>
+                            {isNotifOpen && (
                                 <motion.div
-                                    initial={{ scale: 0.88, opacity: 0, y: 32 }}
-                                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                                    exit={{ scale: 0.88, opacity: 0, y: 32 }}
-                                    transition={{ type: 'spring', stiffness: 380, damping: 26 }}
-                                    onClick={e => e.stopPropagation()}
-                                    className={`relative w-full max-w-md bg-card border border-border/60 rounded-3xl shadow-2xl overflow-hidden ring-2 ${palette.ring}`}
-                                    style={{ boxShadow: `0 32px 80px -12px ${palette.glow}, 0 0 0 1px rgba(255,255,255,0.05)` }}
+                                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="absolute right-0 mt-3 w-80 sm:w-96 bg-card border border-border/80 rounded-3xl shadow-2xl z-50 overflow-hidden backdrop-blur-2xl"
                                 >
-                                    {/* ── Gradient hero header ── */}
-                                    <div
-                                        className="relative px-6 pt-8 pb-6 overflow-hidden"
-                                        style={{ background: palette.grad }}
-                                    >
-                                        {/* Decorative circles */}
-                                        <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5" />
-                                        <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/5" />
-                                        <div className="absolute top-3 right-16 w-10 h-10 rounded-full bg-white/5" />
-
-                                        {/* Close btn */}
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedNotif(null)}
-                                            className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-all z-10"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-
-                                        {/* Icon + type badges */}
-                                        <div className="flex items-start gap-4 relative z-10">
-                                            <motion.div
-                                                animate={palette.pulse ? { scale: [1, 1.12, 1] } : {}}
-                                                transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
-                                                className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-lg border border-white/20"
-                                            >
-                                                {palette.icon}
-                                            </motion.div>
-                                            <div className="flex-1 min-w-0 pt-0.5">
-                                                <div className="flex flex-wrap gap-1.5 mb-2">
-                                                    <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-widest ${palette.badge}`}>
-                                                        {palette.label}
-                                                    </span>
-                                                    {n.tipo && (
-                                                        <span className="text-[8px] font-black uppercase px-2.5 py-1 rounded-full bg-white/15 text-white tracking-widest border border-white/20">
-                                                            {n.tipo}
-                                                        </span>
-                                                    )}
-                                                    <span className="text-[8px] font-bold px-2.5 py-1 rounded-full bg-emerald-400/20 text-emerald-200 tracking-wider border border-emerald-400/30">
-                                                        {n.tenant ? n.tenant.nombre : '🌐 Global'}
-                                                    </span>
-                                                </div>
-                                                <h3 className="text-base font-black uppercase italic text-white leading-tight line-clamp-3 drop-shadow-sm">
-                                                    {n.nombre}
-                                                </h3>
+                                    {/* Header */}
+                                    <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/30">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                                <Bell className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground">Comunicados</h4>
+                                                <p className="text-[10px] font-bold text-muted-foreground">{unreadCount} no leídos</p>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* ── Image (if any) ── */}
-                                    {n.imagen && (
-                                        <div className="w-full h-36 overflow-hidden bg-muted border-b border-border">
-                                            <img
-                                                src={getImageUrl(n.imagen)}
-                                                alt={n.nombre}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* ── Body ── */}
-                                    <div className="px-6 py-5">
-                                        {n.descripcion && (
-                                            <p className="text-[13px] text-foreground/85 leading-relaxed whitespace-pre-wrap font-medium">
-                                                {n.descripcion}
-                                            </p>
+                                        {unreadCount > 0 && (
+                                            <button
+                                                onClick={() => markAsRead()}
+                                                className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1"
+                                            >
+                                                <CheckCheck className="w-3.5 h-3.5" />
+                                                Marcar vistos
+                                            </button>
                                         )}
-                                        <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border/50">
-                                            <Clock className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
-                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                                                {n.createdAt
-                                                    ? new Date(n.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
-                                                    : ''}
-                                            </span>
-                                        </div>
                                     </div>
 
-                                    {/* ── Footer ── */}
-                                    <div className="px-6 py-4 bg-muted/40 border-t border-border/60 flex items-center justify-between">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1">
-                                            <Bell className="w-3 h-3" /> Comunicado interno
+                                    {/* Comunicados List */}
+                                    <div className="max-h-80 overflow-y-auto divide-y divide-border/40 custom-scrollbar">
+                                        {comunicados.length === 0 ? (
+                                            <div className="p-8 text-center text-muted-foreground">
+                                                <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                                <p className="text-xs font-bold uppercase tracking-widest">Sin comunicados recientes</p>
+                                            </div>
+                                        ) : (
+                                            comunicados.map(c => {
+                                                const isRead = readIds.includes(c.id);
+                                                const imp = (c.importancia || 'normal').toUpperCase();
+                                                const isUrgent = imp === 'URGENTE';
+                                                const isImportante = imp === 'IMPORTANTE';
+                                                const isAdminType = c.tipo === 'ADMINISTRATIVO';
+
+                                                return (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            markAsRead(c.id);
+                                                            setSelectedNotif(c);
+                                                            setIsNotifOpen(false);
+                                                        }}
+                                                        className={cn(
+                                                            "w-full text-left p-4 flex gap-3 hover:bg-muted/50 transition-all group relative",
+                                                            !isRead && "bg-primary/5"
+                                                        )}
+                                                    >
+                                                        {/* Unread indicator dot */}
+                                                        {!isRead && (
+                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                                        )}
+
+                                                        {/* Icon badge */}
+                                                        <div className={cn(
+                                                            "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-black shadow-sm",
+                                                            isUrgent
+                                                                ? "bg-red-500/10 text-red-600 border border-red-200 dark:border-red-900/50"
+                                                                : isImportante
+                                                                    ? "bg-amber-500/10 text-amber-600 border border-amber-200 dark:border-amber-900/50"
+                                                                    : isAdminType
+                                                                        ? "bg-purple-500/10 text-purple-600 border border-purple-200 dark:border-purple-900/50"
+                                                                        : "bg-primary/10 text-primary border border-primary/20"
+                                                        )}>
+                                                            {isUrgent ? (
+                                                                <AlertCircle className="w-4 h-4" />
+                                                            ) : isImportante ? (
+                                                                <Shield className="w-4 h-4" />
+                                                            ) : isAdminType ? (
+                                                                <Shield className="w-4 h-4" />
+                                                            ) : (
+                                                                <Megaphone className="w-4 h-4" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Content */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                                                {/* Importancia badge */}
+                                                                <span className={cn(
+                                                                    "text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest",
+                                                                    isUrgent
+                                                                        ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                                                                        : isImportante
+                                                                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                                                                            : "bg-muted text-muted-foreground"
+                                                                )}>
+                                                                    {imp}
+                                                                </span>
+                                                                {/* Tipo badge */}
+                                                                <span className={cn(
+                                                                    "text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest",
+                                                                    isAdminType
+                                                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                                                                        : "bg-muted text-muted-foreground"
+                                                                )}>
+                                                                    {c.tipo || 'GENERAL'}
+                                                                </span>
+                                                                <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                                                                    {c.tenant ? c.tenant.nombre : 'Global'}
+                                                                </span>
+                                                            </div>
+
+                                                            <h5 className="text-xs font-black uppercase italic tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                                                                {c.nombre}
+                                                            </h5>
+
+                                                            <p className="text-[11px] text-muted-foreground font-medium line-clamp-2 mt-0.5 leading-snug">
+                                                                {c.descripcion}
+                                                            </p>
+
+                                                            <p className="text-[9px] font-bold text-muted-foreground/60 mt-1.5 flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" />
+                                                                {c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : ''}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="p-3 bg-muted/40 border-t border-border/60 text-center">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-center gap-1.5 py-1">
+                                            <Bell className="w-3 h-3" /> {comunicados.length} comunicado{comunicados.length !== 1 ? 's' : ''} reciente{comunicados.length !== 1 ? 's' : ''}
                                         </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedNotif(null)}
-                                            className="text-[10px] font-black uppercase tracking-widest px-5 py-2 rounded-xl text-white transition-all hover:opacity-90 hover:scale-105 active:scale-95"
-                                            style={{ background: palette.grad }}
-                                        >
-                                            Entendido
-                                        </button>
                                     </div>
                                 </motion.div>
-                            </motion.div>
-                        );
-                    })()}
-                </AnimatePresence>
-
-                {/* Security Badge */}
-                <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
-                    <Shield className="w-3 h-3 text-primary" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Seguro</span>
-                </div>
-
-                {/* Avatar */}
-                <Link
-                    href="/dashboard/mi-ficha"
-                    className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20 cursor-pointer hover:bg-primary hover:text-white transition-all overflow-hidden group/avatar ml-1"
-                >
-                    {user?.imagen ? (
-                        <img
-                            src={user.imagen.startsWith('http') ? user.imagen : `${process.env.NEXT_PUBLIC_API_URL}${user.imagen.startsWith('/') ? '' : '/'}${user.imagen}`}
-                            alt="Profile"
-                            className="w-full h-full object-cover group-hover/avatar:scale-110 transition-transform"
-                        />
-                    ) : (
-                        <div className="w-full h-full p-2.5 flex items-center justify-center bg-white dark:bg-card">
-                            {profe?.imagen ? (
-                                <img src={IMG(profe.imagen) || undefined} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
-                            ) : (
-                                <span className="text-sm font-black text-primary">{user?.nombre?.charAt(0) || 'U'}</span>
                             )}
-                        </div>
-                    )}
-                </Link>
-            </div>
-        </header>
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Security Badge */}
+                    <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
+                        <Shield className="w-3 h-3 text-primary" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-primary/80">Seguro</span>
+                    </div>
+
+                    {/* Avatar */}
+                    <Link
+                        href="/dashboard/mi-ficha"
+                        className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20 cursor-pointer hover:bg-primary hover:text-white transition-all overflow-hidden group/avatar ml-1"
+                    >
+                        {user?.imagen ? (
+                            <img
+                                src={user.imagen.startsWith('http') ? user.imagen : `${process.env.NEXT_PUBLIC_API_URL}${user.imagen.startsWith('/') ? '' : '/'}${user.imagen}`}
+                                alt="Profile"
+                                className="w-full h-full object-cover group-hover/avatar:scale-110 transition-transform"
+                            />
+                        ) : (
+                            <div className="w-full h-full p-2.5 flex items-center justify-center bg-white dark:bg-card">
+                                {profe?.imagen ? (
+                                    <img src={IMG(profe.imagen) || undefined} className="w-full h-full object-contain opacity-40 grayscale" alt="Logo" />
+                                ) : (
+                                    <span className="text-sm font-black text-primary">{user?.nombre?.charAt(0) || 'U'}</span>
+                                )}
+                            </div>
+                        )}
+                    </Link>
+                </div>
+            </header>
+            {modalContent}
+        </>
     );
 }
