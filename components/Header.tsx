@@ -178,11 +178,11 @@ export function Header() {
                         exit={{ scale: 0.94, opacity: 0, y: 16 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                         onClick={e => e.stopPropagation()}
-                        className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden text-card-foreground"
+                        className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden text-card-foreground flex flex-col max-h-[85vh]"
                     >
                         {/* Header institucional */}
                         <div
-                            className="px-6 py-4 flex items-start gap-3.5 relative text-white"
+                            className="px-6 py-4 flex items-start gap-3.5 relative text-white shrink-0 shadow-md z-10"
                             style={{ background: impColor.bg }}
                         >
                             <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
@@ -223,53 +223,57 @@ export function Header() {
                             </button>
                         </div>
 
-                        {/* Imagen institucional si existe */}
-                        {n.imagen && (
-                            <div className="w-full max-h-64 overflow-hidden bg-muted border-b border-border">
-                                <img
-                                    src={getImageUrl(n.imagen)}
-                                    alt={n.nombre}
-                                    className="w-full h-full object-cover"
-                                    onError={e => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                />
-                            </div>
-                        )}
-
-                        {/* Detalle / Contenido */}
-                        <div className="p-6 space-y-4">
-                            {n.descripcion && (
-                                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap font-medium">
-                                    {n.descripcion}
-                                </p>
+                        {/* Cuerpo deslizable / Scrollable body */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {/* Imagen institucional completa si existe */}
+                            {n.imagen && (
+                                <div className="w-full bg-slate-950 dark:bg-black border-b border-border flex items-center justify-center p-3 min-h-[200px] max-h-[380px]">
+                                    <img
+                                        src={getImageUrl(n.imagen)}
+                                        alt={n.nombre}
+                                        className="w-full h-full max-h-[360px] object-contain rounded-lg"
+                                        onError={e => {
+                                            const parent = (e.target as HTMLImageElement).parentElement;
+                                            if (parent) parent.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
                             )}
 
-                            <div className="flex items-center gap-2 pt-3 border-t border-border/60 text-xs font-semibold text-muted-foreground">
-                                <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
-                                <span>
-                                    {n.createdAt
-                                        ? new Date(n.createdAt).toLocaleDateString('es-ES', {
-                                            day: '2-digit',
-                                            month: 'long',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })
-                                        : ''}
-                                </span>
+                            {/* Detalle / Contenido */}
+                            <div className="p-6 space-y-4">
+                                {n.descripcion && (
+                                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap font-medium">
+                                        {n.descripcion}
+                                    </p>
+                                )}
+
+                                <div className="flex items-center gap-2 pt-3 border-t border-border/60 text-xs font-semibold text-muted-foreground">
+                                    <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
+                                    <span>
+                                        {n.createdAt
+                                            ? new Date(n.createdAt).toLocaleDateString('es-ES', {
+                                                day: '2-digit',
+                                                month: 'long',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })
+                                            : ''}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Footer modal */}
-                        <div className="px-6 py-3.5 bg-muted/40 border-t border-border flex items-center justify-between">
+                        {/* Footer modal fijo */}
+                        <div className="px-6 py-3.5 bg-muted/40 border-t border-border flex items-center justify-between shrink-0 z-10">
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
                                 <Bell className="w-3.5 h-3.5" /> Comunicado Oficial
                             </span>
                             <button
                                 type="button"
                                 onClick={() => setSelectedNotif(null)}
-                                className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white rounded-xl transition-opacity hover:opacity-90 active:scale-95"
+                                className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white rounded-xl transition-opacity hover:opacity-90 active:scale-95 shadow-sm"
                                 style={{ background: impColor.bg }}
                             >
                                 Entendido
