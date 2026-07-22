@@ -10,10 +10,11 @@ import { useDepartamentos } from '@/features/departamento/application/useDeparta
 import {
     Megaphone, Plus, Search, Edit3, Trash2, Image as ImageIcon,
     AlertCircle, Bell, CheckCircle2, X, Clock, ShieldAlert,
-    Building2, Filter, ArrowRight, RefreshCw, LayoutGrid, List as ListIcon
+    Building2, Filter, ArrowRight, RefreshCw, LayoutGrid, List as ListIcon, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { cn, getImageUrl } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -37,8 +38,10 @@ export default function ComunicadosPage() {
     });
     const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
     const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         loadItems();
         loadDepartamentos();
     }, []);
@@ -231,118 +234,122 @@ export default function ComunicadosPage() {
                 )}
             </AnimatePresence>
 
-            {/* ── MODAL FORM ── */}
-            <AnimatePresence>
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            onClick={() => setIsModalOpen(false)}
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            {/* ── MODAL FORM (Portal a document.body para cubrir sidebar y pantalla completa) ── */}
+            {mounted && createPortal(
+                <AnimatePresence>
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md">
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute inset-0" />
 
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 24 }}
-                            className="relative w-full max-w-5xl max-h-[90vh] flex flex-col bg-card rounded-[2.5rem] shadow-2xl border border-border overflow-hidden">
+                            <motion.div initial={{ opacity: 0, scale: 0.95, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 24 }}
+                                onClick={e => e.stopPropagation()}
+                                className="relative w-full max-w-5xl max-h-[92vh] flex flex-col bg-card rounded-[2.5rem] shadow-2xl border border-border overflow-hidden z-10">
 
-                            {/* Header */}
-                            <div className="flex items-center justify-between px-10 py-7 border-b border-border flex-shrink-0">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                                        <Megaphone className="w-6 h-6" />
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-8 py-6 border-b border-border flex-shrink-0 bg-card">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                                            <Megaphone className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-black uppercase italic tracking-tighter text-foreground">
+                                                {editingComunicado ? 'Editar' : 'Nuevo'} <span className="text-primary">Comunicado</span>
+                                            </h2>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Rellena los campos necesarios</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-xl font-black uppercase italic tracking-tighter text-foreground">
-                                            {editingComunicado ? 'Editar' : 'Nuevo'} <span className="text-primary">Comunicado</span>
-                                        </h2>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Rellena los campos necesarios</p>
-                                    </div>
+                                    <button onClick={() => setIsModalOpen(false)}
+                                        className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/70 transition-all flex items-center justify-center text-muted-foreground">
+                                        <X className="w-5 h-5" />
+                                    </button>
                                 </div>
-                                <button onClick={() => setIsModalOpen(false)}
-                                    className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/70 transition-all flex items-center justify-center text-muted-foreground">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
 
-                            {/* Body */}
-                            <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                    {/* Left */}
-                                    <div className="space-y-6">
-                                        <Field label="Título *">
-                                            <input required value={formData.nombre}
-                                                onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                                className="field-input" placeholder="Ej. Suspensión de clases..." />
-                                        </Field>
+                                {/* Body */}
+                                <div className="flex-1 overflow-y-auto p-8 lg:p-10 custom-scrollbar">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                                        {/* Left */}
+                                        <div className="space-y-6">
+                                            <Field label="Título *">
+                                                <input required value={formData.nombre}
+                                                    onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                                                    className="field-input" placeholder="Ej. Suspensión de clases..." />
+                                            </Field>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Field label="Importancia">
-                                                <select value={formData.importancia}
-                                                    onChange={e => setFormData({ ...formData, importancia: e.target.value })}
-                                                    className="field-input">
-                                                    <option value="normal">Normal</option>
-                                                    <option value="importante">Importante</option>
-                                                    <option value="urgente">Urgente</option>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <Field label="Importancia">
+                                                    <select value={formData.importancia}
+                                                        onChange={e => setFormData({ ...formData, importancia: e.target.value })}
+                                                        className="field-input">
+                                                        <option value="normal">Normal</option>
+                                                        <option value="importante">Importante</option>
+                                                        <option value="urgente">Urgente</option>
+                                                    </select>
+                                                </Field>
+                                                <Field label="Tipo">
+                                                    <select value={formData.tipo}
+                                                        onChange={e => setFormData({ ...formData, tipo: e.target.value })}
+                                                        className="field-input">
+                                                        <option value="GENERAL">General</option>
+                                                        <option value="ACADEMICO">Académico</option>
+                                                        <option value="ADMINISTRATIVO">Administrativo</option>
+                                                        <option value="ALERTA">Alerta</option>
+                                                    </select>
+                                                </Field>
+                                            </div>
+
+                                            <Field label="Sede / Departamento">
+                                                <select value={formData.tenantId}
+                                                    onChange={e => setFormData({ ...formData, tenantId: e.target.value })}
+                                                    disabled={!isSuperAdmin()}
+                                                    className="field-input disabled:opacity-50">
+                                                    {isSuperAdmin() && <option value="">Global / Central</option>}
+                                                    {departments.map((d: any) => (
+                                                        <option key={d.id} value={d.id}>{d.nombre}</option>
+                                                    ))}
                                                 </select>
                                             </Field>
-                                            <Field label="Tipo">
-                                                <select value={formData.tipo}
-                                                    onChange={e => setFormData({ ...formData, tipo: e.target.value })}
-                                                    className="field-input">
-                                                    <option value="GENERAL">General</option>
-                                                    <option value="ACADEMICO">Académico</option>
-                                                    <option value="ADMINISTRATIVO">Administrativo</option>
-                                                    <option value="ALERTA">Alerta</option>
-                                                </select>
+
+                                            <Field label="Contenido *">
+                                                <textarea required rows={6} value={formData.descripcion}
+                                                    onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
+                                                    className="field-input resize-none pt-4"
+                                                    placeholder="Escribe el cuerpo del comunicado..." />
                                             </Field>
                                         </div>
 
-                                        <Field label="Sede / Departamento">
-                                            <select value={formData.tenantId}
-                                                onChange={e => setFormData({ ...formData, tenantId: e.target.value })}
-                                                disabled={!isSuperAdmin()}
-                                                className="field-input disabled:opacity-50">
-                                                {isSuperAdmin() && <option value="">Global / Central</option>}
-                                                {departments.map((d: any) => (
-                                                    <option key={d.id} value={d.id}>{d.nombre}</option>
-                                                ))}
-                                            </select>
-                                        </Field>
-
-                                        <Field label="Contenido *">
-                                            <textarea required rows={6} value={formData.descripcion}
-                                                onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
-                                                className="field-input resize-none pt-4"
-                                                placeholder="Escribe el cuerpo del comunicado..." />
-                                        </Field>
-                                    </div>
-
-                                    {/* Right */}
-                                    <div>
-                                        <ImageUpload
-                                            value={formData.imagen}
-                                            onChange={url => setFormData({ ...formData, imagen: url })}
-                                            tableName="comunicados"
-                                            label="Imagen del Comunicado (opcional)"
-                                        />
+                                        {/* Right */}
+                                        <div>
+                                            <ImageUpload
+                                                value={formData.imagen}
+                                                onChange={url => setFormData({ ...formData, imagen: url })}
+                                                tableName="comunicados"
+                                                label="Imagen del Comunicado (opcional)"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Footer */}
-                            <div className="flex gap-4 px-10 py-7 border-t border-border flex-shrink-0 bg-card">
-                                <button type="button" onClick={() => setIsModalOpen(false)}
-                                    className="px-8 h-14 rounded-2xl border border-border text-xs font-black uppercase tracking-widest text-muted-foreground hover:bg-muted transition-all">
-                                    Cancelar
-                                </button>
-                                <button onClick={() => setIsConfirmingSave(true)} disabled={isLoading}
-                                    className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-                                    {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    {editingComunicado ? 'Guardar Cambios' : 'Publicar'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                                {/* Footer */}
+                                <div className="flex gap-4 px-8 py-6 border-t border-border flex-shrink-0 bg-card">
+                                    <button type="button" onClick={() => setIsModalOpen(false)}
+                                        className="px-8 h-14 rounded-2xl border border-border text-xs font-black uppercase tracking-widest text-muted-foreground hover:bg-muted transition-all">
+                                        Cancelar
+                                    </button>
+                                    <button onClick={() => setIsConfirmingSave(true)} disabled={isLoading}
+                                        className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                                        {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        {editingComunicado ? 'Guardar Cambios' : 'Publicar'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {/* ── CONFIRM MODALS ── */}
             <ConfirmModal
@@ -423,11 +430,18 @@ function ComunicadoCard({ c, impColors, impAccent, onEdit, onDelete }: {
                 <div className={cn("h-1.5 w-full flex-shrink-0", impAccent[colorKey])} />
 
                 {/* Image */}
-                <div className="relative h-48 overflow-hidden bg-muted flex-shrink-0">
+                <div className="relative h-48 overflow-hidden bg-muted flex-shrink-0 group/img">
                     {imageUrl ? (
-                        <img src={imageUrl} alt={c.nombre}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={e => { e.currentTarget.style.display = 'none'; }} />
+                        <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                            <img src={imageUrl} alt={c.nombre}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                onError={e => { e.currentTarget.style.display = 'none'; }} />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border border-white/20 shadow-lg">
+                                    <ExternalLink className="w-3.5 h-3.5" /> Ver en tamaño completo
+                                </span>
+                            </div>
+                        </a>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground/20">
                             <ImageIcon className="w-12 h-12" />

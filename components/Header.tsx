@@ -20,6 +20,7 @@ import {
     AlertTriangle,
     Building2,
     X,
+    ExternalLink,
     Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
@@ -233,16 +234,28 @@ export function Header() {
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
                             {/* Imagen institucional completa si existe */}
                             {n.imagen && (
-                                <div className="w-full bg-slate-950 dark:bg-black border-b border-border flex items-center justify-center p-3 min-h-[200px] max-h-[380px]">
-                                    <img
-                                        src={getImageUrl(n.imagen)}
-                                        alt={n.nombre}
-                                        className="w-full h-full max-h-[360px] object-contain rounded-lg"
-                                        onError={e => {
-                                            const parent = (e.target as HTMLImageElement).parentElement;
-                                            if (parent) parent.style.display = 'none';
-                                        }}
-                                    />
+                                <div className="w-full bg-slate-950 dark:bg-black border-b border-border flex items-center justify-center p-3 min-h-[200px] max-h-[400px] relative group">
+                                    <a
+                                        href={getImageUrl(n.imagen)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="relative w-full h-full max-h-[380px] flex items-center justify-center group/img"
+                                        title="Haz clic para ver la imagen completa en una pestaña nueva"
+                                    >
+                                        <img
+                                            src={getImageUrl(n.imagen)}
+                                            alt={n.nombre}
+                                            className="w-full h-full max-h-[380px] object-contain rounded-lg transition-transform duration-300 group-hover/img:scale-[1.01]"
+                                            onError={e => {
+                                                const parent = (e.target as HTMLImageElement).parentElement?.parentElement;
+                                                if (parent) parent.style.display = 'none';
+                                            }}
+                                        />
+                                        <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border border-white/20 shadow-xl opacity-90 group-hover/img:opacity-100 group-hover/img:bg-primary transition-all">
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                            <span>Ver imagen completa</span>
+                                        </div>
+                                    </a>
                                 </div>
                             )}
 
