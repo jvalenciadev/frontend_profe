@@ -16,10 +16,12 @@ import {
     Megaphone,
     CheckCheck,
     AlertCircle,
-    Building2
+    Building2,
+    X,
+    Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { useProfe } from '@/contexts/ProfeContext';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -77,6 +79,7 @@ export function Header() {
     const [searchFocused, setSearchFocused] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [selectedNotif, setSelectedNotif] = useState<Comunicado | null>(null);
     const [comunicados, setComunicados] = useState<Comunicado[]>([]);
     const [readIds, setReadIds] = useState<string[]>([]);
     const notifRef = useRef<HTMLDivElement>(null);
@@ -86,7 +89,7 @@ export function Header() {
         try {
             const saved = localStorage.getItem('comunicados_read_ids');
             if (saved) setReadIds(JSON.parse(saved));
-        } catch (e) {}
+        } catch (e) { }
 
         const fetchComunicados = async () => {
             try {
@@ -115,11 +118,11 @@ export function Header() {
         if (!id) {
             const allIds = comunicados.map(c => c.id);
             setReadIds(allIds);
-            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(allIds)); } catch (e) {}
+            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(allIds)); } catch (e) { }
         } else if (!readIds.includes(id)) {
             const updated = [...readIds, id];
             setReadIds(updated);
-            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(updated)); } catch (e) {}
+            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(updated)); } catch (e) { }
         }
     };
 
@@ -301,15 +304,16 @@ export function Header() {
                                             const isAdminType = c.tipo === 'ADMINISTRATIVO';
 
                                             return (
-                                                <Link
+                                                <button
                                                     key={c.id}
-                                                    href="/dashboard/comunicados"
+                                                    type="button"
                                                     onClick={() => {
                                                         markAsRead(c.id);
+                                                        setSelectedNotif(c);
                                                         setIsNotifOpen(false);
                                                     }}
                                                     className={cn(
-                                                        "p-4 flex gap-3 hover:bg-muted/50 transition-all group relative",
+                                                        "w-full text-left p-4 flex gap-3 hover:bg-muted/50 transition-all group relative",
                                                         !isRead && "bg-primary/5"
                                                     )}
                                                 >
@@ -365,7 +369,7 @@ export function Header() {
                                                             {c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : ''}
                                                         </p>
                                                     </div>
-                                                </Link>
+                                                </button>
                                             );
                                         })
                                     )}
@@ -373,18 +377,97 @@ export function Header() {
 
                                 {/* Footer */}
                                 <div className="p-3 bg-muted/40 border-t border-border/60 text-center">
-                                    <Link
-                                        href="/dashboard/comunicados"
-                                        onClick={() => setIsNotifOpen(false)}
-                                        className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-1.5 py-1"
-                                    >
-                                        Ver todos los comunicados <ChevronRight className="w-3 h-3" />
-                                    </Link>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-center gap-1.5 py-1">
+                                        <Bell className="w-3 h-3" /> {comunicados.length} comunicado{comunicados.length !== 1 ? 's' : ''} reciente{comunicados.length !== 1 ? 's' : ''}
+                                    </span>
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
+
+                {/* ── Modal de detalle de comunicado (solo lectura, sin permisos) ── */}
+                <AnimatePresence>
+                    {selectedNotif && (() => {
+                        const n = selectedNotif;
+                        const isAdminType = n.tipo === 'ADMINISTRATIVO';
+                        const isUrgent = n.importancia === 'urgente';
+                        return (
+                            <motion.div
+                                key="notif-modal"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+                                style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(0,0,0,0.45)' }}
+                                onClick={() => setSelectedNotif(null)}
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.92, opacity: 0, y: 24 }}
+                                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                                    exit={{ scale: 0.92, opacity: 0, y: 24 }}
+                                    transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                                    onClick={e => e.stopPropagation()}
+                                    className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+                                >
+                                    {/* Header strip */}
+                                    <div className={cn(
+                                        "px-6 py-4 flex items-center gap-3",
+                                        isAdminType ? "bg-purple-600" : isUrgent ? "bg-red-600" : "bg-primary"
+                                    )}>
+                                        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                                            {isAdminType ? <Shield className="w-5 h-5 text-white" /> : isUrgent ? <AlertCircle className="w-5 h-5 text-white" /> : <Megaphone className="w-5 h-5 text-white" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{n.tipo || 'GENERAL'} &bull; {n.tenant ? n.tenant.nombre : 'Global'}</p>
+                                            <h3 className="text-sm font-black uppercase italic text-white line-clamp-2 leading-tight">{n.nombre}</h3>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedNotif(null)}
+                                            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white flex-shrink-0 transition-colors"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    {/* Image */}
+                                    {n.imagen && (
+                                        <div className="w-full h-40 overflow-hidden bg-muted">
+                                            <img
+                                                src={getImageUrl(n.imagen)}
+                                                alt={n.nombre}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Body */}
+                                    <div className="px-6 py-5">
+                                        {n.descripcion && (
+                                            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{n.descripcion}</p>
+                                        )}
+                                        <p className="text-[10px] font-bold text-muted-foreground mt-4 flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            {n.createdAt ? new Date(n.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
+                                        </p>
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="px-6 py-3 bg-muted/40 border-t border-border flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedNotif(null)}
+                                            className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+                                        >
+                                            Cerrar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        );
+                    })()}
+                </AnimatePresence>
 
                 {/* Security Badge */}
                 <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
