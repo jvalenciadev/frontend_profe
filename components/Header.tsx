@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { usePathname } from 'next/navigation';
 import {
     Bell,
+    BellRing,
     Search,
     Sun,
     Moon,
@@ -18,6 +19,7 @@ import {
     AlertCircle,
     Building2,
     X,
+    Siren,
     Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
@@ -400,11 +402,14 @@ export function Header() {
                                         ? "bg-red-600 ring-2 ring-red-400/50 shadow-red-500/30 animate-pulse"
                                         : hasImportant
                                             ? "bg-amber-600 ring-2 ring-amber-400/50 shadow-amber-500/30"
-                                            : "bg-primary ring-2 ring-primary/30"
+                                            : "bg-red-600 ring-2 ring-red-400/50"
                                 )}
                             >
-                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                {hasUrgent ? '🚨 Urgente' : hasImportant ? '⚠️ Importante' : '📢 Comunicado'}
+                                {hasUrgent
+                                    ? <><Siren className="w-3 h-3" /> Urgente</>                                    
+                                    : hasImportant
+                                        ? <><AlertCircle className="w-3 h-3" /> Importante</>
+                                        : <><BellRing className="w-3 h-3" /> Comunicado</>}
                             </motion.button>
                         )}
 
@@ -432,7 +437,9 @@ export function Header() {
                                     duration: 0.7,
                                 }}
                             >
-                                <Bell className={cn("w-4 h-4", unreadCount > 0 ? (isNotifOpen ? "text-white" : "text-red-600") : "")} />
+                                {unreadCount > 0
+                                    ? <BellRing className="w-4 h-4" style={{ color: isNotifOpen ? '#fff' : '#dc2626' }} />
+                                    : <Bell className="w-4 h-4" />}
                             </motion.div>
 
                             {/* Badge counter en rojo intenso con efecto radar ping */}
