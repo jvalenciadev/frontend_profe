@@ -127,7 +127,10 @@ export function Header() {
         }
     };
 
-    const unreadCount = comunicados.filter(c => !readIds.includes(c.id)).length;
+    const unreadItems = comunicados.filter(c => !readIds.includes(c.id));
+    const unreadCount = unreadItems.length;
+    const hasUrgent = unreadItems.some(c => (c.importancia || '').toUpperCase() === 'URGENTE');
+    const hasImportant = unreadItems.some(c => (c.importancia || '').toUpperCase() === 'IMPORTANTE');
 
     const IMG = (src: string | null) => {
         if (!src) return null;
@@ -383,21 +386,76 @@ export function Header() {
                     </button>
 
                     {/* Bell & Notifications Popover */}
-                    <div className="relative" ref={notifRef}>
+                    <div className="relative flex items-center gap-2" ref={notifRef}>
+                        {/* Floating attention pill when there are unread notifications */}
+                        {!isNotifOpen && unreadCount > 0 && (
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.8, x: 5 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                onClick={() => setIsNotifOpen(true)}
+                                className={cn(
+                                    "hidden sm:flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full text-white shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95",
+                                    hasUrgent
+                                        ? "bg-red-600 ring-2 ring-red-400/50 shadow-red-500/30 animate-pulse"
+                                        : hasImportant
+                                            ? "bg-amber-600 ring-2 ring-amber-400/50 shadow-amber-500/30"
+                                            : "bg-primary ring-2 ring-primary/30"
+                                )}
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                {hasUrgent ? '🚨 Urgente' : hasImportant ? '⚠️ Importante' : '📢 Comunicado'}
+                            </motion.button>
+                        )}
+
                         <button
                             onClick={() => setIsNotifOpen(!isNotifOpen)}
                             className={cn(
                                 "w-9 h-9 rounded-xl border flex items-center justify-center transition-all relative",
                                 isNotifOpen
                                     ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105"
-                                    : "bg-card border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
+                                    : hasUrgent
+                                        ? "bg-card border-red-500/60 text-red-600 ring-2 ring-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                                        : hasImportant
+                                            ? "bg-card border-amber-500/60 text-amber-600 ring-2 ring-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                                            : unreadCount > 0
+                                                ? "bg-card border-primary/50 text-primary ring-2 ring-primary/30 shadow-[0_0_12px_rgba(59,130,246,0.3)]"
+                                                : "bg-card border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
                             )}
                             title="Comunicados y Notificaciones"
                         >
-                            <Bell className={cn("w-4 h-4", unreadCount > 0 && "animate-bounce")} />
+                            <motion.div
+                                animate={
+                                    hasUrgent
+                                        ? { rotate: [0, -22, 22, -18, 18, -10, 10, 0] }
+                                        : hasImportant
+                                            ? { rotate: [0, -14, 14, -8, 8, 0] }
+                                            : unreadCount > 0
+                                                ? { y: [0, -2, 0] }
+                                                : {}
+                                }
+                                transition={{
+                                    repeat: Infinity,
+                                    repeatDelay: hasUrgent ? 1.5 : hasImportant ? 2.5 : 4,
+                                    duration: 0.7,
+                                }}
+                            >
+                                <Bell className={cn("w-4 h-4", hasUrgent ? "text-red-600" : hasImportant ? "text-amber-600" : unreadCount > 0 ? "text-primary" : "")} />
+                            </motion.div>
+
+                            {/* Badge counter with radar ping effect */}
                             {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-600 text-white font-black text-[9px] rounded-full flex items-center justify-center ring-2 ring-background shadow-md">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                <span className="absolute -top-1.5 -right-1.5 flex h-4.5 w-4.5 items-center justify-center">
+                                    <span className={cn(
+                                        "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                                        hasUrgent ? "bg-red-500" : hasImportant ? "bg-amber-500" : "bg-primary"
+                                    )} />
+                                    <span className={cn(
+                                        "relative inline-flex rounded-full px-1.5 py-0.5 min-w-[18px] h-[18px] text-white font-black text-[9px] items-center justify-center shadow-md ring-2 ring-background",
+                                        hasUrgent ? "bg-red-600" : hasImportant ? "bg-amber-600" : "bg-primary"
+                                    )}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
                                 </span>
                             )}
                         </button>
