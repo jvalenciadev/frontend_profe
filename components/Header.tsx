@@ -12,13 +12,19 @@ import {
     ChevronRight,
     Clock,
     Wifi,
-    Shield
+    Shield,
+    Megaphone,
+    CheckCheck,
+    AlertCircle,
+    Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useProfe } from '@/contexts/ProfeContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ComunicadoApi } from '@/features/comunicado/infrastructure/ComunicadoApi';
+import { Comunicado } from '@/features/comunicado/domain/Comunicado';
 
 const BREADCRUMB_LABELS: Record<string, string> = {
     dashboard: 'Inicio',
@@ -70,7 +76,54 @@ export function Header() {
     const pathname = usePathname();
     const [searchFocused, setSearchFocused] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [comunicados, setComunicados] = useState<Comunicado[]>([]);
+    const [readIds, setReadIds] = useState<string[]>([]);
+    const notifRef = useRef<HTMLDivElement>(null);
     const time = useClock();
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('comunicados_read_ids');
+            if (saved) setReadIds(JSON.parse(saved));
+        } catch (e) {}
+
+        const fetchComunicados = async () => {
+            try {
+                const params: any = { limit: 6 };
+                if (user?.tenantId) params.tenantId = user.tenantId;
+                const data = await ComunicadoApi.getAll(params);
+                setComunicados(data || []);
+            } catch (err) {
+                console.error('Error fetching notifications:', err);
+            }
+        };
+        fetchComunicados();
+    }, [user?.tenantId]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+                setIsNotifOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const markAsRead = (id?: string) => {
+        if (!id) {
+            const allIds = comunicados.map(c => c.id);
+            setReadIds(allIds);
+            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(allIds)); } catch (e) {}
+        } else if (!readIds.includes(id)) {
+            const updated = [...readIds, id];
+            setReadIds(updated);
+            try { localStorage.setItem('comunicados_read_ids', JSON.stringify(updated)); } catch (e) {}
+        }
+    };
+
+    const unreadCount = comunicados.filter(c => !readIds.includes(c.id)).length;
 
     const IMG = (src: string | null) => {
         if (!src) return null;
@@ -181,11 +234,157 @@ export function Header() {
                     </AnimatePresence>
                 </button>
 
-                {/* Bell */}
-                <button className="w-9 h-9 rounded-xl bg-card border border-border/50 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all relative">
-                    <Bell className="w-4 h-4" />
-                    <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-background animate-pulse" />
-                </button>
+                {/* Bell & Notifications Popover */}
+                <div className="relative" ref={notifRef}>
+                    <button
+                        onClick={() => setIsNotifOpen(!isNotifOpen)}
+                        className={cn(
+                            "w-9 h-9 rounded-xl border flex items-center justify-center transition-all relative",
+                            isNotifOpen
+                                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105"
+                                : "bg-card border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
+                        )}
+                        title="Comunicados y Notificaciones"
+                    >
+                        <Bell className={cn("w-4 h-4", unreadCount > 0 && "animate-bounce")} />
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-600 text-white font-black text-[9px] rounded-full flex items-center justify-center ring-2 ring-background shadow-md">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Popover Menu */}
+                    <AnimatePresence>
+                        {isNotifOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                className="absolute right-0 mt-3 w-80 sm:w-96 bg-card border border-border/80 rounded-3xl shadow-2xl z-50 overflow-hidden backdrop-blur-2xl"
+                            >
+                                {/* Header */}
+                                <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/30">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                            <Bell className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs font-black uppercase tracking-wider text-foreground">Comunicados</h4>
+                                            <p className="text-[10px] font-bold text-muted-foreground">{unreadCount} no leídos</p>
+                                        </div>
+                                    </div>
+
+                                    {unreadCount > 0 && (
+                                        <button
+                                            onClick={() => markAsRead()}
+                                            className="text-[10px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1"
+                                        >
+                                            <CheckCheck className="w-3.5 h-3.5" />
+                                            Marcar vistos
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Comunicados List */}
+                                <div className="max-h-80 overflow-y-auto divide-y divide-border/40 custom-scrollbar">
+                                    {comunicados.length === 0 ? (
+                                        <div className="p-8 text-center text-muted-foreground">
+                                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                            <p className="text-xs font-bold uppercase tracking-widest">Sin comunicados recientes</p>
+                                        </div>
+                                    ) : (
+                                        comunicados.map(c => {
+                                            const isRead = readIds.includes(c.id);
+                                            const isUrgent = c.importancia === 'urgente';
+                                            const isAdminType = c.tipo === 'ADMINISTRATIVO';
+
+                                            return (
+                                                <Link
+                                                    key={c.id}
+                                                    href="/dashboard/comunicados"
+                                                    onClick={() => {
+                                                        markAsRead(c.id);
+                                                        setIsNotifOpen(false);
+                                                    }}
+                                                    className={cn(
+                                                        "p-4 flex gap-3 hover:bg-muted/50 transition-all group relative",
+                                                        !isRead && "bg-primary/5"
+                                                    )}
+                                                >
+                                                    {/* Unread indicator dot */}
+                                                    {!isRead && (
+                                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                                    )}
+
+                                                    {/* Icon badge */}
+                                                    <div className={cn(
+                                                        "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-black shadow-sm",
+                                                        isAdminType
+                                                            ? "bg-purple-500/10 text-purple-600 border border-purple-200 dark:border-purple-900/50"
+                                                            : isUrgent
+                                                                ? "bg-red-500/10 text-red-600 border border-red-200 dark:border-red-900/50"
+                                                                : "bg-primary/10 text-primary border border-primary/20"
+                                                    )}>
+                                                        {isAdminType ? (
+                                                            <Shield className="w-4 h-4" />
+                                                        ) : isUrgent ? (
+                                                            <AlertCircle className="w-4 h-4" />
+                                                        ) : (
+                                                            <Megaphone className="w-4 h-4" />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                                            <span className={cn(
+                                                                "text-[8px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider",
+                                                                isAdminType
+                                                                    ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                                                                    : "bg-muted text-muted-foreground"
+                                                            )}>
+                                                                {c.tipo || 'GENERAL'}
+                                                            </span>
+                                                            <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                                                                {c.tenant ? c.tenant.nombre : 'Global'}
+                                                            </span>
+                                                        </div>
+
+                                                        <h5 className="text-xs font-black uppercase italic tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                                                            {c.nombre}
+                                                        </h5>
+
+                                                        <p className="text-[11px] text-muted-foreground font-medium line-clamp-2 mt-0.5 leading-snug">
+                                                            {c.descripcion}
+                                                        </p>
+
+                                                        <p className="text-[9px] font-bold text-muted-foreground/60 mt-1.5 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : ''}
+                                                        </p>
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-3 bg-muted/40 border-t border-border/60 text-center">
+                                    <Link
+                                        href="/dashboard/comunicados"
+                                        onClick={() => setIsNotifOpen(false)}
+                                        className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-1.5 py-1"
+                                    >
+                                        Ver todos los comunicados <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
 
                 {/* Security Badge */}
                 <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
