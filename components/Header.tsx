@@ -159,14 +159,14 @@ export function Header() {
         const imp = (n.importancia || 'normal').toUpperCase();
         const isAdminType = n.tipo === 'ADMINISTRATIVO';
 
-        // Paleta institucional sobria por nivel de importancia
+        // Paleta institucional — tonos sobrios y formales
         const impColor = imp === 'URGENTE'
-            ? { bg: '#7f1d1d', accent: '#ef4444', label: 'URGENTE' }         // Granate oscuro — alerta formal
+            ? { bg: '#b62137ff', accent: '#f87171', label: 'URGENTE' }             // Carmesí oscuro institucional
             : imp === 'IMPORTANTE'
-                ? { bg: '#78350f', accent: '#f59e0b', label: 'IMPORTANTE' }  // Marrón ámbar oscuro — atención
+                ? { bg: '#1f8368ff', accent: '#34d399', label: 'IMPORTANTE' }       // Verde esmeralda oscuro formal
                 : isAdminType
-                    ? { bg: '#1e3a5f', accent: '#60a5fa', label: 'ADMINISTRATIVO' } // Azul marino institucional
-                    : { bg: '#1e3a5f', accent: '#93c5fd', label: 'NORMAL' };  // Azul marino — comunicado estándar
+                    ? { bg: '#2250a5ff', accent: '#93c5fd', label: 'ADMINISTRATIVO' } // Azul marino
+                    : { bg: '#3974d3ff', accent: '#9ca3af', label: 'NORMAL' };       // Gris pizarra neutro
 
         return createPortal(
             <AnimatePresence>
