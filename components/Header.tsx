@@ -17,9 +17,9 @@ import {
     Megaphone,
     CheckCheck,
     AlertCircle,
+    AlertTriangle,
     Building2,
     X,
-    Siren,
     Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
@@ -392,24 +392,37 @@ export function Header() {
                         {/* Floating attention pill when there are unread notifications */}
                         {!isNotifOpen && unreadCount > 0 && (
                             <motion.button
-                                initial={{ opacity: 0, scale: 0.8, x: 5 }}
-                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                key="notif-pill"
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.8 }}
                                 onClick={() => setIsNotifOpen(true)}
-                                className={cn(
-                                    "hidden sm:flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full text-white shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95",
-                                    hasUrgent
-                                        ? "bg-red-600 ring-2 ring-red-400/50 shadow-red-500/30 animate-pulse"
-                                        : hasImportant
-                                            ? "bg-amber-600 ring-2 ring-amber-400/50 shadow-amber-500/30"
-                                            : "bg-red-600 ring-2 ring-red-400/50"
-                                )}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    fontSize: '9px',
+                                    fontWeight: 900,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.08em',
+                                    padding: '4px 10px',
+                                    borderRadius: '999px',
+                                    color: '#fff',
+                                    background: hasUrgent ? '#dc2626' : hasImportant ? '#d97706' : '#dc2626',
+                                    boxShadow: '0 0 12px rgba(220,38,38,0.5)',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    whiteSpace: 'nowrap',
+                                }}
                             >
                                 {hasUrgent
-                                    ? <><Siren className="w-3 h-3" /> Urgente</>                                    
+                                    ? <AlertTriangle style={{ width: 11, height: 11 }} />
                                     : hasImportant
-                                        ? <><AlertCircle className="w-3 h-3" /> Importante</>
-                                        : <><BellRing className="w-3 h-3" /> Comunicado</>}
+                                        ? <AlertCircle style={{ width: 11, height: 11 }} />
+                                        : <BellRing style={{ width: 11, height: 11 }} />}
+                                <span>
+                                    {hasUrgent ? 'Urgente' : hasImportant ? 'Importante' : `${unreadCount} nuevo${unreadCount !== 1 ? 's' : ''}`}
+                                </span>
                             </motion.button>
                         )}
 
