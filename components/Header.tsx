@@ -468,7 +468,7 @@ export function Header() {
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: 12, scale: 0.95 }}
                                     transition={{ duration: 0.2 }}
-                                    className="absolute right-0 mt-3 w-80 sm:w-96 bg-card border border-border/80 rounded-3xl shadow-2xl z-50 overflow-hidden backdrop-blur-2xl"
+                                    className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card border border-border/80 rounded-3xl shadow-2xl z-50 overflow-hidden backdrop-blur-2xl"
                                 >
                                     {/* Header */}
                                     <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/30">
