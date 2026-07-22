@@ -24,6 +24,8 @@ export default function ComunicadosPage() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterImportance, setFilterImportance] = useState('all');
+    const [filterType, setFilterType] = useState('all');
+    const [filterTenant, setFilterTenant] = useState('all');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -93,8 +95,14 @@ export default function ComunicadosPage() {
         const q = searchTerm.toLowerCase();
         const matchSearch = (c.nombre?.toLowerCase() || '').includes(q) || (c.descripcion?.toLowerCase() || '').includes(q);
         const matchImp = filterImportance === 'all' || c.importancia === filterImportance;
-        return matchSearch && matchImp;
-    }), [comunicados, searchTerm, filterImportance]);
+        const matchType = filterType === 'all' || c.tipo === filterType;
+        const matchTenant = filterTenant === 'all'
+            ? true
+            : filterTenant === 'global'
+                ? !c.tenantId
+                : c.tenantId === filterTenant;
+        return matchSearch && matchImp && matchType && matchTenant;
+    }), [comunicados, searchTerm, filterImportance, filterType, filterTenant]);
 
     const impColors: Record<string, string> = {
         urgente: 'bg-red-500/10 text-red-600 border border-red-200',
@@ -137,7 +145,7 @@ export default function ComunicadosPage() {
             </div>
 
             {/* ── FILTERS ── */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            <div className="flex flex-col xl:flex-row gap-3 mb-8">
                 <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
@@ -148,25 +156,45 @@ export default function ComunicadosPage() {
                     />
                 </div>
 
-                <div className="flex bg-card border border-border rounded-2xl p-1 gap-1">
-                    {[['all', 'Todos'], ['normal', 'Normal'], ['importante', 'Import.'], ['urgente', 'Urgente']].map(([val, lbl]) => (
-                        <button key={val} onClick={() => setFilterImportance(val)}
-                            className={cn("flex-1 sm:flex-none px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
-                                filterImportance === val ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}>
-                            {lbl}
-                        </button>
-                    ))}
-                </div>
+                <div className="flex flex-wrap sm:flex-nowrap gap-3">
+                    <div className="flex bg-card border border-border rounded-2xl p-1 gap-1">
+                        {[['all', 'Todos'], ['normal', 'Normal'], ['importante', 'Import.'], ['urgente', 'Urgente']].map(([val, lbl]) => (
+                            <button key={val} onClick={() => setFilterImportance(val)}
+                                className={cn("px-3 h-10 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
+                                    filterImportance === val ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}>
+                                {lbl}
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="flex bg-card border border-border rounded-2xl p-1 gap-1">
-                    <button onClick={() => setViewMode('grid')}
-                        className={cn("p-2.5 rounded-xl transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}>
-                        <LayoutGrid className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setViewMode('list')}
-                        className={cn("p-2.5 rounded-xl transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}>
-                        <ListIcon className="w-4 h-4" />
-                    </button>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value)}
+                        className="h-12 px-4 rounded-2xl bg-card border border-border text-[10px] font-black uppercase tracking-wider text-foreground outline-none cursor-pointer">
+                        <option value="all">Todos los Tipos</option>
+                        <option value="ADMINISTRATIVO">Administrativo</option>
+                        <option value="GENERAL">General</option>
+                        <option value="ACADEMICO">Académico</option>
+                        <option value="ALERTA">Alerta</option>
+                    </select>
+
+                    <select value={filterTenant} onChange={e => setFilterTenant(e.target.value)}
+                        className="h-12 px-4 rounded-2xl bg-card border border-border text-[10px] font-black uppercase tracking-wider text-foreground outline-none cursor-pointer">
+                        <option value="all">Cualquier Alcance</option>
+                        <option value="global">Global (A todos)</option>
+                        {departments.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.nombre}</option>
+                        ))}
+                    </select>
+
+                    <div className="flex bg-card border border-border rounded-2xl p-1 gap-1">
+                        <button onClick={() => setViewMode('grid')}
+                            className={cn("p-2.5 rounded-xl transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}>
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setViewMode('list')}
+                            className={cn("p-2.5 rounded-xl transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted")}>
+                            <ListIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -407,12 +435,15 @@ function ComunicadoCard({ c, impColors, impAccent, onEdit, onDelete }: {
                     )}
 
                     {/* Badges on image */}
-                    <div className="absolute top-3 left-3 flex gap-2">
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-2">
                         <span className={cn("px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest", impColors[colorKey])}>
                             {c.importancia}
                         </span>
-                        <span className="px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest bg-black/40 text-white backdrop-blur-sm border border-white/10">
-                            {c.tipo}
+                        <span className={cn(
+                            "px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/10",
+                            c.tipo === 'ADMINISTRATIVO' ? "bg-purple-600/90 text-white" : "bg-black/40 text-white"
+                        )}>
+                            {c.tipo || 'GENERAL'}
                         </span>
                     </div>
 
@@ -431,16 +462,14 @@ function ComunicadoCard({ c, impColors, impAccent, onEdit, onDelete }: {
 
                 {/* Body */}
                 <div className="p-6 flex flex-col flex-1 space-y-3">
-                    <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
                         <Clock className="w-3.5 h-3.5 text-primary" />
                         {c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                        {c.tenant && (
-                            <>
-                                <span className="opacity-30">•</span>
-                                <Building2 className="w-3.5 h-3.5 text-primary" />
-                                <span className="text-primary/70">{c.tenant.nombre}</span>
-                            </>
-                        )}
+                        <span className="opacity-30">•</span>
+                        <Building2 className="w-3.5 h-3.5 text-primary" />
+                        <span className={cn(c.tenant ? "text-primary/70" : "text-emerald-600 font-bold")}>
+                            {c.tenant ? c.tenant.nombre : 'A Todos (Global)'}
+                        </span>
                     </div>
 
                     <h3 className="text-lg font-black uppercase italic tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
@@ -482,11 +511,19 @@ function ComunicadoRow({ c, impColors, impAccent, onEdit, onDelete }: {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={cn("px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest", impColors[colorKey])}>
                             {c.importancia}
                         </span>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{c.tipo}</span>
+                        <span className={cn(
+                            "px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest",
+                            c.tipo === 'ADMINISTRATIVO' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" : "text-muted-foreground"
+                        )}>
+                            {c.tipo || 'GENERAL'}
+                        </span>
+                        <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md uppercase tracking-widest">
+                            {c.tenant ? c.tenant.nombre : 'A Todos (Global)'}
+                        </span>
                     </div>
                     <p className="text-sm font-black uppercase italic tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-1">{c.nombre}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{c.descripcion}</p>
