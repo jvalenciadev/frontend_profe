@@ -603,10 +603,11 @@ export default function AulaMainPage() {
 
 function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
     const now = new Date();
-    const isLocked = isModule && (
-        (course.fechaInicio && new Date(course.fechaInicio) > now) ||
-        (course.fechaFin && new Date(new Date(course.fechaFin).setHours(23, 59, 59, 999)) < now)
-    );
+    const start = course.fechaInicio ? new Date(course.fechaInicio) : null;
+    const end = course.fechaFin ? new Date(new Date(course.fechaFin).setHours(23, 59, 59, 999)) : null;
+
+    const isLocked = isModule && !!(start && now < start);
+    const isFinished = isModule && !!(end && now > end);
 
     const [isClient, setIsClient] = useState(false);
     useEffect(() => {
@@ -637,13 +638,18 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
                 <div className="p-6 space-y-5">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <div className={cn("w-2 h-2 rounded-full", isLocked ? "bg-slate-400" : "bg-primary")} />
+                            <div className={cn("w-2 h-2 rounded-full", isLocked ? "bg-slate-400" : isFinished ? "bg-emerald-500" : "bg-primary")} />
                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                                 {course.codigo}
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
                             {isLocked && <Lock size={12} className="text-amber-500" />}
+                            {isFinished && (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">
+                                    Dictado
+                                </span>
+                            )}
                             <div className="px-2 py-0.5 border border-slate-200 dark:border-slate-800 rounded-sm text-[8px] font-bold text-slate-400 uppercase tracking-widest">
                                 {isModule ? 'Módulo' : course.tipo}
                             </div>
@@ -665,11 +671,11 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
                                 {course.nombre}
                             </h3>
                             <div className="flex items-center gap-2">
-                                <div className={cn("w-3 h-3 rounded-full flex items-center justify-center", isLocked ? "bg-slate-200" : "bg-emerald-500/20")}>
-                                    <div className={cn("w-1.5 h-1.5 rounded-full", isLocked ? "bg-slate-400" : "bg-emerald-500")} />
+                                <div className={cn("w-3 h-3 rounded-full flex items-center justify-center", isLocked ? "bg-amber-500/20" : "bg-emerald-500/20")}>
+                                    <div className={cn("w-1.5 h-1.5 rounded-full", isLocked ? "bg-amber-500" : "bg-emerald-500")} />
                                 </div>
-                                <span className={cn("text-[9px] font-bold uppercase tracking-widest", isLocked ? "text-slate-400" : "text-emerald-600")}>
-                                    {isLocked ? 'Acceso Restringido' : 'Activo'}
+                                <span className={cn("text-[9px] font-bold uppercase tracking-widest", isLocked ? "text-amber-600" : "text-emerald-600")}>
+                                    {isLocked ? 'Acceso Restringido' : isFinished ? 'Dictado' : 'Activo'}
                                 </span>
                             </div>
                         </div>
@@ -718,11 +724,20 @@ function CourseDashboardCard({ course, theme, isModule, onClick }: any) {
                 )}>
                     <div className="flex items-center gap-2">
                         <div className={cn("w-7 h-7 rounded-lg text-white flex items-center justify-center",
-                            isLocked ? "bg-slate-400" : course.statusName === 'PREINSCRITO' ? "bg-amber-500" : "bg-primary")}>
+                            isLocked ? "bg-slate-400" : isFinished ? "bg-slate-800 dark:bg-white dark:text-slate-900" : course.statusName === 'PREINSCRITO' ? "bg-amber-500" : "bg-primary")}>
                             {isLocked ? <Lock size={14} /> : course.statusName === 'PREINSCRITO' ? <AlertTriangle size={14} /> : <ArrowRight size={14} />}
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                            {isLocked ? 'Bloqueado' : course.statusName === 'PREINSCRITO' ? 'Pendiente' : 'Gestionar'}
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            {isLocked
+                                ? 'Bloqueado'
+                                : isFinished
+                                    ? 'Ver Archivo del Curso'
+                                    : course.statusName === 'PREINSCRITO'
+                                        ? 'Pendiente'
+                                        : isModule
+                                            ? 'Acceder al Aula'
+                                            : 'Gestionar'
+                            }
                         </span>
                     </div>
                     {isClient && course.statusName === 'CONFIRMADO' && (
