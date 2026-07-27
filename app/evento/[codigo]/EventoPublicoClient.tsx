@@ -950,8 +950,13 @@ export default function EventoPublicoPage() {
                 setTimeOffset(sTime - lTime);
                 console.log(`[Senior Debug] Clock Sync: Offset de ${sTime - lTime}ms con el servidor.`);
             }
-            // Pre-seleccionar el departamento del evento si existe
-            if (evt.tenantId) setForm(fp => ({ ...fp, departamentoId: evt.tenantId }));
+            // Pre-seleccionar el departamento del evento si existe o viene por URL (tenant/depto)
+            const deptoParam = (params?.depto as string)?.toUpperCase();
+            const matchingDep = (evt.tenantId ? deps.find((d: any) => d.id === evt.tenantId) : null)
+                || (deptoParam ? deps.find((d: any) => d.abreviacion?.toUpperCase() === deptoParam) : null);
+            if (matchingDep) {
+                setForm(fp => ({ ...fp, departamentoId: matchingDep.id }));
+            }
 
             // ─── RECUPERAR SESIÓN GUARDADA ───
             const saved = localStorage.getItem(`cuestionario_session_${evt.id}`);
@@ -3670,23 +3675,43 @@ export default function EventoPublicoPage() {
                                             className="w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 border-transparent focus:border-primary outline-none font-bold text-foreground transition-all" />
                                     </div>
 
-                                    {!isEditingProfile && (
-                                        <div className="md:col-span-2 space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento origen (Inscripción) <span className="text-red-500">*</span></label>
-                                            <select value={form.departamentoId}
-                                                onChange={e => {
-                                                    setForm(p => ({ ...p, departamentoId: e.target.value }));
-                                                    if (errores.departamentoId) setErrores(prev => ({ ...prev, departamentoId: false }));
-                                                }}
-                                                className={cn(
-                                                    "w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 outline-none font-bold text-foreground transition-all",
-                                                    errores.departamentoId ? "border-red-500 bg-red-500/5" : "border-transparent focus:border-primary"
-                                                )}>
-                                                <option value="">Seleccionar departamento...</option>
-                                                {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
+                                    {!isEditingProfile && (() => {
+                                        const deptoParam = (params?.depto as string)?.toUpperCase();
+                                        const forcedDep = (evento?.tenantId ? departamentos.find((d: any) => d.id === evento.tenantId) : null)
+                                            || (deptoParam ? departamentos.find((d: any) => d.abreviacion?.toUpperCase() === deptoParam) : null)
+                                            || (form.departamentoId ? departamentos.find((d: any) => d.id === form.departamentoId && (evento?.tenantId || deptoParam)) : null);
+
+                                        if (forcedDep) {
+                                            return (
+                                                <div className="md:col-span-2 space-y-2">
+                                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento (Inscripción Evento)</label>
+                                                    <div className="w-full h-14 px-6 rounded-2xl bg-primary/10 border-2 border-primary/20 flex items-center font-black text-primary text-base">
+                                                        {forcedDep.nombre}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="md:col-span-2 space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Departamento origen (Inscripción) <span className="text-red-500">*</span></label>
+                                                <select value={form.departamentoId}
+                                                    onChange={e => {
+                                                        setForm(p => ({ ...p, departamentoId: e.target.value }));
+                                                        if (errores.departamentoId) setErrores(prev => ({ ...prev, departamentoId: false }));
+                                                    }}
+                                                    className={cn(
+                                                        "w-full h-14 px-6 rounded-2xl bg-muted/30 border-2 outline-none font-bold text-foreground transition-all",
+                                                        errores.departamentoId ? "border-red-500 bg-red-500/5" : "border-transparent focus:border-primary"
+                                                    )}>
+                                                    <option value="">Seleccionar departamento...</option>
+                                                    {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
+
+
 
                                     {/* CAMPOS EXTRAS */}
                                     {!isEditingProfile && evento.camposExtras?.map((campo: any) => (
