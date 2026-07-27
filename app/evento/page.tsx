@@ -29,6 +29,12 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
         return c.estado === 'activo' && new Date(c.fechaInicio) <= now && new Date(c.fechaFin) >= now;
     });
 
+    const deptoCode = evento.tenant?.abreviacion || evento.departamento?.abreviacion;
+    const isDeptEvent = evento.esNacional === false || (deptoCode && evento.esNacional !== true);
+    const eventHref = (isDeptEvent && deptoCode)
+        ? `/${deptoCode.toUpperCase()}/evento/${evento.codigo || evento.id}`
+        : `/evento/${evento.codigo || evento.id}`;
+
     return (
         <motion.article
             initial={{ opacity: 0, y: 30 }}
@@ -115,7 +121,7 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
                 {/* CTA */}
                 <div className="pt-2 border-t border-slate-100 dark:border-white/5">
                     <Link
-                        href={`/evento/${evento.codigo || evento.id}`}
+                        href={eventHref}
                         className="flex items-center justify-between w-full group/btn"
                     >
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">
@@ -134,6 +140,7 @@ function EventoCard({ evento, index }: { evento: any; index: number }) {
 function EventosContent() {
     const searchParams = useSearchParams();
     const tipoParam = searchParams.get('tipo');
+    const tenantParam = searchParams.get('tenant');
     const [eventos, setEventos] = useState<any[]>([]);
     const [tipos, setTipos] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -143,21 +150,24 @@ function EventosContent() {
 
     useEffect(() => {
         Promise.all([
-            publicService.getLandingPageData(),
+            publicService.getLandingPageData(tenantParam || undefined),
             publicService.getTiposEvento()
         ])
             .then(([resPage, resTipos]) => {
                 setEventos(resPage.eventos || []);
                 const tiposDb = resTipos.map((t: any) => t.nombre).filter(Boolean);
-                // Asegurarse de quitar duplicados por si acaso, usando mayúsculas o minúsculas no importa,
-                // Pero guardaremos los nombres en el formato original de la DB
                 setTipos(Array.from(new Set(tiposDb)));
             })
             .catch(() => { })
             .finally(() => setIsLoading(false));
-    }, []);
+    }, [tenantParam]);
 
     const filtered = eventos.filter(e => {
+        // Filtrar eventos departamentales privados de la lista pública si no coincide con el tenant activo
+        const isNational = e.esNacional ?? (e.tenantId == null);
+        if (!isNational && (!tenantParam || e.tenant?.abreviacion?.toUpperCase() !== tenantParam.toUpperCase())) {
+            return false;
+        }
         const matchSearch = !search ||
             (e.nombre?.toLowerCase() || '').includes(search.toLowerCase()) ||
             (e.descripcion?.toLowerCase() || '').includes(search.toLowerCase()) ||
