@@ -80,6 +80,7 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Correspondencia Documentos', value: 'CorDocumento' },
     { label: 'Correspondencia Participantes', value: 'CorParticipante' },
     { label: 'Correspondencia Seguimientos', value: 'CorSeguimiento' },
+    { label: 'Exportar Hojas de Ruta (Excel)', value: 'CorExport' },
 
     // Configuración Técnica
     { label: 'Configuración de Archivos', value: 'UploadConfig' },

@@ -17,6 +17,7 @@ import {
     avanzarEstado,
     buscarUsuarios,
     obtenerHistorialTenants,
+    exportarHojasRuta,
     ESTADO_LABELS,
     type CorDocumento,
     type CorUsuario,
@@ -200,94 +201,64 @@ export default function BandejaPage() {
         });
     }, [historialData, historialSearch, historialAccionFilter]);
 
-    // Función para exportar las Hojas de Ruta a Excel (.xlsx)
-    const handleExportExcel = useCallback(() => {
+    // Exportar TODAS las Hojas de Ruta del tenant del usuario (filtra en backend por tenantId JWT)
+    const handleExportExcel = useCallback(async () => {
         try {
-            let dataToExport: any[] = [];
-            let fileName = '';
+            toast.loading('Generando Excel...');
+            const docs = await exportarHojasRuta();
+            toast.dismiss();
 
-            if (tab === 'historial') {
-                const itemsToExport = historialFiltrado || [];
-                fileName = `Hojas_de_Ruta_Auditoria_${new Date().toISOString().slice(0, 10)}.xlsx`;
-
-                dataToExport = itemsToExport.map((item: CorHistorialItem) => {
-                    const doc = item.documento as any;
-                    const rem = doc?.participantes?.find((p: any) => p.rol === 'REMITENTE')?.usuario;
-                    const remNombre = item.usuario
-                        ? `${item.usuario.nombre} ${item.usuario.apellidos || ''}`
-                        : rem ? `${rem.nombre} ${rem.apellidos || ''}` : 'N/A';
-
-                    const destNombre = item.destinatario
-                        ? `${item.destinatario.nombre} ${item.destinatario.apellidos || ''}`
-                        : (item.detalle || 'N/A');
-
-                    return {
-                        'FECHA Y HORA': item.fecha ? new Date(item.fecha).toLocaleString('es-BO') : 'N/A',
-                        'V.E.R / ACCIÓN': item.accion || 'MOVIMIENTO',
-                        'N° HOJAS / FOJAS': doc?.numeroHojas || doc?.fojas || 1,
-                        'HOJA DE RUTA / CITE': doc?.cite || doc?.hr || 'N/A',
-                        'PROCEDENCIA / REMITENTE': remNombre,
-                        'REFERENCIA / ASUNTO': doc?.referencia || item.detalle || 'Sin Referencia',
-                        'DERIVADO A / DESTINATARIO': destNombre,
-                        'ESTADO TRÁMITE': doc?.estado || 'EN_TRAMITE',
-                        'DEPARTAMENTO / SEDE': item.usuario?.tenantId || doc?.tenantId || 'Sede Nacional',
-                    };
-                });
-            } else {
-                fileName = `Hojas_de_Ruta_${tab.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-
-                dataToExport = filtered.map((doc: any) => {
-                    const remitente = doc.participantes?.find((p: any) => p.rol === 'REMITENTE')?.usuario;
-                    const remNombre = remitente
-                        ? `${remitente.nombre} ${remitente.apellidos || ''}`.trim()
-                        : 'N/A';
-
-                    const ultimoMov = doc.seguimientos?.[0];
-                    const destNombre = ultimoMov?.destinatario
-                        ? `${ultimoMov.destinatario.nombre} ${ultimoMov.destinatario.apellidos || ''}`.trim()
-                        : doc.participantes
-                            ?.filter((p: any) => p.rol === 'DESTINATARIO' || p.rol === 'VIA')
-                            ?.map((p: any) => p.usuario ? `${p.usuario.nombre} ${p.usuario.apellidos || ''}` : '')
-                            .filter(Boolean)
-                            .join(', ') || 'N/A';
-
-                    return {
-                        'FECHA REGISTRO': new Date(doc.createdAt).toLocaleString('es-BO'),
-                        'ÚLTIMO MOVIMIENTO': ultimoMov ? new Date(ultimoMov.fecha).toLocaleString('es-BO') : new Date(doc.createdAt).toLocaleString('es-BO'),
-                        'V.E.R / TIPO': doc.tipo || 'HOJA DE RUTA',
-                        'N° HOJAS / FOJAS': doc.numeroHojas || doc.fojas || 1,
-                        'HOJA DE RUTA / CITE': doc.cite || doc.hr || 'N/A',
-                        'PROCEDENCIA / REMITENTE': remNombre,
-                        'REFERENCIA / ASUNTO': doc.referencia || 'Sin Asunto',
-                        'DERIVADO A / DESTINATARIO': destNombre,
-                        'ESTADO ACTUAL': ESTADO_LABELS[doc.estado as keyof typeof ESTADO_LABELS] || doc.estado,
-                        'DEPARTAMENTO / SEDE': doc.tenantInfo?.nombre || doc.tenantInfo?.abreviacion || 'NAC',
-                    };
-                });
-            }
-
-            if (dataToExport.length === 0) {
-                toast.warning('No hay Hojas de Ruta en el listado actual para exportar.');
+            if (!docs || docs.length === 0) {
+                toast.warning('No hay Hojas de Ruta para exportar en su sede.');
                 return;
             }
 
-            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const dataToExport = docs.map((doc: any) => {
+                const remitente = doc.participantes?.find((p: any) => p.rol === 'REMITENTE')?.usuario;
+                const remNombre = remitente
+                    ? `${remitente.nombre} ${remitente.apellidos || ''}`.trim()
+                    : 'N/A';
 
-            // Ajustar automáticamente el ancho de las columnas
-            const colWidths = Object.keys(dataToExport[0]).map((key) => ({
-                wch: Math.max(key.length + 4, 16),
-            }));
+                const ultimoMov = doc.seguimientos?.[0];
+                const destNombre = ultimoMov?.destinatario
+                    ? `${ultimoMov.destinatario.nombre} ${ultimoMov.destinatario.apellidos || ''}`.trim()
+                    : doc.participantes
+                        ?.filter((p: any) => p.rol === 'DESTINATARIO' || p.rol === 'VIA')
+                        ?.map((p: any) => p.usuario ? `${p.usuario.nombre} ${p.usuario.apellidos || ''}` : '')
+                        .filter(Boolean)
+                        .join(', ') || 'N/A';
+
+                return {
+                    'FECHA REGISTRO': new Date(doc.createdAt).toLocaleString('es-BO'),
+                    'ÚLTIMO MOVIMIENTO': ultimoMov
+                        ? new Date(ultimoMov.fecha).toLocaleString('es-BO')
+                        : new Date(doc.createdAt).toLocaleString('es-BO'),
+                    'V.E.R / TIPO': doc.tipo || 'HOJA DE RUTA',
+                    'N° HOJAS / FOJAS': doc.numeroHojas || doc.fojas || 1,
+                    'HOJA DE RUTA / CITE': doc.cite || doc.hr || 'N/A',
+                    'PROCEDENCIA / REMITENTE': remNombre,
+                    'REFERENCIA / ASUNTO': doc.referencia || 'Sin Asunto',
+                    'DERIVADO A / DESTINATARIO': destNombre,
+                    'ESTADO ACTUAL': ESTADO_LABELS[doc.estado as keyof typeof ESTADO_LABELS]?.label || doc.estado,
+                    'DEPARTAMENTO / SEDE': doc.tenantInfo?.nombre || doc.tenantInfo?.abreviacion || doc.tenantId || 'NAC',
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const colWidths = Object.keys(dataToExport[0]).map((key) => ({ wch: Math.max(key.length + 4, 18) }));
             worksheet['!cols'] = colWidths;
 
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Hojas_de_Ruta');
 
+            const fileName = `Hojas_de_Ruta_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(workbook, fileName);
-            toast.success(`Excel descargado exitosamente con ${dataToExport.length} Hojas de Ruta.`);
+            toast.success(`Excel descargado: ${docs.length} Hojas de Ruta.`);
         } catch (e: any) {
-            toast.error('Error al generar el archivo Excel: ' + (e?.message || 'Error desconocido'));
+            toast.dismiss();
+            toast.error('Error al generar el Excel: ' + (e?.message || 'Error desconocido'));
         }
-    }, [tab, filtered, historialFiltrado]);
+    }, []);
 
     const handleAvanzar = async (doc: CorDocumento, accion: string) => {
         if (accion === 'DERIVACION' && !nuevoDest) {
@@ -642,11 +613,13 @@ export default function BandejaPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                {can('export', 'CorExport') && (
                     <button onClick={handleExportExcel}
-                        title="Descargar Hojas de Ruta en Excel"
+                        title="Descargar todas las Hojas de Ruta de su sede en Excel"
                         className="px-5 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer">
                         <Download className="w-4 h-4" /> Exportar Excel
                     </button>
+                )}
 
                     <button onClick={tab === 'historial' ? fetchHistorial : fetchBandeja} disabled={loading || loadingHistorial}
                         className="w-12 h-12 rounded-2xl border border-border/60 hover:bg-accent flex items-center justify-center transition-all bg-card shadow-sm">

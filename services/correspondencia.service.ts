@@ -192,6 +192,15 @@ export async function subirPdf(id: string, url: string): Promise<void> {
     await api.post(`/correspondencia/${id}/pdf`, { url });
 }
 
+/**
+ * Exportar TODAS las Hojas de Ruta del tenant del usuario autenticado.
+ * El backend filtra por req.user.tenantId; admin global recibe todo.
+ */
+export async function exportarHojasRuta(): Promise<CorDocumento[]> {
+    const { data } = await api.get<CorDocumento[]>('/correspondencia/export-by-tenant');
+    return data;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 export const PREFIJOS: Record<CorTipoDocumento, string> = {
