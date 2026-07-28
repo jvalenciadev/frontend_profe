@@ -52,7 +52,7 @@ export const AVAILABLE_SUBJECTS = [
 
     // Eventos
     { label: 'Eventos', value: 'Evento' },
-    { label: 'Tipo de Evento', value: 'TipoEvento' },
+    { label: 'Tipo de Evento', value: 'EventoTipo' },
     { label: 'Inscripciones de Eventos', value: 'EventoInscripcion' },
     { label: 'Personas de Eventos', value: 'EventoPersona' },
     { label: 'Cuestionarios de Eventos', value: 'EventoCuestionario' },
