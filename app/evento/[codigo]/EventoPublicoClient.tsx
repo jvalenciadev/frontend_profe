@@ -1433,6 +1433,27 @@ export default function EventoPublicoPage() {
             return;
         }
 
+        if (evento.fecha) {
+            const eveObj = new Date(evento.fecha);
+            const eveStr = `${eveObj.getUTCFullYear()}-${String(eveObj.getUTCMonth() + 1).padStart(2, '0')}-${String(eveObj.getUTCDate()).padStart(2, '0')}`;
+            const ahora = new Date();
+            let hoyStr: string;
+            try {
+                hoyStr = ahora.toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
+            } catch {
+                hoyStr = ahora.toISOString().slice(0, 10);
+            }
+
+            if (hoyStr !== eveStr) {
+                if (hoyStr > eveStr) {
+                    toast.error(`El plazo para registrar la asistencia ha finalizado (Fecha del taller: ${eveStr}).`);
+                } else {
+                    toast.error(`El registro de asistencia solo estará habilitado el día del taller (${eveStr}).`);
+                }
+                return;
+            }
+        }
+
         if (!form.ci || !form.fechaNacimiento || !form.codigoAsistencia) {
             toast.error('Por favor completa los datos de identificación y el código de asistencia.');
             return;

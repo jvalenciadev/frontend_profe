@@ -307,20 +307,20 @@ export default function EventoOperativoPage() {
     const [codigoAsistencia, setCodigoAsistencia] = useState('');
     const toggleCodigoAsistencia = async () => {
         try {
-            if (evento?.codigoAsistencia) {
-                // Desactivar
-                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: null });
-                toast.success('Código de asistencia desactivado');
+            if (evento?.codigoAsistencia || evento?.asistencia) {
+                // Desactivar: borra código y apaga el campo eve_asistencia (asistencia = false)
+                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: null, asistencia: false });
+                toast.success('Código y campo eve_asistencia desactivados correctamente (asistencia = false)');
                 setCodigoAsistencia('');
             } else {
-                // Activar (usar custom o generar)
+                // Activar: genera o asigna el código y activa eve_asistencia a true
                 const nuevoCode = codigoAsistencia || Math.random().toString(36).substring(2, 8).toUpperCase();
-                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: nuevoCode });
-                toast.success(`Código activado: ${nuevoCode}`);
+                await api.patch(`/eventos/${eventoId}`, { codigoAsistencia: nuevoCode, asistencia: true });
+                toast.success(`Código y campo eve_asistencia activados correctamente (asistencia = true): ${nuevoCode}`);
                 setCodigoAsistencia(''); // Limpiar input
             }
             loadData();
-        } catch { toast.error('Error actualizando código'); }
+        } catch { toast.error('Error actualizando estado de asistencia'); }
     };
 
     const totalPages = Math.ceil(insTotal / INS_LIMIT);
@@ -502,7 +502,12 @@ export default function EventoOperativoPage() {
             {/* Código asistencia */}
             <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
                 <div className="flex-1">
-                    <p className="text-xs font-black uppercase text-muted-foreground">Código de Asistencia (para transmisión)</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-xs font-black uppercase text-muted-foreground">Código de Asistencia (para transmisión)</p>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${evento?.asistencia ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
+                            {evento?.asistencia ? 'eve_asistencia: ACTIVO (true)' : 'eve_asistencia: INACTIVO (false)'}
+                        </span>
+                    </div>
                     <p className="font-black text-2xl tracking-widest text-foreground font-mono mt-1">
                         {evento?.codigoAsistencia || '— No activo'}
                     </p>
@@ -524,8 +529,8 @@ export default function EventoOperativoPage() {
                         onChange={e => setCodigoAsistencia(e.target.value.toUpperCase())}
                         className="h-10 px-4 w-36 rounded-xl bg-muted border-transparent focus:border-primary border-2 outline-none text-sm font-mono tracking-widest text-foreground" />
                     <button onClick={toggleCodigoAsistencia}
-                        className={`h-10 px-4 rounded-xl font-black text-xs uppercase transition-all ${evento?.codigoAsistencia ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary text-white hover:opacity-90'}`}>
-                        {evento?.codigoAsistencia ? 'Desactivar' : 'Activar'}
+                        className={`h-10 px-4 rounded-xl font-black text-xs uppercase transition-all ${evento?.codigoAsistencia || evento?.asistencia ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary text-white hover:opacity-90'}`}>
+                        {evento?.codigoAsistencia || evento?.asistencia ? 'Desactivar' : 'Activar'}
                     </button>
                 </div>
             </div>
@@ -1005,14 +1010,13 @@ export default function EventoOperativoPage() {
                             <div className="flex items-center justify-between border-b border-border/50 pb-4">
                                 <h3 className="font-black text-foreground text-xl uppercase tracking-tight group-hover:text-primary transition-colors">{c.titulo}</h3>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                        c.estado === 'activo' ? 'bg-green-500/10 text-green-500' : 
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${c.estado === 'activo' ? 'bg-green-500/10 text-green-500' :
                                         c.estado === 'prologa' ? 'bg-blue-500/10 text-blue-500' :
-                                        'bg-red-500/10 text-red-500'
-                                    }`}>
-                                        {c.estado === 'activo' ? 'Publicado' : 
-                                         c.estado === 'prologa' ? 'Próximamente' :
-                                         'Borrador'}
+                                            'bg-red-500/10 text-red-500'
+                                        }`}>
+                                        {c.estado === 'activo' ? 'Publicado' :
+                                            c.estado === 'prologa' ? 'Próximamente' :
+                                                'Borrador'}
                                     </span>
                                 </div>
                             </div>
