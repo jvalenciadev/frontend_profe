@@ -234,8 +234,8 @@ export default function BandejaPage() {
                         ? new Date(ultimoMov.fecha).toLocaleString('es-BO')
                         : new Date(doc.createdAt).toLocaleString('es-BO'),
                     'V.E.R / TIPO': doc.tipo || 'HOJA DE RUTA',
-                    'N° HOJAS / FOJAS': doc.numeroHojas || doc.fojas || 1,
-                    'HOJA DE RUTA / CITE': doc.cite || doc.hr || 'N/A',
+                    'H.R.': doc.hr || 'N/A',
+                    'CITE': doc.cite || 'N/A',
                     'PROCEDENCIA / REMITENTE': remNombre,
                     'REFERENCIA / ASUNTO': doc.referencia || 'Sin Asunto',
                     'DERIVADO A / DESTINATARIO': destNombre,
