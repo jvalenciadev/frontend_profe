@@ -23,6 +23,7 @@ export interface CorParticipante {
 }
 
 export interface CorSeguimiento {
+    createdAt: string;
     id: string;
     fecha: string;
     accion: string;
@@ -30,6 +31,7 @@ export interface CorSeguimiento {
     usuario: CorUsuario;
     destinatario: CorUsuario | null; // A quién se envió/derivó
     archivoUrl: string | null;
+    estadoPlazo?: 'EN_PLAZO' | 'FUERA_DE_PLAZO' | 'PENDIENTE' | null;
 }
 
 export interface CorTenantInfo {
@@ -57,6 +59,26 @@ export interface CorDocumento {
     diasMora?: number;
     alerta?: boolean;
     nivelAlerta?: 'NORMAL' | 'MORA' | 'CRITICO';
+    plazoDias?: number | null;
+    fechaLimite?: string | null;
+    documentosHijos?: Array<{
+        id: string;
+        cite: string;
+        tipo?: string;
+        referencia?: string;
+        createdAt?: string;
+        plazoDias?: number | null;
+        fechaLimite?: string | null;
+        participantes?: CorParticipante[];
+        seguimientos?: CorSeguimiento[];
+    }> | null;
+    documentoPadre?: {
+        id: string;
+        cite: string;
+        hr: string | null;
+        fechaLimite?: string | null;
+        plazoDias?: number | null;
+    } | null;
 }
 
 export interface CorHistorialItem {
@@ -65,6 +87,7 @@ export interface CorHistorialItem {
     accion: string;
     detalle: string | null;
     archivoUrl: string | null;
+    estadoPlazo?: 'EN_PLAZO' | 'FUERA_DE_PLAZO' | 'PENDIENTE' | null;
     documento: {
         id: string;
         cite: string;
@@ -74,6 +97,9 @@ export interface CorHistorialItem {
         estado: string;
         tenantId: string | null;
         createdAt: string;
+        plazoDias?: number | null;
+        fechaLimite?: string | null;
+        documentoPadreId?: string | null;
         creador?: {
             id: string;
             nombre: string;
@@ -118,6 +144,8 @@ export interface CreateCorrespondenciaPayload {
     hr?: string;
     referencia: string;
     contenido?: string;
+    plazoDias?: number;
+    documentoPadreId?: string;
     destinatarios: { userId: string; cargoLiteral?: string }[];
     vias?: { userId: string; cargoLiteral?: string }[];
     remitentes: { userId: string; cargoLiteral?: string }[];
@@ -215,7 +243,7 @@ export const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
     ENVIADO: { label: 'Enviado', color: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
     RECIBIDO: { label: 'Recibido', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
     EN_TRAMITE: { label: 'En Trámite', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-    ARCHIVADO: { label: 'Archivado', color: 'bg-muted text-muted-foreground border-border' },
+    ARCHIVADO: { label: 'Concluido / Archivado', color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 font-black' },
     CANCELADO: { label: 'Cancelado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
     DEVUELTO: { label: 'Devuelto', color: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
 };

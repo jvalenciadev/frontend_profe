@@ -17,6 +17,7 @@ import {
     type CorDocumento,
     type CorParticipante,
 } from '@/services/correspondencia.service';
+import { ComplianceMatrixWidget } from '@/components/correspondencia/ComplianceMatrixWidget';
 
 const ACCION_ICONS: Record<string, React.ElementType> = {
     CREACION: PenLine,
@@ -159,148 +160,151 @@ export default function SeguimientoPage() {
             <AnimatePresence mode="wait">
                 {result && (
                     <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                        className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Info Card */}
-                        <div className="lg:col-span-1 space-y-6">
-                            <div className="bg-card border border-border/50 rounded-[2rem] p-8 shadow-xl">
-                                <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                    <FileText className="w-4 h-4" /> Detalle del Documento
-                                </h3>
-                                <div className="space-y-5">
-                                    <div>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">CITE</p>
-                                        <p className="text-xl font-black tracking-tight">{result.cite}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Referencia</p>
-                                        <p className="text-sm font-bold italic leading-relaxed">"{result.referencia}"</p>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                        className="space-y-8">
+                        <ComplianceMatrixWidget doc={result} />
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            {/* Info Card */}
+                            <div className="lg:col-span-1 space-y-6">
+                                <div className="bg-card border border-border/50 rounded-[2rem] p-8 shadow-xl">
+                                    <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                                        <FileText className="w-4 h-4" /> Detalle del Documento
+                                    </h3>
+                                    <div className="space-y-5">
                                         <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Tipo</p>
-                                            <span className="text-xs font-black uppercase">{result.tipo.replace('_', ' ')}</span>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">CITE</p>
+                                            <p className="text-xl font-black tracking-tight">{result.cite}</p>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Estado</p>
-                                            <span className={cn(
-                                                'inline-flex px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border',
-                                                ESTADO_LABELS[result.estado]?.color ?? 'bg-muted text-muted-foreground border-border'
-                                            )}>
-                                                {ESTADO_LABELS[result.estado]?.label ?? result.estado}
-                                            </span>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Referencia</p>
+                                            <p className="text-sm font-bold italic leading-relaxed">"{result.referencia}"</p>
                                         </div>
-                                    </div>
-                                    {/* Participantes */}
-                                    <div className="pt-4 border-t border-border/50 space-y-3">
-                                        {[{ label: 'Dirigido a', list: destinatarios }, { label: 'Vía', list: vias }, { label: 'De', list: remitentes }]
-                                            .filter(g => g.list.length > 0)
-                                            .map(group => (
-                                                <div key={group.label}>
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{group.label}</p>
-                                                    {group.list.map((p: CorParticipante) => (
-                                                        <div key={p.id} className="flex items-center gap-2">
-                                                            <User className="w-3 h-3 text-primary/50" />
-                                                            <span className="text-xs font-bold">{p.usuario.nombre} {p.usuario.apellidos}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
+                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Tipo</p>
+                                                <span className="text-xs font-black uppercase">{result.tipo.replace('_', ' ')}</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Estado</p>
+                                                <span className={cn(
+                                                    'inline-flex px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border',
+                                                    ESTADO_LABELS[result.estado]?.color ?? 'bg-muted text-muted-foreground border-border'
+                                                )}>
+                                                    {ESTADO_LABELS[result.estado]?.label ?? result.estado}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {/* Participantes */}
+                                        <div className="pt-4 border-t border-border/50 space-y-3">
+                                            {[{ label: 'Dirigido a', list: destinatarios }, { label: 'Vía', list: vias }, { label: 'De', list: remitentes }]
+                                                .filter(g => g.list.length > 0)
+                                                .map(group => (
+                                                    <div key={group.label}>
+                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{group.label}</p>
+                                                        {group.list.map((p: CorParticipante) => (
+                                                            <div key={p.id} className="flex items-center gap-2">
+                                                                <User className="w-3 h-3 text-primary/50" />
+                                                                <span className="text-xs font-bold">{p.usuario.nombre} {p.usuario.apellidos}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Timeline */}
-                        <div className="lg:col-span-2">
-                            <div className="bg-card border border-border/50 rounded-[2rem] p-8 shadow-xl">
-                                <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-10 flex items-center gap-2">
-                                    <Clock className="w-4 h-4" /> Historial de Seguimiento
-                                </h3>
-                                <div className="relative pl-10 space-y-10">
-                                    <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-primary via-primary/40 to-border/20 ml-[15px]" />
-                                    {result.seguimientos.map((seg, idx) => (
-                                        <motion.div key={seg.id}
-                                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.08 * idx }} className="relative">
-                                            <div className="absolute -left-[43px] w-8 h-8 rounded-full border-4 border-card bg-primary text-white flex items-center justify-center z-10 shadow-lg shadow-primary/30">
-                                                {React.createElement(ACCION_ICONS[seg.accion] ?? FolderOpen, { className: 'w-3.5 h-3.5' })}
-                                            </div>
-                                            <div className="p-6 rounded-2xl border border-border hover:border-primary/20 hover:shadow-lg bg-card transition-all group">
-                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
-                                                    <div>
-                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-primary/10 text-primary mb-2 inline-block">
-                                                            {seg.accion}
-                                                        </span>
-                                                        <h4 className="text-base font-black">{seg.usuario.nombre} {seg.usuario.apellidos}</h4>
-                                                        {seg.usuario.cargoStr && (
-                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{seg.usuario.cargoStr}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] font-bold bg-muted/50 px-3 py-1 rounded-full shrink-0">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {new Date(seg.fecha).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
+                            {/* Timeline */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-card border border-border/50 rounded-[2rem] p-8 shadow-xl">
+                                    <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-10 flex items-center gap-2">
+                                        <Clock className="w-4 h-4" /> Historial de Seguimiento
+                                    </h3>
+                                    <div className="relative pl-10 space-y-10">
+                                        <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-primary via-primary/40 to-border/20 ml-[15px]" />
+                                        {result.seguimientos.map((seg, idx) => (
+                                            <motion.div key={seg.id}
+                                                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: 0.08 * idx }} className="relative">
+                                                <div className="absolute -left-[43px] w-8 h-8 rounded-full border-4 border-card bg-primary text-white flex items-center justify-center z-10 shadow-lg shadow-primary/30">
+                                                    {React.createElement(ACCION_ICONS[seg.accion] ?? FolderOpen, { className: 'w-3.5 h-3.5' })}
                                                 </div>
-
-                                                {/* Destinatario del movimiento */}
-                                                {seg.accion === 'ENVIO' && vias.length > 0 ? (
-                                                    <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                                                        <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-1" />
+                                                <div className="p-6 rounded-2xl border border-border hover:border-primary/20 hover:shadow-lg bg-card transition-all group">
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
                                                         <div>
-                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                                                                {vias.length > 1 ? 'Vías a:' : 'Vía a:'}
+                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-primary/10 text-primary mb-2 inline-block">
+                                                                {seg.accion}
                                                             </span>
-                                                            <div className="space-y-1.5 mt-1">
-                                                                {vias.map(v => (
-                                                                    <p key={v.id} className="text-[11px] font-bold text-foreground leading-tight">
-                                                                        {v.usuario.nombre} {v.usuario.apellidos}
-                                                                        {v.usuario.cargoStr && (
+                                                            <h4 className="text-base font-black">{seg.usuario.nombre} {seg.usuario.apellidos}</h4>
+                                                            {seg.usuario.cargoStr && (
+                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{seg.usuario.cargoStr}</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] font-bold bg-muted/50 px-3 py-1 rounded-full shrink-0">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {new Date(seg.fecha).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Destinatario del movimiento */}
+                                                    {seg.accion === 'ENVIO' && vias.length > 0 ? (
+                                                        <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-1" />
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                                    {vias.length > 1 ? 'Vías a:' : 'Vía a:'}
+                                                                </span>
+                                                                <div className="space-y-1.5 mt-1">
+                                                                    {vias.map(v => (
+                                                                        <p key={v.id} className="text-[11px] font-bold text-foreground leading-tight">
+                                                                            {v.usuario.nombre} {v.usuario.apellidos}
+                                                                            {v.usuario.cargoStr && (
+                                                                                <span className="text-[9px] text-muted-foreground font-black uppercase ml-1.5 opacity-70">
+                                                                                    &mdash; {v.usuario.cargoStr}
+                                                                                </span>
+                                                                            )}
+                                                                        </p>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        seg.destinatario && (seg.accion === 'ENVIO' || seg.accion === 'DERIVACION') && (
+                                                            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                                                <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                                <div>
+                                                                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                                                        {result?.participantes.find(p => p.userId === seg.destinatario?.id)?.rol === 'VIA' ? 'Vía a:' : 'Dirigido a:'}
+                                                                    </span>
+                                                                    <p className="text-[11px] font-bold text-foreground">
+                                                                        {seg.destinatario.nombre} {seg.destinatario.apellidos}
+                                                                        {seg.destinatario.cargoStr && (
                                                                             <span className="text-[9px] text-muted-foreground font-black uppercase ml-1.5 opacity-70">
-                                                                                &mdash; {v.usuario.cargoStr}
+                                                                                &mdash; {seg.destinatario.cargoStr}
                                                                             </span>
                                                                         )}
                                                                     </p>
-                                                                ))}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    seg.destinatario && (seg.accion === 'ENVIO' || seg.accion === 'DERIVACION') && (
-                                                        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                                            <div>
-                                                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                                                                    {result?.participantes.find(p => p.userId === seg.destinatario?.id)?.rol === 'VIA' ? 'Vía a:' : 'Dirigido a:'}
-                                                                </span>
-                                                                <p className="text-[11px] font-bold text-foreground">
-                                                                    {seg.destinatario.nombre} {seg.destinatario.apellidos}
-                                                                    {seg.destinatario.cargoStr && (
-                                                                        <span className="text-[9px] text-muted-foreground font-black uppercase ml-1.5 opacity-70">
-                                                                            &mdash; {seg.destinatario.cargoStr}
-                                                                        </span>
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                )}
+                                                        )
+                                                    )}
 
-                                                {seg.detalle && (
-                                                    <p className="text-sm text-muted-foreground leading-relaxed font-medium group-hover:text-foreground transition-colors">
-                                                        {seg.detalle}
-                                                    </p>
-                                                )}
-                                                {seg.archivoUrl && (
-                                                    <div className="mt-4 pt-4 border-t border-border/50">
-                                                        <a href={seg.archivoUrl} target="_blank" rel="noreferrer"
-                                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm">
-                                                            <Download className="w-3.5 h-3.5" /> Ver Adjunto de esta etapa
-                                                        </a>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                                                    {seg.detalle && (
+                                                        <p className="text-sm text-muted-foreground leading-relaxed font-medium group-hover:text-foreground transition-colors">
+                                                            {seg.detalle}
+                                                        </p>
+                                                    )}
+                                                    {seg.archivoUrl && (
+                                                        <div className="mt-4 pt-4 border-t border-border/50">
+                                                            <a href={seg.archivoUrl} target="_blank" rel="noreferrer"
+                                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm">
+                                                                <Download className="w-3.5 h-3.5" /> Ver Adjunto de esta etapa
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>

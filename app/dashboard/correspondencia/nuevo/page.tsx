@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAbility } from '@/hooks/useAbility';
 import {
     Send, FileText, Users, CornerRightDown,
@@ -38,15 +38,29 @@ interface ParticipanteConCargo extends CorUsuario {
     cargoLiteral?: string;
 }
 
-export default function NuevaNotaPage() {
+export default function NuevaNotaPageWrapper() {
+    return (
+        <Suspense fallback={<div className="p-8 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-primary" /> Cargando redactor...</div>}>
+            <NuevaNotaPage />
+        </Suspense>
+    );
+}
+
+function NuevaNotaPage() {
     const { user } = useAuth();
     const { can } = useAbility();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const padreIdParam = searchParams.get('padreId');
+    const hrPadreParam = searchParams.get('hrPadre');
+
     const changePdfRef = useRef<HTMLInputElement>(null);
     const [tipo, setTipo] = useState<CorTipoDocumento>('INFORME');
     const [hr, setHr] = useState('');
     const [referencia, setReferencia] = useState('');
     const [contenido, setContenido] = useState('');
+    const [documentoPadreId, setDocumentoPadreId] = useState<string | undefined>(padreIdParam || undefined);
+    const [plazoDias, setPlazoDias] = useState<number>(7);
     const [destinatarios, setDestinatarios] = useState<ParticipanteConCargo[]>([]);
     const [vias, setVias] = useState<ParticipanteConCargo[]>([]);
     const [remitentes, setRemitentes] = useState<ParticipanteConCargo[]>([]);
@@ -59,6 +73,16 @@ export default function NuevaNotaPage() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [discarding, setDiscarding] = useState(false);
     const [showDiscardModal, setShowDiscardModal] = useState(false);
+
+    useEffect(() => {
+        if (hrPadreParam) {
+            setHr(hrPadreParam);
+            setReferencia(`RESPUESTA A H. NRO. ${hrPadreParam}`);
+        }
+        if (padreIdParam) {
+            setDocumentoPadreId(padreIdParam);
+        }
+    }, [hrPadreParam, padreIdParam]);
 
     useEffect(() => {
         if (user && remitentes.length === 0) {
@@ -114,7 +138,12 @@ export default function NuevaNotaPage() {
         setLoading(true);
         try {
             const doc = await crearCorrespondencia({
-                tipo, hr: hr.trim() || undefined, referencia: referencia.trim(), contenido: contenido.trim() || undefined,
+                tipo,
+                hr: hr.trim() || undefined,
+                referencia: referencia.trim(),
+                contenido: contenido.trim() || undefined,
+                plazoDias: plazoDias > 0 ? plazoDias : undefined,
+                documentoPadreId: documentoPadreId || undefined,
                 destinatarios: destinatarios.map(u => ({ userId: u.id, cargoLiteral: u.cargoLiteral })),
                 vias: vias.map(u => ({ userId: u.id, cargoLiteral: u.cargoLiteral })),
                 remitentes: remitentes.map(u => ({ userId: u.id, cargoLiteral: u.cargoLiteral })),
@@ -584,7 +613,14 @@ export default function NuevaNotaPage() {
                     </div>
                 </div>
                 <div className="lg:col-span-4 space-y-8">
-                    <ConfigSidebar tipo={tipo} setTipo={setTipo} />
+                    <ConfigSidebar
+                        tipo={tipo}
+                        setTipo={setTipo}
+                        plazoDias={plazoDias}
+                        setPlazoDias={setPlazoDias}
+                        isRespondiendo={Boolean(documentoPadreId)}
+                        hrPadre={hrPadreParam}
+                    />
                     <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl space-y-10">
                         <UserSelector label="Dirigido a" icon={Users} selected={destinatarios} excludeId={user?.id} onAdd={(u: any) => setDestinatarios(p => [...p, u])} onRemove={(id: any) => setDestinatarios(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setDestinatarios)} />
                         <div className="h-px bg-border/20" /><UserSelector label="Vía" icon={CornerRightDown} selected={vias} excludeId={user?.id} onAdd={(u: any) => setVias(p => [...p, u])} onRemove={(id: any) => setVias(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setVias)} /><div className="h-px bg-border/20" /><UserSelector label="De" icon={Check} selected={remitentes} onAdd={(u: any) => setRemitentes(p => [...p, u])} onRemove={(id: any) => setRemitentes(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setRemitentes)} />
@@ -607,11 +643,48 @@ function UserSelectorBlock({ label, list }: { label: string, list: any[] }) {
     );
 }
 
-function ConfigSidebar({ tipo, setTipo }: any) {
+function ConfigSidebar({ tipo, setTipo, plazoDias, setPlazoDias, isRespondiendo, hrPadre }: any) {
     return (
-        <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl">
-            <div className="flex items-center gap-2 mb-6"><Layers className="w-4 h-4 text-primary" /><h3 className="text-xs font-black uppercase tracking-widest">Configuración</h3></div>
-            <div className="grid grid-cols-2 gap-3">{DOCUMENT_TYPES.map(t => (<button key={t.id} type="button" onClick={() => setTipo(t.id)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2", tipo === t.id ? "border-primary bg-primary/5" : "border-border/50 bg-background")}><t.icon className={cn("w-6 h-6", tipo === t.id ? "text-primary" : "text-muted-foreground")} /><span className="text-[8px] font-black uppercase">{t.id.replace('_', ' ')}</span></button>))}</div>
+        <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl space-y-6">
+            <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                <h3 className="text-xs font-black uppercase tracking-widest">Configuración</h3>
+            </div>
+
+            {isRespondiendo && (
+                <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-600 space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest">Respondiendo a H.R.</p>
+                    <p className="text-xs font-bold font-mono">H.R. {hrPadre}</p>
+                    <p className="text-[9px] opacity-80">Se emitirá un CITE propio en la misma H.R.</p>
+                </div>
+            )}
+
+            <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Tipo de Documento</p>
+                <div className="grid grid-cols-2 gap-3">
+                    {DOCUMENT_TYPES.map(t => (
+                        <button key={t.id} type="button" onClick={() => setTipo(t.id)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2", tipo === t.id ? "border-primary bg-primary/5" : "border-border/50 bg-background")}>
+                            <t.icon className={cn("w-6 h-6", tipo === t.id ? "text-primary" : "text-muted-foreground")} />
+                            <span className="text-[8px] font-black uppercase">{t.id.replace('_', ' ')}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border/40">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-primary" /> Plazo de Respuesta (Días)
+                </p>
+                <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={plazoDias ?? 7}
+                    onChange={(e) => setPlazoDias(parseInt(e.target.value, 10) || 7)}
+                    className="w-full h-11 px-4 rounded-xl bg-background border border-border/50 focus:border-primary outline-none font-bold text-xs"
+                />
+                <p className="text-[9px] text-muted-foreground">Define el plazo límite para el control de cumplimiento.</p>
+            </div>
         </div>
     );
 }
