@@ -9,7 +9,7 @@ import {
     Eye, Check, X, UserPlus, Type, AlignLeft, Search,
     CheckCircle2, AlertCircle, Loader2, Sparkles,
     ArrowRight, Info, Layers, Calendar, Hash,
-    Download, Upload, FileUp, Monitor, ShieldCheck
+    Download, Upload, FileUp, Monitor, ShieldCheck, Paperclip, Trash2
 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import {
@@ -68,6 +68,8 @@ function NuevaNotaPage() {
     const [success, setSuccess] = useState<CorDocumento | null>(null);
     const [uploading, setUploading] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [adjuntos, setAdjuntos] = useState<string[]>([]);
+    const [uploadingAdj, setUploadingAdj] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -351,6 +353,37 @@ function NuevaNotaPage() {
         } finally { setUploading(false); }
     };
 
+    const handleAddAdjunto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!success) return;
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.type !== 'application/pdf') { toast.error('Solo se admiten PDFs como adjunto'); return; }
+        if (file.size > 5 * 1024 * 1024) { toast.error('El adjunto no puede superar 5MB'); return; }
+        setUploadingAdj(true);
+        try {
+            const resp = await uploadService.uploadFile(file, 'correspondencia');
+            await api.post(`/correspondencia/${success.id}/adjunto`, { url: resp.data.path });
+            setAdjuntos(prev => [...prev, resp.data.path]);
+            toast.success('Adjunto agregado correctamente');
+        } catch {
+            toast.error('Error al subir el adjunto');
+        } finally {
+            setUploadingAdj(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveAdjunto = async (index: number) => {
+        if (!success) return;
+        try {
+            await api.delete(`/correspondencia/${success.id}/adjunto/${index}`);
+            setAdjuntos(prev => prev.filter((_, i) => i !== index));
+            toast.success('Adjunto eliminado');
+        } catch {
+            toast.error('Error al eliminar el adjunto');
+        }
+    };
+
     useEffect(() => {
         const recoverDraft = async () => {
             if (!user) return; // Lógica Senior: Esperar a que el usuario esté disponible
@@ -441,6 +474,46 @@ function NuevaNotaPage() {
                         </div>
                     </div>
 
+                    {/* ── ADJUNTOS ADICIONALES ── */}
+                    <div className="bg-card border border-dashed border-primary/30 rounded-[2rem] p-6 space-y-4 max-w-2xl mx-auto w-full">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <Paperclip className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Adjuntar Documentos Extra</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">PDFs adicionales que acompañan al CITE (máx. 5MB c/u)</p>
+                            </div>
+                            <label className={cn(
+                                'ml-auto h-9 px-4 rounded-xl border border-primary/40 text-primary text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-primary/10',
+                                uploadingAdj && 'opacity-50 pointer-events-none'
+                            )}>
+                                {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                                {uploadingAdj ? 'Subiendo...' : 'Añadir PDF'}
+                                <input type="file" accept="application/pdf" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
+                            </label>
+                        </div>
+                        {adjuntos.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-2 font-medium">Sin adjuntos aún</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {adjuntos.map((url, i) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/50">
+                                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                                        <a href={getImageUrl(url)} target="_blank" rel="noopener noreferrer"
+                                            className="flex-1 text-xs font-bold text-foreground hover:text-primary truncate transition-colors">
+                                            Adjunto {i + 1} — {url.split('/').pop()}
+                                        </a>
+                                        <button onClick={() => handleRemoveAdjunto(i)}
+                                            className="w-7 h-7 rounded-lg hover:bg-rose-500/15 flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Botón para Descartar y Empezar de nuevo */}
                     <div className="pt-4 flex justify-center">
                         <button
@@ -467,37 +540,62 @@ function NuevaNotaPage() {
                                 <div className="flex-1 bg-muted/10 p-0 overflow-hidden">
                                     <embed src={`${previewUrl || getImageUrl(pdfUrl)}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full h-full" />
                                 </div>
-                                <div className="p-6 bg-card border-t border-border flex flex-wrap justify-between items-center gap-3">
-                                    {/* Izquierda: Cambiar PDF */}
-                                    <label
-                                        className={cn(
-                                            "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer border border-border hover:bg-muted",
-                                            uploading && "opacity-50 pointer-events-none"
-                                        )}
-                                    >
-                                        {uploading
-                                            ? <Loader2 className="w-4 h-4 animate-spin" />
-                                            : <Upload className="w-4 h-4" />
-                                        }
-                                        {uploading ? 'Subiendo...' : 'Cambiar PDF'}
-                                        <input
-                                            type="file"
-                                            accept="application/pdf"
-                                            className="hidden"
-                                            disabled={uploading}
-                                            onChange={async (e) => {
-                                                await handleUploadPdf(e);
-                                            }}
-                                        />
-                                    </label>
+                                <div className="p-6 bg-card border-t border-border flex flex-col gap-4">
+                                    {/* Alerta / Pregunta informativa sobre adjuntos */}
+                                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 flex flex-wrap items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <Paperclip className="w-4 h-4 text-primary shrink-0" />
+                                            <p className="text-xs font-bold text-foreground">
+                                                ¿Deseas adjuntar algún documento o anexo adicional antes de enviar?
+                                                {adjuntos.length > 0 && (
+                                                    <span className="ml-2 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 text-[10px] font-black uppercase border border-emerald-500/20">
+                                                        {adjuntos.length} {adjuntos.length === 1 ? 'Adjunto cargado' : 'Adjuntos cargados'}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <label className={cn(
+                                            "h-9 px-4 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:opacity-90 shadow-sm shrink-0",
+                                            uploadingAdj && "opacity-50 pointer-events-none"
+                                        )}>
+                                            {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                                            {uploadingAdj ? 'Subiendo...' : 'Añadir Adjunto'}
+                                            <input type="file" accept="application/pdf" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
+                                        </label>
+                                    </div>
 
-                                    {/* Derecha: Cancelar + Confirmar */}
-                                    <div className="flex gap-3 ml-auto">
-                                        <button onClick={() => setShowPreview(false)} className="px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all">Cancelar</button>
-                                        <button onClick={handleConfirmarEnvio} disabled={confirming || uploading} className="px-6 h-10 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50">
-                                            {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                            {confirming ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}
-                                        </button>
+                                    <div className="flex flex-wrap justify-between items-center gap-3">
+                                        {/* Izquierda: Cambiar PDF */}
+                                        <label
+                                            className={cn(
+                                                "h-10 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer border border-border hover:bg-muted",
+                                                uploading && "opacity-50 pointer-events-none"
+                                            )}
+                                        >
+                                            {uploading
+                                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                : <Upload className="w-4 h-4" />
+                                            }
+                                            {uploading ? 'Subiendo...' : 'Cambiar PDF Principal'}
+                                            <input
+                                                type="file"
+                                                accept="application/pdf"
+                                                className="hidden"
+                                                disabled={uploading}
+                                                onChange={async (e) => {
+                                                    await handleUploadPdf(e);
+                                                }}
+                                            />
+                                        </label>
+
+                                        {/* Derecha: Cancelar + Confirmar */}
+                                        <div className="flex gap-3 ml-auto">
+                                            <button onClick={() => setShowPreview(false)} className="px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border border-border hover:bg-muted transition-all">Cancelar</button>
+                                            <button onClick={handleConfirmarEnvio} disabled={confirming || uploading || uploadingAdj} className="px-6 h-10 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50">
+                                                {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                {confirming ? 'PROCESANDO...' : 'CONFIRMAR Y ENVIAR'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>

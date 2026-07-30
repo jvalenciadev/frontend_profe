@@ -9,7 +9,8 @@ import {
     User, RefreshCw, ChevronRight, Loader2, AlertCircle,
     Send, Archive, Hash, X, ShieldCheck, Download, ArrowRight,
     FileUp, Building2, Layers, History, GitBranch, Filter, BarChart3,
-    ChevronDown, Activity, Landmark, MapPin, Copy, ShieldAlert
+    ChevronDown, Activity, Landmark, MapPin, Copy, ShieldAlert,
+    Paperclip
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -1480,13 +1481,31 @@ export default function BandejaPage() {
                                 {selected.archivoPdf ? (
                                     <a href={getImageUrl(selected.archivoPdf)} target="_blank" rel="noreferrer"
                                         className="w-full h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
-                                        <FileText className="w-4 h-4" /> Ver Documento PDF
+                                        <FileText className="w-4 h-4" /> Ver Documento PDF Principal
                                     </a>
                                 ) : (
                                     <Link href={`/dashboard/correspondencia/seguimiento?cite=${encodeURIComponent(selected.cite)}`}
                                         className="w-full h-11 rounded-xl bg-primary/10 text-primary border border-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shadow-sm">
                                         <FileText className="w-4 h-4" /> Ver Detalle Documento
                                     </Link>
+                                )}
+
+                                {/* Lista de Adjuntos / Anexos adicionales */}
+                                {Array.isArray((selected as any).adjuntos) && (selected as any).adjuntos.length > 0 && (
+                                    <div className="space-y-2 pt-2 border-t border-border/40">
+                                        <p className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-1.5">
+                                            <Paperclip className="w-3.5 h-3.5" /> Anexos / Adjuntos ({((selected as any).adjuntos).length})
+                                        </p>
+                                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                            {((selected as any).adjuntos as string[]).map((url, i) => (
+                                                <a key={i} href={getImageUrl(url)} target="_blank" rel="noreferrer"
+                                                    className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 hover:bg-primary/10 border border-border/40 text-xs font-bold text-foreground hover:text-primary transition-all truncate">
+                                                    <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <span className="truncate">Adjunto {i + 1} — {url.split('/').pop()}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
 
                                 <div className="space-y-3 pt-2 border-t border-border/40">
