@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import api, { viewsApi } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FileText, Plus, Edit2, Trash2, ChevronLeft, ChevronRight,
@@ -73,7 +73,7 @@ export default function EventoOperativoPage() {
     const loadIntentosRespuestas = async (cuestionarioId: string) => {
         setLoadingIntentos(true);
         try {
-            const res = await api.get(`/public/eventos/cuestionario/${cuestionarioId}/intentos-respuestas`);
+            const res = await viewsApi.get(`/public/eventos/cuestionario/${cuestionarioId}/intentos-respuestas`);
             setIntentosData(res.data);
             const inputs: { [key: string]: string } = {};
             res.data?.intentos?.forEach((int: any) => {
@@ -103,7 +103,7 @@ export default function EventoOperativoPage() {
         }
         setCalificandoId(respuestaId);
         try {
-            await api.patch(`/public/eventos/cuestionario/respuesta/${respuestaId}/calificar`, { puntos: pts });
+            await viewsApi.patch(`/public/eventos/cuestionario/respuesta/${respuestaId}/calificar`, { puntos: pts });
             toast.success('Respuesta calificada correctamente');
             if (cuestionarioActivo) loadIntentosRespuestas(cuestionarioActivo.id);
         } catch {
