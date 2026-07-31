@@ -63,6 +63,56 @@ export default function EventoOperativoPage() {
     const [submitting, setSubmitting] = useState(false);
     const [modalQR, setModalQR] = useState(false);
 
+    // Intentos / Calificación
+    const [modalIntentos, setModalIntentos] = useState(false);
+    const [intentosData, setIntentosData] = useState<any>(null);
+    const [loadingIntentos, setLoadingIntentos] = useState(false);
+    const [calificandoId, setCalificandoId] = useState<string | null>(null);
+    const [puntosInput, setPuntosInput] = useState<{ [key: string]: string }>({});
+
+    const loadIntentosRespuestas = async (cuestionarioId: string) => {
+        setLoadingIntentos(true);
+        try {
+            const res = await api.get(`/public/eventos/cuestionario/${cuestionarioId}/intentos-respuestas`);
+            setIntentosData(res.data);
+            const inputs: { [key: string]: string } = {};
+            res.data?.intentos?.forEach((int: any) => {
+                int.respuestas?.forEach((r: any) => {
+                    inputs[r.id] = r.puntos?.toString() || '0';
+                });
+            });
+            setPuntosInput(inputs);
+        } catch {
+            toast.error('Error al cargar los intentos del cuestionario');
+        } finally {
+            setLoadingIntentos(false);
+        }
+    };
+
+    const handleOpenIntentos = (cues: any) => {
+        setCuestionarioActivo(cues);
+        loadIntentosRespuestas(cues.id);
+        setModalIntentos(true);
+    };
+
+    const handleCalificarRespuesta = async (respuestaId: string, maxPuntos: number) => {
+        const pts = parseFloat(puntosInput[respuestaId] || '0');
+        if (isNaN(pts) || pts < 0 || pts > maxPuntos) {
+            toast.error(`El puntaje debe estar entre 0 y ${maxPuntos}`);
+            return;
+        }
+        setCalificandoId(respuestaId);
+        try {
+            await api.patch(`/public/eventos/cuestionario/respuesta/${respuestaId}/calificar`, { puntos: pts });
+            toast.success('Respuesta calificada correctamente');
+            if (cuestionarioActivo) loadIntentosRespuestas(cuestionarioActivo.id);
+        } catch {
+            toast.error('Error al guardar la calificación');
+        } finally {
+            setCalificandoId(null);
+        }
+    };
+
     const [confirmDeletePregunta, setConfirmDeletePregunta] = useState<{
         isOpen: boolean;
         itemId: string | null;
@@ -647,9 +697,14 @@ export default function EventoOperativoPage() {
                                             </p>
                                         )}
                                     </div>
-                                    <button onClick={openNewPregunta} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
-                                        <Plus className="w-4 h-4" /> Agregar Pregunta
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => handleOpenIntentos(cuestionarioActivo)} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-emerald-700 hover:scale-105 shadow-md shadow-emerald-600/20 transition-all">
+                                            <Users className="w-4 h-4" /> Ver Intentos / Calificar
+                                        </button>
+                                        <button onClick={openNewPregunta} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
+                                            <Plus className="w-4 h-4" /> Agregar Pregunta
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {preguntas.length === 0 && <p className="text-sm text-muted-foreground">Sin preguntas aún.</p>}
@@ -1414,6 +1469,119 @@ export default function EventoOperativoPage() {
                             <FileText className="w-4 h-4" /> Imprimir PDF
                         </button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* Modal de Intentos / Calificación */}
+            <Modal isOpen={modalIntentos} onClose={() => setModalIntentos(false)} title={`Calificar / Intentos: ${cuestionarioActivo?.titulo || ''}`}>
+                <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+                    {loadingIntentos ? (
+                        <div className="py-12 text-center">
+                            <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+                            <p className="text-xs font-bold text-muted-foreground uppercase">Cargando respuestas de participantes...</p>
+                        </div>
+                    ) : !intentosData || intentosData.intentos?.length === 0 ? (
+                        <div className="py-12 text-center border-2 border-dashed border-border rounded-2xl">
+                            <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
+                            <p className="text-sm font-bold text-muted-foreground">Ningún participante ha respondido este cuestionario aún.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                                Participantes que respondieron ({intentosData.intentos.length})
+                            </p>
+                            {intentosData.intentos.map((int: any) => (
+                                <div key={int.id} className="p-5 rounded-2xl border-2 border-border bg-card space-y-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
+                                        <div>
+                                            <p className="font-black text-sm text-foreground uppercase">
+                                                {int.persona.nombre} {int.persona.apellidos}
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground font-medium">
+                                                CI: <span className="font-bold text-primary">{int.persona.ci}</span> • Celular: {int.persona.celular || 'S/N'} • Correo: {int.persona.correo || 'S/N'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-black text-amber-500">{int.puntaje} pts</span>
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground">Puntaje acumulado</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Respuestas */}
+                                    <div className="space-y-3">
+                                        {int.respuestas.map((r: any) => {
+                                            const isLink = r.texto && (r.texto.startsWith('http') || r.texto.includes('drive.google.com') || r.texto.includes('docs.google.com'));
+                                            const urlTarget = isLink ? (r.texto.startsWith('http') ? r.texto : `https://${r.texto}`) : '#';
+
+                                            return (
+                                                <div key={r.id} className="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="space-y-1 flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                                    {r.preguntaTipo === 'TEXTO' ? 'Respuesta Abierta' : r.preguntaTipo}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-amber-500">
+                                                                    Max: {r.preguntaPuntos} pts
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs font-bold text-foreground">{r.preguntaTexto}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Texto o Enlace enviado */}
+                                                    <div className="p-3 rounded-lg bg-background border border-border">
+                                                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Respuesta enviada:</p>
+                                                        {r.texto ? (
+                                                            <div className="space-y-2">
+                                                                <p className="text-xs text-foreground font-mono break-all leading-relaxed whitespace-pre-wrap">{r.texto}</p>
+                                                                {isLink && (
+                                                                    <a href={urlTarget} target="_blank" rel="noopener noreferrer"
+                                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-blue-700 transition-all shadow-sm">
+                                                                        <ExternalLink className="w-3.5 h-3.5" /> Abrir enlace (Google Drive)
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-muted-foreground italic">Sin texto enviado</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Control de Calificación */}
+                                                    <div className="flex items-center justify-between gap-3 pt-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-bold text-muted-foreground">Calificación:</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max={r.preguntaPuntos}
+                                                                value={puntosInput[r.id] ?? r.puntos}
+                                                                onChange={e => setPuntosInput({ ...puntosInput, [r.id]: e.target.value })}
+                                                                className="w-24 h-9 px-3 rounded-lg border-2 border-border focus:border-primary bg-background text-sm font-bold text-foreground outline-none text-center"
+                                                            />
+                                                            <span className="text-xs font-bold text-muted-foreground">/ {r.preguntaPuntos} pts</span>
+                                                        </div>
+                                                        <button
+                                                            disabled={calificandoId === r.id}
+                                                            onClick={() => handleCalificarRespuesta(r.id, r.preguntaPuntos)}
+                                                            className="h-9 px-4 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm flex items-center gap-1.5"
+                                                        >
+                                                            {calificandoId === r.id ? (
+                                                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                            )}
+                                                            Guardar Nota
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </Modal>
         </div>
