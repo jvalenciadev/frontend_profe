@@ -69,19 +69,27 @@ export default function EventoOperativoPage() {
     const [loadingIntentos, setLoadingIntentos] = useState(false);
     const [calificandoId, setCalificandoId] = useState<string | null>(null);
     const [puntosInput, setPuntosInput] = useState<{ [key: string]: string }>({});
+    const [intentosPage, setIntentosPage] = useState(1);
+    const INTENTOS_LIMIT = 50;
 
-    const loadIntentosRespuestas = async (cuestionarioId: string) => {
+    const loadIntentosRespuestas = async (cuestionarioId: string, page = 1) => {
         setLoadingIntentos(true);
         try {
-            const res = await viewsApi.get(`/public/eventos/cuestionario/${cuestionarioId}/intentos-respuestas`);
-            setIntentosData(res.data);
-            const inputs: { [key: string]: string } = {};
-            res.data?.intentos?.forEach((int: any) => {
-                int.respuestas?.forEach((r: any) => {
-                    inputs[r.id] = r.puntos?.toString() || '0';
-                });
+            const res = await viewsApi.get(`/public/eventos/cuestionario/${cuestionarioId}/intentos-respuestas`, {
+                params: { page, limit: INTENTOS_LIMIT }
             });
-            setPuntosInput(inputs);
+            setIntentosData(res.data);
+            setIntentosPage(page);
+            // Preservar inputs existentes, solo añadir los nuevos
+            setPuntosInput(prev => {
+                const next = { ...prev };
+                res.data?.intentos?.forEach((int: any) => {
+                    int.respuestas?.forEach((r: any) => {
+                        if (!(r.id in next)) next[r.id] = r.puntos?.toString() || '0';
+                    });
+                });
+                return next;
+            });
         } catch {
             toast.error('Error al cargar los intentos del cuestionario');
         } finally {
@@ -1487,9 +1495,15 @@ export default function EventoOperativoPage() {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                                Participantes que respondieron ({intentosData.intentos.length})
-                            </p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                                    Página {intentosData.page} de {intentosData.totalPages} — {intentosData.total} participante{intentosData.total !== 1 ? 's' : ''} en total
+                                </p>
+                                <button onClick={() => cuestionarioActivo && loadIntentosRespuestas(cuestionarioActivo.id, intentosPage)} disabled={loadingIntentos}
+                                    className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-all">
+                                    <RefreshCw className={`w-3.5 h-3.5 ${loadingIntentos ? 'animate-spin' : ''}`} /> Actualizar
+                                </button>
+                            </div>
                             {intentosData.intentos.map((int: any) => (
                                 <div key={int.id} className="p-5 rounded-2xl border-2 border-border bg-card space-y-4">
                                     <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
@@ -1509,7 +1523,9 @@ export default function EventoOperativoPage() {
 
                                     {/* Respuestas */}
                                     <div className="space-y-3">
-                                        {int.respuestas.map((r: any) => {
+                                        {int.respuestas.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground italic">Sin respuestas abiertas registradas.</p>
+                                        ) : int.respuestas.map((r: any) => {
                                             const isLink = r.texto && (r.texto.startsWith('http') || r.texto.includes('drive.google.com') || r.texto.includes('docs.google.com'));
                                             const urlTarget = isLink ? (r.texto.startsWith('http') ? r.texto : `https://${r.texto}`) : '#';
 
@@ -1519,7 +1535,7 @@ export default function EventoOperativoPage() {
                                                         <div className="space-y-1 flex-1">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                                                                    {r.preguntaTipo === 'TEXTO' ? 'Respuesta Abierta' : r.preguntaTipo}
+                                                                    Respuesta Abierta
                                                                 </span>
                                                                 <span className="text-[10px] font-bold text-amber-500">
                                                                     Max: {r.preguntaPuntos} pts
@@ -1580,6 +1596,29 @@ export default function EventoOperativoPage() {
                                     </div>
                                 </div>
                             ))}
+
+                            {/* Paginación */}
+                            {intentosData.totalPages > 1 && (
+                                <div className="flex items-center justify-center gap-2 pt-2 border-t border-border">
+                                    <button
+                                        disabled={intentosPage <= 1 || loadingIntentos}
+                                        onClick={() => cuestionarioActivo && loadIntentosRespuestas(cuestionarioActivo.id, intentosPage - 1)}
+                                        className="h-9 px-4 rounded-xl border border-border bg-card text-xs font-black uppercase disabled:opacity-40 hover:bg-muted transition-all flex items-center gap-1"
+                                    >
+                                        <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                    </button>
+                                    <span className="text-xs font-bold text-muted-foreground px-3">
+                                        {intentosPage} / {intentosData.totalPages}
+                                    </span>
+                                    <button
+                                        disabled={intentosPage >= intentosData.totalPages || loadingIntentos}
+                                        onClick={() => cuestionarioActivo && loadIntentosRespuestas(cuestionarioActivo.id, intentosPage + 1)}
+                                        className="h-9 px-4 rounded-xl border border-border bg-card text-xs font-black uppercase disabled:opacity-40 hover:bg-muted transition-all flex items-center gap-1"
+                                    >
+                                        Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
