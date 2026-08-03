@@ -314,30 +314,46 @@ function NuevaNotaPage() {
     };
 
 
+    // Tipos MIME y extensiones aceptadas para el documento principal
+    const ACCEPTED_MAIN_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    const ACCEPTED_MAIN_EXTS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+    const isValidMainFile = (file: File) =>
+        ACCEPTED_MAIN_TYPES.includes(file.type) ||
+        ACCEPTED_MAIN_EXTS.some(ext => file.name.toLowerCase().endsWith(ext));
+
     const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!success || !e.target.files?.[0]) return;
         const file = e.target.files[0];
 
-        // Validación de tipo de archivo (Solo PDF)
-        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-            toast.error('Tipo de archivo no válido. Solo se admiten documentos PDF.');
-            e.target.value = ''; // Limpiar el input
+        // Validación de tipo de archivo (PDF, Word, Excel)
+        if (!isValidMainFile(file)) {
+            toast.error('Tipo no válido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).');
+            e.target.value = '';
             return;
         }
 
-        // Validación de tamaño (Límite máximo de 5MB = 5 * 1024 * 1024 bytes)
+        // Validación de tamaño (Límite máximo de 5MB)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             toast.error('El archivo es demasiado grande. El límite máximo es de 5MB.');
-            e.target.value = ''; // Limpiar el input
+            e.target.value = '';
             return;
         }
 
         setUploading(true);
         try {
-            // Generar URL local para previsualización inmediata (evita errores de IP/Conexión)
-            const localUrl = URL.createObjectURL(file);
-            setPreviewUrl(localUrl);
+            // Previsualización local solo para PDF
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                setPreviewUrl(URL.createObjectURL(file));
+            } else {
+                setPreviewUrl(null);
+            }
 
             const response = await uploadService.uploadFile(file, 'correspondencia');
             const relativePath = response.data.path;
@@ -345,7 +361,7 @@ function NuevaNotaPage() {
             await subirPdf(success.id, relativePath);
             setPdfUrl(relativePath);
             setShowPreview(true);
-            toast.success('PDF subido y procesado correctamente');
+            toast.success('Documento subido y procesado correctamente');
         } catch (err: any) {
             const errorMsg = err?.response?.data?.message || 'Error al conectar con el servidor de carga';
             toast.error(`Fallo en la carga: ${errorMsg}`);
@@ -357,7 +373,7 @@ function NuevaNotaPage() {
         if (!success) return;
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.type !== 'application/pdf') { toast.error('Solo se admiten PDFs como adjunto'); return; }
+        if (!isValidMainFile(file)) { toast.error('Tipo no válido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).'); return; }
         if (file.size > 5 * 1024 * 1024) { toast.error('El adjunto no puede superar 5MB'); return; }
         setUploadingAdj(true);
         try {
@@ -457,8 +473,8 @@ function NuevaNotaPage() {
                             ) : (
                                 <label className="mt-8 h-14 px-8 rounded-2xl border-2 border-dashed border-primary/50 text-primary font-black uppercase tracking-widest hover:bg-primary/5 transition-all flex items-center gap-3 cursor-pointer">
                                     {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileUp className="w-5 h-5" />}
-                                    {uploading ? 'SUBIENDO...' : 'SUBIR PDF'}
-                                    <input type="file" accept="application/pdf" className="hidden" onChange={handleUploadPdf} disabled={uploading} />
+                                    {uploading ? 'SUBIENDO...' : 'SUBIR DOCUMENTO'}
+                                    <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleUploadPdf} disabled={uploading} />
                                 </label>
                             )}
                             <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center">
@@ -482,15 +498,15 @@ function NuevaNotaPage() {
                             </div>
                             <div>
                                 <p className="text-xs font-black uppercase tracking-widest text-primary">Adjuntar Documentos Extra</p>
-                                <p className="text-[10px] text-muted-foreground font-medium">PDFs adicionales que acompañan al CITE (máx. 5MB c/u)</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">PDF, Word o Excel adicionales que acompañan al CITE (máx. 5MB c/u)</p>
                             </div>
                             <label className={cn(
                                 'ml-auto h-9 px-4 rounded-xl border border-primary/40 text-primary text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-primary/10',
                                 uploadingAdj && 'opacity-50 pointer-events-none'
                             )}>
                                 {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-                                {uploadingAdj ? 'Subiendo...' : 'Añadir PDF'}
-                                <input type="file" accept="application/pdf" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
+                                {uploadingAdj ? 'Subiendo...' : 'Añadir Documento'}
+                                <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
                             </label>
                         </div>
                         {adjuntos.length === 0 ? (
@@ -559,8 +575,8 @@ function NuevaNotaPage() {
                                             uploadingAdj && "opacity-50 pointer-events-none"
                                         )}>
                                             {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-                                            {uploadingAdj ? 'Subiendo...' : 'Añadir Adjunto'}
-                                            <input type="file" accept="application/pdf" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
+                                            {uploadingAdj ? 'Subiendo...' : 'Añadir Documento'}
+                                            <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
                                         </label>
                                     </div>
 
@@ -576,10 +592,10 @@ function NuevaNotaPage() {
                                                 ? <Loader2 className="w-4 h-4 animate-spin" />
                                                 : <Upload className="w-4 h-4" />
                                             }
-                                            {uploading ? 'Subiendo...' : 'Cambiar PDF Principal'}
+                                            {uploading ? 'Subiendo...' : 'Cambiar Documento Principal'}
                                             <input
                                                 type="file"
-                                                accept="application/pdf"
+                                                accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx"
                                                 className="hidden"
                                                 disabled={uploading}
                                                 onChange={async (e) => {
