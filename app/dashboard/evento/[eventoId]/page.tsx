@@ -819,7 +819,7 @@ export default function EventoOperativoPage() {
                                                 <div className="flex-1 space-y-4">
                                                     {/* Encabezado: Texto y Metadatos */}
                                                     <div>
-                                                        <h4 className="text-base md:text-lg font-black text-foreground leading-tight">{p.texto}</h4>
+                                                        <h4 className="text-base md:text-lg font-black text-foreground leading-tight prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: p.texto }} />
                                                         <div className="flex flex-wrap items-center gap-3 mt-2">
                                                             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest border border-primary/20">
                                                                 {(() => {
