@@ -31,6 +31,13 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
 
     const hijos = doc.documentosHijos || [];
 
+    const docCreatedAt = doc.createdAt ? new Date(doc.createdAt) : null;
+    const totalPlazoDias = doc.plazoDias || (
+        docCreatedAt && fechaLimite
+            ? Math.max(1, Math.round((fechaLimite.getTime() - docCreatedAt.getTime()) / (1000 * 60 * 60 * 24)))
+            : null
+    );
+
     // Mapear cada respuesta registrada
     const respuestasMap = hijos.map((hijo) => {
         const remitente = hijo.participantes?.find(p => p.rol === 'REMITENTE')?.usuario;
@@ -38,11 +45,20 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
 
         let aTiempo = true;
         let diasDiferencia = 0;
+        let diasTomados: number | null = null;
+        let diasAnticipacion: number | null = null;
+
+        if (docCreatedAt && fechaResp) {
+            diasTomados = Math.max(1, Math.ceil((fechaResp.getTime() - docCreatedAt.getTime()) / (1000 * 60 * 60 * 24)));
+        }
 
         if (fechaLimite && fechaResp) {
             aTiempo = fechaResp.getTime() <= fechaLimite.getTime();
             const diffMs = fechaResp.getTime() - fechaLimite.getTime();
             diasDiferencia = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (aTiempo) {
+                diasAnticipacion = Math.max(0, Math.floor((fechaLimite.getTime() - fechaResp.getTime()) / (1000 * 60 * 60 * 24)));
+            }
         }
 
         return {
@@ -54,6 +70,8 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
             fechaResp,
             aTiempo,
             diasDiferencia,
+            diasTomados,
+            diasAnticipacion,
         };
     });
 
@@ -264,21 +282,41 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
                                         {resp.remitente?.nombre?.[0]?.toUpperCase() || 'R'}
                                     </div>
 
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                                            <span className="text-sm font-black tracking-tight truncate">{resp.cite}</span>
+                                    <div className="min-w-0 space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {/* Cite de Respuesta explícito */}
+                                            <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg">
+                                                <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                                                    Cite Resp:
+                                                </span>
+                                                <span className="text-xs font-black tracking-tight text-foreground">
+                                                    {resp.cite}
+                                                </span>
+                                            </div>
+
+                                            {/* Estado del plazo */}
                                             <span className={cn(
-                                                'px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 shrink-0',
+                                                'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 shrink-0',
                                                 resp.aTiempo
-                                                    ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                                                    : 'bg-rose-500/15 text-rose-700 border-rose-500/30'
+                                                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                                                    : 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30'
                                             )}>
                                                 {resp.aTiempo
                                                     ? <><CheckCircle2 className="w-3 h-3" /> En Plazo</>
                                                     : <><AlertCircle className="w-3 h-3" /> Fuera +{resp.diasDiferencia}d</>
                                                 }
                                             </span>
+
+                                            {/* Días de plazo otorgados */}
+                                            {totalPlazoDias !== null && totalPlazoDias !== undefined && (
+                                                <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-muted/80 text-muted-foreground border border-border/60 flex items-center gap-1.5 shrink-0">
+                                                    <Clock className="w-3 h-3 text-muted-foreground" />
+                                                    Plazo: {totalPlazoDias} {totalPlazoDias === 1 ? 'día' : 'días'}
+                                                </span>
+                                            )}
                                         </div>
+
                                         <p className="text-xs font-semibold text-foreground leading-tight">
                                             Respondió:{' '}
                                             <span className="text-primary font-black">
@@ -307,6 +345,11 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
                                             ? resp.fechaResp.toLocaleString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                                             : 'N/A'}
                                     </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                                        {resp.aTiempo
+                                            ? (resp.diasTomados ? `Respondió en ${resp.diasTomados}d (${resp.diasAnticipacion ?? 0}d antes del plazo)` : 'Dentro del plazo')
+                                            : `Excedió ${resp.diasDiferencia}d del plazo`}
+                                    </span>
                                 </div>
                             </motion.div>
                         ))}
@@ -315,6 +358,7 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
                         {pendientes.map((p, idx) => {
                             const estaVencido = fechaLimite ? hoy.getTime() > fechaLimite.getTime() : false;
                             const diasVencido = fechaLimite ? Math.max(0, Math.ceil((hoy.getTime() - fechaLimite.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                            const diasRestantes = fechaLimite && !estaVencido ? Math.max(0, Math.ceil((fechaLimite.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))) : 0;
 
                             return (
                                 <motion.div
@@ -353,6 +397,12 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
                                                         : <><Hourglass className="w-3 h-3" /> Pendiente</>
                                                     }
                                                 </span>
+                                                {totalPlazoDias !== null && totalPlazoDias !== undefined && (
+                                                    <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-muted/80 text-muted-foreground border border-border/60 flex items-center gap-1.5 shrink-0">
+                                                        <Clock className="w-3 h-3 text-muted-foreground" />
+                                                        Plazo: {totalPlazoDias} {totalPlazoDias === 1 ? 'día' : 'días'}
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
                                                 Rol: {p.rol}{p.usuario?.cargoStr ? ` — ${p.usuario.cargoStr}` : ''}
@@ -366,6 +416,11 @@ export function ComplianceMatrixWidget({ doc }: ComplianceMatrixWidgetProps) {
                                         </span>
                                         <span className={cn('font-bold', estaVencido ? 'text-rose-600' : 'text-amber-600')}>
                                             {estaVencido ? 'Plazo expirado sin respuesta' : 'Dentro del plazo otorgado'}
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                                            {estaVencido
+                                                ? `Vencido por ${diasVencido}d`
+                                                : (totalPlazoDias ? `Quedan ${diasRestantes}d de ${totalPlazoDias}d` : 'En plazo')}
                                         </span>
                                     </div>
                                 </motion.div>

@@ -45,6 +45,7 @@ export default function EventoOperativoPage() {
     const [searchInput, setSearchInput] = useState('');
     const [insLoading, setInsLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportingRespuestas, setExportingRespuestas] = useState(false);
     // Stats separadas (COUNT query, ultra rápido)
     const [stats, setStats] = useState<any>(null);
     const [statsLoading, setStatsLoading] = useState(false);
@@ -458,6 +459,82 @@ export default function EventoOperativoPage() {
         } finally { setExporting(false); }
     };
 
+    const exportarRespuestasCuestionario = async (targetCues?: any) => {
+        const cuesToExport = targetCues || cuestionarioActivo;
+        if (!cuesToExport) {
+            toast.error('Selecciona un cuestionario primero');
+            return;
+        }
+        setExportingRespuestas(true);
+        const toastId = toast.loading(`Exportando respuestas de "${cuesToExport.titulo}"...`);
+        try {
+            const res = await viewsApi.get(`/public/eventos/cuestionario/${cuesToExport.id}/exportar-respuestas`);
+            const { cuestionario, preguntas: pregs, intentos: ints } = res.data || {};
+
+            if (!ints || ints.length === 0) {
+                toast.warning('No existen respuestas ni intentos registrados en este cuestionario.', { id: toastId });
+                return;
+            }
+
+            // Encabezados dinámicos: Datos de persona + Una columna por cada pregunta
+            const header = [
+                'CI',
+                'Nombres',
+                'Apellidos',
+                'Celular',
+                'Correo',
+                'Estado Intento',
+                'Puntaje Obtenido',
+                'Nro. Intentos',
+                'Iniciado En',
+                'Finalizado En',
+                ...(pregs || []).map((p: any, idx: number) => `P${idx + 1}: ${p.texto || 'Pregunta'}`),
+            ];
+
+            const rows = ints.map((i: any) => [
+                i.ci || 'N/A',
+                i.nombres || 'N/A',
+                i.apellidos || 'N/A',
+                i.celular || 'N/A',
+                i.correo || 'N/A',
+                i.estado || 'N/A',
+                i.puntaje ?? 0,
+                i.numeroIntentos ?? 1,
+                i.iniciadoEn || 'N/A',
+                i.finalizadoEn || 'N/A',
+                ...(pregs || []).map((p: any) => i.respuestas?.[p.id] || 'Sin respuesta'),
+            ]);
+
+            const workbook = XLSX.utils.book_new();
+            const wsData = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            wsData['!cols'] = header.map(() => ({ wch: 25 }));
+            XLSX.utils.book_append_sheet(workbook, wsData, 'Respuestas Participantes');
+
+            // Hoja 2: Leyenda de preguntas
+            const pregRows = (pregs || []).map((p: any, idx: number) => [
+                `P${idx + 1}`,
+                p.texto,
+                p.tipo,
+                `${p.puntos || 1} pts`,
+            ]);
+            const wsPreguntas = XLSX.utils.aoa_to_sheet([
+                ['Código', 'Texto de la Pregunta', 'Tipo', 'Puntaje'],
+                ...pregRows,
+            ]);
+            wsPreguntas['!cols'] = [{ wch: 10 }, { wch: 60 }, { wch: 20 }, { wch: 12 }];
+            XLSX.utils.book_append_sheet(workbook, wsPreguntas, 'Lista de Preguntas');
+
+            const cleanTitle = (cuestionario?.titulo || 'Cuestionario').replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
+            XLSX.writeFile(workbook, `Respuestas_${cleanTitle}_${new Date().toLocaleDateString('es-BO').replace(/\//g, '-')}.xlsx`);
+            toast.success(`✅ Exportadas ${ints.length.toLocaleString()} respuestas a Excel`, { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al exportar las respuestas del cuestionario', { id: toastId });
+        } finally {
+            setExportingRespuestas(false);
+        }
+    };
+
     const getInscripcionStats = useCallback((i: any) => {
         const activeCues = cuestionarios.filter(c => c.estado === 'activo');
         if (activeCues.length === 0) return { label: 'N/A', count: 0, total: 0, completed: true, color: 'text-muted-foreground bg-muted/10 border-muted/20' };
@@ -705,9 +782,17 @@ export default function EventoOperativoPage() {
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <button onClick={() => handleOpenIntentos(cuestionarioActivo)} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-emerald-700 hover:scale-105 shadow-md shadow-emerald-600/20 transition-all">
                                             <Users className="w-4 h-4" /> Ver Intentos / Calificar
+                                        </button>
+                                        <button
+                                            onClick={() => exportarRespuestasCuestionario(cuestionarioActivo)}
+                                            disabled={exportingRespuestas}
+                                            className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-indigo-700 hover:scale-105 shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+                                            title="Exportar la lista y respuestas de cada participante a Excel"
+                                        >
+                                            <Download className="w-4 h-4" /> Exportar Respuestas
                                         </button>
                                         <button onClick={openNewPregunta} className="shrink-0 flex items-center gap-1.5 h-10 px-4 rounded-[1rem] bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary-600 hover:scale-105 shadow-md shadow-primary/20 transition-all">
                                             <Plus className="w-4 h-4" /> Agregar Pregunta
@@ -1495,14 +1580,24 @@ export default function EventoOperativoPage() {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
                                     Página {intentosData.page} de {intentosData.totalPages} — {intentosData.total} participante{intentosData.total !== 1 ? 's' : ''} en total
                                 </p>
-                                <button onClick={() => cuestionarioActivo && loadIntentosRespuestas(cuestionarioActivo.id, intentosPage)} disabled={loadingIntentos}
-                                    className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-all">
-                                    <RefreshCw className={`w-3.5 h-3.5 ${loadingIntentos ? 'animate-spin' : ''}`} /> Actualizar
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => exportarRespuestasCuestionario(cuestionarioActivo)}
+                                        disabled={exportingRespuestas}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-all disabled:opacity-50"
+                                        title="Exportar Lista y Respuestas de cada participante a Excel"
+                                    >
+                                        <Download className="w-3.5 h-3.5" /> Exportar Excel
+                                    </button>
+                                    <button onClick={() => cuestionarioActivo && loadIntentosRespuestas(cuestionarioActivo.id, intentosPage)} disabled={loadingIntentos}
+                                        className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-all">
+                                        <RefreshCw className={`w-3.5 h-3.5 ${loadingIntentos ? 'animate-spin' : ''}`} /> Actualizar
+                                    </button>
+                                </div>
                             </div>
                             {intentosData.intentos.map((int: any) => (
                                 <div key={int.id} className="p-5 rounded-2xl border-2 border-border bg-card space-y-4">
