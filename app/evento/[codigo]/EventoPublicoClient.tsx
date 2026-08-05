@@ -3224,11 +3224,18 @@ export default function EventoPublicoPage() {
                                                                                                 <h3 className="text-xl font-black uppercase text-foreground tracking-tight leading-snug">
                                                                                                     {cuestionarioActivo.titulo}
                                                                                                 </h3>
-                                                                                                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed font-bold uppercase tracking-wider opacity-80">
-                                                                                                    {cuestionarioActivo.esEvaluativo
-                                                                                                        ? 'Prepárate para responder las preguntas de evaluación de este módulo. Una vez que inicies, el tiempo comenzará a correr.'
-                                                                                                        : 'Completa este formulario para registrar tu participación. No se asigna nota, solo debes responder todas las preguntas.'}
-                                                                                                </p>
+                                                                                                {cuestionarioActivo.descripcion ? (
+                                                                                                    <div
+                                                                                                        className="text-xs text-muted-foreground max-w-lg mx-auto leading-relaxed font-medium prose prose-sm prose-invert max-w-none text-left bg-muted/20 p-4 rounded-xl border border-border/40 my-2"
+                                                                                                        dangerouslySetInnerHTML={{ __html: cuestionarioActivo.descripcion }}
+                                                                                                    />
+                                                                                                ) : (
+                                                                                                    <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed font-bold uppercase tracking-wider opacity-80">
+                                                                                                        {cuestionarioActivo.esEvaluativo
+                                                                                                            ? 'Prepárate para responder las preguntas de evaluación de este módulo. Una vez que inicies, el tiempo comenzará a correr.'
+                                                                                                            : 'Completa este formulario para registrar tu participación. No se asigna nota, solo debes responder todas las preguntas.'}
+                                                                                                    </p>
+                                                                                                )}
                                                                                             </div>
 
                                                                                             <div className={`grid gap-4 max-w-md mx-auto bg-muted/20 p-5 rounded-2xl border border-border/50 text-left ${cuestionarioActivo.esEvaluativo ? 'grid-cols-2' : 'grid-cols-2'}`}>
