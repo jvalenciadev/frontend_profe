@@ -2151,13 +2151,12 @@ export default function EventoPublicoPage() {
 
                                         {/* ── BANNER EVENTO COMPLETADO ── */}
                                         {(evento.cuestionarios?.length > 0) && evento.cuestionarios.every((c: any) => isStepFinished(c.id)) && (() => {
-                                            // Fecha más tardía de los cuestionarios (cierre general)
-                                            const ultimaFin = evento.cuestionarios?.reduce((max: Date, c: any) => {
-                                                const d = new Date(c.fechaFin);
-                                                return d > max ? d : max;
-                                            }, new Date(0));
-                                            const fechaCertLabel = !isNaN(ultimaFin?.getTime())
-                                                ? ultimaFin.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })
+                                            // Fecha certificado = eve_fecha del evento + 1 mes
+                                            const fechaEvento = evento.fecha ? new Date(evento.fecha) : null;
+                                            const fechaCert = fechaEvento ? new Date(fechaEvento) : null;
+                                            if (fechaCert) fechaCert.setMonth(fechaCert.getMonth() + 1);
+                                            const fechaCertLabel = fechaCert && !isNaN(fechaCert.getTime())
+                                                ? fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })
                                                 : null;
 
                                             return (
