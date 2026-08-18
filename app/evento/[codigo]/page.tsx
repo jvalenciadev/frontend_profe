@@ -43,13 +43,14 @@ async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
 
     const viewsUrl = (
-        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
+        // VIEWS_API_URL sin prefijo NEXT_PUBLIC_ = disponible solo en servidor (runtime)
+        // http://backend:3005 = nombre de servicio Docker (red interna, más confiable que IP)
         process.env.VIEWS_API_URL ||
+        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
         'http://172.20.34.60:3005'
     ).replace(/\/$/, '');
-    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
+    const secret = process.env.API_SECRET || process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
-    // Fetch directo al servicio de vistas (el más confiable en SSR)
     const endpoints = [
         `${viewsUrl}/public/eventos/${codigo}`,
         `http://172.20.34.60:3005/public/eventos/${codigo}`,

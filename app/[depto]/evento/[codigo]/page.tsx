@@ -26,11 +26,11 @@ async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
 
     const viewsUrl = (
-        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
         process.env.VIEWS_API_URL ||
+        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
         'http://172.20.34.60:3005'
     ).replace(/\/$/, '');
-    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
+    const secret = process.env.API_SECRET || process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 
     const endpoints = [
         `${viewsUrl}/public/eventos/${codigo}`,
