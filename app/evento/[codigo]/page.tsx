@@ -1,6 +1,5 @@
 import EventoPublicoClient from './EventoPublicoClient';
 import publicService from '@/services/publicService';
-import { eventoPublicoService } from '@/services/eventoPublicoService';
 import { Metadata } from 'next';
 import { stripHtml } from '@/lib/utils';
 
@@ -16,17 +15,25 @@ interface PageProps {
 }
 
 function getAbsoluteImageUrl(path?: string | null): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://aulaprofe.minedu.gob.bo';
-    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    // Usar directamente la URL del backend para evitar el proxy /uploads de Next.js
+    // WhatsApp debe poder acceder directamente a la imagen sin reescritura
+    const apiBase = (
+        process.env.NEXT_PUBLIC_API_URL ||
+        process.env.API_URL ||
+        'http://172.20.34.60:3000'
+    ).replace(/\/api$/, '').replace(/\/$/, '');
 
-    if (!path) return `${cleanBase}/og-default.jpg`;
+    const siteBase = 'https://aulaprofe.minedu.gob.bo';
+
+    if (!path) return `${siteBase}/og-default.jpg`;
     if (path.startsWith('http')) return path;
-    
+
     let normalized = path.startsWith('/') ? path : `/${path}`;
     if (!normalized.toLowerCase().startsWith('/uploads/')) {
         normalized = `/uploads${normalized}`;
     }
-    return `${cleanBase}${normalized}`;
+    // Intentar con la URL pública primero (accesible por WhatsApp)
+    return `${siteBase}${normalized}`;
 }
 
 /**
@@ -35,41 +42,48 @@ function getAbsoluteImageUrl(path?: string | null): string {
 async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
 
-    // 1. Vía publicService landing page
+    const viewsUrl = (
+        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
+        process.env.VIEWS_API_URL ||
+        'http://172.20.34.60:3005'
+    ).replace(/\/$/, '');
+    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
+
+    // Fetch directo al servicio de vistas (el más confiable en SSR)
+    const endpoints = [
+        `${viewsUrl}/public/eventos/${codigo}`,
+        `http://172.20.34.60:3005/public/eventos/${codigo}`,
+        `http://127.0.0.1:3005/public/eventos/${codigo}`,
+    ];
+
+    for (const url of endpoints) {
+        try {
+            console.log(`[OG] fetchEvento: ${url}`);
+            const res = await fetch(url, {
+                headers: { 'X-SECRET': secret },
+                cache: 'no-store',
+                signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && (data.nombre || data.id)) {
+                    console.log(`[OG] Evento encontrado: ${data.nombre}`);
+                    return data;
+                }
+            } else {
+                console.warn(`[OG] HTTP ${res.status} en ${url}`);
+            }
+        } catch (e) {
+            console.warn(`[OG] Error en ${url}:`, e);
+        }
+    }
+
+    // Fallback: landing page data
     try {
         const data = await publicService.getLandingPageData();
         const found = (data.eventos || []).find((e: any) => e.codigo === codigo || String(e.id) === codigo);
         if (found) return found;
     } catch { }
-
-    // 2. Vía eventoPublicoService
-    try {
-        const evt = await eventoPublicoService.getEvento(codigo);
-        if (evt && (evt.nombre || evt.id)) return evt;
-    } catch { }
-
-    // 3. Fetch directo con fallbacks de red (IP interna / Dominio)
-    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'http://172.20.34.60:3005';
-    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
-    const endpoints = [
-        `http://172.20.34.60:3005/public/eventos/${codigo}`,
-        `https://aulaprofe.minedu.gob.bo/api/views/public/eventos/${codigo}`,
-        `${viewsUrl.endsWith('/') ? viewsUrl.slice(0, -1) : viewsUrl}/public/eventos/${codigo}`,
-        `http://127.0.0.1:3005/public/eventos/${codigo}`
-    ];
-
-    for (const url of endpoints) {
-        try {
-            const res = await fetch(url, {
-                headers: { 'X-SECRET': secret },
-                cache: 'no-store'
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && (data.nombre || data.id)) return data;
-            }
-        } catch { }
-    }
 
     return null;
 }

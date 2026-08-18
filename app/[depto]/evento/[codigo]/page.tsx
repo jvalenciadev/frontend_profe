@@ -1,6 +1,5 @@
 import EventoPublicoClient from '@/app/evento/[codigo]/EventoPublicoClient';
 import publicService from '@/services/publicService';
-import { eventoPublicoService } from '@/services/eventoPublicoService';
 import { Metadata } from 'next';
 import { stripHtml } from '@/lib/utils';
 
@@ -11,54 +10,58 @@ interface PageProps {
 }
 
 function getAbsoluteImageUrl(path?: string | null): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://aulaprofe.minedu.gob.bo';
-    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const siteBase = 'https://aulaprofe.minedu.gob.bo';
 
-    if (!path) return `${cleanBase}/og-default.jpg`;
+    if (!path) return `${siteBase}/og-default.jpg`;
     if (path.startsWith('http')) return path;
-    
+
     let normalized = path.startsWith('/') ? path : `/${path}`;
     if (!normalized.toLowerCase().startsWith('/uploads/')) {
         normalized = `/uploads${normalized}`;
     }
-    return `${cleanBase}${normalized}`;
+    return `${siteBase}${normalized}`;
 }
 
 async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
+
+    const viewsUrl = (
+        process.env.NEXT_PUBLIC_VIEWS_API_URL ||
+        process.env.VIEWS_API_URL ||
+        'http://172.20.34.60:3005'
+    ).replace(/\/$/, '');
+    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
+
+    const endpoints = [
+        `${viewsUrl}/public/eventos/${codigo}`,
+        `http://172.20.34.60:3005/public/eventos/${codigo}`,
+        `http://127.0.0.1:3005/public/eventos/${codigo}`,
+    ];
+
+    for (const url of endpoints) {
+        try {
+            console.log(`[OG-depto] fetchEvento: ${url}`);
+            const res = await fetch(url, {
+                headers: { 'X-SECRET': secret },
+                cache: 'no-store',
+                signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && (data.nombre || data.id)) return data;
+            } else {
+                console.warn(`[OG-depto] HTTP ${res.status} en ${url}`);
+            }
+        } catch (e) {
+            console.warn(`[OG-depto] Error en ${url}:`, e);
+        }
+    }
 
     try {
         const data = await publicService.getLandingPageData();
         const found = (data.eventos || []).find((e: any) => e.codigo === codigo || String(e.id) === codigo);
         if (found) return found;
     } catch { }
-
-    try {
-        const evt = await eventoPublicoService.getEvento(codigo);
-        if (evt && (evt.nombre || evt.id)) return evt;
-    } catch { }
-
-    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'http://172.20.34.60:3005';
-    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
-    const endpoints = [
-        `http://172.20.34.60:3005/public/eventos/${codigo}`,
-        `https://aulaprofe.minedu.gob.bo/api/views/public/eventos/${codigo}`,
-        `${viewsUrl.endsWith('/') ? viewsUrl.slice(0, -1) : viewsUrl}/public/eventos/${codigo}`,
-        `http://127.0.0.1:3005/public/eventos/${codigo}`
-    ];
-
-    for (const url of endpoints) {
-        try {
-            const res = await fetch(url, {
-                headers: { 'X-SECRET': secret },
-                cache: 'no-store'
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && (data.nombre || data.id)) return data;
-            }
-        } catch { }
-    }
 
     return null;
 }
