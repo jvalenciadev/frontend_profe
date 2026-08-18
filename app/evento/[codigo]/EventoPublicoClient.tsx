@@ -958,46 +958,10 @@ export default function EventoPublicoPage() {
                 setForm(fp => ({ ...fp, departamentoId: matchingDep.id }));
             }
 
-            // ─── RECUPERAR SESIÓN GUARDADA ───
-            const saved = localStorage.getItem(`cuestionario_session_${evt.id}`);
-            if (saved) {
-                try {
-                    const session = JSON.parse(saved);
-                    setPersona(session.persona);
-                    setForm({ ...session.form, respuestasExtras: session.form?.respuestasExtras || {} });
-                    setCuestionarioActivo(session.cuestionarioActivo);
-                    setRespuestas(session.respuestas || {});
-                    setPreguntaIdx(session.preguntaIdx || 0);
-                    if (session.selectedModuleId) setSelectedModuleId(session.selectedModuleId);
-                    else if (session.cuestionarioActivo?.id) setSelectedModuleId(session.cuestionarioActivo.id);
-                    setStartTime(session.startTime);
-                    setInscripcion(session.inscripcion || null);
-
-                    // LOGICA SENIOR: Refrescar progreso desde el servidor inmediatamente
-                    if (session.persona?.ci && session.persona?.fechaNacimiento) {
-                        eventoPublicoService.getProgreso(evt.id, session.persona.ci, session.persona.fechaNacimiento)
-                            .then(progUpdate => {
-                                setProgreso(progUpdate.progress);
-                                console.log("[Senior Sync] Progreso refrescado satisfactoriamente.");
-                            })
-                            .catch(err => console.error("[Senior Sync] Error al refrescar progreso:", err));
-                    } else {
-                        setProgreso(session.progreso || []);
-                    }
-                    setResultado(session.resultado || null);
-                    if (session.localVideosVistos) setLocalVideosVistos(session.localVideosVistos);
-
-                    if (session.step === 'cuestionario' && session.startTime && session.cuestionarioActivo?.tiempoMaximo) {
-                        const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
-                        const totalSecs = session.cuestionarioActivo.tiempoMaximo * 60;
-                        if (elapsed >= totalSecs) {
-                            setTimerExpired(true);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error recuperando sesión:", e);
-                }
-            }
+            // ─── LIMPIAR CACHÉ DE SESIÓN / IDENTIFICACIÓN EN CADA INGRESO ───
+            // Se elimina la persistencia de carnet, fecha de nacimiento y estado de inscripción
+            // para requerir autenticación directa contra el servidor en cada visita.
+            localStorage.removeItem(`cuestionario_session_${evt.id}`);
 
             // ─── RECUPERAR PENDIENTES OFFLINE ───
             const pendienteRaw = localStorage.getItem('cuestionario_pendiente');
@@ -1006,8 +970,6 @@ export default function EventoPublicoPage() {
                     const p = JSON.parse(pendienteRaw);
                     if (p.eventoId === evt.id) {
                         setOfflineQueue(p.data);
-                        // Si ya tenemos el resultado en el envío anterior pero no se confirmó, 
-                        // podríamos estar en un estado inconsistente. Por ahora solo lo cargamos.
                     }
                 } catch { }
             }
@@ -1018,17 +980,12 @@ export default function EventoPublicoPage() {
         });
     }, [codigo]);
 
-    // ─── GUARDAR SESIÓN AUTOMÁTICAMENTE ───
+    // ─── LIMPIEZA DE SESIÓN ───
     useEffect(() => {
-        if (evento && (step !== 'info' || Object.keys(localVideosVistos).length > 0)) {
-            const session = {
-                persona, form, step, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso,
-                inscripcion, resultado, localVideosVistos, isPersonaExistente, selectedModuleId
-            };
-            localStorage.setItem(`cuestionario_session_${evento.id}`, JSON.stringify(session));
-            setLastSavedStatus('saved');
+        if (evento && step === 'info') {
+            localStorage.removeItem(`cuestionario_session_${evento.id}`);
         }
-    }, [evento, step, persona, form, cuestionarioActivo, respuestas, preguntaIdx, startTime, progreso, inscripcion, resultado, localVideosVistos, selectedModuleId]);
+    }, [evento, step]);
 
     // Inicializar selectedModuleId con el primer módulo incompleto
     useEffect(() => {
