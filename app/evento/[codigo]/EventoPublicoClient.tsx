@@ -11,13 +11,13 @@ import {
     ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw,
     PartyPopper, Zap, ShieldCheck,
     Edit2, LogOut, ExternalLink, Award, Download,
-    Globe, LayoutGrid
+    Globe, LayoutGrid, Share2, Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventoPublicoService } from '@/services/eventoPublicoService';
 import publicService from '@/services/publicService';
 import Link from 'next/link';
-import { getImageUrl, cn, stripHtml } from '@/lib/utils';
+import { getImageUrl, cn, stripHtml, formatEventShareText } from '@/lib/utils';
 import YouTube from 'react-youtube';
 import React from 'react';
 
@@ -926,6 +926,17 @@ export default function EventoPublicoPage() {
         toast.info('Formulario restablecido para un nuevo registro.');
     };
 
+    const handleCopyShareText = () => {
+        if (!evento) return;
+        const text = formatEventShareText(evento, allModalidades);
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+            toast.success('Detalles y enlace del evento copiado al portapapeles');
+        } else {
+            toast.error('No se pudo copiar al portapapeles');
+        }
+    };
+
     // Cargar datos iniciales
     useEffect(() => {
         if (!codigo || codigo === 'undefined') {
@@ -1714,6 +1725,9 @@ export default function EventoPublicoPage() {
                         <button onClick={() => router.back()} className="absolute top-8 left-8 z-30 w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/80 hover:scale-105 transition-all shadow-2xl">
                             <ChevronLeft className="w-6 h-6" />
                         </button>
+                        <button onClick={handleCopyShareText} className="absolute top-8 right-8 z-30 px-4 h-12 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 flex items-center gap-2 text-white text-xs font-black uppercase tracking-wider hover:bg-black/80 hover:scale-105 transition-all shadow-2xl">
+                            <Copy className="w-4 h-4" /> Copiar URL
+                        </button>
 
                         <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
                             <div className="flex items-center gap-3">
@@ -1750,9 +1764,14 @@ export default function EventoPublicoPage() {
                                         </span>
                                     )}
                                 </div>
-                                <button onClick={() => router.back()} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-foreground active:scale-95 transition-all">
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={handleCopyShareText} className="h-10 px-3 rounded-xl bg-card border border-border flex items-center gap-1.5 text-foreground text-xs font-bold active:scale-95 transition-all">
+                                        <Copy className="w-4 h-4 text-primary" /> Copiar URL
+                                    </button>
+                                    <button onClick={() => router.back()} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-foreground active:scale-95 transition-all">
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
                             <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase leading-[1.1]">
                                 {evento.nombre}
@@ -1773,7 +1792,7 @@ export default function EventoPublicoPage() {
                     )}
                     {/* Info badges */}
                     {!persona && (
-                        <div className="flex flex-wrap gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
+                        <div className="flex flex-wrap items-center gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
                             <div className="flex items-center gap-3 text-sm text-foreground">
                                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-primary" />
@@ -1807,6 +1826,9 @@ export default function EventoPublicoPage() {
                                     </div>
                                 </div>
                             )}
+                            <button onClick={handleCopyShareText} className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider hover:bg-primary/20 transition-all active:scale-95">
+                                <Copy className="w-4 h-4" /> Copiar URL
+                            </button>
                         </div>
                     )}
 

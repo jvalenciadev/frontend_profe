@@ -23,6 +23,8 @@ import { toast } from 'sonner';
 import { Modal } from '@/components/Modal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import { formatEventShareText } from '@/lib/utils';
+
 
 const TIPOS_PREGUNTA = [
     { value: 'SINGLE', label: 'Selección Única', icon: CircleDot, desc: 'Una sola respuesta correcta' },
@@ -609,7 +611,12 @@ export default function EventoOperativoPage() {
                         className="flex items-center gap-2 h-10 px-4 rounded-xl bg-card border border-border text-xs font-bold text-muted-foreground hover:text-primary hover:border-primary transition-all">
                         <ExternalLink className="w-3.5 h-3.5" /> Ver Pública
                     </a>
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/evento/${evento?.codigo || eventoId}`); toast.success('URL copiada'); }}
+                    <button onClick={() => {
+                        if (!evento) return;
+                        const shareText = formatEventShareText(evento);
+                        navigator.clipboard.writeText(shareText);
+                        toast.success('Detalles y enlace del evento copiado al portapapeles');
+                    }}
                         className="flex items-center gap-2 h-10 px-4 rounded-xl bg-card border border-border text-xs font-bold text-muted-foreground hover:text-primary hover:border-primary transition-all">
                         <Copy className="w-3.5 h-3.5" /> Copiar URL
                     </button>
