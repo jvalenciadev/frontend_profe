@@ -4,7 +4,7 @@ import { eventoPublicoService } from '@/services/eventoPublicoService';
 import { Metadata } from 'next';
 import { stripHtml } from '@/lib/utils';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
     params: Promise<{ depto: string; codigo: string }>;
@@ -28,18 +28,20 @@ async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
 
     try {
-        const evt = await eventoPublicoService.getEvento(codigo);
-        if (evt && (evt.nombre || evt.id)) return evt;
-    } catch { }
-
-    try {
         const data = await publicService.getLandingPageData();
         const found = (data.eventos || []).find((e: any) => e.codigo === codigo || String(e.id) === codigo);
         if (found) return found;
     } catch { }
 
-    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'https://aulaprofe.minedu.gob.bo/api/views';
+    try {
+        const evt = await eventoPublicoService.getEvento(codigo);
+        if (evt && (evt.nombre || evt.id)) return evt;
+    } catch { }
+
+    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'http://172.20.34.60:3005';
+    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
     const endpoints = [
+        `http://172.20.34.60:3005/public/eventos/${codigo}`,
         `https://aulaprofe.minedu.gob.bo/api/views/public/eventos/${codigo}`,
         `${viewsUrl.endsWith('/') ? viewsUrl.slice(0, -1) : viewsUrl}/public/eventos/${codigo}`,
         `http://127.0.0.1:3005/public/eventos/${codigo}`
@@ -48,8 +50,8 @@ async function fetchEventoData(codigo: string): Promise<any> {
     for (const url of endpoints) {
         try {
             const res = await fetch(url, {
-                headers: { 'X-SECRET': process.env.NEXT_PUBLIC_API_SECRET || 'qjmwyxYXMqe' },
-                next: { revalidate: 60 }
+                headers: { 'X-SECRET': secret },
+                cache: 'no-store'
             });
             if (res.ok) {
                 const data = await res.json();
@@ -96,7 +98,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             description,
             metadataBase: new URL(cleanBase),
             openGraph: {
-                title,
+                title: `${title} | PROFE`,
                 description,
                 url: pageUrl,
                 siteName: 'PROFE - Ministerio de Educación',
@@ -114,7 +116,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             },
             twitter: {
                 card: 'summary_large_image',
-                title,
+                title: `${title} | PROFE`,
                 description,
                 images: [imageUrl],
             },
@@ -124,32 +126,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             title: 'Evento | PROFE',
             description: 'Programa de Formación Especializada - Ministerio de Educación de Bolivia',
         };
-    }
-}
-
-export async function generateStaticParams() {
-    try {
-        const data = await publicService.getLandingPageData();
-        const eventos = data.eventos || [];
-        const departamentos = await publicService.getDepartamentos();
-
-        const params: { depto: string; codigo: string }[] = [];
-
-        for (const dep of departamentos) {
-            const deptoCode = dep.abreviacion || dep.codigo;
-            if (!deptoCode) continue;
-
-            for (const evt of eventos) {
-                params.push({
-                    depto: deptoCode.toUpperCase(),
-                    codigo: evt.codigo || evt.id.toString(),
-                });
-            }
-        }
-
-        return params;
-    } catch (error) {
-        return [];
     }
 }
 

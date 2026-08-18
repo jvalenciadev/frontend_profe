@@ -4,7 +4,12 @@ import { eventoPublicoService } from '@/services/eventoPublicoService';
 import { Metadata } from 'next';
 import { stripHtml } from '@/lib/utils';
 
-export const revalidate = 60;
+/**
+ * RENDERIZADO DINÁMICO (Force Dynamic):
+ * Fuerza a Next.js a evaluar generateMetadata dinámicamente en cada solicitud de WhatsApp / redes sociales
+ * para garantizar la imagen og:image y metadatos actualizados desde el backend.
+ */
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
     params: Promise<{ codigo: string }>;
@@ -16,7 +21,7 @@ function getAbsoluteImageUrl(path?: string | null): string {
 
     if (!path) return `${cleanBase}/og-default.jpg`;
     if (path.startsWith('http')) return path;
-
+    
     let normalized = path.startsWith('/') ? path : `/${path}`;
     if (!normalized.toLowerCase().startsWith('/uploads/')) {
         normalized = `/uploads${normalized}`;
@@ -25,31 +30,29 @@ function getAbsoluteImageUrl(path?: string | null): string {
 }
 
 /**
- * Carga robusta de datos del evento para SSR (Server-Side Rendering)
+ * Carga de datos del evento para SSR
  */
 async function fetchEventoData(codigo: string): Promise<any> {
     if (!codigo) return null;
 
-    // 1. Vía eventoPublicoService
-    try {
-        const evt = await eventoPublicoService.getEvento(codigo);
-        if (evt && (evt.nombre || evt.id)) return evt;
-    } catch (e) {
-        console.error('[generateMetadata] Error en getEvento:', e);
-    }
-
-    // 2. Vía landing page data
+    // 1. Vía publicService landing page
     try {
         const data = await publicService.getLandingPageData();
         const found = (data.eventos || []).find((e: any) => e.codigo === codigo || String(e.id) === codigo);
         if (found) return found;
-    } catch (e) {
-        console.error('[generateMetadata] Error en getLandingPageData:', e);
-    }
+    } catch { }
 
-    // 3. Direct fetch a backend URLs
-    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'https://aulaprofe.minedu.gob.bo/api/views';
+    // 2. Vía eventoPublicoService
+    try {
+        const evt = await eventoPublicoService.getEvento(codigo);
+        if (evt && (evt.nombre || evt.id)) return evt;
+    } catch { }
+
+    // 3. Fetch directo con fallbacks de red (IP interna / Dominio)
+    const viewsUrl = process.env.NEXT_PUBLIC_VIEWS_API_URL || process.env.VIEWS_API_URL || 'http://172.20.34.60:3005';
+    const secret = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
     const endpoints = [
+        `http://172.20.34.60:3005/public/eventos/${codigo}`,
         `https://aulaprofe.minedu.gob.bo/api/views/public/eventos/${codigo}`,
         `${viewsUrl.endsWith('/') ? viewsUrl.slice(0, -1) : viewsUrl}/public/eventos/${codigo}`,
         `http://127.0.0.1:3005/public/eventos/${codigo}`
@@ -58,8 +61,8 @@ async function fetchEventoData(codigo: string): Promise<any> {
     for (const url of endpoints) {
         try {
             const res = await fetch(url, {
-                headers: { 'X-SECRET': process.env.NEXT_PUBLIC_API_SECRET || 'qjmwyxYXMqe' },
-                next: { revalidate: 60 }
+                headers: { 'X-SECRET': secret },
+                cache: 'no-store'
             });
             if (res.ok) {
                 const data = await res.json();
@@ -108,7 +111,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             description,
             metadataBase: new URL(cleanBase),
             openGraph: {
-                title,
+                title: `${title} | PROFE`,
                 description,
                 url: pageUrl,
                 siteName: 'PROFE - Ministerio de Educación',
@@ -126,7 +129,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             },
             twitter: {
                 card: 'summary_large_image',
-                title,
+                title: `${title} | PROFE`,
                 description,
                 images: [imageUrl],
             },
@@ -136,20 +139,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             title: 'Evento | PROFE',
             description: 'Programa de Formación Especializada - Ministerio de Educación de Bolivia',
         };
-    }
-}
-
-export async function generateStaticParams() {
-    try {
-        const data = await publicService.getLandingPageData();
-        const eventos = data.eventos || [];
-
-        return eventos.map((evt: any) => ({
-            codigo: evt.codigo || evt.id.toString(),
-        }));
-    } catch (error) {
-        console.error("Error en generateStaticParams (eventos):", error);
-        return [];
     }
 }
 

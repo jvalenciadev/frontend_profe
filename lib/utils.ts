@@ -94,14 +94,6 @@ export function formatEventShareText(evento: any, allModalidades?: any[]): strin
     }
     const fechaText = `🗓️ Fecha: ${fechaFormateada}`;
 
-    let aficheLine = '';
-    const afichePath = evento.afiche || evento.banner;
-    if (afichePath) {
-        const fullImg = getImageUrl(afichePath);
-        const absoluteImgUrl = fullImg.startsWith('http') ? fullImg : `${origin}${fullImg}`;
-        aficheLine = `\n🖼️ Afiche: ${absoluteImgUrl}`;
-    }
-
-    return `${titulo}\n${urlInscripciones}\n${modalidadText}\n${lugarText}\n${fechaText}${aficheLine}`;
+    return `${titulo}\n${urlInscripciones}\n${modalidadText}\n${lugarText}\n${fechaText}`;
 }
 
