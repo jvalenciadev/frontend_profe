@@ -10,7 +10,7 @@ import {
     ToggleLeft, ToggleRight, Copy, ExternalLink, AlertCircle,
     BarChart3, RefreshCw, Timer, BookOpen,
     CircleDot, CheckSquare, Settings2, AlignLeft, Trophy,
-    Mail, Phone, Play, QrCode, QrCode as QrIcon
+    Mail, Phone, Play, QrCode, QrCode as QrIcon, Globe, Lock
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsPDF from 'jspdf';
@@ -363,6 +363,19 @@ export default function EventoOperativoPage() {
         setFormPregunta(p => ({ ...p, tipo, opciones }));
     };
 
+    // Toggle Inscripción Abierta / Cerrada
+    const toggleInscripcion = async () => {
+        try {
+            const nuevoEstado = !evento?.inscripcionAbierta;
+            await api.patch(`/eventos/${eventoId}`, { inscripcionAbierta: nuevoEstado });
+            setEvento((prev: any) => ({ ...prev, inscripcionAbierta: nuevoEstado }));
+            toast.success(nuevoEstado ? 'Inscripciones activadas (abiertas al público)' : 'Inscripciones desactivadas (cerradas al público)');
+            loadData();
+        } catch {
+            toast.error('Error actualizando estado de inscripción');
+        }
+    };
+
     // Asistencia por CI
     const [modalAsistencia, setModalAsistencia] = useState(false);
     const [codigoAsistencia, setCodigoAsistencia] = useState('');
@@ -641,39 +654,88 @@ export default function EventoOperativoPage() {
                 ))}
             </div>
 
-            {/* Código asistencia */}
-            <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                        <p className="text-xs font-black uppercase text-muted-foreground">Código de Asistencia (para transmisión)</p>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${evento?.asistencia ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
-                            {evento?.asistencia ? 'eve_asistencia: ACTIVO (true)' : 'eve_asistencia: INACTIVO (false)'}
-                        </span>
+            {/* Controles de Operación: Inscripción y Asistencia */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Control de Inscripción */}
+                <div className="bg-card border border-border rounded-2xl p-5 flex flex-col justify-between gap-4">
+                    <div className="flex items-start justify-between gap-2">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-black uppercase text-muted-foreground">Inscripciones Públicas (Registro)</p>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${evento?.inscripcionAbierta ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
+                                    {evento?.inscripcionAbierta ? 'Inscripción: ABIERTA (true)' : 'Inscripción: CERRADA (false)'}
+                                </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {evento?.inscripcionAbierta
+                                    ? 'El formulario de registro público está abierto para nuevos participantes.'
+                                    : 'El formulario está cerrado. Ningún participante nuevo puede inscribirse en la web.'}
+                            </p>
+                        </div>
                     </div>
-                    <p className="font-black text-2xl tracking-widest text-foreground font-mono mt-1">
-                        {evento?.codigoAsistencia || '— No activo'}
-                    </p>
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                        <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                            {evento?.inscripcionAbierta ? (
+                                <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                                <Lock className="w-3.5 h-3.5 text-rose-500" />
+                            )}
+                            Estado: <strong className={evento?.inscripcionAbierta ? 'text-emerald-500' : 'text-rose-500'}>{evento?.inscripcionAbierta ? 'Habilitado' : 'Bloqueado'}</strong>
+                        </span>
+                        <button
+                            onClick={toggleInscripcion}
+                            className={`h-10 px-5 rounded-xl font-black text-xs uppercase transition-all flex items-center gap-2 ${evento?.inscripcionAbierta
+                                ? 'bg-rose-500/15 text-rose-600 border border-rose-500/30 hover:bg-rose-500/25'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-600/20'
+                                }`}
+                        >
+                            {evento?.inscripcionAbierta ? (
+                                <>
+                                    <Lock className="w-3.5 h-3.5" /> Desactivar Inscripción
+                                </>
+                            ) : (
+                                <>
+                                    <Globe className="w-3.5 h-3.5" /> Activar Inscripción
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                    {evento?.codigoAsistencia && (
-                        <>
-                            <button onClick={() => { navigator.clipboard.writeText(evento.codigoAsistencia); toast.success('Código copiado'); }}
-                                className="h-10 px-4 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all flex items-center gap-2">
-                                <Copy className="w-3.5 h-3.5" /> Copiar Código
-                            </button>
-                            <button onClick={() => setModalQR(true)}
-                                className="h-10 px-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-black uppercase transition-all flex items-center gap-2 border border-primary/20">
-                                <QrCode className="w-4 h-4" /> Generar QR Asistencia
-                            </button>
-                        </>
-                    )}
-                    <input type="text" placeholder="Código custom..." value={codigoAsistencia}
-                        onChange={e => setCodigoAsistencia(e.target.value.toUpperCase())}
-                        className="h-10 px-4 w-36 rounded-xl bg-muted border-transparent focus:border-primary border-2 outline-none text-sm font-mono tracking-widest text-foreground" />
-                    <button onClick={toggleCodigoAsistencia}
-                        className={`h-10 px-4 rounded-xl font-black text-xs uppercase transition-all ${evento?.codigoAsistencia || evento?.asistencia ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary text-white hover:opacity-90'}`}>
-                        {evento?.codigoAsistencia || evento?.asistencia ? 'Desactivar' : 'Activar'}
-                    </button>
+
+                {/* Código asistencia */}
+                <div className="bg-card border border-border rounded-2xl p-5 flex flex-col justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs font-black uppercase text-muted-foreground">Código de Asistencia (para transmisión)</p>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${evento?.asistencia ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
+                                {evento?.asistencia ? 'eve_asistencia: ACTIVO (true)' : 'eve_asistencia: INACTIVO (false)'}
+                            </span>
+                        </div>
+                        <p className="font-black text-2xl tracking-widest text-foreground font-mono mt-1">
+                            {evento?.codigoAsistencia || '— No activo'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                        {evento?.codigoAsistencia && (
+                            <>
+                                <button onClick={() => { navigator.clipboard.writeText(evento.codigoAsistencia); toast.success('Código copiado'); }}
+                                    className="h-10 px-3 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all flex items-center gap-1.5">
+                                    <Copy className="w-3.5 h-3.5" /> Copiar
+                                </button>
+                                <button onClick={() => setModalQR(true)}
+                                    className="h-10 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-black uppercase transition-all flex items-center gap-1.5 border border-primary/20">
+                                    <QrCode className="w-4 h-4" /> QR
+                                </button>
+                            </>
+                        )}
+                        <input type="text" placeholder="Código..." value={codigoAsistencia}
+                            onChange={e => setCodigoAsistencia(e.target.value.toUpperCase())}
+                            className="h-10 px-3 w-28 rounded-xl bg-muted border-transparent focus:border-primary border-2 outline-none text-xs font-mono tracking-widest text-foreground ml-auto" />
+                        <button onClick={toggleCodigoAsistencia}
+                            className={`h-10 px-4 rounded-xl font-black text-xs uppercase transition-all ${evento?.codigoAsistencia || evento?.asistencia ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary text-white hover:opacity-90'}`}>
+                            {evento?.codigoAsistencia || evento?.asistencia ? 'Desactivar' : 'Activar'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
