@@ -1508,15 +1508,21 @@ export default function EventoPublicoPage() {
                 attempt++;
                 console.error(`Error enviando cuestionario (Intento ${attempt}):`, e);
 
-                if (e?.response?.status === 409 || e?.response?.status === 403 || attempt >= maxAttempts) {
+                const status = e?.status || e?.response?.status || e?.originalError?.response?.status;
+                const errorMsg = e?.message || e?.response?.data?.message || e?.originalError?.response?.data?.message;
+
+                if (status === 409 || status === 403 || status === 401 || status === 404 || status === 400 || attempt >= maxAttempts) {
                     setLastSavedStatus('error');
-                    if (e?.response?.status === 409) {
+                    if (status === 409) {
                         handleReset();
-                        toast.error('Ya has respondido este cuestionario con esta persona.');
-                    } else if (e?.response?.status === 403) {
-                        const msg = e?.response?.data?.message || 'Has superado el límite de intentos permitidos.';
-                        toast.error(msg);
+                        toast.error(errorMsg || 'Ya has respondido este cuestionario con esta persona.');
+                    } else if (status === 403) {
+                        toast.error(errorMsg || 'Has superado el límite de intentos permitidos.');
                         setStep('info');
+                    } else if (status === 401) {
+                        toast.error(errorMsg || 'Acceso no autorizado o clave de seguridad inválida.');
+                    } else if (status === 404 || status === 400) {
+                        toast.error(errorMsg || 'Error en los datos del participante o cuestionario.');
                     } else {
                         localStorage.setItem('cuestionario_pendiente', JSON.stringify({
                             eventoId: evento.id,
@@ -1524,7 +1530,7 @@ export default function EventoPublicoPage() {
                             data: payload
                         }));
                         setOfflineQueue(payload);
-                        alert("Hubo un problema al conectar con el servidor. Tus respuestas se han guardado localmente e intentaremos enviarlas de nuevo en un momento.");
+                        toast.warning("Hubo un problema al conectar con el servidor. Tus respuestas se han guardado localmente e intentaremos enviarlas de nuevo en un momento.");
                     }
                     break;
                 }

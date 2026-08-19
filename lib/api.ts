@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://127.0.0.1:3000' : 'http://localhost:3011');
 const VIEWS_API_URL = process.env.VIEWS_API_URL || process.env.NEXT_PUBLIC_VIEWS_API_URL || (typeof window === 'undefined' ? 'http://127.0.0.1:3005' : 'http://localhost:3005');
 // IMPORTANTE: El fallback debe coincidir con API_SECRET_KEY del backend
-const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'qjmwyxYXMqe';
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET || 'mQsYt86mu5wiiqjmwyxYXMqeHVo4lRqIT6dQUwqYqzM=';
 const LMS_API_URL = typeof window === 'undefined' ? 'http://127.0.0.1:3008/api/aula' : (process.env.NEXT_PUBLIC_LMS_API_URL || 'http://localhost:3008/api/aula');
 const LMS_API_SECRET = process.env.NEXT_PUBLIC_LMS_API_SECRET || 'LMS_SEC_key_2024_0bb62283a6691_aula_virtual';
 
@@ -105,6 +105,7 @@ const handleResponseError = (error: any) => {
         // Re-lanzamos el error enriquecido para que la vista/formulario lo maneje localmente.
         const enrichedError = new Error(userMessage || error.message || 'Error desconocido');
         (enrichedError as any).status = status;
+        (enrichedError as any).response = error.response;
         (enrichedError as any).originalError = error;
         return Promise.reject(enrichedError);
     }
