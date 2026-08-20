@@ -721,6 +721,7 @@ export default function EventoPublicoPage() {
     }, [searchParams, evento]);
     const [persona, setPersona] = useState<any>(null);
     const [inscripcion, setInscripcion] = useState<any>(null);
+    const [tipoDescargo, setTipoDescargo] = useState<'inscripcion' | 'asistencia' | 'cuestionario' | null>(null);
     const [progreso, setProgreso] = useState<any[]>([]);
     const [resultado, setResultado] = useState<any>(null);
     const [cuestionarioActivo, setCuestionarioActivo] = useState<Cuestionario | null>(null);
@@ -886,6 +887,7 @@ export default function EventoPublicoPage() {
         setStep('info');
         setPersona(null);
         setInscripcion(null);
+        setTipoDescargo(null);
         setResultado(null);
         setCuestionarioActivo(null);
         setRespuestas({});
@@ -1368,6 +1370,7 @@ export default function EventoPublicoPage() {
                     toast.success('¡Registro completado con éxito! Ya puedes realizar tus evaluaciones.');
                 } else {
                     // Sin cuestionarios: mostrar comprobante de inscripción directamente
+                    setTipoDescargo('inscripcion');
                     setStep('descargo');
                     toast.success('¡Registro completado con éxito! Aquí está tu comprobante de inscripción.');
                 }
@@ -1381,6 +1384,7 @@ export default function EventoPublicoPage() {
             if (e?.response?.data?.message?.includes('inscrito')) {
                 // Ya inscrito
                 setInscripcion({ id: 'existente' });
+                setTipoDescargo('inscripcion');
                 setStep('descargo');
             } else if (e?.response?.data?.message?.includes('cerrada') || e?.response?.status === 403) {
                 // La inscripción está cerrada
@@ -1437,7 +1441,8 @@ export default function EventoPublicoPage() {
         try {
             const result = await eventoPublicoService.registrarAsistencia(evento.id, form.ci, form.fechaNacimiento, form.codigoAsistencia);
             setPersona(result.persona);
-            setInscripcion({ id: result.inscripcion });
+            setInscripcion({ id: result.inscripcion, asistencia: true });
+            setTipoDescargo('asistencia');
             if (result.yaRegistrada) {
                 setYaRegistradaModal(true);
             }
@@ -1895,7 +1900,10 @@ export default function EventoPublicoPage() {
                                                 Editar Datos
                                             </button>
                                             <button
-                                                onClick={() => setStep('descargo')}
+                                                onClick={() => {
+                                                    setTipoDescargo(inscripcion?.asistencia ? 'asistencia' : 'inscripcion');
+                                                    setStep('descargo');
+                                                }}
                                                 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200"
                                             >
                                                 <Download className="w-3.5 h-3.5" />
@@ -1942,7 +1950,10 @@ export default function EventoPublicoPage() {
                                                 </p>
                                             </div>
                                             <button
-                                                onClick={() => setStep('descargo')}
+                                                onClick={() => {
+                                                    setTipoDescargo('inscripcion');
+                                                    setStep('descargo');
+                                                }}
                                                 className="group/btn relative h-14 px-10 rounded-2xl bg-emerald-500 text-white font-black uppercase text-xs tracking-[0.25em] shadow-xl shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all overflow-hidden"
                                             >
                                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
@@ -4949,7 +4960,10 @@ export default function EventoPublicoPage() {
                                                             </button>
                                                         )}
                                                         <button
-                                                            onClick={() => setStep('descargo')}
+                                                            onClick={() => {
+                                                                setTipoDescargo('cuestionario');
+                                                                setStep('descargo');
+                                                            }}
                                                             className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                                                         >
                                                             <Download className="w-4 h-4" /> Descargar Resultado de Evaluación
@@ -4959,7 +4973,10 @@ export default function EventoPublicoPage() {
                                             } else if (resultado.esEvaluativo === false) {
                                                 return (
                                                     <button
-                                                        onClick={() => setStep('descargo')}
+                                                        onClick={() => {
+                                                            setTipoDescargo('cuestionario');
+                                                            setStep('descargo');
+                                                        }}
                                                         className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20"
                                                     >
                                                         <Download className="w-4 h-4" /> Descargar Comprobante de Formulario
@@ -5019,7 +5036,7 @@ export default function EventoPublicoPage() {
                         {step === 'descargo' && (
                             <motion.div key="desc" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                                 <Descargo
-                                    tipo={resultado ? 'cuestionario' : evento.asistencia ? 'asistencia' : 'inscripcion'}
+                                    tipo={tipoDescargo || (resultado ? 'cuestionario' : inscripcion?.asistencia ? 'asistencia' : 'inscripcion')}
                                     persona={persona}
                                     evento={evento}
                                     resultado={resultado}
@@ -5220,7 +5237,11 @@ export default function EventoPublicoPage() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => setYaRegistradaModal(false)}
+                                    onClick={() => {
+                                        setTipoDescargo('asistencia');
+                                        setYaRegistradaModal(false);
+                                        setStep('descargo');
+                                    }}
                                     className="w-full h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2"
                                 >
                                     <Download className="w-4 h-4" /> Generar Comprobante
