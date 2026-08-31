@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
@@ -207,7 +207,7 @@ export default function BlogsPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
-                            placeholder="Buscar artículos..."
+                            placeholder="Buscar artÃ­culos..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="h-12 pl-12 pr-6 rounded-2xl bg-card border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-[11px] font-bold uppercase tracking-widest min-w-[300px]"
@@ -218,7 +218,7 @@ export default function BlogsPage() {
                         className="h-12 px-6 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20"
                     >
                         <Plus className="w-5 h-5" />
-                        Nuevo Artículo
+                        Nuevo ArtÃ­culo
                     </button>
                 </div>
             </div>
@@ -233,7 +233,7 @@ export default function BlogsPage() {
             ) : filteredBlogs.length === 0 ? (
                 <div className="py-32 flex flex-col items-center justify-center text-center opacity-30">
                     <FileText className="w-16 h-16 mb-4" />
-                    <p className="text-[11px] font-black uppercase tracking-widest">No se encontraron artículos</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest">No se encontraron artÃ­culos</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -296,13 +296,13 @@ export default function BlogsPage() {
                                         {blog.titulo}
                                     </h3>
                                     <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed font-medium">
-                                        {blog.descripcion || 'Sin descripción disponible.'}
+                                        {blog.descripcion || 'Sin descripciÃ³n disponible.'}
                                     </p>
                                 </div>
 
                                 <div className="pt-4 mt-auto border-t border-border/40 flex items-center justify-between">
                                     <span className="text-[10px] font-black text-primary uppercase tracking-widest group-hover:translate-x-1 transition-transform cursor-pointer">
-                                        Leer más →
+                                        Leer mÃ¡s â†’
                                     </span>
                                     <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center opacity-30 group-hover:opacity-100 transition-opacity">
                                         <MoreVertical className="w-4 h-4" />
@@ -317,7 +317,7 @@ export default function BlogsPage() {
             {/* Modal de Blogs */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-xl" />
                         <motion.div initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 30 }} className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
                             <Card className="border-none shadow-3xl rounded-[2.5rem] overflow-hidden flex flex-col flex-1 min-h-0 bg-card">
@@ -330,7 +330,7 @@ export default function BlogsPage() {
                                             <h2 className="text-2xl font-black uppercase italic tracking-tighter">
                                                 {editingBlog ? 'Actualizar' : 'Redactar'} <span className="opacity-60">Entrada</span>
                                             </h2>
-                                            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 leading-none mt-2">Gestión de Contenidos Institucionales</p>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 leading-none mt-2">GestiÃ³n de Contenidos Institucionales</p>
                                         </div>
                                     </div>
                                     <button onClick={() => setIsModalOpen(false)} className="p-4 rounded-3xl hover:bg-white/10 transition-colors">
@@ -343,14 +343,14 @@ export default function BlogsPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="space-y-6">
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Título del Artículo *</label>
+                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">TÃ­tulo del ArtÃ­culo *</label>
                                                     <input
                                                         type="text"
                                                         required
                                                         value={formData.titulo}
                                                         onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                                                         className="w-full h-14 px-5 rounded-2xl bg-muted/30 border border-border focus:border-primary transition-all outline-none text-xs font-bold shadow-sm"
-                                                        placeholder="Escriba un título impactante..."
+                                                        placeholder="Escriba un tÃ­tulo impactante..."
                                                     />
                                                 </div>
 
@@ -416,23 +416,23 @@ export default function BlogsPage() {
 
                                             <div className="flex flex-col h-full">
                                                 <div className="space-y-2 flex-1 flex flex-col">
-                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Descripción / Contenido</label>
+                                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">DescripciÃ³n / Contenido</label>
                                                     <textarea
                                                         value={formData.descripcion}
                                                         onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                                                         className="w-full flex-1 px-5 py-4 rounded-2xl bg-muted/30 border border-border focus:border-primary transition-all outline-none text-xs font-medium resize-none shadow-sm leading-relaxed"
-                                                        placeholder="Describa el contenido del artículo aquí..."
+                                                        placeholder="Describa el contenido del artÃ­culo aquÃ­..."
                                                     />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Subida de Imágenes (Simulado para MVP) */}
+                                        {/* Subida de ImÃ¡genes (Simulado para MVP) */}
                                         <ImageUpload
                                             value={formData.imagen}
                                             onChange={(url) => setFormData({ ...formData, imagen: url })}
                                             tableName="blogs"
-                                            label="Imagen de Portada del Artículo"
+                                            label="Imagen de Portada del ArtÃ­culo"
                                         />
 
                                     </div>
@@ -451,7 +451,7 @@ export default function BlogsPage() {
                                                 className="flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:opacity-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                             >
                                                 <Plus className="w-5 h-5" />
-                                                {isLoading ? 'Procesando...' : editingBlog ? 'Actualizar Contenido' : 'Publicar Artículo'}
+                                                {isLoading ? 'Procesando...' : editingBlog ? 'Actualizar Contenido' : 'Publicar ArtÃ­culo'}
                                             </button>
                                         </div>
                                     </div>
@@ -467,10 +467,10 @@ export default function BlogsPage() {
                 isOpen={!!isDeleting}
                 onClose={() => setIsDeleting(null)}
                 onConfirm={() => isDeleting && handleDelete(isDeleting)}
-                title="¿Eliminar este artículo?"
-                description="Esta acción eliminará permanentemente la publicación. Esta operación no se puede deshacer."
-                confirmText="Sí, eliminar"
-                cancelText="Mantener artículo"
+                title="Â¿Eliminar este artÃ­culo?"
+                description="Esta acciÃ³n eliminarÃ¡ permanentemente la publicaciÃ³n. Esta operaciÃ³n no se puede deshacer."
+                confirmText="SÃ­, eliminar"
+                cancelText="Mantener artÃ­culo"
                 type="danger"
                 isLoading={isLoading}
             />
@@ -479,12 +479,12 @@ export default function BlogsPage() {
                 isOpen={isConfirmingSave}
                 onClose={() => setIsConfirmingSave(false)}
                 onConfirm={handleSubmit}
-                title={editingBlog ? "¿Actualizar Artículo?" : "¿Publicar Artículo?"}
+                title={editingBlog ? "Â¿Actualizar ArtÃ­culo?" : "Â¿Publicar ArtÃ­culo?"}
                 description={editingBlog
-                    ? "Se aplicarán los cambios realizados al artículo de blog. La información se actualizará en todo el sistema."
-                    : "El artículo será publicado y estará disponible para todos los usuarios."
+                    ? "Se aplicarÃ¡n los cambios realizados al artÃ­culo de blog. La informaciÃ³n se actualizarÃ¡ en todo el sistema."
+                    : "El artÃ­culo serÃ¡ publicado y estarÃ¡ disponible para todos los usuarios."
                 }
-                confirmText={editingBlog ? "Confirmar Actualización" : "Confirmar Publicación"}
+                confirmText={editingBlog ? "Confirmar ActualizaciÃ³n" : "Confirmar PublicaciÃ³n"}
                 cancelText="Seguir editando"
                 type="info"
                 isLoading={isLoading}
@@ -492,3 +492,4 @@ export default function BlogsPage() {
         </div >
     );
 }
+

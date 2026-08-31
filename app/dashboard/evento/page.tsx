@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,7 +21,7 @@ import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
-// ─── Paleta de colores por tipo de evento ────────────────────────────────────
+// â”€â”€â”€ Paleta de colores por tipo de evento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TIPO_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
     default: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/30', dot: 'bg-primary' },
     congreso: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', dot: 'bg-purple-500' },
@@ -38,7 +38,7 @@ function getTipoColor(nombre?: string) {
 }
 
 function formatDate(dateStr: string) {
-    if (!dateStr) return '—';
+    if (!dateStr) return 'â€”';
     const match = dateStr.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
     if (!match) return String(dateStr);
     const [_, year, month, day] = match;
@@ -221,13 +221,13 @@ export default function EventosPage() {
         asistidos: eventos.reduce((acc, e) => acc + (e.asistidos || 0), 0),
     };
 
-    const FORM_STEPS = ['Información', 'Configuración', 'Campos Registro', 'Imágenes'];
+    const FORM_STEPS = ['InformaciÃ³n', 'ConfiguraciÃ³n', 'Campos Registro', 'ImÃ¡genes'];
 
-    // ── RENDER ──────────────────────────────────────────────────────────────
+    // â”€â”€ RENDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return (
         <div className="min-h-screen bg-background">
 
-            {/* ── HEADER ─────────────────────────────────────────────────── */}
+            {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="mb-8">
                 <div className="flex items-start justify-between gap-6 flex-wrap">
                     <div className="flex items-center gap-4">
@@ -244,7 +244,7 @@ export default function EventosPage() {
                                 Agenda de <span className="text-primary">Eventos</span>
                             </h1>
                             <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground mt-0.5">
-                                Coordinación Académica Institucional
+                                CoordinaciÃ³n AcadÃ©mica Institucional
                             </p>
                         </div>
                     </div>
@@ -279,7 +279,7 @@ export default function EventosPage() {
                 </div>
             </div>
 
-            {/* ── FILTROS Y BÚSQUEDA ─────────────────────────────────────── */}
+            {/* â”€â”€ FILTROS Y BÃšSQUEDA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="flex flex-wrap gap-3 mb-6 items-center">
                 <div className="relative flex-1 min-w-52">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -321,7 +321,7 @@ export default function EventosPage() {
                 </div>
             </div>
 
-            {/* ── CONTENIDO ──────────────────────────────────────────────── */}
+            {/* â”€â”€ CONTENIDO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {loading ? (
                 <div className="space-y-3">
                     {Array(5).fill(0).map((_, i) => (
@@ -333,10 +333,10 @@ export default function EventosPage() {
                     className="flex flex-col items-center justify-center py-32 text-muted-foreground/30">
                     <Calendar className="w-16 h-16 mb-4" strokeWidth={1} />
                     <p className="text-sm font-black uppercase tracking-widest">Sin eventos registrados</p>
-                    <p className="text-xs mt-1">Crea el primero con el botón de arriba</p>
+                    <p className="text-xs mt-1">Crea el primero con el botÃ³n de arriba</p>
                 </motion.div>
             ) : viewMode === 'table' ? (
-                /* ── VISTA TABLA ── */
+                /* â”€â”€ VISTA TABLA â”€â”€ */
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
@@ -351,7 +351,7 @@ export default function EventosPage() {
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Asistidos</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Estado</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Modalidad</th>
-                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Inscripción</th>
+                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">InscripciÃ³n</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Acciones</th>
                                 </tr>
                             </thead>
@@ -398,7 +398,7 @@ export default function EventosPage() {
                                                             {tipoNombre}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-muted-foreground text-xs">—</span>
+                                                        <span className="text-muted-foreground text-xs">â€”</span>
                                                     )}
                                                 </td>
                                                 {/* Fecha */}
@@ -412,7 +412,7 @@ export default function EventosPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[160px]">
                                                         <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                                        <span className="truncate">{evento.lugar || '—'}</span>
+                                                        <span className="truncate">{evento.lugar || 'â€”'}</span>
                                                     </div>
                                                 </td>
                                                 {/* Inscritos */}
@@ -441,10 +441,10 @@ export default function EventosPage() {
                                                             {modalidades.find(m => m.id === evento.modalidadIds)?.nombre}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-muted-foreground text-[10px]">—</span>
+                                                        <span className="text-muted-foreground text-[10px]">â€”</span>
                                                     )}
                                                 </td>
-                                                {/* Inscripción */}
+                                                {/* InscripciÃ³n */}
                                                 <td className="px-4 py-4 text-center">
                                                     {(evento as any).inscripcionAbierta ? (
                                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500/10 text-green-400 text-[10px] font-black border border-green-500/20">
@@ -494,7 +494,7 @@ export default function EventosPage() {
                     </div>
                 </motion.div>
             ) : (
-                /* ── VISTA GRID ── */
+                /* â”€â”€ VISTA GRID â”€â”€ */
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     <AnimatePresence>
                         {filteredEventos.map((evento, idx) => {
@@ -549,7 +549,7 @@ export default function EventosPage() {
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                                     <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                                    <span className="truncate">{evento.lugar || '—'}</span>
+                                                    <span className="truncate">{evento.lugar || 'â€”'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-blue-400">
                                                     <Users className="w-3.5 h-3.5" />
@@ -605,10 +605,10 @@ export default function EventosPage() {
                 </div>
             )}
 
-            {/* ── MODAL CREAR/EDITAR ────────────────────────────────────── */}
+            {/* â”€â”€ MODAL CREAR/EDITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsModalOpen(false)}
@@ -629,7 +629,7 @@ export default function EventosPage() {
                                         </div>
                                         <div>
                                             <h2 className="text-xl font-black uppercase tracking-tight">
-                                                {editingEvento ? `Editando: ${editingEvento.nombre}` : 'Nuevo Evento Académico'}
+                                                {editingEvento ? `Editando: ${editingEvento.nombre}` : 'Nuevo Evento AcadÃ©mico'}
                                             </h2>
                                             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
                                                 {editingEvento ? 'Actualice los datos del registro' : 'Complete el formulario para crear'}
@@ -680,7 +680,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="md:col-span-2 space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Descripción del Evento</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">DescripciÃ³n del Evento</label>
                                                         <RichTextEditor
                                                             value={formData.descripcion}
                                                             placeholder="Describe los objetivos y alcance del evento..."
@@ -696,7 +696,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Código Interno</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">CÃ³digo Interno</label>
                                                         <input
                                                             type="text" value={formData.codigo}
                                                             onChange={e => setFormData({ ...formData, codigo: e.target.value })}
@@ -705,7 +705,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / Ubicación</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / UbicaciÃ³n</label>
                                                         <div className="relative">
                                                             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                             <input
@@ -731,7 +731,7 @@ export default function EventosPage() {
                                                     </div>
                                                     <div className="md:col-span-2 space-y-2">
                                                         <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                                            <span className="inline-block w-3 h-3 rounded-sm bg-red-500" /> Video YouTube (Evento Virtual / Transmisión)
+                                                            <span className="inline-block w-3 h-3 rounded-sm bg-red-500" /> Video YouTube (Evento Virtual / TransmisiÃ³n)
                                                         </label>
                                                         <input
                                                             type="text" value={formData.urlVideo}
@@ -739,7 +739,7 @@ export default function EventosPage() {
                                                             className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-bold font-mono"
                                                             placeholder="https://youtu.be/xxxx o ID del video"
                                                         />
-                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest pl-1">Opcional — se mostrará embebido en la página pública del evento.</p>
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest pl-1">Opcional â€” se mostrarÃ¡ embebido en la pÃ¡gina pÃºblica del evento.</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -799,7 +799,7 @@ export default function EventosPage() {
                                                     >
                                                         <CheckCircle2 className="w-5 h-5" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest">
-                                                            Inscripción {formData.inscripcionAbierta ? 'Abierta' : 'Cerrada'}
+                                                            InscripciÃ³n {formData.inscripcionAbierta ? 'Abierta' : 'Cerrada'}
                                                         </span>
                                                     </button>
                                                     <button
@@ -826,7 +826,7 @@ export default function EventosPage() {
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <h3 className="text-sm font-black uppercase tracking-tight text-foreground">Campos de Registro Personalizados</h3>
-                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Información adicional para solicitar al participante</p>
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">InformaciÃ³n adicional para solicitar al participante</p>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -865,7 +865,7 @@ export default function EventosPage() {
                                                                             setFormData({ ...formData, camposExtras: newFields });
                                                                         }}
                                                                         className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-bold"
-                                                                        placeholder="Ej: ¿Tiene experiencia previa?"
+                                                                        placeholder="Ej: Â¿Tiene experiencia previa?"
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-1.5 text-left">
@@ -881,8 +881,8 @@ export default function EventosPage() {
                                                                     >
                                                                         <option value="TEXTO">Respuesta Abierta (Texto)</option>
                                                                         <option value="BOOLEAN">Si / No (Boolean)</option>
-                                                                        <option value="SINGLE_SELECT">Selección Única</option>
-                                                                        <option value="MULTIPLE_SELECT">Selección Múltiple</option>
+                                                                        <option value="SINGLE_SELECT">SelecciÃ³n Ãšnica</option>
+                                                                        <option value="MULTIPLE_SELECT">SelecciÃ³n MÃºltiple</option>
                                                                     </select>
                                                                 </div>
 
@@ -929,7 +929,7 @@ export default function EventosPage() {
                                                                             setFormData({ ...formData, camposExtras: newFields });
                                                                         }}
                                                                         className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-medium"
-                                                                        placeholder="Opción 1, Opción 2, Opción 3"
+                                                                        placeholder="OpciÃ³n 1, OpciÃ³n 2, OpciÃ³n 3"
                                                                     />
                                                                 </div>
                                                             )}
@@ -1012,14 +1012,14 @@ export default function EventosPage() {
                 )}
             </AnimatePresence>
 
-            {/* Modals de confirmación */}
+            {/* Modals de confirmaciÃ³n */}
             <ConfirmModal
                 isOpen={!!isDeleting}
                 onClose={() => setIsDeleting(null)}
                 onConfirm={() => isDeleting && handleDelete(isDeleting)}
-                title="¿Eliminar Evento?"
-                description="Esta acción eliminará permanentemente el evento y toda la información asociada."
-                confirmText="Sí, eliminar"
+                title="Â¿Eliminar Evento?"
+                description="Esta acciÃ³n eliminarÃ¡ permanentemente el evento y toda la informaciÃ³n asociada."
+                confirmText="SÃ­, eliminar"
                 cancelText="Cancelar"
                 variant="danger"
                 loading={isLoading}
@@ -1028,10 +1028,10 @@ export default function EventosPage() {
                 isOpen={isConfirmingSave}
                 onClose={() => setIsConfirmingSave(false)}
                 onConfirm={handleSubmit}
-                title={editingEvento ? '¿Actualizar Evento?' : '¿Crear Evento?'}
+                title={editingEvento ? 'Â¿Actualizar Evento?' : 'Â¿Crear Evento?'}
                 description={editingEvento
-                    ? 'Se guardarán los cambios en la base de datos.'
-                    : 'Se publicará el nuevo evento en el cronograma institucional.'}
+                    ? 'Se guardarÃ¡n los cambios en la base de datos.'
+                    : 'Se publicarÃ¡ el nuevo evento en el cronograma institucional.'}
                 confirmText={editingEvento ? 'Confirmar' : 'Crear Evento'}
                 cancelText="Seguir editando"
                 variant="info"
@@ -1040,3 +1040,4 @@ export default function EventosPage() {
         </div>
     );
 }
+

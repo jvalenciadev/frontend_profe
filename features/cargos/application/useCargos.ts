@@ -25,12 +25,17 @@ export const useCargos = () => {
     const createCargo = async (cargoData: Partial<Cargo>) => {
         try {
             setLoading(true);
-            await CargoApi.create(cargoData);
-            toast.success('Cargo creado');
+            const payload = {
+                ...cargoData,
+                estado: (cargoData.estado?.toLowerCase() as any) || 'activo'
+            };
+            await CargoApi.create(payload);
+            toast.success('Cargo creado exitosamente');
             await loadCargos();
             return true;
-        } catch (err) {
-            toast.error('Error al crear el cargo');
+        } catch (err: any) {
+            const msg = err.response?.data?.message || 'Error al crear el cargo';
+            toast.error(typeof msg === 'string' ? msg : (Array.isArray(msg) ? msg.join(', ') : 'Error al crear el cargo'));
             return false;
         } finally {
             setLoading(false);
@@ -40,12 +45,17 @@ export const useCargos = () => {
     const updateCargo = async (id: string, cargoData: Partial<Cargo>) => {
         try {
             setLoading(true);
-            await CargoApi.update(id, cargoData);
-            toast.success('Cargo actualizado');
+            const payload = {
+                ...cargoData,
+                estado: cargoData.estado ? (cargoData.estado.toLowerCase() as any) : undefined
+            };
+            await CargoApi.update(id, payload);
+            toast.success('Cargo actualizado exitosamente');
             await loadCargos();
             return true;
-        } catch (err) {
-            toast.error('Error al actualizar el cargo');
+        } catch (err: any) {
+            const msg = err.response?.data?.message || 'Error al actualizar el cargo';
+            toast.error(typeof msg === 'string' ? msg : (Array.isArray(msg) ? msg.join(', ') : 'Error al actualizar el cargo'));
             return false;
         } finally {
             setLoading(false);

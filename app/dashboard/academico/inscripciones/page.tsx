@@ -339,7 +339,7 @@ export default function InscripcionesPage() {
         if (searchTerm) params.search = searchTerm;
         if (filterSede) params.sedeId = filterSede;
         if (filterEstado) params.estadoInscripcionId = filterEstado;
-        
+
         // Solo aplicar filtro de versión si NO hay un grupo específico seleccionado,
         // para evitar conflictos si la oferta seleccionada no coincide por cruce de filtros.
         if (filterVersion && !selectedGroup) params.versionId = filterVersion;

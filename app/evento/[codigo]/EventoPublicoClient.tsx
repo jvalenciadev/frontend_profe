@@ -1283,10 +1283,15 @@ export default function EventoPublicoPage() {
     const handleInscribirse = async () => {
         if (!evento) return;
 
-        const ageCheck = isValidAge(form.fechaNacimiento);
-        if (!ageCheck.valid) {
-            toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
-            return;
+        // Solo validar la edad en el flujo de nueva inscripción.
+        // En modo edición de perfil la fecha de nacimiento no se modifica
+        // y llega del backend en formato ISO (puede incluir timestamp), por eso se omite.
+        if (!isEditingProfile) {
+            const ageCheck = isValidAge(form.fechaNacimiento);
+            if (!ageCheck.valid) {
+                toast.error(ageCheck.error || 'La fecha de nacimiento ingresada no es válida.');
+                return;
+            }
         }
 
         const nuevosErrores: Record<string, boolean> = {};

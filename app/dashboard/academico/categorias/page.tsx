@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { aulaCategoriaService } from '@/services/aulaCategoriaService';
@@ -70,12 +70,12 @@ export default function CategoriasPage() {
         variant: 'danger'
     });
 
-    // ─── Config Global ────────────────────────────────────────
+    // â”€â”€â”€ Config Global â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [tipos, setTipos] = useState<TipoConConfig[]>([]);
     const [selectedTipo, setSelectedTipo] = useState<TipoConConfig | null>(null);
     const [configLoading, setConfigLoading] = useState(true);
 
-    // ─── Por Módulo ───────────────────────────────────────────
+    // â”€â”€â”€ Por MÃ³dulo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [modulos, setModulos] = useState<Modulo[]>([]);
     const [selectedModulo, setSelectedModulo] = useState<Modulo | null>(null);
     const [categorias, setCategorias] = useState<CategoriaModulo[]>([]);
@@ -83,18 +83,18 @@ export default function CategoriasPage() {
     const [catLoading, setCatLoading] = useState(false);
     const [searchMod, setSearchMod] = useState('');
 
-    // ─── Modal ────────────────────────────────────────────────
+    // â”€â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [modalMode, setModalMode] = useState<'create-config' | 'edit-config' | 'create-cat' | 'edit-cat' | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [form, setForm] = useState({ nombre: '', peso: 25, esEvalFinal: false });
 
-    // ─── Aplicar config ───────────────────────────────────────
+    // â”€â”€â”€ Aplicar config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [applyModal, setApplyModal] = useState(false);
     const [applyModuloId, setApplyModuloId] = useState('');
 
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // LOADERS
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     const loadTipos = useCallback(async () => {
         setConfigLoading(true);
@@ -117,7 +117,7 @@ export default function CategoriasPage() {
             );
             setModulos(data);
         } catch {
-            toast.error('Error al cargar módulos');
+            toast.error('Error al cargar mÃ³dulos');
         } finally {
             setModuloLoading(false);
         }
@@ -129,7 +129,7 @@ export default function CategoriasPage() {
             const data = await aulaCategoriaService.getAll(moduloId);
             setCategorias(data);
         } catch {
-            toast.error('Error al cargar categorías del módulo');
+            toast.error('Error al cargar categorÃ­as del mÃ³dulo');
         } finally {
             setCatLoading(false);
         }
@@ -140,9 +140,9 @@ export default function CategoriasPage() {
         if (activeTab === 'por-modulo') loadModulos();
     }, [activeTab, searchMod]);
 
-    // ═══════════════════════════════════════════════════════════
-    // HANDLERS — CONFIG GLOBAL
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // HANDLERS â€” CONFIG GLOBAL
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     const openCreateConfig = () => {
         setForm({ nombre: '', peso: 25, esEvalFinal: false });
@@ -167,14 +167,14 @@ export default function CategoriasPage() {
                     peso: form.peso,
                     esEvalFinal: form.esEvalFinal,
                 });
-                toast.success('Configuración actualizada');
+                toast.success('ConfiguraciÃ³n actualizada');
             } else {
                 await aulaCategoriaService.createConfig(selectedTipo.id, {
                     nombre: form.nombre,
                     peso: form.peso,
                     esEvalFinal: form.esEvalFinal,
                 });
-                toast.success('Categoría de calificación creada');
+                toast.success('CategorÃ­a de calificaciÃ³n creada');
             }
             setModalMode(null);
             await loadTipos();
@@ -193,13 +193,13 @@ export default function CategoriasPage() {
     const handleDeleteConfig = (id: string) => {
         setConfirmState({
             open: true,
-            title: '¿Eliminar Categoría?',
-            description: '¿Está seguro de eliminar esta categoría de configuración? Esta acción no se puede deshacer.',
+            title: 'Â¿Eliminar CategorÃ­a?',
+            description: 'Â¿EstÃ¡ seguro de eliminar esta categorÃ­a de configuraciÃ³n? Esta acciÃ³n no se puede deshacer.',
             variant: 'danger',
             onConfirm: async () => {
                 try {
                     await aulaCategoriaService.deleteConfig(id);
-                    toast.success('Categoría eliminada');
+                    toast.success('CategorÃ­a eliminada');
                     const refreshed = await aulaCategoriaService.getTiposConConfig();
                     setTipos(refreshed);
                     const updated = refreshed.find((t: TipoConConfig) => t.id === selectedTipo?.id);
@@ -213,9 +213,9 @@ export default function CategoriasPage() {
         });
     };
 
-    // ═══════════════════════════════════════════════════════════
-    // HANDLERS — POR MÓDULO
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // HANDLERS â€” POR MÃ“DULO
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     const handleSelectModulo = (mod: Modulo) => {
         setSelectedModulo(mod);
@@ -245,14 +245,14 @@ export default function CategoriasPage() {
                     ponderacion: form.peso,
                     esEvalFinal: form.esEvalFinal,
                 });
-                toast.success('Categoría actualizada');
+                toast.success('CategorÃ­a actualizada');
             } else {
                 await aulaCategoriaService.create(selectedModulo.id, {
                     nombre: form.nombre,
                     ponderacion: form.peso,
                     esEvalFinal: form.esEvalFinal,
                 });
-                toast.success('Categoría creada en el módulo');
+                toast.success('CategorÃ­a creada en el mÃ³dulo');
             }
             setModalMode(null);
             await loadCategorias(selectedModulo.id);
@@ -266,14 +266,14 @@ export default function CategoriasPage() {
     const handleDeleteCat = (id: string) => {
         setConfirmState({
             open: true,
-            title: '¿Eliminar Categoría?',
-            description: '¿Está seguro de eliminar esta categoría del módulo? Esta acción no se puede deshacer.',
+            title: 'Â¿Eliminar CategorÃ­a?',
+            description: 'Â¿EstÃ¡ seguro de eliminar esta categorÃ­a del mÃ³dulo? Esta acciÃ³n no se puede deshacer.',
             variant: 'danger',
             onConfirm: async () => {
                 setCatLoading(true);
                 try {
                     await aulaCategoriaService.delete(id);
-                    toast.success('Categoría eliminada');
+                    toast.success('CategorÃ­a eliminada');
                     if (selectedModulo) await loadCategorias(selectedModulo.id);
                 } catch {
                     toast.error('Error al eliminar');
@@ -289,7 +289,7 @@ export default function CategoriasPage() {
         if (!applyModuloId || !selectedTipo) return;
         try {
             const result = await aulaCategoriaService.aplicarConfigAModulo(applyModuloId, selectedTipo.id);
-            toast.success(`Se aplicaron ${result.aplicadas} categorías al módulo`);
+            toast.success(`Se aplicaron ${result.aplicadas} categorÃ­as al mÃ³dulo`);
             setApplyModal(false);
             setApplyModuloId('');
         } catch (err: any) {
@@ -297,9 +297,9 @@ export default function CategoriasPage() {
         }
     };
 
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // COMPUTED
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     const selectedConfigs = selectedTipo?.mod_tipos_calificacion ?? [];
     const totalPesoConfig = selectedConfigs.reduce((s, c) => s + c.peso, 0);
@@ -311,13 +311,13 @@ export default function CategoriasPage() {
 
     const modalOpen = modalMode !== null;
 
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // RENDER
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     return (
         <div className="min-h-screen bg-background p-6 lg:p-10">
 
-            {/* ─── HEADER ─────────────────────────────────────────── */}
+            {/* â”€â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-[2rem] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20">
@@ -325,20 +325,20 @@ export default function CategoriasPage() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-black uppercase italic tracking-tight text-foreground leading-none">
-                            Categorías de <span className="text-primary">Calificación</span>
+                            CategorÃ­as de <span className="text-primary">CalificaciÃ³n</span>
                         </h1>
                         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground mt-2">
-                            Configuración Global por Tipo · Gestión por Módulo
+                            ConfiguraciÃ³n Global por Tipo Â· GestiÃ³n por MÃ³dulo
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* ─── TABS ───────────────────────────────────────────── */}
+            {/* â”€â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="flex gap-2 mb-8 bg-muted/40 p-1.5 rounded-2xl w-fit">
                 {([
                     { id: 'config-global', label: 'Config Global por Tipo', icon: Settings2 },
-                    { id: 'por-modulo', label: 'Por Módulo', icon: BookOpen },
+                    { id: 'por-modulo', label: 'Por MÃ³dulo', icon: BookOpen },
                 ] as const).map(tab => (
                     <button
                         key={tab.id}
@@ -357,9 +357,9 @@ export default function CategoriasPage() {
             </div>
 
             <AnimatePresence mode="wait">
-                {/* ═══════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     TAB 1: CONFIG GLOBAL
-                    ═══════════════════════════════════════════════════════ */}
+                    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'config-global' && (
                     <motion.div
                         key="config-global"
@@ -402,7 +402,7 @@ export default function CategoriasPage() {
                                                 <p className={cn('text-[9px] font-bold mt-0.5',
                                                     selectedTipo?.id === tipo.id ? 'text-white/60' : 'text-muted-foreground'
                                                 )}>
-                                                    {tipo.mod_tipos_calificacion?.length ?? 0} categorías
+                                                    {tipo.mod_tipos_calificacion?.length ?? 0} categorÃ­as
                                                 </p>
                                             </div>
                                         </div>
@@ -421,7 +421,7 @@ export default function CategoriasPage() {
                                     {/* Stats Row */}
                                     <div className="grid grid-cols-3 gap-4">
                                         <div className="p-5 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-white border-none shadow-xl">
-                                            <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Categorías</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">CategorÃ­as</p>
                                             <h3 className="text-4xl font-black">{selectedConfigs.length}</h3>
                                         </div>
                                         <div className="p-5 rounded-2xl bg-card border border-border">
@@ -442,13 +442,13 @@ export default function CategoriasPage() {
                                         <div className="p-5 rounded-2xl bg-card border border-border flex flex-col justify-between">
                                             <Info className="w-4 h-4 text-primary" />
                                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                                                {totalPesoConfig === (selectedTipo.notaMaxima || 100) ? '✓ Config completa' : `Falta ${(selectedTipo.notaMaxima || 100) - totalPesoConfig} pts`}
+                                                {totalPesoConfig === (selectedTipo.notaMaxima || 100) ? 'âœ“ Config completa' : `Falta ${(selectedTipo.notaMaxima || 100) - totalPesoConfig} pts`}
                                             </p>
                                             <button
                                                 onClick={() => setApplyModal(true)}
                                                 className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 transition-all border border-primary/10"
                                             >
-                                                <Zap className="w-3.5 h-3.5" /> Aplicar a Módulo
+                                                <Zap className="w-3.5 h-3.5" /> Aplicar a MÃ³dulo
                                             </button>
                                         </div>
                                     </div>
@@ -461,7 +461,7 @@ export default function CategoriasPage() {
                                                     {selectedTipo.nombre}
                                                 </h3>
                                                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                                                    Estándares Globales
+                                                    EstÃ¡ndares Globales
                                                 </p>
                                             </div>
                                             <button
@@ -487,7 +487,7 @@ export default function CategoriasPage() {
                                                             <td colSpan={4} className="px-8 py-16 text-center">
                                                                 <div className="flex flex-col items-center gap-3 opacity-25">
                                                                     <Tag className="w-10 h-10" />
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest">Sin categorías configuradas</p>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest">Sin categorÃ­as configuradas</p>
                                                                     <p className="text-xs text-muted-foreground">Crea la primera para este tipo de programa</p>
                                                                 </div>
                                                             </td>
@@ -519,7 +519,7 @@ export default function CategoriasPage() {
                                                                         <Shield className="w-3 h-3" /> Final
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="text-muted-foreground/30 font-bold text-xs">—</span>
+                                                                    <span className="text-muted-foreground/30 font-bold text-xs">â€”</span>
                                                                 )}
                                                             </td>
                                                             <td className="px-6 py-5 text-right">
@@ -548,9 +548,9 @@ export default function CategoriasPage() {
                     </motion.div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════
-                    TAB 2: POR MÓDULO
-                    ═══════════════════════════════════════════════════════ */}
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                    TAB 2: POR MÃ“DULO
+                    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'por-modulo' && (
                     <motion.div
                         key="por-modulo"
@@ -560,13 +560,13 @@ export default function CategoriasPage() {
                         transition={{ duration: 0.15 }}
                         className="grid grid-cols-1 lg:grid-cols-12 gap-8"
                     >
-                        {/* Left: Módulos */}
+                        {/* Left: MÃ³dulos */}
                         <div className="lg:col-span-4 space-y-4">
                             <div className="relative group">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="text"
-                                    placeholder="Buscar módulo..."
+                                    placeholder="Buscar mÃ³dulo..."
                                     value={searchMod}
                                     onChange={e => setSearchMod(e.target.value)}
                                     className="w-full h-11 pl-11 pr-4 rounded-xl bg-card border border-border outline-none focus:border-primary text-xs font-bold transition-all"
@@ -580,7 +580,7 @@ export default function CategoriasPage() {
                                 ) : filteredModulos.length === 0 ? (
                                     <div className="flex flex-col items-center py-16 opacity-20 gap-3">
                                         <BookOpen className="w-10 h-10" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Sin módulos</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest">Sin mÃ³dulos</p>
                                     </div>
                                 ) : filteredModulos.map(m => (
                                     <button
@@ -610,7 +610,7 @@ export default function CategoriasPage() {
                                                 <span className={cn('text-[8px] font-bold',
                                                     selectedModulo?.id === m.id ? 'text-white/50' : 'text-muted-foreground'
                                                 )}>
-                                                    {m.mod_categorias_calif?.length ?? 0} categorías
+                                                    {m.mod_categorias_calif?.length ?? 0} categorÃ­as
                                                 </span>
                                             </div>
                                         </div>
@@ -619,13 +619,13 @@ export default function CategoriasPage() {
                             </div>
                         </div>
 
-                        {/* Right: Categorías del módulo */}
+                        {/* Right: CategorÃ­as del mÃ³dulo */}
                         <div className="lg:col-span-8 space-y-6">
                             {selectedModulo ? (
                                 <>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div className="p-5 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-white shadow-xl col-span-1">
-                                            <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Categorías</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">CategorÃ­as</p>
                                             <h3 className="text-4xl font-black">{categorias.length}</h3>
                                         </div>
                                         <div className="p-5 rounded-2xl bg-card border border-border">
@@ -643,7 +643,7 @@ export default function CategoriasPage() {
                                         <div className="p-5 rounded-2xl bg-card border border-border flex flex-col justify-between">
                                             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2">Tipo Programa</p>
                                             <p className="text-xs font-black text-foreground">
-                                                {selectedModulo.programaDos?.tipo?.nombre ?? '—'}
+                                                {selectedModulo.programaDos?.tipo?.nombre ?? 'â€”'}
                                             </p>
                                         </div>
                                     </div>
@@ -653,14 +653,14 @@ export default function CategoriasPage() {
                                             <div>
                                                 <h3 className="text-sm font-black uppercase tracking-tight">{selectedModulo.nombre}</h3>
                                                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                                                    Parametrización Específica por Módulo
+                                                    ParametrizaciÃ³n EspecÃ­fica por MÃ³dulo
                                                 </p>
                                             </div>
                                             <button
                                                 onClick={openCreateCat}
                                                 className="flex items-center gap-2 h-10 px-5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
                                             >
-                                                <Plus className="w-4 h-4" /> Nueva Categoría
+                                                <Plus className="w-4 h-4" /> Nueva CategorÃ­a
                                             </button>
                                         </div>
                                         <table className="w-full text-left">
@@ -685,7 +685,7 @@ export default function CategoriasPage() {
                                                             <td colSpan={4} className="px-8 py-16 text-center">
                                                                 <div className="flex flex-col items-center gap-3 opacity-20">
                                                                     <ListChecks className="w-10 h-10" />
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest">Sin categorías en este módulo</p>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest">Sin categorÃ­as en este mÃ³dulo</p>
                                                                     <p className="text-xs">Crea una o aplica la config del tipo de programa</p>
                                                                 </div>
                                                             </td>
@@ -741,7 +741,7 @@ export default function CategoriasPage() {
                                 </>
                             ) : (
                                 <div className="flex items-center justify-center h-72 opacity-20">
-                                    <p className="text-[11px] font-black uppercase tracking-widest">Selecciona un módulo</p>
+                                    <p className="text-[11px] font-black uppercase tracking-widest">Selecciona un mÃ³dulo</p>
                                 </div>
                             )}
                         </div>
@@ -749,12 +749,12 @@ export default function CategoriasPage() {
                 )}
             </AnimatePresence>
 
-            {/* ═══════════════════════════════════════════════════════
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 MODAL CRUD (Shared for config and categories)
-                ═══════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <AnimatePresence>
                 {modalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -776,12 +776,12 @@ export default function CategoriasPage() {
                                     <div>
                                         <h2 className="text-lg font-black uppercase italic tracking-tight">
                                             {(modalMode === 'edit-config' || modalMode === 'edit-cat') ? 'Editar' : 'Nueva'}{' '}
-                                            <span className="text-primary">Categoría</span>
+                                            <span className="text-primary">CategorÃ­a</span>
                                         </h2>
                                         <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
                                             {(modalMode === 'create-config' || modalMode === 'edit-config')
                                                 ? `Tipo: ${selectedTipo?.nombre}`
-                                                : `Módulo: ${selectedModulo?.nombre}`
+                                                : `MÃ³dulo: ${selectedModulo?.nombre}`
                                             }
                                         </p>
                                     </div>
@@ -799,11 +799,11 @@ export default function CategoriasPage() {
                                 className="space-y-5"
                             >
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Nombre de la Categoría *</label>
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Nombre de la CategorÃ­a *</label>
                                     <input
                                         required
                                         type="text"
-                                        placeholder="Ej: Producto Académico, Evaluación Final..."
+                                        placeholder="Ej: Producto AcadÃ©mico, EvaluaciÃ³n Final..."
                                         value={form.nombre}
                                         onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                                         className="w-full h-13 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary/20 focus:bg-card outline-none transition-all font-bold text-sm"
@@ -811,7 +811,7 @@ export default function CategoriasPage() {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Puntaje / Ponderación (pts) *</label>
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Puntaje / PonderaciÃ³n (pts) *</label>
                                     <div className="relative">
                                         <input
                                             required
@@ -838,8 +838,8 @@ export default function CategoriasPage() {
                                         className="w-5 h-5 rounded-lg accent-amber-500"
                                     />
                                     <div>
-                                        <p className="text-xs font-black">Es Evaluación Final</p>
-                                        <p className="text-[9px] text-muted-foreground font-medium">Marca esta categoría como el cuestionario o producto final del módulo</p>
+                                        <p className="text-xs font-black">Es EvaluaciÃ³n Final</p>
+                                        <p className="text-[9px] text-muted-foreground font-medium">Marca esta categorÃ­a como el cuestionario o producto final del mÃ³dulo</p>
                                     </div>
                                     <Shield className={cn('w-5 h-5 ml-auto flex-shrink-0 transition-colors', form.esEvalFinal ? 'text-amber-500' : 'text-muted-foreground/20')} />
                                 </label>
@@ -858,7 +858,7 @@ export default function CategoriasPage() {
                                         className="flex-[2] h-13 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2.5 disabled:opacity-50"
                                     >
                                         <CheckCircle2 className="w-5 h-5" />
-                                        {(modalMode === 'edit-config' || modalMode === 'edit-cat') ? 'Guardar Cambios' : 'Crear Categoría'}
+                                        {(modalMode === 'edit-config' || modalMode === 'edit-cat') ? 'Guardar Cambios' : 'Crear CategorÃ­a'}
                                     </button>
                                 </div>
                             </form>
@@ -867,12 +867,12 @@ export default function CategoriasPage() {
                 )}
             </AnimatePresence>
 
-            {/* ═══════════════════════════════════════════════════════
-                MODAL: APLICAR CONFIG A MÓDULO
-                ═══════════════════════════════════════════════════════ */}
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                MODAL: APLICAR CONFIG A MÃ“DULO
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             <AnimatePresence>
                 {applyModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -903,21 +903,21 @@ export default function CategoriasPage() {
                             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 mb-6">
                                 <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                                 <p className="text-xs text-amber-700 font-medium">
-                                    Se crearán instancias de <strong>{selectedConfigs.length} categorías</strong> en el módulo seleccionado. Las categorías ya existentes serán omitidas.
+                                    Se crearÃ¡n instancias de <strong>{selectedConfigs.length} categorÃ­as</strong> en el mÃ³dulo seleccionado. Las categorÃ­as ya existentes serÃ¡n omitidas.
                                 </p>
                             </div>
 
                             <div className="space-y-2 mb-6">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Seleccionar Módulo *</label>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Seleccionar MÃ³dulo *</label>
                                 <select
                                     value={applyModuloId}
                                     onChange={e => setApplyModuloId(e.target.value)}
                                     className="w-full h-13 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary/20 focus:bg-card outline-none font-bold text-sm"
                                 >
-                                    <option value="">-- Seleccionar módulo --</option>
+                                    <option value="">-- Seleccionar mÃ³dulo --</option>
                                     {modulos.map(m => (
                                         <option key={m.id} value={m.id}>
-                                            {m.programaDos?.nombre} → {m.nombre}
+                                            {m.programaDos?.nombre} â†’ {m.nombre}
                                         </option>
                                     ))}
                                 </select>
@@ -946,10 +946,11 @@ export default function CategoriasPage() {
                 onConfirm={confirmState.onConfirm}
                 title={confirmState.title}
                 description={confirmState.description}
-                confirmText="Sí, eliminar"
+                confirmText="SÃ­, eliminar"
                 cancelText="Cancelar"
                 variant={confirmState.variant}
             />
         </div>
     );
 }
+

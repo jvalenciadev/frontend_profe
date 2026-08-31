@@ -9,7 +9,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import MathRenderer from './MathRenderer';
-import MathEditor from './MathEditor';
+import { RichTextMathEditor } from '@/components/evaluaciones/RichTextMathEditor';
 import { ConfirmModal } from '../ConfirmModal';
 
 /* ─── Tipos de Pregunta ──────────────────────────────────────────── */
@@ -613,12 +613,11 @@ export default function QuestionnaireEditor({
                                                                                 <span className="text-[8px] font-black text-slate-400 opacity-50">PTS</span>
                                                                             </div>
                                                                         </div>
-                                                                        <MathEditor
+                                                                        <RichTextMathEditor
                                                                             value={p.texto}
                                                                             onChange={val => updatePregunta(pIdx, { texto: val })}
                                                                             placeholder="Escribe el enunciado de la pregunta..."
-                                                                            theme={theme}
-                                                                            rows={2}
+                                                                            rows={3}
                                                                         />
                                                                     </div>
 
@@ -685,13 +684,12 @@ export default function QuestionnaireEditor({
                                                                                         }
                                                                                     </button>
                                                                                     <div className="flex-1 min-w-0">
-                                                                                        <MathEditor
+                                                                                        <RichTextMathEditor
                                                                                             value={opt.texto}
                                                                                             onChange={val => updateOpcionTexto(pIdx, oIdx, val)}
-                                                                                            placeholder="Texto de la opción..."
-                                                                                            theme={theme}
+                                                                                            placeholder="Opción..."
                                                                                             rows={1}
-                                                                                            className="border-0 bg-transparent shadow-none"
+                                                                                            compact={true}
                                                                                         />
                                                                                     </div>
                                                                                     {p.opciones.length > 2 && (
@@ -787,13 +785,12 @@ export default function QuestionnaireEditor({
                                                                                     </div>
                                                                                     <GripVertical size={16} className="text-slate-300 shrink-0" />
                                                                                     <div className="flex-1 min-w-0">
-                                                                                        <MathEditor
+                                                                                        <RichTextMathEditor
                                                                                             value={opt.texto}
                                                                                             onChange={(val: string) => updateOpcionTexto(pIdx, oIdx, val)}
                                                                                             placeholder="Elemento..."
-                                                                                            theme={theme}
                                                                                             rows={1}
-                                                                                            className="border-0 bg-transparent shadow-none"
+                                                                                            compact={true}
                                                                                         />
                                                                                     </div>
                                                                                     {p.opciones.length > 2 && (

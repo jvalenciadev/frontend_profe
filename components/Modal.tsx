@@ -45,10 +45,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     if (!mounted || !isOpen) return null;
 
     return createPortal(
-        <div className={cn(
-            "fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 transition-all duration-500 ease-in-out",
-            isSidebarCollapsed ? "md:pl-24" : "md:pl-80"
-        )}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 transition-all duration-300 ease-in-out">
             {/* Backdrop */}
             <div className="modal-backdrop" onClick={onClose} />
 

@@ -16,7 +16,7 @@ export default function CargosPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCargo, setEditingCargo] = useState<Cargo | null>(null);
-    const [formData, setFormData] = useState<Partial<Cargo>>({ nombre: '', estado: 'ACTIVO' });
+    const [formData, setFormData] = useState<Partial<Cargo>>({ nombre: '', estado: 'activo' });
 
     // Confirm Modal State
     const [confirmDeleteState, setConfirmDeleteState] = useState<{ open: boolean; id: string }>({
@@ -31,10 +31,10 @@ export default function CargosPage() {
     const handleOpenModal = (cargo?: Cargo) => {
         if (cargo) {
             setEditingCargo(cargo);
-            setFormData({ nombre: cargo.nombre, estado: cargo.estado });
+            setFormData({ nombre: cargo.nombre, estado: cargo.estado || 'activo' });
         } else {
             setEditingCargo(null);
-            setFormData({ nombre: '', estado: 'ACTIVO' });
+            setFormData({ nombre: '', estado: 'activo' });
         }
         setIsModalOpen(true);
     };

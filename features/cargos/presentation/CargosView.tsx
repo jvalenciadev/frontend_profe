@@ -144,11 +144,11 @@ export const CargosView: React.FC<CargosViewProps> = ({
                             <label className="text-[10px] font-black text-muted-foreground uppercase">Estado</label>
                             <select
                                 className="w-full h-12 px-4 rounded-xl bg-muted/30 border border-border outline-none text-sm font-bold"
-                                value={formData.estado || 'ACTIVO'}
+                                value={formData.estado?.toLowerCase() || 'activo'}
                                 onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                             >
-                                <option value="ACTIVO">ACTIVO</option>
-                                <option value="INACTIVO">INACTIVO</option>
+                                <option value="activo">ACTIVO</option>
+                                <option value="inactivo">INACTIVO</option>
                             </select>
                         </div>
                     </div>

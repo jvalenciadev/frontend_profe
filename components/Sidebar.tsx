@@ -118,8 +118,16 @@ const menuItems: MenuItem[] = [
                 permission: { action: 'read', subject: 'EvaluacionPeriodo' }
             },
             {
-                title: 'Hoja de Concepto',
-                href: '/dashboard/evaluaciones/hoja-concepto',
+                title: 'Cuestionarios por Cargo',
+                href: '/dashboard/evaluaciones/cuestionarios',
+            },
+            {
+                title: 'Asignación de Evaluadores',
+                href: '/dashboard/evaluaciones/asignaciones',
+            },
+            {
+                title: 'Evaluar Personal',
+                href: '/dashboard/evaluaciones/evaluar',
                 permission: { action: 'read', subject: 'EvaluacionPuntaje' }
             },
         ],
