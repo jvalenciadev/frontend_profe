@@ -1018,9 +1018,9 @@ export default function EventosPage() {
                 isOpen={!!isDeleting}
                 onClose={() => setIsDeleting(null)}
                 onConfirm={() => isDeleting && handleDelete(isDeleting)}
-                title="Â¿Eliminar Evento?"
-                description="Esta acciÃ³n eliminarÃ¡ permanentemente el evento y toda la informaciÃ³n asociada."
-                confirmText="SÃ­, eliminar"
+                title="¿Eliminar Evento?"
+                description="Esta acción eliminará permanentemente el evento y toda la información asociada."
+                confirmText="Sí, eliminar"
                 cancelText="Cancelar"
                 variant="danger"
                 loading={isLoading}
@@ -1029,10 +1029,10 @@ export default function EventosPage() {
                 isOpen={isConfirmingSave}
                 onClose={() => setIsConfirmingSave(false)}
                 onConfirm={handleSubmit}
-                title={editingEvento ? 'Â¿Actualizar Evento?' : 'Â¿Crear Evento?'}
+                title={editingEvento ? '¿Actualizar Evento?' : '¿Crear Evento?'}
                 description={editingEvento
-                    ? 'Se guardarÃ¡n los cambios en la base de datos.'
-                    : 'Se publicarÃ¡ el nuevo evento en el cronograma institucional.'}
+                    ? 'Se guardarán los cambios en la base de datos.'
+                    : 'Se publicará el nuevo evento en el cronograma institucional.'}
                 confirmText={editingEvento ? 'Confirmar' : 'Crear Evento'}
                 cancelText="Seguir editando"
                 variant="info"
