@@ -193,7 +193,12 @@ export default function CuestionariosEvaluacionPage() {
     };
 
     const currentPeriodObj = periods.find(p => p.id === selectedPeriod);
-    const availableCriterios = currentPeriodObj?.criterios || [];
+    const availableCriterios = (currentPeriodObj?.criterios || []).filter(c => {
+        if (Number(c.pesoPorcentaje) === 0 && cuestionarios.some(q => q.id !== editingId && (q.criterioId === c.id || q.titulo === c.nombre))) {
+            return false;
+        }
+        return true;
+    });
 
     const handleOpenCreate = () => {
         setEditingId(null);

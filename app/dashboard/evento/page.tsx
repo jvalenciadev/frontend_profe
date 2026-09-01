@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -221,13 +221,13 @@ export default function EventosPage() {
         asistidos: eventos.reduce((acc, e) => acc + (e.asistidos || 0), 0),
     };
 
-    const FORM_STEPS = ['InformaciÃ³n', 'ConfiguraciÃ³n', 'Campos Registro', 'ImÃ¡genes'];
+    const FORM_STEPS = ['Información', 'Configuración', 'Campos Registro', 'Imágenes'];
 
-    // â”€â”€ RENDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── RENDER ──────────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-background">
 
-            {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── HEADER ────────────────────────────────────────────────────────── */}
             <div className="mb-8">
                 <div className="flex items-start justify-between gap-6 flex-wrap">
                     <div className="flex items-center gap-4">
@@ -244,7 +244,7 @@ export default function EventosPage() {
                                 Agenda de <span className="text-primary">Eventos</span>
                             </h1>
                             <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground mt-0.5">
-                                CoordinaciÃ³n AcadÃ©mica Institucional
+                                Coordinación Académica Institucional
                             </p>
                         </div>
                     </div>
@@ -606,6 +606,7 @@ export default function EventosPage() {
             )}
 
             {/* â”€â”€ MODAL CREAR/EDITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* MODAL CREAR/EDITAR */}
             <AnimatePresence>
                 {isModalOpen && (
                     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -629,7 +630,7 @@ export default function EventosPage() {
                                         </div>
                                         <div>
                                             <h2 className="text-xl font-black uppercase tracking-tight">
-                                                {editingEvento ? `Editando: ${editingEvento.nombre}` : 'Nuevo Evento AcadÃ©mico'}
+                                                {editingEvento ? `Editando: ${editingEvento.nombre}` : 'Nuevo Evento Académico'}
                                             </h2>
                                             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
                                                 {editingEvento ? 'Actualice los datos del registro' : 'Complete el formulario para crear'}
@@ -680,7 +681,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="md:col-span-2 space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">DescripciÃ³n del Evento</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Descripción del Evento</label>
                                                         <RichTextEditor
                                                             value={formData.descripcion}
                                                             placeholder="Describe los objetivos y alcance del evento..."
@@ -696,7 +697,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">CÃ³digo Interno</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Código Interno</label>
                                                         <input
                                                             type="text" value={formData.codigo}
                                                             onChange={e => setFormData({ ...formData, codigo: e.target.value })}
@@ -705,7 +706,7 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / UbicaciÃ³n</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / Ubicación</label>
                                                         <div className="relative">
                                                             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                             <input
@@ -731,7 +732,7 @@ export default function EventosPage() {
                                                     </div>
                                                     <div className="md:col-span-2 space-y-2">
                                                         <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                                            <span className="inline-block w-3 h-3 rounded-sm bg-red-500" /> Video YouTube (Evento Virtual / TransmisiÃ³n)
+                                                            <span className="inline-block w-3 h-3 rounded-sm bg-red-500" /> Video YouTube (Evento Virtual / Transmisión)
                                                         </label>
                                                         <input
                                                             type="text" value={formData.urlVideo}
@@ -739,7 +740,7 @@ export default function EventosPage() {
                                                             className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-bold font-mono"
                                                             placeholder="https://youtu.be/xxxx o ID del video"
                                                         />
-                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest pl-1">Opcional â€” se mostrarÃ¡ embebido en la pÃ¡gina pÃºblica del evento.</p>
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest pl-1">Opcional — se mostrará embebido en la página pública del evento.</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -799,7 +800,7 @@ export default function EventosPage() {
                                                     >
                                                         <CheckCircle2 className="w-5 h-5" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest">
-                                                            InscripciÃ³n {formData.inscripcionAbierta ? 'Abierta' : 'Cerrada'}
+                                                            Inscripción {formData.inscripcionAbierta ? 'Abierta' : 'Cerrada'}
                                                         </span>
                                                     </button>
                                                     <button
@@ -826,7 +827,7 @@ export default function EventosPage() {
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <h3 className="text-sm font-black uppercase tracking-tight text-foreground">Campos de Registro Personalizados</h3>
-                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">InformaciÃ³n adicional para solicitar al participante</p>
+                                                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Información adicional para solicitar al participante</p>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -865,7 +866,7 @@ export default function EventosPage() {
                                                                             setFormData({ ...formData, camposExtras: newFields });
                                                                         }}
                                                                         className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-bold"
-                                                                        placeholder="Ej: Â¿Tiene experiencia previa?"
+                                                                        placeholder="Ej: ¿Tiene experiencia previa?"
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-1.5 text-left">
@@ -881,8 +882,8 @@ export default function EventosPage() {
                                                                     >
                                                                         <option value="TEXTO">Respuesta Abierta (Texto)</option>
                                                                         <option value="BOOLEAN">Si / No (Boolean)</option>
-                                                                        <option value="SINGLE_SELECT">SelecciÃ³n Ãšnica</option>
-                                                                        <option value="MULTIPLE_SELECT">SelecciÃ³n MÃºltiple</option>
+                                                                        <option value="SINGLE_SELECT">Selección Única</option>
+                                                                        <option value="MULTIPLE_SELECT">Selección Múltiple</option>
                                                                     </select>
                                                                 </div>
 
@@ -929,7 +930,7 @@ export default function EventosPage() {
                                                                             setFormData({ ...formData, camposExtras: newFields });
                                                                         }}
                                                                         className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-medium"
-                                                                        placeholder="OpciÃ³n 1, OpciÃ³n 2, OpciÃ³n 3"
+                                                                        placeholder="Opción 1, Opción 2, Opción 3"
                                                                     />
                                                                 </div>
                                                             )}

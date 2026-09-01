@@ -190,7 +190,7 @@ export default function PeriodosEvaluacionPage() {
             periodo: period.periodo || 'ANUAL',
             fechaInicio: period.fechaInicio ? period.fechaInicio.split('T')[0] : '',
             fechaFin: period.fechaFin ? period.fechaFin.split('T')[0] : '',
-            criterios: (period.criterios || []).map((c, i) => ({
+            criterios: (period.criterios || []).filter(c => Number(c.pesoPorcentaje) > 0 || (!c.nombre.toLowerCase().startsWith('evaluación lenguaje') && !c.nombre.toLowerCase().startsWith('evaluación matemática'))).map((c, i) => ({
                 id: c.id,
                 nombre: c.nombre,
                 descripcion: c.descripcion || '',
@@ -534,7 +534,7 @@ export default function PeriodosEvaluacionPage() {
                 <div className="space-y-6">
                     {filteredPeriods.map((period) => {
                         const isExpanded = expandedPeriodId === period.id;
-                        const criteriosList = period.criterios || [];
+                        const criteriosList = (period.criterios || []).filter(cr => Number(cr.pesoPorcentaje) > 0 || (!cr.nombre.toLowerCase().startsWith('evaluación lenguaje') && !cr.nombre.toLowerCase().startsWith('evaluación matemática')));
                         const totalSub = criteriosList.reduce((acc, cr) => acc + (cr.subcriterios?.length || 0), 0);
 
                         return (
