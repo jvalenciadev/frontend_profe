@@ -513,8 +513,11 @@ export default function CuestionariosEvaluacionPage() {
                                             <h3 className="font-black text-base uppercase text-foreground leading-tight">
                                                 {cuest.titulo}
                                             </h3>
-                                            <span className="text-[11px] font-semibold text-primary">
-                                                {cuest.criterio ? `Criterio: ${cuest.criterio.nombre}` : 'Evaluación General'}
+                                            <span className="text-[11px] font-bold text-primary flex items-center gap-1 mt-0.5">
+                                                <Briefcase className="w-3 h-3 shrink-0" />
+                                                {cuest.cargos && cuest.cargos.length > 0
+                                                    ? cuest.cargos.map(c => c.cargo?.nombre || 'Cargo').join(' • ')
+                                                    : 'Aplica a todos los cargos'}
                                             </span>
                                         </div>
                                         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -665,14 +668,14 @@ export default function CuestionariosEvaluacionPage() {
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase text-foreground flex items-center gap-1.5">
-                                    <ListTree className="w-3.5 h-3.5 text-primary" /> Vincular a un Criterio del Periodo
+                                    <ListTree className="w-3.5 h-3.5 text-primary" /> Criterio / Tipo de Evaluación
                                 </label>
                                 <select
                                     value={formData.criterioId}
                                     onChange={(e) => setFormData({ ...formData, criterioId: e.target.value })}
                                     className="w-full p-2.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground"
                                 >
-                                    <option value="">Evaluación General (Genera su propio criterio independiente)</option>
+                                    <option value="">Evaluación Exclusiva por Cargo (Banco de preguntas independiente)</option>
                                     {availableCriterios.map((crit) => (
                                         <option key={crit.id} value={crit.id}>
                                             {crit.nombre} ({crit.pesoPorcentaje}% de peso)
@@ -680,7 +683,7 @@ export default function CuestionariosEvaluacionPage() {
                                     ))}
                                 </select>
                                 <p className="text-[11px] text-muted-foreground italic">
-                                    Si se vincula a un criterio, el puntaje obtenido alimentará directamente la nota ponderada de ese criterio.
+                                    Las preguntas configuradas en este cuestionario pertenecerán exclusivamente a los cargos seleccionados abajo.
                                 </p>
                             </div>
 
