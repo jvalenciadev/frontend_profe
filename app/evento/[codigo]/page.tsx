@@ -8,7 +8,8 @@ import { stripHtml } from '@/lib/utils';
  * Fuerza a Next.js a evaluar generateMetadata dinámicamente en cada solicitud de WhatsApp / redes sociales
  * para garantizar la imagen og:image y metadatos actualizados desde el backend.
  */
-export const dynamic = 'force-dynamic';
+// ISR: revalida cada 5 minutos → el crawler obtiene HTML con meta tags sin timeout
+export const revalidate = 300;
 
 interface PageProps {
     params: Promise<{ codigo: string }>;
@@ -62,7 +63,7 @@ async function fetchEventoData(codigo: string): Promise<any> {
             console.log(`[OG] fetchEvento: ${url}`);
             const res = await fetch(url, {
                 headers: { 'X-SECRET': secret },
-                cache: 'no-store',
+                next: { revalidate: 300 },
                 signal: AbortSignal.timeout(5000),
             });
             if (res.ok) {
@@ -114,12 +115,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             ? (rawDesc.length > 200 ? `${rawDesc.slice(0, 197)}...` : rawDesc)
             : `Inscríbete al evento ${evento.nombre} en el Ministerio de Educación.`;
 
-        const imagePath = evento.afiche || evento.banner;
-        const imageUrl = getAbsoluteImageUrl(imagePath);
-
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://aulaprofe.minedu.gob.bo';
         const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         const pageUrl = `${cleanBase}/evento/${codigo}`;
+
+        // OG image servida desde el propio dominio Next.js → siempre accesible por crawlers
+        const imageUrl = `${cleanBase}/api/og/${codigo}`;
 
         return {
             title: `${title} | PROFE`,
@@ -136,7 +137,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
                         width: 1200,
                         height: 630,
                         alt: evento.nombre,
-                        type: 'image/jpeg',
+                        type: 'image/png',
                     },
                 ],
                 locale: 'es_BO',
