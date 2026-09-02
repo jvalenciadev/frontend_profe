@@ -142,7 +142,34 @@ export default function EventosPage() {
         setIsModalOpen(true);
     };
 
+    const handleNextStep = () => {
+        if (activeStep === 0) {
+            if (!formData.nombre?.trim()) {
+                toast.error('El nombre del evento es obligatorio');
+                return;
+            }
+            if (!formData.codigo?.trim()) {
+                toast.error('El Código Interno es obligatorio para generar la URL pública');
+                return;
+            }
+        }
+        setActiveStep(s => s + 1);
+    };
+
     const handleSubmit = async () => {
+        if (!formData.nombre?.trim()) {
+            toast.error('El nombre del evento es obligatorio');
+            setActiveStep(0);
+            setIsConfirmingSave(false);
+            return;
+        }
+        if (!formData.codigo?.trim()) {
+            toast.error('El Código Interno es obligatorio para generar la URL pública');
+            setActiveStep(0);
+            setIsConfirmingSave(false);
+            return;
+        }
+
         try {
             setIsLoading(true);
             const basePayload = {
@@ -697,9 +724,13 @@ export default function EventosPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Código Interno</label>
+                                                        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                                                            Código Interno <span className="text-red-500 font-black">*</span>
+                                                        </label>
                                                         <input
-                                                            type="text" value={formData.codigo}
+                                                            type="text"
+                                                            required
+                                                            value={formData.codigo}
                                                             onChange={e => {
                                                                 // Solo minúsculas, sin espacios, sin tildes ni ñ
                                                                 const raw = e.target.value
@@ -714,9 +745,11 @@ export default function EventosPage() {
                                                             placeholder="lapaz_federacionrural_taller1"
                                                         />
                                                         <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest pl-1 flex items-center gap-1">
-                                                            <span>⚠</span> Esta será la URL pública del evento: <span className="font-mono text-primary">/evento/{formData.codigo || '...'}</span>
+                                                            <span>⚠</span> Esta será la URL pública del evento: <span className="font-mono text-primary lowercase">/evento/{formData.codigo || '...'}</span>
                                                         </p>
-                                                        <p className="text-[9px] text-muted-foreground font-medium pl-1">Solo minúsculas, sin espacios, sin tildes, sin ñ. Usa guion bajo _ para separar palabras.</p>
+                                                        <p className="text-[9px] text-muted-foreground font-medium pl-1">
+                                                            Solo minúsculas, sin espacios, sin tildes, sin ñ. Usa guion bajo _ para separar palabras.
+                                                        </p>
                                                     </div>
                                                     <div className="space-y-2">
                                                         <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / Ubicación</label>
