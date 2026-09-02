@@ -130,36 +130,36 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
     const tipoConfig = {
         inscripcion: {
             label: 'Comprobante de Inscripción',
-            accentHex: '#003366',
-            bgAccent: 'bg-[#003366]',
-            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
-            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
-            textColor: 'text-[#003366] dark:text-blue-300',
-            badgeBg: 'bg-[#003366]',
-            printHex: '#003366',
-            printBgHex: '#f0f4f8'
+            accentHex: '#c9a751',
+            bgAccent: 'bg-[#c9a751]',
+            bgLight: 'bg-[#c9a751]/10 dark:bg-[#c9a751]/20',
+            borderColor: 'border-[#c9a751]/30 dark:border-[#c9a751]/40',
+            textColor: 'text-[#c9a751] dark:text-[#dfc37b]',
+            badgeBg: 'bg-[#c9a751]',
+            printHex: '#c9a751',
+            printBgHex: '#faf6eb'
         },
         asistencia: {
             label: 'Comprobante de Asistencia',
-            accentHex: '#003366',
-            bgAccent: 'bg-[#003366]',
-            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
-            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
-            textColor: 'text-[#003366] dark:text-blue-300',
-            badgeBg: 'bg-[#003366]',
-            printHex: '#003366',
-            printBgHex: '#f0f4f8'
+            accentHex: '#c9a751',
+            bgAccent: 'bg-[#c9a751]',
+            bgLight: 'bg-[#c9a751]/10 dark:bg-[#c9a751]/20',
+            borderColor: 'border-[#c9a751]/30 dark:border-[#c9a751]/40',
+            textColor: 'text-[#c9a751] dark:text-[#dfc37b]',
+            badgeBg: 'bg-[#c9a751]',
+            printHex: '#c9a751',
+            printBgHex: '#faf6eb'
         },
         cuestionario: {
             label: 'Certificado de Evaluación',
-            accentHex: '#003366',
-            bgAccent: 'bg-[#003366]',
-            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
-            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
-            textColor: 'text-[#003366] dark:text-blue-300',
-            badgeBg: 'bg-[#003366]',
-            printHex: '#003366',
-            printBgHex: '#f0f4f8'
+            accentHex: '#c9a751',
+            bgAccent: 'bg-[#c9a751]',
+            bgLight: 'bg-[#c9a751]/10 dark:bg-[#c9a751]/20',
+            borderColor: 'border-[#c9a751]/30 dark:border-[#c9a751]/40',
+            textColor: 'text-[#c9a751] dark:text-[#dfc37b]',
+            badgeBg: 'bg-[#c9a751]',
+            printHex: '#c9a751',
+            printBgHex: '#faf6eb'
         }
     };
 
@@ -201,42 +201,41 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; color: #1e293b; }
     .page { max-width: 700px; margin: 20px auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
-    .header { background: #003366; padding: 22px 28px; text-align: center; color: white; }
-    .stripe { height: 3px; background: #0052A5; }
-    .org-state { font-size: 8px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #b4cdf0; margin-bottom: 3px; }
+    .header { background: #c9a751; padding: 22px 28px; text-align: center; color: white; }
+    .stripe { height: 3px; background: #a68434; }
+    .org-state { font-size: 8px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #fff8e8; margin-bottom: 3px; }
     .org-min { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
-    .org-sub { font-size: 8.5px; color: #b4cdf0; margin-bottom: 10px; font-weight: 500; }
-    .doc-title { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; }
+    .org-sub { font-size: 8.5px; color: #fff8e8; margin-bottom: 10px; font-weight: 500; }
+    .doc-title { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 8px; }
     .body { padding: 28px; }
     .event-block { text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; }
-    .event-title { font-size: 17px; font-weight: 900; text-transform: uppercase; color: #003366; margin-bottom: 6px; line-height: 1.25; }
+    .event-title { font-size: 17px; font-weight: 900; text-transform: uppercase; color: #a68434; margin-bottom: 6px; line-height: 1.25; }
     .event-meta { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .participant-strip { background: #f0f4f8; border-left: 4px solid #003366; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
-    .p-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 4px; }
+    .participant-strip { background: #faf6eb; border-left: 4px solid #c9a751; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
+    .p-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #a68434; margin-bottom: 4px; }
     .p-name { font-size: 18px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: -0.3px; }
     .p-row { display: flex; gap: 24px; margin-top: 6px; font-size: 12px; }
     .p-row span { color: #64748b; font-weight: 600; }
-    .p-row strong { color: #003366; }
+    .p-row strong { color: #a68434; }
     .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
     .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; }
     .f-label { font-size: 7.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; color: #94a3b8; margin-bottom: 3px; }
     .f-value { font-size: 12px; font-weight: 700; color: #1e293b; }
-    .f-value.accent { color: #003366; }
+    .f-value.accent { color: #a68434; }
     .f-value.mono { font-family: monospace; font-size: 10px; word-break: break-all; }
-    .score-box { background: #f0f4f8; border: 1px solid #00336633; border-radius: 8px; padding: 14px; text-align: center; grid-column: 1 / -1; }
-    .score-num { font-size: 36px; font-weight: 900; color: #003366; line-height: 1; }
+    .score-box { background: #faf6eb; border: 1px solid #c9a75155; border-radius: 8px; padding: 14px; text-align: center; grid-column: 1 / -1; }
+    .score-num { font-size: 36px; font-weight: 900; color: #a68434; line-height: 1; }
     .barcode-section { border-top: 1px dashed #cbd5e1; padding-top: 16px; text-align: center; }
     .barcode-img { max-width: 420px; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; background: white; }
-    .footer { background: #003366; color: white; padding: 14px 28px; text-align: center; }
+    .footer { background: #c9a751; color: white; padding: 14px 28px; text-align: center; }
     .footer-text { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
-    .footer-sub { font-size: 7.5px; color: #b4cdf0; }
+    .footer-sub { font-size: 7.5px; color: #fff8e8; }
     @media print { body { background: white; } .page { margin: 0; border: none; border-radius: 0; box-shadow: none; } }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="header">
-      <div class="org-state">Estado Plurinacional de Bolivia</div>
       <div class="org-min">Ministerio de Educación</div>
       <div class="org-sub">Sistema de Formación y Actualización Docente Continua — PROFE</div>
       <div class="doc-title">${tipoLabel}</div>
@@ -272,7 +271,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
       ${barcodeDataUrl ? `<div class="barcode-section"><div class="f-label" style="margin-bottom:8px">Identificación Única — Cédula de Identidad</div><img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode"/></div>` : ''}
     </div>
     <div class="footer">
-      <div class="footer-text">Ministerio de Educación — Estado Plurinacional de Bolivia</div>
+      <div class="footer-text">Ministerio de Educación</div>
       <div class="footer-sub">aulaprofe.minedu.gob.bo &nbsp;·&nbsp; Documento Oficial de Constancia Digital</div>
     </div>
   </div>
@@ -308,30 +307,29 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             const isAsistencia = tipo === 'asistencia';
             const isCuestionario = tipo === 'cuestionario';
 
-            // ── Paleta única institucional: azul Minedu ──────────────────────
-            const azul: [number, number, number]       = [0, 51, 102];    // #003366
-            const azulMid: [number, number, number]    = [0, 82, 165];    // #0052A5
-            const grisText: [number, number, number]   = [45, 55, 72];
-            const grisSub: [number, number, number]    = [107, 114, 128];
-            const grisLine: [number, number, number]   = [209, 213, 219];
+            // ── Paleta institucional: dorado PROFE (#c9a751) ─────────────────
+            const dorado: [number, number, number] = [201, 167, 81];  // #c9a751
+            const doradoDark: [number, number, number] = [166, 132, 52];  // #a68434
+            const grisText: [number, number, number] = [45, 55, 72];
+            const grisSub: [number, number, number] = [107, 114, 128];
+            const grisLine: [number, number, number] = [220, 224, 230];
 
             const docTitle = isAsistencia
                 ? 'COMPROBANTE DE ASISTENCIA'
                 : isCuestionario
-                ? 'CERTIFICADO DE EVALUACIÓN'
-                : 'COMPROBANTE DE INSCRIPCIÓN';
+                    ? 'CERTIFICADO DE EVALUACIÓN'
+                    : 'COMPROBANTE DE INSCRIPCIÓN';
 
             // ── 1. ENCABEZADO INSTITUCIONAL ─────────────────────────────────
-            doc.setFillColor(azul[0], azul[1], azul[2]);
+            doc.setFillColor(dorado[0], dorado[1], dorado[2]);
             doc.rect(0, 0, PW, 34, 'F');
 
-            doc.setFillColor(azulMid[0], azulMid[1], azulMid[2]);
+            doc.setFillColor(doradoDark[0], doradoDark[1], doradoDark[2]);
             doc.rect(0, 34, PW, 1, 'F');
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
-            doc.setTextColor(180, 205, 240);
-            doc.text('ESTADO PLURINACIONAL DE BOLIVIA', PW / 2, 9, { align: 'center' });
+            doc.setTextColor(255, 248, 232);
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
@@ -340,7 +338,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
-            doc.setTextColor(180, 205, 240);
+            doc.setTextColor(255, 248, 232);
             doc.text('Sistema de Formación y Actualización Docente Continua — PROFE', PW / 2, 23, { align: 'center' });
 
             doc.setFont('helvetica', 'bold');
@@ -355,7 +353,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             const eventoLines = doc.splitTextToSize(nombreEvento, cW);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(14);
-            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
             doc.text(eventoLines, PW / 2, y, { align: 'center' });
             y += eventoLines.length * 7 + 3;
 
@@ -406,7 +404,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
             doc.text('N° Folio', mL + 60, y);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(azulMid[0], azulMid[1], azulMid[2]);
+            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
             doc.text(folioStr, mL + 82, y);
             y += 6;
 
@@ -414,7 +412,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             if (isCuestionario && resultado) {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(9);
-                doc.setTextColor(azul[0], azul[1], azul[2]);
+                doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
                 doc.text(`Calificación: ${Math.min(resultado.nota ?? 0, 100)} / 100 pts.`, mL, y);
                 y += 6;
             }
@@ -431,7 +429,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
                 margin: 1,
                 width: 200,
-                color: { dark: '#003366', light: '#ffffff' }
+                color: { dark: '#0f172a', light: '#ffffff' }
             });
 
             const qrSize = 30;
@@ -458,7 +456,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(5.5);
-            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
             doc.text('VERIFICAR', mL + qrSize / 2, y + qrSize + 3, { align: 'center' });
 
             y += qrSize + 10;
@@ -470,7 +468,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             y += 8;
 
             // ── 5. NOTA LEGAL ────────────────────────────────────────────────
-            const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación del titular en la actividad académica convocada por el Ministerio de Educación del Estado Plurinacional de Bolivia. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
+            const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación del titular en la actividad académica convocada por el Ministerio de Educación. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
             const constanciaLines = doc.splitTextToSize(constanciaText, cW);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
@@ -478,17 +476,17 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             doc.text(constanciaLines, mL, y);
 
             // ── 6. PIE DE PÁGINA ─────────────────────────────────────────────
-            doc.setFillColor(azul[0], azul[1], azul[2]);
+            doc.setFillColor(dorado[0], dorado[1], dorado[2]);
             doc.rect(0, PH - 14, PW, 14, 'F');
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6.5);
             doc.setTextColor(255, 255, 255);
-            doc.text('MINISTERIO DE EDUCACIÓN — ESTADO PLURINACIONAL DE BOLIVIA', PW / 2, PH - 8, { align: 'center' });
+            doc.text('MINISTERIO DE EDUCACIÓN', PW / 2, PH - 8, { align: 'center' });
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(5.5);
-            doc.setTextColor(180, 205, 240);
+            doc.setTextColor(255, 248, 232);
             doc.text('aulaprofe.minedu.gob.bo  ·  Documento oficial sin costo', PW / 2, PH - 4, { align: 'center' });
 
             // ── DESCARGA ─────────────────────────────────────────────────────
@@ -513,20 +511,17 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-2xl shadow-black/10 print:rounded-none print:shadow-none"
             >
                 {/* Stripe superior */}
-                <div className="h-1.5 bg-[#0052A5]" />
+                <div className="h-1.5 bg-[#a68434]" />
 
                 {/* Header institucional */}
-                <div className="bg-[#003366] px-6 py-6 sm:px-8 sm:py-7 text-center text-white">
-                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-blue-200/80 mb-1">
-                        Estado Plurinacional de Bolivia
-                    </p>
+                <div className="bg-[#c9a751] px-6 py-6 sm:px-8 sm:py-7 text-center text-white">
                     <h2 className="text-base sm:text-xl font-black uppercase tracking-wider text-white">
                         Ministerio de Educación
                     </h2>
-                    <p className="text-[10px] sm:text-xs text-blue-200/70 font-medium mb-3">
+                    <p className="text-[10px] sm:text-xs text-amber-100/80 font-medium mb-3">
                         Sistema de Formación y Actualización Docente Continua — PROFE
                     </p>
-                    <div className="inline-block border-t border-white/20 pt-2.5 px-6">
+                    <div className="inline-block border-t border-white/30 pt-2.5 px-6">
                         <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white">
                             {tipoLabel}
                         </span>
@@ -537,11 +532,11 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                     {/* Actividad / Evento principal */}
                     <div className="text-center pb-5 border-b border-slate-200 dark:border-slate-700">
                         <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Actividad Académica</p>
-                        <h3 className="text-lg sm:text-2xl font-black text-[#003366] dark:text-blue-300 uppercase tracking-tight leading-snug">
+                        <h3 className="text-lg sm:text-2xl font-black text-[#a68434] dark:text-[#dfc37b] uppercase tracking-tight leading-snug">
                             {evento?.nombre}
                         </h3>
                         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                            <span className="uppercase text-[#003366] dark:text-blue-400 font-bold">{evento?.tipo?.nombre || 'Evento'}</span>
+                            <span className="uppercase text-[#a68434] dark:text-[#dfc37b] font-bold">{evento?.tipo?.nombre || 'Evento'}</span>
                             <span>•</span>
                             <span>{formatDate(evento?.fecha)}</span>
                             <span>•</span>
@@ -550,8 +545,8 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                     </div>
 
                     {/* Participante — Titular */}
-                    <div className="bg-[#003366]/5 dark:bg-blue-950/20 border-l-4 border-[#003366] rounded-r-xl px-5 py-4">
-                        <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#003366] dark:text-blue-400 mb-1">
+                    <div className="bg-[#c9a751]/10 dark:bg-[#c9a751]/20 border-l-4 border-[#c9a751] rounded-r-xl px-5 py-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#a68434] dark:text-[#dfc37b] mb-1">
                             Participante / Titular
                         </p>
                         <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
@@ -563,7 +558,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                             </p>
                             {inscripcionId && (
                                 <p className="text-slate-600 dark:text-slate-300">
-                                    <span className="font-bold text-slate-400">N° Folio:</span> <strong className="text-[#003366] dark:text-blue-400 font-mono">{String(inscripcionId).substring(0, 18)}</strong>
+                                    <span className="font-bold text-slate-400">N° Folio:</span> <strong className="text-[#a68434] dark:text-[#dfc37b] font-mono">{String(inscripcionId).substring(0, 18)}</strong>
                                 </p>
                             )}
                         </div>
@@ -571,10 +566,10 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 
                     {/* Resultado si es evaluación */}
                     {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
-                        <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-[#003366]/20 rounded-2xl p-5 flex flex-col items-center text-center gap-1">
+                        <div className="bg-[#c9a751]/10 dark:bg-[#c9a751]/20 border border-[#c9a751]/30 rounded-2xl p-5 flex flex-col items-center text-center gap-1">
                             <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Calificación Obtenida</p>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-5xl font-black text-[#003366] dark:text-blue-300">{Math.min(resultado.nota ?? 0, 100)}</span>
+                                <span className="text-5xl font-black text-[#a68434] dark:text-[#dfc37b]">{Math.min(resultado.nota ?? 0, 100)}</span>
                                 <span className="text-2xl font-bold text-slate-400">/ 100 pts.</span>
                             </div>
                             <p className="text-xs font-semibold text-slate-500">
@@ -616,9 +611,9 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                     {/* Footer institucional */}
                     <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
                         <p className="text-[10px] text-slate-400 leading-relaxed max-w-md">
-                            Ministerio de Educación del Estado Plurinacional de Bolivia • Sistema PROFE. Documento con validez oficial sin costo de trámite.
+                            istema PROFE. Documento con validez oficial sin costo de trámite.
                         </p>
-                        <div className="shrink-0 px-3 py-1 rounded-full bg-[#003366]/10 text-[#003366] dark:text-blue-300 border border-[#003366]/20 text-[9px] font-black uppercase tracking-wider">
+                        <div className="shrink-0 px-3 py-1 rounded-full bg-[#c9a751]/10 text-[#a68434] dark:text-[#dfc37b] border border-[#c9a751]/30 text-[9px] font-black uppercase tracking-wider">
                             ✓ Registro Verificado
                         </div>
                     </div>
@@ -3918,7 +3913,7 @@ export default function EventoPublicoPage() {
                                                 </select>
                                             </div>
 
-                                                {allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && (
+                                            {allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && (
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Participación <span className="text-red-500">*</span></label>
                                                     <select value={form.modalidadId}
@@ -3937,7 +3932,7 @@ export default function EventoPublicoPage() {
                                                         }
                                                     </select>
                                                 </div>
-                                                )}
+                                            )}
                                         </>
                                     )}
 
