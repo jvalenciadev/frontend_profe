@@ -1036,7 +1036,7 @@ export default function EventosPage() {
                                     {activeStep < FORM_STEPS.length - 1 ? (
                                         <button
                                             type="button"
-                                            onClick={() => setActiveStep(s => s + 1)}
+                                            onClick={handleNextStep}
                                             className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all font-mono"
                                         >
                                             SIGUIENTE
@@ -1045,7 +1045,7 @@ export default function EventosPage() {
                                         <button
                                             type="button"
                                             onClick={() => setIsConfirmingSave(true)}
-                                            disabled={isLoading || !formData.nombre}
+                                            disabled={isLoading || !formData.nombre?.trim() || !formData.codigo?.trim()}
                                             className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
                                         >
                                             {isLoading ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
