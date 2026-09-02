@@ -700,10 +700,23 @@ export default function EventosPage() {
                                                         <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Código Interno</label>
                                                         <input
                                                             type="text" value={formData.codigo}
-                                                            onChange={e => setFormData({ ...formData, codigo: e.target.value })}
+                                                            onChange={e => {
+                                                                // Solo minúsculas, sin espacios, sin tildes ni ñ
+                                                                const raw = e.target.value
+                                                                    .toLowerCase()
+                                                                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quitar tildes
+                                                                    .replace(/ñ/g, 'n').replace(/ü/g, 'u')            // ñ → n
+                                                                    .replace(/\s+/g, '_')                              // espacios → _
+                                                                    .replace(/[^a-z0-9_\-]/g, '');                    // solo alfanum + _ -
+                                                                setFormData({ ...formData, codigo: raw });
+                                                            }}
                                                             className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-bold font-mono"
-                                                            placeholder="EVT-2026-01"
+                                                            placeholder="lapaz_federacionrural_taller1"
                                                         />
+                                                        <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest pl-1 flex items-center gap-1">
+                                                            <span>⚠</span> Esta será la URL pública del evento: <span className="font-mono text-primary">/evento/{formData.codigo || '...'}</span>
+                                                        </p>
+                                                        <p className="text-[9px] text-muted-foreground font-medium pl-1">Solo minúsculas, sin espacios, sin tildes, sin ñ. Usa guion bajo _ para separar palabras.</p>
                                                     </div>
                                                     <div className="space-y-2">
                                                         <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Lugar / Ubicación</label>

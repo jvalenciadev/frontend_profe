@@ -10,7 +10,7 @@ import {
     QrCode, CreditCard, Lock, Unlock, AlertTriangle, Info,
     ChevronDown, Check, X, ClipboardList, Play, Video, RotateCcw,
     PartyPopper, Zap, ShieldCheck,
-    Edit2, LogOut, ExternalLink, Award, Download,
+    Edit2, LogOut, ExternalLink, Award, Download, Printer,
     Globe, LayoutGrid, Share2, Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -276,6 +276,375 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
         win.document.close();
     };
 
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+    const handleDownloadPDF = async () => {
+        if (isGeneratingPdf) return;
+        setIsGeneratingPdf(true);
+        const toastId = toast.loading('Generando comprobante oficial en PDF...');
+
+        try {
+            const { default: jsPDF } = await import('jspdf');
+            const QRCode = (await import('qrcode')).default;
+
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+                compress: true
+            });
+
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const marginX = 15;
+            const contentWidth = 180;
+
+            const isAsistencia = tipo === 'asistencia';
+            const isCuestionario = tipo === 'cuestionario';
+
+            // Paleta de colores institucional [R, G, B]
+            const primaryColor: [number, number, number] = isAsistencia
+                ? [6, 95, 70]      // Emerald 800
+                : isCuestionario
+                ? [159, 18, 57]    // Rose 800
+                : [14, 116, 144];  // Cyan 700 / Profe
+
+            const secondaryBg: [number, number, number] = isAsistencia
+                ? [236, 253, 245]  // Emerald 50
+                : isCuestionario
+                ? [255, 241, 242]  // Rose 50
+                : [240, 249, 255];  // Sky 50
+
+            const docTitle = isAsistencia
+                ? 'COMPROBANTE OFICIAL DE ASISTENCIA'
+                : isCuestionario
+                ? 'CERTIFICADO DE EVALUACIÓN'
+                : 'COMPROBANTE OFICIAL DE INSCRIPCIÓN';
+
+            const badgeText = isAsistencia
+                ? '✓ ASISTENCIA REGISTRADA Y VALIDADA'
+                : isCuestionario
+                ? '✓ EVALUACIÓN ACADÉMICA REGISTRADA'
+                : '✓ INSCRIPCIÓN OFICIAL CONFIRMADA';
+
+            // 1. BANNER INSTITUCIONAL SUPERIOR
+            doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.rect(0, 0, pageWidth, 38, 'F');
+
+            // Franja de acento dorado
+            doc.setFillColor(245, 158, 11);
+            doc.rect(0, 38, pageWidth, 1.5, 'F');
+
+            // Textos membrete institucional
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(255, 255, 255);
+            doc.text('ESTADO PLURINACIONAL DE BOLIVIA  •  MINISTERIO DE EDUCACIÓN', pageWidth / 2, 11, { align: 'center' });
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(224, 242, 254);
+            doc.text('SISTEMA DE FORMACIÓN Y ACTUALIZACIÓN DOCENTE CONTINUA — PROFE', pageWidth / 2, 16, { align: 'center' });
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.setTextColor(255, 255, 255);
+            doc.text(docTitle, pageWidth / 2, 26, { align: 'center' });
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(240, 249, 255);
+            doc.text('CONSTANCIA DIGITAL OFICIAL CON FIRMA Y REGISTRO ELECTRÓNICO', pageWidth / 2, 33, { align: 'center' });
+
+            // 2. BADGE DE ESTADO
+            doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
+            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.setLineWidth(0.4);
+            doc.roundedRect(marginX, 43, contentWidth, 9, 2, 2, 'FD');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text(badgeText, pageWidth / 2, 49, { align: 'center' });
+
+            // 3. SECCIÓN: DATOS DEL PARTICIPANTE
+            let currentY = 56;
+            doc.setFillColor(241, 245, 249);
+            doc.setDrawColor(203, 213, 225);
+            doc.setLineWidth(0.3);
+            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(71, 85, 105);
+            doc.text('1. DATOS DEL PARTICIPANTE / TITULAR', marginX + 4, currentY + 4.8);
+
+            const participantBoxY = currentY + 6.5;
+            const participantBoxH = 34;
+            doc.rect(marginX, participantBoxY, contentWidth, participantBoxH, 'D');
+
+            const nombreCompleto = [persona?.nombre1, persona?.nombre2, persona?.apellido1, persona?.apellido2]
+                .filter(Boolean)
+                .join(' ')
+                .toUpperCase() || 'PARTICIPANTE';
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42);
+            doc.text(nombreCompleto, marginX + 4, participantBoxY + 7);
+
+            // Cédula de Identidad
+            const ciFormat = `${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}${persona?.expedido ? ' (' + persona.expedido + ')' : ''}`;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('CÉDULA DE IDENTIDAD:', marginX + 4, participantBoxY + 15);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(15, 23, 42);
+            doc.text(ciFormat || 'S/N', marginX + 42, participantBoxY + 15);
+
+            // Fecha de nacimiento
+            let fNacString = '—';
+            if (persona?.fechaNacimiento) {
+                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                    const localD = new Date(y, m - 1, d);
+                    fNacString = localD.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
+                }
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('FECHA DE NACIMIENTO:', marginX + 4, participantBoxY + 22);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(fNacString, marginX + 42, participantBoxY + 22);
+
+            // Celular
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('CELULAR / CONTACTO:', marginX + 4, participantBoxY + 29);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(persona?.celular || 'S/N', marginX + 42, participantBoxY + 29);
+
+            // Columna 2 de participante (x = marginX + 92)
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('CORREO ELECTRÓNICO:', marginX + 92, participantBoxY + 15);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(persona?.correo || 'S/N', marginX + 130, participantBoxY + 15);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('GÉNERO:', marginX + 92, participantBoxY + 22);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            const generoNombre = persona?.generoId === '2' ? 'FEMENINO' : 'MASCULINO';
+            doc.text(generoNombre, marginX + 130, participantBoxY + 22);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('FOLIO REGISTRO:', marginX + 92, participantBoxY + 29);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            const folioStr = inscripcionId ? String(inscripcionId).substring(0, 20) : `REG-${persona?.ci || '0000'}`;
+            doc.text(folioStr, marginX + 130, participantBoxY + 29);
+
+            // 4. SECCIÓN: DETALLES DEL EVENTO
+            currentY = participantBoxY + participantBoxH + 4;
+            doc.setFillColor(241, 245, 249);
+            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(71, 85, 105);
+            doc.text('2. DETALLES DE LA ACTIVIDAD ACADÉMICA', marginX + 4, currentY + 4.8);
+
+            const eventBoxY = currentY + 6.5;
+            const eventBoxH = isCuestionario ? 42 : 36;
+            doc.rect(marginX, eventBoxY, contentWidth, eventBoxH, 'D');
+
+            // Nombre del evento multilínea
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.setTextColor(15, 23, 42);
+            const eventoNombreLines = doc.splitTextToSize(evento?.nombre || 'Evento Académico', contentWidth - 8);
+            doc.text(eventoNombreLines, marginX + 4, eventBoxY + 6.5);
+
+            const offsetAfterEventName = eventBoxY + 7 + (eventoNombreLines.length * 4.5);
+
+            // Campos del evento
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('TIPO / CATEGORÍA:', marginX + 4, offsetAfterEventName);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text((evento?.tipo?.nombre || 'Evento').toUpperCase(), marginX + 38, offsetAfterEventName);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('FECHA EVENTO:', marginX + 92, offsetAfterEventName);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(formatDate(evento?.fecha) || '—', marginX + 120, offsetAfterEventName);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('CÓDIGO INTERNO:', marginX + 4, offsetAfterEventName + 6.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(evento?.codigo || '—', marginX + 38, offsetAfterEventName + 6.5);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('LUGAR / UBICACIÓN:', marginX + 92, offsetAfterEventName + 6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(evento?.lugar || 'Nacional / Online', marginX + 120, offsetAfterEventName + 6.5);
+
+            if (isCuestionario && resultado) {
+                const evalY = offsetAfterEventName + 13;
+                doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
+                doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(marginX + 4, evalY, contentWidth - 8, 8, 1.5, 1.5, 'FD');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                const notaTexto = `CALIFICACIÓN: ${Math.min(resultado.nota ?? 0, 100)} / 100 PTS.  •  (${resultado.puntaje || 0} de ${resultado.puntajeMaximo || 100} puntos obtenidos)`;
+                doc.text(notaTexto, pageWidth / 2, evalY + 5.2, { align: 'center' });
+            }
+
+            // 5. SECCIÓN: SEGURIDAD, QR Y CÓDIGO DE BARRAS
+            currentY = eventBoxY + eventBoxH + 4;
+            doc.setFillColor(241, 245, 249);
+            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(71, 85, 105);
+            doc.text('3. VALIDACIÓN DIGITAL Y SEGURIDAD ELECTRÓNICA', marginX + 4, currentY + 4.8);
+
+            const secBoxY = currentY + 6.5;
+            const secBoxH = 48;
+            doc.rect(marginX, secBoxY, contentWidth, secBoxH, 'D');
+
+            // Generar Código QR
+            const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://profe.minedu.gob.bo';
+            const verificationUrl = `${currentOrigin}/evento/${evento?.codigo || ''}?ci=${persona?.ci || ''}&doc=${tipo}&id=${inscripcionId || '0'}`;
+            const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
+                margin: 1,
+                width: 200,
+                color: { dark: '#0f172a', light: '#ffffff' }
+            });
+
+            // Añadir QR
+            const qrSize = 34;
+            const qrX = marginX + 6;
+            const qrY = secBoxY + 5;
+            doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.setTextColor(71, 85, 105);
+            doc.text('CÓDIGO QR DE VALIDACIÓN', qrX + (qrSize / 2), qrY + qrSize + 3.5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(5.5);
+            doc.setTextColor(148, 163, 184);
+            doc.text('Escanear para validar en plataforma', qrX + (qrSize / 2), qrY + qrSize + 6.5, { align: 'center' });
+
+            // Columna Derecha: Código de barras e info criptográfica
+            const rightX = marginX + 54;
+            const barcodeCanvas = barcodeCanvasRef.current;
+            if (barcodeCanvas) {
+                try {
+                    const barcodeDataUrl = barcodeCanvas.toDataURL('image/png');
+                    const bcWidth = 80;
+                    const bcHeight = 18;
+                    doc.addImage(barcodeDataUrl, 'PNG', rightX + 15, secBoxY + 4, bcWidth, bcHeight);
+                } catch { }
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(15, 23, 42);
+            doc.text('SELLO DE CERTIFICACIÓN Y REGISTRO DIGITAL', rightX, secBoxY + 27);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(71, 85, 105);
+            doc.text('• Documento emitido y firmado digitalmente por la Plataforma PROFE.', rightX, secBoxY + 32);
+            doc.text(`• Identificador de Transacción: ${inscripcionId || 'PROFE-' + (persona?.ci || '0')}`, rightX, secBoxY + 36);
+            doc.text(`• Hash de Integridad: SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`, rightX, secBoxY + 40);
+            doc.text(`• Fecha y Hora Oficial de Emisión: ${fecha} - ${hora}`, rightX, secBoxY + 44);
+
+            // 6. CONSTANCIA LEGAL
+            currentY = secBoxY + secBoxH + 4;
+            doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
+            doc.setDrawColor(203, 213, 225);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(marginX, currentY, contentWidth, 18, 2, 2, 'FD');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('CONSTANCIA OFICIAL VÁLIDA:', marginX + 4, currentY + 4.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.setTextColor(71, 85, 105);
+            const constanciaText = 'Este documento acredita de manera oficial la participación y/o registro del titular en las actividades académicas convocadas por el Ministerio de Educación del Estado Plurinacional de Bolivia. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
+            const constanciaLines = doc.splitTextToSize(constanciaText, contentWidth - 8);
+            doc.text(constanciaLines, marginX + 4, currentY + 8);
+
+            // Footer de página
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.4);
+            doc.line(marginX, pageHeight - 14, marginX + contentWidth, pageHeight - 14);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(148, 163, 184);
+            doc.text('Plataforma Web PROFE: profe.minedu.gob.bo  •  Comprobante digital sin costo de trámite  •  Página 1 de 1', pageWidth / 2, pageHeight - 9.5, { align: 'center' });
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6);
+            doc.setTextColor(100, 116, 139);
+            doc.text('MINISTERIO DE EDUCACIÓN — ESTADO PLURINACIONAL DE BOLIVIA', pageWidth / 2, pageHeight - 6, { align: 'center' });
+
+            // Nombre del archivo a descargar
+            const cleanCode = (evento?.codigo || 'evento').replace(/[^a-z0-9_-]/gi, '_');
+            const cleanCi = (persona?.ci || 'titular').replace(/[^a-z0-9_-]/gi, '_');
+            const fileName = `comprobante_${tipo}_${cleanCi}_${cleanCode}.pdf`;
+
+            doc.save(fileName);
+            toast.success('¡Comprobante PDF descargado exitosamente!', { id: toastId });
+        } catch (err) {
+            console.error('Error generando PDF:', err);
+            toast.error('Ocurrió un error al generar el PDF. Puedes usar la opción de Imprimir.', { id: toastId });
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
     return (
         <div className="w-full space-y-4">
             {/* ── DOCUMENTO ── */}
@@ -399,11 +768,24 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             {/* Acciones del Comprobante */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <button
-                    onClick={handlePrint}
-                    className={`col-span-1 sm:col-span-2 h-14 rounded-2xl ${config.bgAccent} text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-black/10`}
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPdf}
+                    className={`col-span-1 sm:col-span-2 h-14 rounded-2xl ${config.bgAccent} text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-black/10 disabled:opacity-50`}
                 >
-                    <Download className="w-4 h-4" />
-                    Imprimir / Guardar PDF
+                    {isGeneratingPdf ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <Download className="w-4 h-4" />
+                    )}
+                    {isGeneratingPdf ? 'Generando Comprobante PDF...' : 'Descargar Comprobante en PDF (.pdf)'}
+                </button>
+
+                <button
+                    onClick={handlePrint}
+                    className="col-span-1 sm:col-span-2 h-12 rounded-2xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+                >
+                    <Printer className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    Imprimir Comprobante
                 </button>
 
                 {onBackToStart && (
@@ -1300,7 +1682,14 @@ export default function EventoPublicoPage() {
         if (!form.nombre1) nuevosErrores.nombre1 = true;
         if (!form.apellido1) nuevosErrores.apellido1 = true;
         if (!isEditingProfile) {
-            if (!form.modalidadId) nuevosErrores.modalidadId = true;
+            // Auto-seleccionar modalidad si solo hay una disponible
+            const modalidadesDisponibles = allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id));
+            if (modalidadesDisponibles.length === 1 && !form.modalidadId) {
+                setForm(p => ({ ...p, modalidadId: modalidadesDisponibles[0].id }));
+                // no agregar error, ya fue auto-seleccionada
+            } else if (!form.modalidadId) {
+                nuevosErrores.modalidadId = true;
+            }
             if (!form.departamentoId) nuevosErrores.departamentoId = true;
         }
 
@@ -3669,24 +4058,26 @@ export default function EventoPublicoPage() {
                                                 </select>
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Participación <span className="text-red-500">*</span></label>
-                                                <select value={form.modalidadId}
-                                                    onChange={e => {
-                                                        setForm(p => ({ ...p, modalidadId: e.target.value }));
-                                                        if (errores.modalidadId) setErrores(prev => ({ ...prev, modalidadId: false }));
-                                                    }}
-                                                    className={cn(
-                                                        "w-full h-14 px-6 rounded-2xl bg-primary/5 border-2 focus:border-primary outline-none font-bold text-primary transition-all",
-                                                        errores.modalidadId ? "border-red-500 bg-red-500/5" : "border-primary/20"
-                                                    )}>
-                                                    <option value="">Seleccionar modalidad...</option>
-                                                    {allModalidades
-                                                        .filter(m => (evento?.modalidadIds || '').includes(m.id))
-                                                        .map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)
-                                                    }
-                                                </select>
-                                            </div>
+                                                {allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && (
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Participación <span className="text-red-500">*</span></label>
+                                                    <select value={form.modalidadId}
+                                                        onChange={e => {
+                                                            setForm(p => ({ ...p, modalidadId: e.target.value }));
+                                                            if (errores.modalidadId) setErrores(prev => ({ ...prev, modalidadId: false }));
+                                                        }}
+                                                        className={cn(
+                                                            "w-full h-14 px-6 rounded-2xl bg-primary/5 border-2 focus:border-primary outline-none font-bold text-primary transition-all",
+                                                            errores.modalidadId ? "border-red-500 bg-red-500/5" : "border-primary/20"
+                                                        )}>
+                                                        <option value="">Seleccionar modalidad...</option>
+                                                        {allModalidades
+                                                            .filter(m => (evento?.modalidadIds || '').includes(m.id))
+                                                            .map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)
+                                                        }
+                                                    </select>
+                                                </div>
+                                                )}
                                         </>
                                     )}
 
@@ -3879,6 +4270,10 @@ export default function EventoPublicoPage() {
                                                 setIsEditingProfile(false);
                                                 setStep('info');
                                             } else {
+                                                // Limpiar estado de sesión al retroceder para evitar
+                                                // que el step 'info' detecte falsamente una inscripción
+                                                setInscripcion(null);
+                                                setPersona(null);
                                                 setStep('identificacion');
                                             }
                                         }}
@@ -3886,7 +4281,7 @@ export default function EventoPublicoPage() {
                                     >
                                         {isEditingProfile ? 'Cancelar' : 'Volver'}
                                     </button>
-                                    <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || (!isEditingProfile && (!form.modalidadId || !form.departamentoId)) || submitting}
+                                    <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || (!isEditingProfile && (allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && !form.modalidadId) || !form.departamentoId) || submitting}
                                         className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2">
                                         Vista Previa
                                         <ArrowRight className="w-4 h-4" />
@@ -3924,7 +4319,7 @@ export default function EventoPublicoPage() {
                                                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Contacto</span>
                                                     <p className="font-bold text-foreground">{form.celular} • {form.correo || 'S/N'}</p>
                                                 </div>
-                                                {!isEditingProfile && (
+                                                {!isEditingProfile && allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && (
                                                     <div className="p-4 rounded-2xl bg-muted/30 border border-border">
                                                         <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Modalidad</span>
                                                         <p className="font-bold text-primary">

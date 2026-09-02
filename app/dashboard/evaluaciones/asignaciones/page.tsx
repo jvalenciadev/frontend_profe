@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
     evaluationService,
     EvaluationPeriod,
@@ -32,6 +32,11 @@ import {
     Loader2,
     AlertCircle,
     FileText,
+    Shield,
+    CreditCard,
+    X,
+    ChevronDown,
+    Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -73,6 +78,21 @@ export default function AsignacionesEvaluacionPage() {
     const [masivaSearch, setMasivaSearch] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [savingMasiva, setSavingMasiva] = useState(false);
+
+    // Estado del buscador interactivo de Evaluador Responsable
+    const [evaluadorSearchQuery, setEvaluadorSearchQuery] = useState('');
+    const [isEvaluadorDropdownOpen, setIsEvaluadorDropdownOpen] = useState(false);
+    const evaluadorDropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (evaluadorDropdownRef.current && !evaluadorDropdownRef.current.contains(e.target as Node)) {
+                setIsEvaluadorDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const loadAsignacionesYMatriz = async (periodId?: string) => {
         const pId = periodId || selectedPeriod;
@@ -207,6 +227,8 @@ export default function AsignacionesEvaluacionPage() {
             setSelectedUserIds([]);
             setMasivaEvaluadorId('');
             setMasivaCuestionarioId('');
+            setEvaluadorSearchQuery('');
+            setIsEvaluadorDropdownOpen(false);
             loadAsignacionesYMatriz();
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Error al generar asignaciones masivas';
@@ -227,6 +249,61 @@ export default function AsignacionesEvaluacionPage() {
             toast.error('Error al eliminar la asignación');
         }
     };
+
+    // Helper para obtener el cargo asignado del usuario
+    const getCargoUsuario = (u: any): string => {
+        if (u.cargoPostulacion?.nombre) return u.cargoPostulacion.nombre;
+        if (u.cargoStr) return u.cargoStr;
+        if (typeof u.cargo === 'string' && u.cargo.trim()) return u.cargo;
+        if (u.cargoPostulacionId) {
+            const found = cargos.find(c => c.id === u.cargoPostulacionId);
+            if (found?.nombre) return found.nombre;
+        }
+        if (u.cargoId) {
+            const found = cargos.find(c => c.id === u.cargoId);
+            if (found?.nombre) return found.nombre;
+        }
+        return '';
+    };
+
+    // Helper para detectar si el usuario tiene rol de administrador
+    const isUserAdminRole = (u: any): boolean => {
+        if (typeof u.role === 'string' && u.role.toLowerCase().includes('admin')) return true;
+        if (Array.isArray(u.roles)) {
+            return u.roles.some((r: any) => {
+                const rName = typeof r === 'string' ? r : (r?.nombre || r?.slug || r?.name || '');
+                return rName.toLowerCase().includes('admin');
+            });
+        }
+        return false;
+    };
+
+    // Filtro estricto: Solo usuarios que tengan cargos asignados o roles de administración
+    const evaluadoresValidos = useMemo(() => {
+        return allUsers.filter(u => {
+            const cargo = getCargoUsuario(u);
+            const isAdmin = isUserAdminRole(u);
+            return Boolean(cargo || isAdmin);
+        });
+    }, [allUsers, cargos]);
+
+    // Filtrado interactivo en tiempo real por CI, Nombre y Cargo
+    const evaluadoresFiltradosMasiva = useMemo(() => {
+        if (!evaluadorSearchQuery.trim()) return evaluadoresValidos;
+        const q = evaluadorSearchQuery.toLowerCase().trim();
+        return evaluadoresValidos.filter(u => {
+            const nombreCompleto = `${u.nombre || ''} ${u.apellidos || ''}`.toLowerCase();
+            const ci = `${u.ci || ''}`.toLowerCase();
+            const cargo = getCargoUsuario(u).toLowerCase();
+            const esAdmin = isUserAdminRole(u) ? 'admin administrador' : '';
+            return nombreCompleto.includes(q) || ci.includes(q) || cargo.includes(q) || esAdmin.includes(q);
+        });
+    }, [evaluadoresValidos, evaluadorSearchQuery, cargos]);
+
+    // Evaluador responsable seleccionado actualmente
+    const selectedMasivaEvaluador = useMemo(() => {
+        return allUsers.find(u => u.id === masivaEvaluadorId) || null;
+    }, [allUsers, masivaEvaluadorId]);
 
     // Usuarios filtrados para modal masivo
     const eligibleUsersForMasiva = useMemo(() => {
@@ -319,7 +396,11 @@ export default function AsignacionesEvaluacionPage() {
                     </button>
 
                     <button
-                        onClick={() => setIsMasivaModalOpen(true)}
+                        onClick={() => {
+                            setEvaluadorSearchQuery('');
+                            setIsEvaluadorDropdownOpen(false);
+                            setIsMasivaModalOpen(true);
+                        }}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all shadow-md shadow-primary/20"
                     >
                         <Sparkles className="w-4 h-4" />
@@ -511,17 +592,20 @@ export default function AsignacionesEvaluacionPage() {
             >
                 <form onSubmit={handleCreateIndividual} className="space-y-4 pt-2">
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-foreground">Evaluador (Quién califica)</label>
+                        <label className="text-xs font-bold uppercase text-foreground flex items-center gap-1.5">
+                            <UserCheck className="w-3.5 h-3.5 text-primary" />
+                            Evaluador (Quién califica) <span className="text-red-500">*</span>
+                        </label>
                         <select
                             value={evaluadorId}
                             onChange={(e) => setEvaluadorId(e.target.value)}
                             required
                             className="w-full p-2.5 rounded-2xl border border-border bg-card text-xs font-semibold focus:ring-2 focus:ring-primary/20 text-foreground"
                         >
-                            <option value="">Selecciona al Evaluador...</option>
-                            {allUsers.map(u => (
+                            <option value="">Selecciona al Evaluador con cargo asignado...</option>
+                            {evaluadoresValidos.map(u => (
                                 <option key={u.id} value={u.id}>
-                                    {u.nombre} {u.apellidos} ({u.cargoPostulacion?.nombre || u.cargoStr || 'Sin Cargo'})
+                                    {u.nombre} {u.apellidos} — CI: {u.ci || 'S/N'} ({getCargoUsuario(u) || (isUserAdminRole(u) ? 'Administrador' : 'Sin Cargo')})
                                 </option>
                             ))}
                         </select>
@@ -621,24 +705,167 @@ export default function AsignacionesEvaluacionPage() {
                     {/* Paso 1: Evaluador y Modalidad */}
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase text-foreground flex items-center gap-1.5">
-                                    <UserCheck className="w-3.5 h-3.5 text-primary" />
-                                    Evaluador Responsable
-                                </label>
-                                <select
-                                    value={masivaEvaluadorId}
-                                    onChange={(e) => setMasivaEvaluadorId(e.target.value)}
-                                    required
-                                    className="w-full p-3 rounded-2xl border border-border bg-card text-xs font-semibold focus:ring-2 focus:ring-primary/20 text-foreground transition-all"
-                                >
-                                    <option value="">Seleccionar evaluador responsable...</option>
-                                    {allUsers.map(u => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.nombre} {u.apellidos} ({u.cargoPostulacion?.nombre || u.cargoStr || 'Sin Cargo'})
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="space-y-1.5" ref={evaluadorDropdownRef}>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold uppercase text-foreground flex items-center gap-1.5">
+                                        <UserCheck className="w-3.5 h-3.5 text-primary" />
+                                        Evaluador Responsable <span className="text-red-500">*</span>
+                                    </label>
+                                    <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                                        <Shield className="w-3 h-3 text-primary" />
+                                        {evaluadoresValidos.length} evaluadores calificados
+                                    </span>
+                                </div>
+
+                                {/* Tarjeta del Evaluador Seleccionado */}
+                                {selectedMasivaEvaluador && !isEvaluadorDropdownOpen ? (
+                                    <div
+                                        onClick={() => setIsEvaluadorDropdownOpen(true)}
+                                        className="p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-2 border-primary/30 flex items-center justify-between gap-3 shadow-sm hover:border-primary/60 cursor-pointer transition-all group"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                                                {selectedMasivaEvaluador.nombre?.charAt(0)}{selectedMasivaEvaluador.apellidos?.charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className="text-xs font-black uppercase text-foreground truncate">
+                                                        {selectedMasivaEvaluador.nombre} {selectedMasivaEvaluador.apellidos}
+                                                    </p>
+                                                    {isUserAdminRole(selectedMasivaEvaluador) && (
+                                                        <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                                            <Shield className="w-2.5 h-2.5" /> Admin
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
+                                                    <span className="font-mono font-bold text-primary flex items-center gap-1">
+                                                        <CreditCard className="w-3 h-3" /> CI: {selectedMasivaEvaluador.ci || 'S/N'}
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span className="font-semibold text-foreground/80 truncate">
+                                                        {getCargoUsuario(selectedMasivaEvaluador) || 'Administrador General'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setMasivaEvaluadorId('');
+                                                setEvaluadorSearchQuery('');
+                                                setIsEvaluadorDropdownOpen(true);
+                                            }}
+                                            className="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground hover:bg-secondary transition-all shrink-0 border border-border/50 group-hover:border-primary/30"
+                                        >
+                                            Cambiar
+                                        </button>
+                                    </div>
+                                ) : (
+                                    /* Buscador interactivo por CI, Nombre y Cargo */
+                                    <div className="relative">
+                                        <div className="relative">
+                                            <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={evaluadorSearchQuery}
+                                                onChange={(e) => {
+                                                    setEvaluadorSearchQuery(e.target.value);
+                                                    setIsEvaluadorDropdownOpen(true);
+                                                }}
+                                                onFocus={() => setIsEvaluadorDropdownOpen(true)}
+                                                placeholder="Buscar por CI, cargo o nombre..."
+                                                className="w-full pl-10 pr-9 py-3 rounded-2xl border-2 border-primary/20 focus:border-primary bg-card text-xs font-semibold outline-none text-foreground transition-all shadow-sm"
+                                            />
+                                            {evaluadorSearchQuery ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEvaluadorSearchQuery('')}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            ) : (
+                                                <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                            )}
+                                        </div>
+
+                                        {/* Dropdown flotante con evaluadores calificados */}
+                                        {isEvaluadorDropdownOpen && (
+                                            <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-border bg-card/95 backdrop-blur-md shadow-2xl p-2 max-h-64 overflow-y-auto space-y-1">
+                                                <div className="px-2.5 py-1.5 flex items-center justify-between text-[10px] font-black uppercase text-muted-foreground border-b border-border/40 mb-1">
+                                                    <span>Solo funcionarios con cargo asignado o admin</span>
+                                                    <span className="text-primary font-mono">{evaluadoresFiltradosMasiva.length} disponibles</span>
+                                                </div>
+
+                                                {evaluadoresFiltradosMasiva.length === 0 ? (
+                                                    <div className="p-4 text-center space-y-1.5">
+                                                        <AlertCircle className="w-5 h-5 text-amber-500 mx-auto" />
+                                                        <p className="text-xs font-bold text-foreground">No se encontraron evaluadores</p>
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            Solo se muestran usuarios que tengan un cargo asignado o rol administrativo. Intenta con otro CI, cargo o nombre.
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    evaluadoresFiltradosMasiva.map((u) => {
+                                                        const isSelected = masivaEvaluadorId === u.id;
+                                                        const cargoNom = getCargoUsuario(u);
+                                                        const isAdmin = isUserAdminRole(u);
+
+                                                        return (
+                                                            <button
+                                                                key={u.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setMasivaEvaluadorId(u.id);
+                                                                    setIsEvaluadorDropdownOpen(false);
+                                                                    setEvaluadorSearchQuery('');
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full text-left p-2.5 rounded-xl transition-all flex items-center justify-between gap-3 group cursor-pointer",
+                                                                    isSelected
+                                                                        ? "bg-primary/10 border border-primary/30 text-primary"
+                                                                        : "hover:bg-secondary/60 text-foreground"
+                                                                )}
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                                                        {u.nombre?.charAt(0)}{u.apellidos?.charAt(0)}
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xs font-bold truncate uppercase">
+                                                                                {u.nombre} {u.apellidos}
+                                                                            </span>
+                                                                            {isAdmin && (
+                                                                                <span className="px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase">
+                                                                                    Admin
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                                                                            <span className="font-mono font-bold text-primary/90 flex items-center gap-1">
+                                                                                <CreditCard className="w-2.5 h-2.5" /> CI: {u.ci || 'S/N'}
+                                                                            </span>
+                                                                            <span>•</span>
+                                                                            <span className="truncate max-w-[220px] font-semibold text-foreground/80">
+                                                                                {cargoNom || 'Administrador General'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                {isSelected && (
+                                                                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-1.5">
