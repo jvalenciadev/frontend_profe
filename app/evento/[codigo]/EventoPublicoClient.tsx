@@ -236,22 +236,19 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 <body>
   <div class="page">
     <div class="header">
-      <div class="org-min">Ministerio de Educación</div>
-      <div class="org-sub">Sistema de Formación y Actualización Docente Continua — PROFE</div>
       <div class="doc-title">${tipoLabel}</div>
     </div>
     <div class="stripe"></div>
     <div class="body">
       <div class="event-block">
         <div class="event-title">${evento?.nombre || 'Actividad Académica'}</div>
-        <div class="event-meta">${evento?.tipo?.nombre || 'Evento'} &nbsp;·&nbsp; ${formatDate(evento?.fecha)} &nbsp;·&nbsp; ${evento?.lugar || 'Bolivia'}</div>
+        <div class="event-meta">${evento?.tipo?.nombre || 'Evento'} &nbsp;·&nbsp; Fecha: ${formatDate(evento?.fecha)} &nbsp;·&nbsp; ${evento?.lugar || 'Bolivia'}</div>
       </div>
       <div class="participant-strip">
         <div class="p-label">Participante / Titular</div>
         <div class="p-name">${(persona?.nombre1 || '')} ${(persona?.nombre2 || '')} ${(persona?.apellido1 || '')} ${(persona?.apellido2 || '')}</div>
         <div class="p-row">
           <div><span>C.I.:</span> <strong>${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}</strong></div>
-          ${inscripcionId ? `<div><span>N° Folio:</span> <strong>${String(inscripcionId).substring(0, 18)}</strong></div>` : ''}
         </div>
       </div>
       <div class="fields">
@@ -265,13 +262,12 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
           <div class="score-num">${Math.min(resultado.nota ?? 0, 100)}<span style="font-size:18px;opacity:0.4"> / 100</span></div>
           <div style="font-size:10px;color:#64748b;margin-top:4px">${resultado.puntaje} puntos obtenidos de ${resultado.puntajeMaximo}</div>
         </div>` : ''}
-        <div class="field"><div class="f-label">Fecha de Emisión</div><div class="f-value">${fecha} · ${hora}</div></div>
-        ${inscripcionId ? `<div class="field"><div class="f-label">Código de Verificación</div><div class="f-value mono">${inscripcionId}</div></div>` : ''}
+        <div class="field" style="grid-column: 1 / -1;"><div class="f-label">Fecha de Emisión</div><div class="f-value">${fecha} · ${hora}</div></div>
       </div>
       ${barcodeDataUrl ? `<div class="barcode-section"><div class="f-label" style="margin-bottom:8px">Identificación Única — Cédula de Identidad</div><img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode"/></div>` : ''}
     </div>
     <div class="footer">
-      <div class="footer-text">Ministerio de Educación</div>
+      <div class="footer-text">Ministerio de Educación — Estado Plurinacional de Bolivia</div>
       <div class="footer-sub">aulaprofe.minedu.gob.bo &nbsp;·&nbsp; Documento Oficial de Constancia Digital</div>
     </div>
   </div>
@@ -320,150 +316,109 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                     ? 'CERTIFICADO DE EVALUACIÓN'
                     : 'COMPROBANTE DE INSCRIPCIÓN';
 
-            // ── 1. ENCABEZADO INSTITUCIONAL ─────────────────────────────────
+            // ── 1. ENCABEZADO: SOLO TÍTULO DEL COMPROBANTE ─────────────────
+            const bannerH = 22;
             doc.setFillColor(dorado[0], dorado[1], dorado[2]);
-            doc.rect(0, 0, PW, 34, 'F');
+            doc.rect(0, 0, PW, bannerH, 'F');
 
             doc.setFillColor(doradoDark[0], doradoDark[1], doradoDark[2]);
-            doc.rect(0, 34, PW, 1, 'F');
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(255, 248, 232);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(255, 255, 255);
-            doc.text('MINISTERIO DE EDUCACIÓN', PW / 2, 17, { align: 'center' });
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(255, 248, 232);
-            doc.text('Sistema de Formación y Actualización Docente Continua — PROFE', PW / 2, 23, { align: 'center' });
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.setTextColor(255, 255, 255);
-            doc.text(docTitle, PW / 2, 31, { align: 'center' });
-
-            // ── 2. NOMBRE DEL EVENTO ─────────────────────────────────────────
-            let y = 46;
-
-            const nombreEvento = (evento?.nombre || 'Actividad Académica').toUpperCase();
-            const eventoLines = doc.splitTextToSize(nombreEvento, cW);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(14);
-            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
-            doc.text(eventoLines, PW / 2, y, { align: 'center' });
-            y += eventoLines.length * 7 + 3;
-
-            // Tipo · Fecha · Lugar
-            const tipoEvento = (evento?.tipo?.nombre || 'Evento').toUpperCase();
-            const fechaEvento = formatDate(evento?.fecha) || '—';
-            const lugarEvento = evento?.lugar || 'Bolivia';
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
-            doc.text(`${tipoEvento}  ·  ${fechaEvento}  ·  ${lugarEvento}`, PW / 2, y, { align: 'center' });
-            y += 3;
-
-            // Línea divisora
-            doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
-            doc.setLineWidth(0.3);
-            doc.line(mL, y, mL + cW, y);
-            y += 10;
-
-            // ── 3. DATOS DEL PARTICIPANTE ────────────────────────────────────
-            const nombreCompleto = [persona?.nombre1, persona?.nombre2, persona?.apellido1, persona?.apellido2]
-                .filter(Boolean).join(' ').toUpperCase() || 'PARTICIPANTE';
-            const ciFormat = `${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}${persona?.expedido ? ' ' + persona.expedido : ''}`.trim();
-            const folioStr = inscripcionId ? String(inscripcionId).substring(0, 18) : `REG-${persona?.ci || '0000'}`;
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7);
-            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
-            doc.text('PARTICIPANTE', mL, y);
-            y += 5;
+            doc.rect(0, bannerH, PW, 1, 'F');
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
+            doc.setTextColor(255, 255, 255);
+            doc.text(docTitle, PW / 2, 14.5, { align: 'center' });
+
+            // ── 2. TÍTULO DEL TALLER EN GRANDE Y FECHA ──────────────────────
+            let y = 36;
+
+            const nombreEvento = (evento?.nombre || 'Actividad Académica').toUpperCase();
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(17);
+            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
+            const eventoLines = doc.splitTextToSize(nombreEvento, cW);
+            doc.text(eventoLines, PW / 2, y, { align: 'center' });
+            y += eventoLines.length * 7.5 + 2;
+
+            // Fecha destacada
+            const tipoEvento = (evento?.tipo?.nombre || 'Taller').toUpperCase();
+            const fechaEvento = formatDate(evento?.fecha) || '—';
+            const lugarEvento = evento?.lugar || 'Bolivia';
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(grisText[0], grisText[1], grisText[2]);
+            doc.text(`${tipoEvento}  ·  FECHA: ${fechaEvento}  ·  LUGAR: ${lugarEvento}`, PW / 2, y, { align: 'center' });
+            y += 6;
+
+            // Línea divisora
+            doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
+            doc.setLineWidth(0.4);
+            doc.line(mL, y, mL + cW, y);
+            y += 10;
+
+            // ── 3. DATOS DEL PARTICIPANTE (SIN FOLIO) ───────────────────────
+            const nombreCompleto = [persona?.nombre1, persona?.nombre2, persona?.apellido1, persona?.apellido2]
+                .filter(Boolean).join(' ').toUpperCase() || 'PARTICIPANTE';
+            const ciFormat = `${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}${persona?.expedido ? ' ' + persona.expedido : ''}`.trim();
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text('PARTICIPANTE / TITULAR', mL, y);
+            y += 6;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
             doc.setTextColor(grisText[0], grisText[1], grisText[2]);
             doc.text(nombreCompleto, mL, y);
             y += 8;
 
-            // CI a la izquierda, Folio a la derecha
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
+            doc.setFontSize(10);
             doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
-            doc.text('C.I.', mL, y);
+            doc.text('CÉDULA DE IDENTIDAD:', mL, y);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(grisText[0], grisText[1], grisText[2]);
-            doc.text(ciFormat || 'S/N', mL + 7, y);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
-            doc.text('N° Folio', mL + 60, y);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
-            doc.text(folioStr, mL + 82, y);
-            y += 6;
+            doc.text(ciFormat || 'S/N', mL + 45, y);
+            y += 8;
 
             // Calificación (solo cuestionario)
             if (isCuestionario && resultado) {
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(9);
+                doc.setFontSize(10);
                 doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
-                doc.text(`Calificación: ${Math.min(resultado.nota ?? 0, 100)} / 100 pts.`, mL, y);
-                y += 6;
+                doc.text(`CALIFICACIÓN: ${Math.min(resultado.nota ?? 0, 100)} / 100 PTS.`, mL, y);
+                y += 7;
             }
 
             // Línea divisora
             doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
-            doc.setLineWidth(0.3);
+            doc.setLineWidth(0.4);
             doc.line(mL, y, mL + cW, y);
-            y += 10;
+            y += 12;
 
-            // ── 4. VALIDACIÓN: QR + CÓDIGO DE BARRAS ────────────────────────
-            const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://aulaprofe.minedu.gob.bo';
-            const verificationUrl = `${currentOrigin}/evento/${evento?.codigo || ''}?ci=${persona?.ci || ''}&doc=${tipo}&id=${inscripcionId || '0'}`;
-            const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
-                margin: 1,
-                width: 200,
-                color: { dark: '#0f172a', light: '#ffffff' }
-            });
-
-            const qrSize = 30;
-            doc.addImage(qrDataUrl, 'PNG', mL, y, qrSize, qrSize);
-
-            // Código de barras al centro-derecha
+            // ── 4. CÓDIGO DE BARRAS CENTRADO (SIN QR) ───────────────────────
             const barcodeCanvas = barcodeCanvasRef.current;
             if (barcodeCanvas) {
                 try {
                     const bcUrl = barcodeCanvas.toDataURL('image/png');
-                    doc.addImage(bcUrl, 'PNG', mL + 38, y, 80, 16);
+                    const bcW = 100;
+                    const bcH = 20;
+                    const bcX = (PW - bcW) / 2;
+                    doc.addImage(bcUrl, 'PNG', bcX, y, bcW, bcH);
+                    y += bcH + 5;
                 } catch { }
             }
 
-            // Datos de verificación
-            const infoX = mL + 38;
-            const infoY = y + 20;
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
+            doc.setFontSize(7.5);
             doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
-            doc.text('Escanear el código QR para verificar la autenticidad del documento.', infoX, infoY);
-            doc.text(`ID de Transacción: ${(inscripcionId || '').substring(0, 26)}`, infoX, infoY + 5);
-            doc.text(`Fecha de Emisión: ${fecha} — ${hora}`, infoX, infoY + 10);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(5.5);
-            doc.setTextColor(doradoDark[0], doradoDark[1], doradoDark[2]);
-            doc.text('VERIFICAR', mL + qrSize / 2, y + qrSize + 3, { align: 'center' });
-
-            y += qrSize + 10;
+            doc.text(`Emisión: ${fecha} — ${hora}`, PW / 2, y, { align: 'center' });
+            y += 10;
 
             // Línea divisora
             doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
-            doc.setLineWidth(0.3);
+            doc.setLineWidth(0.4);
             doc.line(mL, y, mL + cW, y);
             y += 8;
 
@@ -471,7 +426,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación del titular en la actividad académica convocada por el Ministerio de Educación. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
             const constanciaLines = doc.splitTextToSize(constanciaText, cW);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
+            doc.setFontSize(7);
             doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
             doc.text(constanciaLines, mL, y);
 
@@ -482,7 +437,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6.5);
             doc.setTextColor(255, 255, 255);
-            doc.text('MINISTERIO DE EDUCACIÓN', PW / 2, PH - 8, { align: 'center' });
+            doc.text('MINISTERIO DE EDUCACIÓN — ESTADO PLURINACIONAL DE BOLIVIA', PW / 2, PH - 8, { align: 'center' });
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(5.5);
@@ -514,53 +469,39 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                 <div className="h-1.5 bg-[#a68434]" />
 
                 {/* Header institucional */}
-                <div className="bg-[#c9a751] px-6 py-6 sm:px-8 sm:py-7 text-center text-white">
-                    <h2 className="text-base sm:text-xl font-black uppercase tracking-wider text-white">
-                        Ministerio de Educación
+                <div className="bg-[#c9a751] px-6 py-5 sm:px-8 sm:py-6 text-center text-white">
+                    <h2 className="text-base sm:text-2xl font-black uppercase tracking-widest text-white">
+                        {tipoLabel}
                     </h2>
-                    <p className="text-[10px] sm:text-xs text-amber-100/80 font-medium mb-3">
-                        Sistema de Formación y Actualización Docente Continua — PROFE
-                    </p>
-                    <div className="inline-block border-t border-white/30 pt-2.5 px-6">
-                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white">
-                            {tipoLabel}
-                        </span>
-                    </div>
                 </div>
 
                 <div className="p-6 sm:p-8 space-y-6">
                     {/* Actividad / Evento principal */}
                     <div className="text-center pb-5 border-b border-slate-200 dark:border-slate-700">
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Actividad Académica</p>
-                        <h3 className="text-lg sm:text-2xl font-black text-[#a68434] dark:text-[#dfc37b] uppercase tracking-tight leading-snug">
+                        <h3 className="text-xl sm:text-3xl font-black text-[#a68434] dark:text-[#dfc37b] uppercase tracking-tight leading-snug">
                             {evento?.nombre}
                         </h3>
-                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                            <span className="uppercase text-[#a68434] dark:text-[#dfc37b] font-bold">{evento?.tipo?.nombre || 'Evento'}</span>
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+                            <span className="uppercase text-[#a68434] dark:text-[#dfc37b] font-bold">{evento?.tipo?.nombre || 'Taller'}</span>
                             <span>•</span>
-                            <span>{formatDate(evento?.fecha)}</span>
+                            <span>Fecha: {formatDate(evento?.fecha)}</span>
                             <span>•</span>
                             <span>{evento?.lugar || 'Bolivia'}</span>
                         </div>
                     </div>
 
-                    {/* Participante — Titular */}
+                    {/* Participante — Titular (Sin Folio) */}
                     <div className="bg-[#c9a751]/10 dark:bg-[#c9a751]/20 border-l-4 border-[#c9a751] rounded-r-xl px-5 py-4">
                         <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#a68434] dark:text-[#dfc37b] mb-1">
                             Participante / Titular
                         </p>
-                        <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                        <p className="text-base sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
                             {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
                         </p>
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mt-2 text-xs sm:text-sm font-medium">
+                        <div className="flex items-center gap-x-6 gap-y-1 mt-2 text-xs sm:text-sm font-medium">
                             <p className="text-slate-600 dark:text-slate-300">
                                 <span className="font-bold text-slate-400">C.I.:</span> <strong className="text-slate-900 dark:text-white font-mono">{persona?.ci}{persona?.complemento ? '-' + persona.complemento : ''}</strong>
                             </p>
-                            {inscripcionId && (
-                                <p className="text-slate-600 dark:text-slate-300">
-                                    <span className="font-bold text-slate-400">N° Folio:</span> <strong className="text-[#a68434] dark:text-[#dfc37b] font-mono">{String(inscripcionId).substring(0, 18)}</strong>
-                                </p>
-                            )}
                         </div>
                     </div>
 
