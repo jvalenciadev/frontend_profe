@@ -423,7 +423,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             y += 8;
 
             // ── 5. NOTA LEGAL ────────────────────────────────────────────────
-            const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación del titular en la actividad académica convocada por el Ministerio de Educación. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
+            const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación.';
             const constanciaLines = doc.splitTextToSize(constanciaText, cW);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
@@ -477,38 +477,23 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 
                 <div className="p-6 sm:p-8 space-y-6">
                     {/* Actividad / Evento principal */}
-                    <div className="rounded-2xl bg-gradient-to-b from-slate-50 to-white dark:from-slate-800/40 dark:to-slate-900/30 border border-slate-200/80 dark:border-slate-700/60 p-5 sm:p-7 text-center space-y-3.5 shadow-2xs">
-                        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#c9a751]/15 border border-[#c9a751]/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#c9a751]" />
-                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#967428] dark:text-[#dfc37b]">
-                                {evento?.tipo?.nombre || 'Taller de Formación'}
-                            </span>
-                        </div>
-
-                        <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug max-w-3xl mx-auto">
+                    <div className="text-center pb-5 border-b border-slate-200 dark:border-slate-700">
+                        <h3 className="text-xl sm:text-3xl font-black text-[#a68434] dark:text-[#dfc37b] uppercase tracking-tight leading-snug">
                             {evento?.nombre}
                         </h3>
-
-                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-1">
-                            {evento?.fecha && (
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs">
-                                    <Calendar className="w-3.5 h-3.5 text-[#c9a751] shrink-0" />
-                                    <span>Fecha: {formatDate(evento?.fecha)}</span>
-                                </div>
-                            )}
-                            {evento?.lugar && (
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs">
-                                    <MapPin className="w-3.5 h-3.5 text-[#c9a751] shrink-0" />
-                                    <span>{evento?.lugar}</span>
-                                </div>
-                            )}
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+                            <span className="uppercase text-[#a68434] dark:text-[#dfc37b] font-bold">{evento?.tipo?.nombre || 'Taller'}</span>
+                            <span>•</span>
+                            <span>Fecha: {formatDate(evento?.fecha)}</span>
+                            <span>•</span>
+                            <span>{evento?.lugar || 'Bolivia'}</span>
                         </div>
                     </div>
 
                     {/* Participante — Titular (Sin Folio) */}
                     <div className="bg-[#c9a751]/10 dark:bg-[#c9a751]/20 border-l-4 border-[#c9a751] rounded-r-xl px-5 py-4">
                         <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#a68434] dark:text-[#dfc37b] mb-1">
-                            Participante / Titular
+                            Participante
                         </p>
                         <p className="text-base sm:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
                             {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
