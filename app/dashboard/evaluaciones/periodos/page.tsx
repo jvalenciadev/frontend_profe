@@ -42,6 +42,7 @@ import {
     ExternalLink,
     FileQuestion,
     GraduationCap,
+    ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -49,6 +50,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import MathRenderer from '@/components/aula/MathRenderer';
 import { RichTextMathEditor } from '@/components/evaluaciones/RichTextMathEditor';
+import { useAbility } from '@/hooks/useAbility';
 
 export const isCuestionarioCriterio = (crit: { nombre?: string; descripcion?: string; cuestionarios?: any[] }) => {
     const nombre = (crit.nombre || '').toLowerCase();
@@ -82,6 +84,7 @@ interface FormCriterio {
 }
 
 export default function PeriodosEvaluacionPage() {
+    const { can, isSuperAdmin } = useAbility();
     const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
     const [cargos, setCargos] = useState<Cargo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -466,6 +469,26 @@ export default function PeriodosEvaluacionPage() {
         p.periodo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.semestre?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (!isSuperAdmin && !can('read', 'EvaluacionPeriodo')) {
+        return (
+            <div className="p-12 text-center space-y-4 max-w-md mx-auto my-12 bg-card rounded-3xl border border-border/50 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                    <ShieldAlert className="w-8 h-8" />
+                </div>
+                <h2 className="text-xl font-black uppercase text-foreground">Acceso Restringido</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    No cuentas con el permiso requerido (<strong>EvaluacionPeriodo</strong>) para gestionar los Periodos de Evaluación. Contacta al Administrador.
+                </p>
+                <Link
+                    href="/dashboard/evaluaciones"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all"
+                >
+                    Volver al Módulo
+                </Link>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto min-h-screen">

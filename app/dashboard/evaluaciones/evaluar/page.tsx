@@ -66,7 +66,7 @@ const ESCALA_OPCIONES: { key: EscalaLikertKey; label: string; points: number; co
 ];
 
 export default function EvaluarPersonalPage() {
-    const { user, isSuperAdmin } = useAbility();
+    const { user, isSuperAdmin, can } = useAbility();
 
     // Filtros y estados de navegación
     const [selectedPeriod, setSelectedPeriod] = useState<string>('');
@@ -874,6 +874,26 @@ export default function EvaluarPersonalPage() {
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
+
+    if (!isSuperAdmin && !can('read', 'EvaluacionPuntaje')) {
+        return (
+            <div className="p-12 text-center space-y-4 max-w-md mx-auto my-12 bg-card rounded-3xl border border-border/50 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                    <ShieldAlert className="w-8 h-8" />
+                </div>
+                <h2 className="text-xl font-black uppercase text-foreground">Acceso Restringido</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    No cuentas con el permiso requerido (<strong>EvaluacionPuntaje</strong>) para acceder a Evaluar Personal. Si eres evaluador, solicita al Administrador que te asigne el permiso correspondiente.
+                </p>
+                <Link
+                    href="/dashboard/evaluaciones"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all"
+                >
+                    Volver al Módulo
+                </Link>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto min-h-screen">

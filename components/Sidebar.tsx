@@ -110,7 +110,6 @@ const menuItems: MenuItem[] = [
         title: 'Evaluaciones',
         href: '/dashboard/evaluaciones',
         icon: ClipboardCheck,
-        // permission: { action: 'read', subject: 'EvaluacionAdmins' },
         children: [
             {
                 title: 'Periodos',
@@ -120,10 +119,12 @@ const menuItems: MenuItem[] = [
             {
                 title: 'Cuestionarios por Cargo',
                 href: '/dashboard/evaluaciones/cuestionarios',
+                permission: { action: 'read', subject: 'EvaluacionCuestionario' }
             },
             {
                 title: 'Asignación de Evaluadores',
                 href: '/dashboard/evaluaciones/asignaciones',
+                permission: { action: 'read', subject: 'EvaluacionAdmins' }
             },
             {
                 title: 'Evaluar Personal',

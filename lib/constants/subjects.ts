@@ -71,10 +71,11 @@ export const AVAILABLE_SUBJECTS = [
     { label: 'Tipos de Posgrado', value: 'bp_tipo_posgrado' },
 
     // Evaluaciones
-    { label: 'Evaluaciones', value: 'EvaluacionAdmins' },
-    { label: 'Criterios de Evaluación', value: 'EvaluacionCriterio' },
     { label: 'Periodos de Evaluación', value: 'EvaluacionPeriodo' },
-    { label: 'Puntajes de Evaluación', value: 'EvaluacionPuntaje' },
+    { label: 'Cuestionarios por Cargo', value: 'EvaluacionCuestionario' },
+    { label: 'Asignación de Evaluadores', value: 'EvaluacionAdmins' },
+    { label: 'Evaluar Personal (Puntajes)', value: 'EvaluacionPuntaje' },
+    { label: 'Criterios de Evaluación', value: 'EvaluacionCriterio' },
 
     // Correspondencia
     { label: 'Correspondencia Documentos', value: 'CorDocumento' },
