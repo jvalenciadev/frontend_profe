@@ -130,36 +130,36 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
     const tipoConfig = {
         inscripcion: {
             label: 'Comprobante de Inscripción',
-            accentHex: 'var(--primary)',
-            bgAccent: 'bg-primary',
-            bgLight: 'bg-primary/5 dark:bg-primary/10',
-            borderColor: 'border-primary/20 dark:border-primary/30',
-            textColor: 'text-primary dark:text-primary-400',
-            badgeBg: 'bg-primary',
-            printHex: '#1577a8',
-            printBgHex: '#f0f9ff'
+            accentHex: '#003366',
+            bgAccent: 'bg-[#003366]',
+            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
+            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
+            textColor: 'text-[#003366] dark:text-blue-300',
+            badgeBg: 'bg-[#003366]',
+            printHex: '#003366',
+            printBgHex: '#f0f4f8'
         },
         asistencia: {
             label: 'Comprobante de Asistencia',
-            accentHex: '#064e3b',
-            bgAccent: 'bg-emerald-900 dark:bg-emerald-800',
-            bgLight: 'bg-emerald-50 dark:bg-emerald-950/40',
-            borderColor: 'border-emerald-200 dark:border-emerald-800',
-            textColor: 'text-emerald-900 dark:text-emerald-400',
-            badgeBg: 'bg-emerald-900 dark:bg-emerald-800',
-            printHex: '#064e3b',
-            printBgHex: '#f0fdf4'
+            accentHex: '#003366',
+            bgAccent: 'bg-[#003366]',
+            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
+            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
+            textColor: 'text-[#003366] dark:text-blue-300',
+            badgeBg: 'bg-[#003366]',
+            printHex: '#003366',
+            printBgHex: '#f0f4f8'
         },
         cuestionario: {
             label: 'Certificado de Evaluación',
-            accentHex: '#7f1d1d',
-            bgAccent: 'bg-red-900 dark:bg-red-800',
-            bgLight: 'bg-red-50 dark:bg-red-950/40',
-            borderColor: 'border-red-200 dark:border-red-800',
-            textColor: 'text-red-900 dark:text-red-400',
-            badgeBg: 'bg-red-900 dark:bg-red-800',
-            printHex: '#7f1d1d',
-            printBgHex: '#fef2f2'
+            accentHex: '#003366',
+            bgAccent: 'bg-[#003366]',
+            bgLight: 'bg-blue-50/70 dark:bg-blue-950/20',
+            borderColor: 'border-[#003366]/30 dark:border-blue-800/40',
+            textColor: 'text-[#003366] dark:text-blue-300',
+            badgeBg: 'bg-[#003366]',
+            printHex: '#003366',
+            printBgHex: '#f0f4f8'
         }
     };
 
@@ -196,78 +196,84 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
 <head>
   <meta charset="UTF-8" />
   <meta name="color-scheme" content="light">
-  <title>${tipoLabel} — PROFE Bolivia</title>
+  <title>${tipoLabel} — PROFE Ministerio de Educación</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { font-family: 'Arial', sans-serif; background: #f1f5f9; color: #1e293b; }
-    .page { max-width: 740px; margin: 24px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
-    .stripe { height: 8px; background: linear-gradient(90deg, ${config.printHex} 60%, ${config.printHex}99 100%); }
-    .header { background: ${config.printHex}; padding: 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .header-left { color: white; }
-    .org { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; margin-bottom: 6px; }
-    .doc-title { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1.1; }
-    .doc-sub { font-size: 11px; opacity: 0.75; margin-top: 6px; font-weight: 600; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; color: #1e293b; }
+    .page { max-width: 700px; margin: 20px auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .header { background: #003366; padding: 22px 28px; text-align: center; color: white; }
+    .stripe { height: 3px; background: #0052A5; }
+    .org-state { font-size: 8px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #b4cdf0; margin-bottom: 3px; }
+    .org-min { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+    .org-sub { font-size: 8.5px; color: #b4cdf0; margin-bottom: 10px; font-weight: 500; }
+    .doc-title { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; }
     .body { padding: 28px; }
-    .participant-strip { background: ${config.printBgHex}; border-left: 4px solid ${config.printHex}; border-radius: 6px; padding: 14px 18px; margin-bottom: 20px; }
-    .p-label { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: ${config.printHex}; margin-bottom: 4px; }
-    .p-name { font-size: 20px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: -0.5px; }
-    .p-ci { font-size: 13px; font-family: monospace; font-weight: 700; color: #475569; margin-top: 2px; }
-    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
-    .f-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; margin-bottom: 4px; }
-    .f-value { font-size: 13px; font-weight: 800; color: #1e293b; }
-    .f-value.accent { color: ${config.printHex}; }
-    .f-value.mono { font-family: monospace; font-size: 11px; word-break: break-all; }
-    .score-box { background: ${config.printBgHex}; border: 2px solid ${config.printHex}33; border-radius: 10px; padding: 16px; text-align: center; grid-column: 1 / -1; }
-    .score-num { font-size: 40px; font-weight: 900; color: ${config.printHex}; line-height: 1; }
+    .event-block { text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; }
+    .event-title { font-size: 17px; font-weight: 900; text-transform: uppercase; color: #003366; margin-bottom: 6px; line-height: 1.25; }
+    .event-meta { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .participant-strip { background: #f0f4f8; border-left: 4px solid #003366; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
+    .p-label { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 4px; }
+    .p-name { font-size: 18px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: -0.3px; }
+    .p-row { display: flex; gap: 24px; margin-top: 6px; font-size: 12px; }
+    .p-row span { color: #64748b; font-weight: 600; }
+    .p-row strong { color: #003366; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; }
+    .f-label { font-size: 7.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; color: #94a3b8; margin-bottom: 3px; }
+    .f-value { font-size: 12px; font-weight: 700; color: #1e293b; }
+    .f-value.accent { color: #003366; }
+    .f-value.mono { font-family: monospace; font-size: 10px; word-break: break-all; }
+    .score-box { background: #f0f4f8; border: 1px solid #00336633; border-radius: 8px; padding: 14px; text-align: center; grid-column: 1 / -1; }
+    .score-num { font-size: 36px; font-weight: 900; color: #003366; line-height: 1; }
     .barcode-section { border-top: 1px dashed #cbd5e1; padding-top: 16px; text-align: center; }
-    .barcode-img { max-width: 480px; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; background: white; }
-    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .footer-text { font-size: 9px; color: #94a3b8; font-weight: 600; line-height: 1.5; }
-    .footer-badge { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: ${config.printHex}; border: 1px solid ${config.printHex}33; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
-    @media print { body { background: white; } .page { margin: 0; border-radius: 0; box-shadow: none; } }
+    .barcode-img { max-width: 420px; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; background: white; }
+    .footer { background: #003366; color: white; padding: 14px 28px; text-align: center; }
+    .footer-text { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .footer-sub { font-size: 7.5px; color: #b4cdf0; }
+    @media print { body { background: white; } .page { margin: 0; border: none; border-radius: 0; box-shadow: none; } }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="stripe"></div>
     <div class="header">
-      <div class="header-left">
-        <div class="doc-title">${tipoLabel}</div>
-        <div class="doc-sub">Sistema de Gestión Académica PROFE · ${fecha}</div>
-      </div>
+      <div class="org-state">Estado Plurinacional de Bolivia</div>
+      <div class="org-min">Ministerio de Educación</div>
+      <div class="org-sub">Sistema de Formación y Actualización Docente Continua — PROFE</div>
+      <div class="doc-title">${tipoLabel}</div>
     </div>
+    <div class="stripe"></div>
     <div class="body">
+      <div class="event-block">
+        <div class="event-title">${evento?.nombre || 'Actividad Académica'}</div>
+        <div class="event-meta">${evento?.tipo?.nombre || 'Evento'} &nbsp;·&nbsp; ${formatDate(evento?.fecha)} &nbsp;·&nbsp; ${evento?.lugar || 'Bolivia'}</div>
+      </div>
       <div class="participant-strip">
         <div class="p-label">Participante / Titular</div>
         <div class="p-name">${(persona?.nombre1 || '')} ${(persona?.nombre2 || '')} ${(persona?.apellido1 || '')} ${(persona?.apellido2 || '')}</div>
-        <div class="p-ci">C.I. ${persona?.ci || ''}</div>
-        ${(() => {
-                if (!persona?.fechaNacimiento) return '';
-                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
-                const localDate = new Date(y, m - 1, d);
-                return `<div class="p-ci" style="margin-top: 2px;">F. Nac. ${localDate.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })}</div>`;
-            })()}
+        <div class="p-row">
+          <div><span>C.I.:</span> <strong>${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}</strong></div>
+          ${inscripcionId ? `<div><span>N° Folio:</span> <strong>${String(inscripcionId).substring(0, 18)}</strong></div>` : ''}
+        </div>
       </div>
       <div class="fields">
-        <div class="field"><div class="f-label">Evento</div><div class="f-value">${evento?.nombre || ''}</div></div>
+        <div class="field"><div class="f-label">Actividad / Evento</div><div class="f-value">${evento?.nombre || ''}</div></div>
         <div class="field"><div class="f-label">Tipo / Categoría</div><div class="f-value accent">${evento?.tipo?.nombre || 'Evento'}</div></div>
         <div class="field"><div class="f-label">Fecha del Evento</div><div class="f-value">${formatDate(evento?.fecha)}</div></div>
-        <div class="field"><div class="f-label">Tipo de Documento</div><div class="f-value accent">${tipoLabel}</div></div>
+        <div class="field"><div class="f-label">Ubicación / Lugar</div><div class="f-value">${evento?.lugar || 'Nacional'}</div></div>
         ${resultado && !resultado.offline ? `
         <div class="score-box">
-          <div class="f-label" style="margin-bottom:8px">Resultado de Evaluación — ${resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}</div>
-          <div class="score-num">${Math.min(resultado.nota ?? 0, 100)}<span style="font-size:20px;opacity:0.4"> / 100</span></div>
-          <div style="font-size:11px;color:#64748b;margin-top:6px">${resultado.puntaje} puntos obtenidos de ${resultado.puntajeMaximo}</div>
+          <div class="f-label" style="margin-bottom:6px">Resultado de Evaluación — ${resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}</div>
+          <div class="score-num">${Math.min(resultado.nota ?? 0, 100)}<span style="font-size:18px;opacity:0.4"> / 100</span></div>
+          <div style="font-size:10px;color:#64748b;margin-top:4px">${resultado.puntaje} puntos obtenidos de ${resultado.puntajeMaximo}</div>
         </div>` : ''}
         <div class="field"><div class="f-label">Fecha de Emisión</div><div class="f-value">${fecha} · ${hora}</div></div>
         ${inscripcionId ? `<div class="field"><div class="f-label">Código de Verificación</div><div class="f-value mono">${inscripcionId}</div></div>` : ''}
       </div>
-      ${barcodeDataUrl ? `<div class="barcode-section"><div class="f-label" style="margin-bottom:10px">Identificación Única — Cédula de Identidad</div><img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode"/></div>` : ''}
+      ${barcodeDataUrl ? `<div class="barcode-section"><div class="f-label" style="margin-bottom:8px">Identificación Única — Cédula de Identidad</div><img class="barcode-img" src="${barcodeDataUrl}" alt="Barcode"/></div>` : ''}
     </div>
     <div class="footer">
-      <div class="footer-text">Documento oficial de inscripción generado automáticamente por el Sistema PROFE Bolivia.</div>
-      <div class="footer-badge">✓ Documento Oficial</div>
+      <div class="footer-text">Ministerio de Educación — Estado Plurinacional de Bolivia</div>
+      <div class="footer-sub">aulaprofe.minedu.gob.bo &nbsp;·&nbsp; Documento Oficial de Constancia Digital</div>
     </div>
   </div>
   <script>window.onload = function() { window.print(); }<\/script>
@@ -294,347 +300,201 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                 compress: true
             });
 
-            const pageWidth = 210;
-            const pageHeight = 297;
-            const marginX = 15;
-            const contentWidth = 180;
+            const PW = 210;
+            const PH = 297;
+            const mL = 18;
+            const cW = PW - mL * 2;
 
             const isAsistencia = tipo === 'asistencia';
             const isCuestionario = tipo === 'cuestionario';
 
-            // Paleta de colores institucional [R, G, B]
-            const primaryColor: [number, number, number] = isAsistencia
-                ? [6, 95, 70]      // Emerald 800
-                : isCuestionario
-                ? [159, 18, 57]    // Rose 800
-                : [14, 116, 144];  // Cyan 700 / Profe
-
-            const secondaryBg: [number, number, number] = isAsistencia
-                ? [236, 253, 245]  // Emerald 50
-                : isCuestionario
-                ? [255, 241, 242]  // Rose 50
-                : [240, 249, 255];  // Sky 50
+            // ── Paleta única institucional: azul Minedu ──────────────────────
+            const azul: [number, number, number]       = [0, 51, 102];    // #003366
+            const azulMid: [number, number, number]    = [0, 82, 165];    // #0052A5
+            const grisText: [number, number, number]   = [45, 55, 72];
+            const grisSub: [number, number, number]    = [107, 114, 128];
+            const grisLine: [number, number, number]   = [209, 213, 219];
 
             const docTitle = isAsistencia
-                ? 'COMPROBANTE OFICIAL DE ASISTENCIA'
+                ? 'COMPROBANTE DE ASISTENCIA'
                 : isCuestionario
                 ? 'CERTIFICADO DE EVALUACIÓN'
-                : 'COMPROBANTE OFICIAL DE INSCRIPCIÓN';
+                : 'COMPROBANTE DE INSCRIPCIÓN';
 
-            const badgeText = isAsistencia
-                ? '✓ ASISTENCIA REGISTRADA Y VALIDADA'
-                : isCuestionario
-                ? '✓ EVALUACIÓN ACADÉMICA REGISTRADA'
-                : '✓ INSCRIPCIÓN OFICIAL CONFIRMADA';
+            // ── 1. ENCABEZADO INSTITUCIONAL ─────────────────────────────────
+            doc.setFillColor(azul[0], azul[1], azul[2]);
+            doc.rect(0, 0, PW, 34, 'F');
 
-            // 1. BANNER INSTITUCIONAL SUPERIOR
-            doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.rect(0, 0, pageWidth, 38, 'F');
-
-            // Franja de acento dorado
-            doc.setFillColor(245, 158, 11);
-            doc.rect(0, 38, pageWidth, 1.5, 'F');
-
-            // Textos membrete institucional
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(255, 255, 255);
-            doc.text('ESTADO PLURINACIONAL DE BOLIVIA  •  MINISTERIO DE EDUCACIÓN', pageWidth / 2, 11, { align: 'center' });
+            doc.setFillColor(azulMid[0], azulMid[1], azulMid[2]);
+            doc.rect(0, 34, PW, 1, 'F');
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7.5);
-            doc.setTextColor(224, 242, 254);
-            doc.text('SISTEMA DE FORMACIÓN Y ACTUALIZACIÓN DOCENTE CONTINUA — PROFE', pageWidth / 2, 16, { align: 'center' });
+            doc.setFontSize(6.5);
+            doc.setTextColor(180, 205, 240);
+            doc.text('ESTADO PLURINACIONAL DE BOLIVIA', PW / 2, 9, { align: 'center' });
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(15);
+            doc.setFontSize(10);
             doc.setTextColor(255, 255, 255);
-            doc.text(docTitle, pageWidth / 2, 26, { align: 'center' });
+            doc.text('MINISTERIO DE EDUCACIÓN', PW / 2, 17, { align: 'center' });
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7.5);
-            doc.setTextColor(240, 249, 255);
-            doc.text('CONSTANCIA DIGITAL OFICIAL CON FIRMA Y REGISTRO ELECTRÓNICO', pageWidth / 2, 33, { align: 'center' });
-
-            // 2. BADGE DE ESTADO
-            doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
-            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.setLineWidth(0.4);
-            doc.roundedRect(marginX, 43, contentWidth, 9, 2, 2, 'FD');
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text(badgeText, pageWidth / 2, 49, { align: 'center' });
-
-            // 3. SECCIÓN: DATOS DEL PARTICIPANTE
-            let currentY = 56;
-            doc.setFillColor(241, 245, 249);
-            doc.setDrawColor(203, 213, 225);
-            doc.setLineWidth(0.3);
-            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-            doc.text('1. DATOS DEL PARTICIPANTE / TITULAR', marginX + 4, currentY + 4.8);
-
-            const participantBoxY = currentY + 6.5;
-            const participantBoxH = 34;
-            doc.rect(marginX, participantBoxY, contentWidth, participantBoxH, 'D');
-
-            const nombreCompleto = [persona?.nombre1, persona?.nombre2, persona?.apellido1, persona?.apellido2]
-                .filter(Boolean)
-                .join(' ')
-                .toUpperCase() || 'PARTICIPANTE';
+            doc.setFontSize(6.5);
+            doc.setTextColor(180, 205, 240);
+            doc.text('Sistema de Formación y Actualización Docente Continua — PROFE', PW / 2, 23, { align: 'center' });
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
-            doc.setTextColor(15, 23, 42);
-            doc.text(nombreCompleto, marginX + 4, participantBoxY + 7);
+            doc.setTextColor(255, 255, 255);
+            doc.text(docTitle, PW / 2, 31, { align: 'center' });
 
-            // Cédula de Identidad
-            const ciFormat = `${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}${persona?.expedido ? ' (' + persona.expedido + ')' : ''}`;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('CÉDULA DE IDENTIDAD:', marginX + 4, participantBoxY + 15);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text(ciFormat || 'S/N', marginX + 42, participantBoxY + 15);
+            // ── 2. NOMBRE DEL EVENTO ─────────────────────────────────────────
+            let y = 46;
 
-            // Fecha de nacimiento
-            let fNacString = '—';
-            if (persona?.fechaNacimiento) {
-                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
-                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-                    const localD = new Date(y, m - 1, d);
-                    fNacString = localD.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' });
-                }
-            }
+            const nombreEvento = (evento?.nombre || 'Actividad Académica').toUpperCase();
+            const eventoLines = doc.splitTextToSize(nombreEvento, cW);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('FECHA DE NACIMIENTO:', marginX + 4, participantBoxY + 22);
+            doc.setFontSize(14);
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.text(eventoLines, PW / 2, y, { align: 'center' });
+            y += eventoLines.length * 7 + 3;
+
+            // Tipo · Fecha · Lugar
+            const tipoEvento = (evento?.tipo?.nombre || 'Evento').toUpperCase();
+            const fechaEvento = formatDate(evento?.fecha) || '—';
+            const lugarEvento = evento?.lugar || 'Bolivia';
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(fNacString, marginX + 42, participantBoxY + 22);
-
-            // Celular
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('CELULAR / CONTACTO:', marginX + 4, participantBoxY + 29);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(persona?.celular || 'S/N', marginX + 42, participantBoxY + 29);
-
-            // Columna 2 de participante (x = marginX + 92)
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('CORREO ELECTRÓNICO:', marginX + 92, participantBoxY + 15);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(persona?.correo || 'S/N', marginX + 130, participantBoxY + 15);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('GÉNERO:', marginX + 92, participantBoxY + 22);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            const generoNombre = persona?.generoId === '2' ? 'FEMENINO' : 'MASCULINO';
-            doc.text(generoNombre, marginX + 130, participantBoxY + 22);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('FOLIO REGISTRO:', marginX + 92, participantBoxY + 29);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            const folioStr = inscripcionId ? String(inscripcionId).substring(0, 20) : `REG-${persona?.ci || '0000'}`;
-            doc.text(folioStr, marginX + 130, participantBoxY + 29);
-
-            // 4. SECCIÓN: DETALLES DEL EVENTO
-            currentY = participantBoxY + participantBoxH + 4;
-            doc.setFillColor(241, 245, 249);
-            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
-            doc.setFont('helvetica', 'bold');
             doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-            doc.text('2. DETALLES DE LA ACTIVIDAD ACADÉMICA', marginX + 4, currentY + 4.8);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text(`${tipoEvento}  ·  ${fechaEvento}  ·  ${lugarEvento}`, PW / 2, y, { align: 'center' });
+            y += 3;
 
-            const eventBoxY = currentY + 6.5;
-            const eventBoxH = isCuestionario ? 42 : 36;
-            doc.rect(marginX, eventBoxY, contentWidth, eventBoxH, 'D');
+            // Línea divisora
+            doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
+            doc.setLineWidth(0.3);
+            doc.line(mL, y, mL + cW, y);
+            y += 10;
 
-            // Nombre del evento multilínea
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10.5);
-            doc.setTextColor(15, 23, 42);
-            const eventoNombreLines = doc.splitTextToSize(evento?.nombre || 'Evento Académico', contentWidth - 8);
-            doc.text(eventoNombreLines, marginX + 4, eventBoxY + 6.5);
-
-            const offsetAfterEventName = eventBoxY + 7 + (eventoNombreLines.length * 4.5);
-
-            // Campos del evento
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('TIPO / CATEGORÍA:', marginX + 4, offsetAfterEventName);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text((evento?.tipo?.nombre || 'Evento').toUpperCase(), marginX + 38, offsetAfterEventName);
+            // ── 3. DATOS DEL PARTICIPANTE ────────────────────────────────────
+            const nombreCompleto = [persona?.nombre1, persona?.nombre2, persona?.apellido1, persona?.apellido2]
+                .filter(Boolean).join(' ').toUpperCase() || 'PARTICIPANTE';
+            const ciFormat = `${persona?.ci || ''}${persona?.complemento ? '-' + persona.complemento : ''}${persona?.expedido ? ' ' + persona.expedido : ''}`.trim();
+            const folioStr = inscripcionId ? String(inscripcionId).substring(0, 18) : `REG-${persona?.ci || '0000'}`;
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('FECHA EVENTO:', marginX + 92, offsetAfterEventName);
+            doc.setFontSize(7);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text('PARTICIPANTE', mL, y);
+            y += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.setTextColor(grisText[0], grisText[1], grisText[2]);
+            doc.text(nombreCompleto, mL, y);
+            y += 8;
+
+            // CI a la izquierda, Folio a la derecha
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(formatDate(evento?.fecha) || '—', marginX + 120, offsetAfterEventName);
+            doc.setFontSize(9);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text('C.I.', mL, y);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(grisText[0], grisText[1], grisText[2]);
+            doc.text(ciFormat || 'S/N', mL + 7, y);
 
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('CÓDIGO INTERNO:', marginX + 4, offsetAfterEventName + 6.5);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(evento?.codigo || '—', marginX + 38, offsetAfterEventName + 6.5);
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text('LUGAR / UBICACIÓN:', marginX + 92, offsetAfterEventName + 6.5);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8.5);
-            doc.setTextColor(30, 41, 59);
-            doc.text(evento?.lugar || 'Nacional / Online', marginX + 120, offsetAfterEventName + 6.5);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text('N° Folio', mL + 60, y);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(azulMid[0], azulMid[1], azulMid[2]);
+            doc.text(folioStr, mL + 82, y);
+            y += 6;
 
+            // Calificación (solo cuestionario)
             if (isCuestionario && resultado) {
-                const evalY = offsetAfterEventName + 13;
-                doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
-                doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                doc.setLineWidth(0.3);
-                doc.roundedRect(marginX + 4, evalY, contentWidth - 8, 8, 1.5, 1.5, 'FD');
-
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8.5);
-                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                const notaTexto = `CALIFICACIÓN: ${Math.min(resultado.nota ?? 0, 100)} / 100 PTS.  •  (${resultado.puntaje || 0} de ${resultado.puntajeMaximo || 100} puntos obtenidos)`;
-                doc.text(notaTexto, pageWidth / 2, evalY + 5.2, { align: 'center' });
+                doc.setFontSize(9);
+                doc.setTextColor(azul[0], azul[1], azul[2]);
+                doc.text(`Calificación: ${Math.min(resultado.nota ?? 0, 100)} / 100 pts.`, mL, y);
+                y += 6;
             }
 
-            // 5. SECCIÓN: SEGURIDAD, QR Y CÓDIGO DE BARRAS
-            currentY = eventBoxY + eventBoxH + 4;
-            doc.setFillColor(241, 245, 249);
-            doc.rect(marginX, currentY, contentWidth, 6.5, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-            doc.text('3. VALIDACIÓN DIGITAL Y SEGURIDAD ELECTRÓNICA', marginX + 4, currentY + 4.8);
+            // Línea divisora
+            doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
+            doc.setLineWidth(0.3);
+            doc.line(mL, y, mL + cW, y);
+            y += 10;
 
-            const secBoxY = currentY + 6.5;
-            const secBoxH = 48;
-            doc.rect(marginX, secBoxY, contentWidth, secBoxH, 'D');
-
-            // Generar Código QR
-            const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://profe.minedu.gob.bo';
+            // ── 4. VALIDACIÓN: QR + CÓDIGO DE BARRAS ────────────────────────
+            const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://aulaprofe.minedu.gob.bo';
             const verificationUrl = `${currentOrigin}/evento/${evento?.codigo || ''}?ci=${persona?.ci || ''}&doc=${tipo}&id=${inscripcionId || '0'}`;
             const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
                 margin: 1,
                 width: 200,
-                color: { dark: '#0f172a', light: '#ffffff' }
+                color: { dark: '#003366', light: '#ffffff' }
             });
 
-            // Añadir QR
-            const qrSize = 34;
-            const qrX = marginX + 6;
-            const qrY = secBoxY + 5;
-            doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            const qrSize = 30;
+            doc.addImage(qrDataUrl, 'PNG', mL, y, qrSize, qrSize);
 
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6.5);
-            doc.setTextColor(71, 85, 105);
-            doc.text('CÓDIGO QR DE VALIDACIÓN', qrX + (qrSize / 2), qrY + qrSize + 3.5, { align: 'center' });
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5.5);
-            doc.setTextColor(148, 163, 184);
-            doc.text('Escanear para validar en plataforma', qrX + (qrSize / 2), qrY + qrSize + 6.5, { align: 'center' });
-
-            // Columna Derecha: Código de barras e info criptográfica
-            const rightX = marginX + 54;
+            // Código de barras al centro-derecha
             const barcodeCanvas = barcodeCanvasRef.current;
             if (barcodeCanvas) {
                 try {
-                    const barcodeDataUrl = barcodeCanvas.toDataURL('image/png');
-                    const bcWidth = 80;
-                    const bcHeight = 18;
-                    doc.addImage(barcodeDataUrl, 'PNG', rightX + 15, secBoxY + 4, bcWidth, bcHeight);
+                    const bcUrl = barcodeCanvas.toDataURL('image/png');
+                    doc.addImage(bcUrl, 'PNG', mL + 38, y, 80, 16);
                 } catch { }
             }
 
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(15, 23, 42);
-            doc.text('SELLO DE CERTIFICACIÓN Y REGISTRO DIGITAL', rightX, secBoxY + 27);
-
+            // Datos de verificación
+            const infoX = mL + 38;
+            const infoY = y + 20;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
-            doc.setTextColor(71, 85, 105);
-            doc.text('• Documento emitido y firmado digitalmente por la Plataforma PROFE.', rightX, secBoxY + 32);
-            doc.text(`• Identificador de Transacción: ${inscripcionId || 'PROFE-' + (persona?.ci || '0')}`, rightX, secBoxY + 36);
-            doc.text(`• Hash de Integridad: SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`, rightX, secBoxY + 40);
-            doc.text(`• Fecha y Hora Oficial de Emisión: ${fecha} - ${hora}`, rightX, secBoxY + 44);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text('Escanear el código QR para verificar la autenticidad del documento.', infoX, infoY);
+            doc.text(`ID de Transacción: ${(inscripcionId || '').substring(0, 26)}`, infoX, infoY + 5);
+            doc.text(`Fecha de Emisión: ${fecha} — ${hora}`, infoX, infoY + 10);
 
-            // 6. CONSTANCIA LEGAL
-            currentY = secBoxY + secBoxH + 4;
-            doc.setFillColor(secondaryBg[0], secondaryBg[1], secondaryBg[2]);
-            doc.setDrawColor(203, 213, 225);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(5.5);
+            doc.setTextColor(azul[0], azul[1], azul[2]);
+            doc.text('VERIFICAR', mL + qrSize / 2, y + qrSize + 3, { align: 'center' });
+
+            y += qrSize + 10;
+
+            // Línea divisora
+            doc.setDrawColor(grisLine[0], grisLine[1], grisLine[2]);
             doc.setLineWidth(0.3);
-            doc.roundedRect(marginX, currentY, contentWidth, 18, 2, 2, 'FD');
+            doc.line(mL, y, mL + cW, y);
+            y += 8;
+
+            // ── 5. NOTA LEGAL ────────────────────────────────────────────────
+            const constanciaText = 'Este documento acredita de manera oficial la inscripción y/o participación del titular en la actividad académica convocada por el Ministerio de Educación del Estado Plurinacional de Bolivia. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
+            const constanciaLines = doc.splitTextToSize(constanciaText, cW);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(grisSub[0], grisSub[1], grisSub[2]);
+            doc.text(constanciaLines, mL, y);
+
+            // ── 6. PIE DE PÁGINA ─────────────────────────────────────────────
+            doc.setFillColor(azul[0], azul[1], azul[2]);
+            doc.rect(0, PH - 14, PW, 14, 'F');
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6.5);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('CONSTANCIA OFICIAL VÁLIDA:', marginX + 4, currentY + 4.5);
+            doc.setTextColor(255, 255, 255);
+            doc.text('MINISTERIO DE EDUCACIÓN — ESTADO PLURINACIONAL DE BOLIVIA', PW / 2, PH - 8, { align: 'center' });
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
-            doc.setTextColor(71, 85, 105);
-            const constanciaText = 'Este documento acredita de manera oficial la participación y/o registro del titular en las actividades académicas convocadas por el Ministerio de Educación del Estado Plurinacional de Bolivia. Válido sin tachaduras ni enmiendas. Cualquier alteración invalida su autenticidad.';
-            const constanciaLines = doc.splitTextToSize(constanciaText, contentWidth - 8);
-            doc.text(constanciaLines, marginX + 4, currentY + 8);
+            doc.setFontSize(5.5);
+            doc.setTextColor(180, 205, 240);
+            doc.text('aulaprofe.minedu.gob.bo  ·  Documento oficial sin costo', PW / 2, PH - 4, { align: 'center' });
 
-            // Footer de página
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.4);
-            doc.line(marginX, pageHeight - 14, marginX + contentWidth, pageHeight - 14);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(148, 163, 184);
-            doc.text('Plataforma Web PROFE: profe.minedu.gob.bo  •  Comprobante digital sin costo de trámite  •  Página 1 de 1', pageWidth / 2, pageHeight - 9.5, { align: 'center' });
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6);
-            doc.setTextColor(100, 116, 139);
-            doc.text('MINISTERIO DE EDUCACIÓN — ESTADO PLURINACIONAL DE BOLIVIA', pageWidth / 2, pageHeight - 6, { align: 'center' });
-
-            // Nombre del archivo a descargar
+            // ── DESCARGA ─────────────────────────────────────────────────────
             const cleanCode = (evento?.codigo || 'evento').replace(/[^a-z0-9_-]/gi, '_');
             const cleanCi = (persona?.ci || 'titular').replace(/[^a-z0-9_-]/gi, '_');
             const fileName = `comprobante_${tipo}_${cleanCi}_${cleanCode}.pdf`;
-
             doc.save(fileName);
             toast.success('¡Comprobante PDF descargado exitosamente!', { id: toastId });
         } catch (err) {
@@ -653,113 +513,113 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-2xl shadow-black/10 print:rounded-none print:shadow-none"
             >
                 {/* Stripe superior */}
-                <div className={`h-2 ${config.bgAccent}`} />
+                <div className="h-1.5 bg-[#0052A5]" />
 
                 {/* Header institucional */}
-                <div className={`${config.bgAccent} px-5 py-6 sm:px-8 sm:py-8`}>
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-lg sm:text-2xl font-black uppercase text-white tracking-tight leading-tight">
-                                {tipoLabel}
-                            </h2>
-                        </div>
+                <div className="bg-[#003366] px-6 py-6 sm:px-8 sm:py-7 text-center text-white">
+                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-blue-200/80 mb-1">
+                        Estado Plurinacional de Bolivia
+                    </p>
+                    <h2 className="text-base sm:text-xl font-black uppercase tracking-wider text-white">
+                        Ministerio de Educación
+                    </h2>
+                    <p className="text-[10px] sm:text-xs text-blue-200/70 font-medium mb-3">
+                        Sistema de Formación y Actualización Docente Continua — PROFE
+                    </p>
+                    <div className="inline-block border-t border-white/20 pt-2.5 px-6">
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white">
+                            {tipoLabel}
+                        </span>
                     </div>
                 </div>
 
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                    {/* Participante — franja destacada */}
-                    <div className={`${config.bgLight} border-l-4 ${config.borderColor} rounded-r-xl px-4 py-3 sm:px-5 sm:py-4`}>
-                        <p className={`text-[9px] font-black uppercase tracking-[0.25em] ${config.textColor} mb-1`}>
-                            Participante / Titular
-                        </p>
-                        <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight">
-                            {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
-                        </p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                            <p className="text-xs sm:text-sm font-mono font-bold text-slate-500 dark:text-slate-400">
-                                C.I. {persona?.ci}
-                            </p>
-                            {persona?.fechaNacimiento && (() => {
-                                const [y, m, d] = String(persona.fechaNacimiento).split('T')[0].split('-').map(Number);
-                                const localDate = new Date(y, m - 1, d);
-                                return (
-                                    <p className="text-xs sm:text-sm font-mono font-bold text-slate-500 dark:text-slate-400">
-                                        Nac. {localDate.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    </p>
-                                );
-                            })()}
+                <div className="p-6 sm:p-8 space-y-6">
+                    {/* Actividad / Evento principal */}
+                    <div className="text-center pb-5 border-b border-slate-200 dark:border-slate-700">
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Actividad Académica</p>
+                        <h3 className="text-lg sm:text-2xl font-black text-[#003366] dark:text-blue-300 uppercase tracking-tight leading-snug">
+                            {evento?.nombre}
+                        </h3>
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            <span className="uppercase text-[#003366] dark:text-blue-400 font-bold">{evento?.tipo?.nombre || 'Evento'}</span>
+                            <span>•</span>
+                            <span>{formatDate(evento?.fecha)}</span>
+                            <span>•</span>
+                            <span>{evento?.lugar || 'Bolivia'}</span>
                         </div>
                     </div>
 
-                    {/* Grid de campos */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Evento</p>
-                            <p className="text-sm font-bold text-slate-800 dark:text-white leading-snug">{evento?.nombre}</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Tipo / Categoría</p>
-                            <p className={`text-sm font-black uppercase ${config.textColor}`}>{evento?.tipo?.nombre || 'Evento'}</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Fecha del Evento</p>
-                            <p className="text-sm font-bold text-slate-800 dark:text-white">{formatDate(evento?.fecha)}</p>
-                        </div>
-                        <div className={`${config.bgLight} border ${config.borderColor} rounded-xl p-3 sm:p-4`}>
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Tipo de Documento</p>
-                            <p className={`text-sm font-black uppercase ${config.textColor}`}>{tipoLabel}</p>
-                        </div>
-
-                        {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
-                            <div className={`col-span-1 sm:col-span-2 ${config.bgLight} border-2 ${config.borderColor} rounded-2xl p-5 flex flex-col items-center text-center gap-2`}>
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                    {resultado?.titulo || cuestionarioActivo?.titulo || 'Evaluación'}
+                    {/* Participante — Titular */}
+                    <div className="bg-[#003366]/5 dark:bg-blue-950/20 border-l-4 border-[#003366] rounded-r-xl px-5 py-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#003366] dark:text-blue-400 mb-1">
+                            Participante / Titular
+                        </p>
+                        <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                            {persona?.nombre1} {persona?.nombre2} {persona?.apellido1} {persona?.apellido2}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mt-2 text-xs sm:text-sm font-medium">
+                            <p className="text-slate-600 dark:text-slate-300">
+                                <span className="font-bold text-slate-400">C.I.:</span> <strong className="text-slate-900 dark:text-white font-mono">{persona?.ci}{persona?.complemento ? '-' + persona.complemento : ''}</strong>
+                            </p>
+                            {inscripcionId && (
+                                <p className="text-slate-600 dark:text-slate-300">
+                                    <span className="font-bold text-slate-400">N° Folio:</span> <strong className="text-[#003366] dark:text-blue-400 font-mono">{String(inscripcionId).substring(0, 18)}</strong>
                                 </p>
-                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Resultado de Evaluación</p>
-                                <div className="flex items-baseline gap-1">
-                                    <span className={`text-5xl font-black ${config.textColor}`}>{Math.min(resultado.nota ?? 0, 100)}</span>
-                                    <span className="text-2xl font-bold text-slate-300">/ 100</span>
-                                </div>
-                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                                    {resultado.puntaje} de {resultado.puntajeMaximo} puntos
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Fecha de Emisión</p>
-                            <p className="text-sm font-bold text-slate-800 dark:text-white">{fecha}</p>
-                            <p className="text-xs text-slate-400 font-mono">{hora}</p>
+                            )}
                         </div>
+                    </div>
 
-                        {inscripcionId && (
-                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
-                                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Código de Verificación</p>
-                                <p className="font-mono text-[10px] font-bold text-slate-600 dark:text-slate-300 break-all leading-relaxed">{inscripcionId}</p>
+                    {/* Resultado si es evaluación */}
+                    {tipo === 'cuestionario' && resultado && resultado.puntaje !== null && (
+                        <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-[#003366]/20 rounded-2xl p-5 flex flex-col items-center text-center gap-1">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Calificación Obtenida</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-5xl font-black text-[#003366] dark:text-blue-300">{Math.min(resultado.nota ?? 0, 100)}</span>
+                                <span className="text-2xl font-bold text-slate-400">/ 100 pts.</span>
                             </div>
-                        )}
+                            <p className="text-xs font-semibold text-slate-500">
+                                {resultado.puntaje} de {resultado.puntajeMaximo} puntos evaluados
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Datos complementarios resumidos */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl p-3">
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">Emisión</p>
+                            <p className="font-semibold text-slate-800 dark:text-slate-200">{fecha}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{hora}</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl p-3">
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">Modalidad</p>
+                            <p className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{evento?.tipo?.nombre || 'Presencial'}</p>
+                        </div>
+                        <div className="col-span-2 sm:col-span-1 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl p-3">
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">Estado</p>
+                            <p className="font-bold text-emerald-700 dark:text-emerald-400 uppercase">✓ Confirmado</p>
+                        </div>
                     </div>
 
                     {/* Código de barras — CI */}
                     {persona?.ci && (
-                        <div className="border-t border-dashed border-slate-200 dark:border-slate-700 pt-4 flex flex-col items-center gap-2">
-                            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400 flex items-center gap-1.5">
+                        <div className="border-t border-dashed border-slate-200 dark:border-slate-700 pt-5 flex flex-col items-center gap-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1.5">
                                 <CreditCard className="w-3 h-3" />
-                                Identificación Única — Cédula de Identidad
+                                Identificación y Registro Oficial
                             </p>
                             <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 overflow-x-auto max-w-full flex justify-center">
-                                <canvas ref={barcodeCanvasRef} className="w-full max-w-[440px] h-auto mx-auto" />
+                                <canvas ref={barcodeCanvasRef} className="w-full max-w-[400px] h-auto mx-auto" />
                             </div>
                         </div>
                     )}
 
                     {/* Footer institucional */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-400 text-center sm:text-left leading-relaxed">
-                            Documento oficial de inscripción generado automáticamente por el Sistema PROFE Bolivia.
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                        <p className="text-[10px] text-slate-400 leading-relaxed max-w-md">
+                            Ministerio de Educación del Estado Plurinacional de Bolivia • Sistema PROFE. Documento con validez oficial sin costo de trámite.
                         </p>
-                        <div className={`shrink-0 px-3 py-1.5 rounded-full border ${config.borderColor} ${config.bgLight}`}>
-                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${config.textColor}`}>✓ Documento Oficial</span>
+                        <div className="shrink-0 px-3 py-1 rounded-full bg-[#003366]/10 text-[#003366] dark:text-blue-300 border border-[#003366]/20 text-[9px] font-black uppercase tracking-wider">
+                            ✓ Registro Verificado
                         </div>
                     </div>
                 </div>
