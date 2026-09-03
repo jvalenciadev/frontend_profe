@@ -5,7 +5,8 @@ import {
     Bold, Italic, List, Heading1, Heading2,
     Link as LinkIcon, Image as ImageIcon,
     Video, Eye, Edit3, Type,
-    AlignLeft, AlignCenter, AlignRight, Table, Sparkles
+    AlignLeft, AlignCenter, AlignRight, Table, Sparkles,
+    Plus, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -108,6 +109,140 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
 
     const DEFAULT_TABLE_HEADERS = ['Fecha', 'Lugar', 'Título', 'Facilitador', 'Modalidad', 'Observaciones'];
 
+    // Localizar la celda, fila y tabla activa según el cursor del usuario
+    const getActiveTableCellAndTable = (): { cell: HTMLTableCellElement | null; row: HTMLTableRowElement | null; table: HTMLTableElement | null } => {
+        if (typeof window === 'undefined') return { cell: null, row: null, table: null };
+        const sel = window.getSelection();
+        let cell: HTMLTableCellElement | null = null;
+        let row: HTMLTableRowElement | null = null;
+        let table: HTMLTableElement | null = null;
+
+        if (sel && sel.rangeCount > 0) {
+            let node: Node | null = sel.anchorNode;
+            while (node && node !== editorRef.current) {
+                if (node.nodeName === 'TD' || node.nodeName === 'TH') {
+                    cell = node as HTMLTableCellElement;
+                }
+                if (node.nodeName === 'TR') {
+                    row = node as HTMLTableRowElement;
+                }
+                if (node.nodeName === 'TABLE') {
+                    table = node as HTMLTableElement;
+                    break;
+                }
+                node = node.parentNode;
+            }
+        }
+
+        // Si el foco no está dentro de una tabla pero el editor contiene una, tomamos la última tabla existente
+        if (!table && editorRef.current) {
+            const tables = editorRef.current.querySelectorAll('table');
+            if (tables.length > 0) {
+                table = tables[tables.length - 1] as HTMLTableElement;
+                const rows = table.querySelectorAll('tbody tr');
+                if (rows.length > 0) {
+                    row = rows[rows.length - 1] as HTMLTableRowElement;
+                }
+            }
+        }
+
+        return { cell, row, table };
+    };
+
+    const addTableRow = () => {
+        setTablePickerOpen(false);
+        const { row, table } = getActiveTableCellAndTable();
+
+        if (!table) {
+            insertDefaultTable();
+            return;
+        }
+
+        const colCount = table.querySelectorAll('thead th').length || table.querySelector('tr')?.querySelectorAll('td, th').length || 4;
+        const tbody = table.querySelector('tbody') || table;
+        const newRow = document.createElement('tr');
+
+        for (let i = 0; i < colCount; i++) {
+            const td = document.createElement('td');
+            td.className = 'rte-td';
+            td.innerHTML = '<br>';
+            newRow.appendChild(td);
+        }
+
+        if (row && row.parentNode === tbody) {
+            row.after(newRow);
+        } else {
+            tbody.appendChild(newRow);
+        }
+
+        if (editorRef.current) {
+            onChange(cleanHtml(editorRef.current.innerHTML));
+        }
+
+        // Poner foco en la primera celda de la nueva fila creada
+        const firstCell = newRow.querySelector('td');
+        if (firstCell && typeof window !== 'undefined') {
+            setTimeout(() => {
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(firstCell);
+                range.collapse(true);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+                firstCell.focus();
+            }, 10);
+        }
+    };
+
+    const removeTableRow = () => {
+        const { row, table } = getActiveTableCellAndTable();
+        if (!row || !table) return;
+        const tbody = table.querySelector('tbody') || table;
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length > 1) {
+            row.remove();
+            if (editorRef.current) {
+                onChange(cleanHtml(editorRef.current.innerHTML));
+            }
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Tab') {
+            const { cell, table } = getActiveTableCellAndTable();
+            if (cell && table) {
+                e.preventDefault();
+                const allCells = Array.from(table.querySelectorAll('td, th')) as HTMLTableCellElement[];
+                const currentIndex = allCells.indexOf(cell);
+
+                if (e.shiftKey) {
+                    if (currentIndex > 0) {
+                        const prevCell = allCells[currentIndex - 1];
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.selectNodeContents(prevCell);
+                        range.collapse(false);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    }
+                } else {
+                    if (currentIndex < allCells.length - 1) {
+                        const nextCell = allCells[currentIndex + 1];
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.selectNodeContents(nextCell);
+                        range.collapse(false);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    } else {
+                        // Última celda de la tabla: agrega automáticamente una nueva fila abajo
+                        addTableRow();
+                    }
+                }
+            }
+        }
+    };
+
     const insertDefaultTable = () => {
         setTablePickerOpen(false);
         const html = `<div class="rte-table-wrap"><table class="rte-table"><thead><tr><th class="rte-th">Fecha</th><th class="rte-th">Lugar</th><th class="rte-th">Título / Actividad</th><th class="rte-th">Facilitador</th></tr></thead><tbody><tr><td class="rte-td">10/10/2026 · 09:00</td><td class="rte-td">Aula Magna / Virtual</td><td class="rte-td">Inauguración y Módulo 1</td><td class="rte-td">Lic. Facilitador(a)</td></tr><tr><td class="rte-td">11/10/2026 · 09:00</td><td class="rte-td">Laboratorio 1</td><td class="rte-td">Taller Práctico</td><td class="rte-td">Lic. Facilitador(a)</td></tr></tbody></table></div><p><br></p>`;
@@ -175,70 +310,91 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                             <ToolbarButton onClick={insertYoutube} icon={Video} label="Video YT" className="text-red-500 hover:bg-red-500/10" />
                         </div>
 
-                        {/* Table picker */}
-                        <div className="relative">
-                            <ToolbarButton
-                                onClick={() => setTablePickerOpen(o => !o)}
-                                icon={Table}
-                                label="Tabla"
-                                className={tablePickerOpen ? 'bg-primary/10 text-primary' : ''}
-                            />
-                            {tablePickerOpen && (
-                                <div
-                                    className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-2xl p-3.5 shadow-2xl min-w-[260px]"
-                                    onMouseLeave={() => setHovered({ r: 0, c: 0 })}
-                                >
-                                    {/* Botón por defecto: 1 clic */}
-                                    <div className="space-y-1.5 pb-2.5 border-b border-border/50 mb-2.5">
-                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
-                                            Tabla Predeterminada (1 Clic)
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={insertDefaultTable}
-                                            className="w-full text-left px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 transition-all text-xs font-bold flex items-center justify-between group"
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5">
-                                                    <Sparkles className="w-3 h-3 text-primary" />
-                                                    Cronograma Oficial
+                        {/* Table picker & Controles de fila */}
+                        <div className="flex items-center gap-1">
+                            <div className="relative">
+                                <ToolbarButton
+                                    onClick={() => setTablePickerOpen(o => !o)}
+                                    icon={Table}
+                                    label="Tabla"
+                                    className={tablePickerOpen ? 'bg-primary/10 text-primary' : ''}
+                                />
+                                {tablePickerOpen && (
+                                    <div
+                                        className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-2xl p-3.5 shadow-2xl min-w-[260px]"
+                                        onMouseLeave={() => setHovered({ r: 0, c: 0 })}
+                                    >
+                                        {/* Botón por defecto: 1 clic */}
+                                        <div className="space-y-1.5 pb-2.5 border-b border-border/50 mb-2.5">
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+                                                Tabla Predeterminada (1 Clic)
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={insertDefaultTable}
+                                                className="w-full text-left px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 transition-all text-xs font-bold flex items-center justify-between group"
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5">
+                                                        <Sparkles className="w-3 h-3 text-primary" />
+                                                        Cronograma Oficial
+                                                    </span>
+                                                    <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-primary/80 mt-0.5">
+                                                        Fecha · Lugar · Título · Facilitador
+                                                    </span>
+                                                </div>
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-primary text-white">
+                                                    Insertar
                                                 </span>
-                                                <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-primary/80 mt-0.5">
-                                                    Fecha · Lugar · Título · Facilitador
-                                                </span>
-                                            </div>
-                                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-primary text-white">
-                                                Insertar
-                                            </span>
-                                        </button>
-                                    </div>
+                                            </button>
+                                        </div>
 
-                                    {/* Cuadrícula libre */}
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 text-center">
-                                            {hovered.r > 0 && hovered.c > 0 ? `${hovered.r} filas × ${hovered.c} cols` : 'O personaliza el tamaño'}
-                                        </p>
-                                        <div className="grid gap-1 justify-center" style={{ gridTemplateColumns: 'repeat(6, 1.5rem)' }}>
-                                            {Array.from({ length: 6 }).flatMap((_, r) =>
-                                                Array.from({ length: 6 }).map((_, c) => (
-                                                    <button
-                                                        key={`${r}-${c}`}
-                                                        type="button"
-                                                        onMouseEnter={() => setHovered({ r: r + 1, c: c + 1 })}
-                                                        onClick={() => insertTable(r + 1, c + 1)}
-                                                        className={cn(
-                                                            'w-6 h-6 rounded border transition-all',
-                                                            r < hovered.r && c < hovered.c
-                                                                ? 'bg-primary border-primary'
-                                                                : 'bg-muted/60 border-border hover:bg-primary/20'
-                                                        )}
-                                                    />
-                                                ))
-                                            )}
+                                        {/* Cuadrícula libre */}
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 text-center">
+                                                {hovered.r > 0 && hovered.c > 0 ? `${hovered.r} filas × ${hovered.c} cols` : 'O personaliza el tamaño'}
+                                            </p>
+                                            <div className="grid gap-1 justify-center" style={{ gridTemplateColumns: 'repeat(6, 1.5rem)' }}>
+                                                {Array.from({ length: 6 }).flatMap((_, r) =>
+                                                    Array.from({ length: 6 }).map((_, c) => (
+                                                        <button
+                                                            key={`${r}-${c}`}
+                                                            type="button"
+                                                            onMouseEnter={() => setHovered({ r: r + 1, c: c + 1 })}
+                                                            onClick={() => insertTable(r + 1, c + 1)}
+                                                            className={cn(
+                                                                'w-6 h-6 rounded border transition-all',
+                                                                r < hovered.r && c < hovered.c
+                                                                    ? 'bg-primary border-primary'
+                                                                    : 'bg-muted/60 border-border hover:bg-primary/20'
+                                                            )}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
+
+                            {/* Botones de acción directa sobre la tabla */}
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); addTableRow(); }}
+                                className="h-8 px-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all flex items-center gap-1 text-[11px] font-black uppercase tracking-wider active:scale-95"
+                                title="Agregar nueva fila a la tabla (o presiona Tab en la última celda)"
+                            >
+                                <Plus size={13} />
+                                <span>Fila</span>
+                            </button>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); removeTableRow(); }}
+                                className="h-8 px-2 rounded-xl text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all flex items-center gap-1 text-[11px] font-bold active:scale-95"
+                                title="Eliminar la fila actual"
+                            >
+                                <Trash2 size={13} />
+                            </button>
                         </div>
                     </>
                 )}
@@ -258,6 +414,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                         onInput={handleInput}
                         onFocus={() => setFocused(true)}
                         onBlur={handleBlur}
+                        onKeyDown={handleKeyDown}
                         className="p-6 outline-none min-h-[200px] text-foreground font-medium leading-relaxed prose dark:prose-invert prose-sm max-w-none rte-content"
                     />
                 )}
