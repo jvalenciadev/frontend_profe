@@ -267,6 +267,7 @@ export default function AsignacionesEvaluacionPage() {
     };
 
     // Helper para detectar si el usuario tiene rol de administrador
+    // Helper para detectar si el usuario tiene rol de administrador
     const isUserAdminRole = (u: any): boolean => {
         if (typeof u.role === 'string' && u.role.toLowerCase().includes('admin')) return true;
         if (Array.isArray(u.roles)) {
@@ -276,6 +277,47 @@ export default function AsignacionesEvaluacionPage() {
             });
         }
         return false;
+    };
+
+    // Helper estricto: Solo roles y cargos autorizados para Asignación Masiva de Evaluaciones:
+    // FACILITADOR, RESPONSABLE, TECNICOS, ADMINISTRATIVA, TECNICO MATEMATICO
+    const isUserRolePermitidoEvaluacion = (u: any): boolean => {
+        const textosAComparar: string[] = [];
+
+        // 1. Roles asignados
+        if (typeof u.role === 'string') textosAComparar.push(u.role);
+        else if (u.role?.name) textosAComparar.push(u.role.name);
+
+        if (Array.isArray(u.roles)) {
+            u.roles.forEach((r: any) => {
+                if (typeof r === 'string') textosAComparar.push(r);
+                else if (r?.role?.name) textosAComparar.push(r.role.name);
+                else if (r?.name) textosAComparar.push(r.name);
+            });
+        }
+
+        // 2. Cargo asignado
+        const cargoNom = getCargoUsuario(u);
+        if (cargoNom) textosAComparar.push(cargoNom);
+
+        if (textosAComparar.length === 0) return false;
+
+        const normalize = (str: string) =>
+            str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+
+        const RAICES_PERMITIDAS = [
+            'FACILITADOR',
+            'RESPONSABLE',
+            'TECNICO MATEMATICO',
+            'TECNICO',
+            'TECNICOS',
+            'ADMINISTRATIV', // cubre ADMINISTRATIVA y ADMINISTRATIVO
+        ];
+
+        return textosAComparar.some(t => {
+            const norm = normalize(t);
+            return RAICES_PERMITIDAS.some(raiz => norm.includes(raiz));
+        });
     };
 
     // Filtro estricto: Solo usuarios que tengan cargos asignados o roles de administración
@@ -305,9 +347,12 @@ export default function AsignacionesEvaluacionPage() {
         return allUsers.find(u => u.id === masivaEvaluadorId) || null;
     }, [allUsers, masivaEvaluadorId]);
 
-    // Usuarios filtrados para modal masivo
+    // Usuarios filtrados para modal masivo (Estrictamente roles permitidos: FACILITADOR, RESPONSABLE, TECNICOS, ADMINISTRATIVA, TECNICO MATEMATICO)
     const eligibleUsersForMasiva = useMemo(() => {
         return allUsers.filter(u => {
+            // Regla estricta de elegibilidad de rol institucional
+            if (!isUserRolePermitidoEvaluacion(u)) return false;
+
             if (u.id === masivaEvaluadorId && masivaTipo !== 'AUTOEVALUACION') return false;
             if (targetCargoId && u.cargoPostulacionId !== targetCargoId && u.cargoPostulacion?.id !== targetCargoId) return false;
             if (targetDeptId && u.tenantId !== targetDeptId) return false;
@@ -322,7 +367,7 @@ export default function AsignacionesEvaluacionPage() {
 
             return true;
         });
-    }, [allUsers, masivaEvaluadorId, masivaTipo, targetCargoId, targetDeptId, masivaSearch]);
+    }, [allUsers, masivaEvaluadorId, masivaTipo, targetCargoId, targetDeptId, masivaSearch, cargos]);
 
     const handleSelectAllMasiva = () => {
         if (selectedUserIds.length === eligibleUsersForMasiva.length) {
@@ -945,6 +990,11 @@ export default function AsignacionesEvaluacionPage() {
                             <span className="text-[10px] text-muted-foreground font-semibold">
                                 {eligibleUsersForMasiva.length} funcionario(s) disponibles
                             </span>
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-2 text-[10px] font-bold text-primary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            <span>Filtro institucional activo: Solo roles <strong>FACILITADOR</strong>, <strong>RESPONSABLE</strong>, <strong>TÉCNICOS</strong>, <strong>ADMINISTRATIVA</strong> y <strong>TÉCNICO MATEMÁTICO</strong>.</span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
