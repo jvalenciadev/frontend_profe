@@ -216,7 +216,6 @@ export default function EvaluarPersonalPage() {
             setCheatWarnings(prev => {
                 const next = prev + 1;
                 if (next >= 3) {
-                    toast.error('¡Límite de advertencias superado (3/3)! Finalizando examen y guardando respuestas...');
                     handleSubmitSelfEval(true, true);
                 } else {
                     toast.warning(`⚠️ Advertencia de Seguridad (${next}/3): Has salido de la pantalla o minimizado el examen. Al acumular 3 advertencias el cuestionario se cerrará y se calificará automáticamente.`);
@@ -836,6 +835,18 @@ export default function EvaluarPersonalPage() {
                 observacion: val.observacion,
             }));
 
+            // Si es forzado (salidas de pantalla o tiempo) y no tiene respuestas, asignar 0 a las preguntas para que el backend lo reciba y asiente la nota
+            if (forzado && payload.length === 0 && subcs.length > 0) {
+                subcs.forEach((sub: any) => {
+                    payload.push({
+                        subcriterioId: sub.id,
+                        escalaTexto: '0' as EscalaLikertKey,
+                        puntaje: 0,
+                        observacion: 'Sin responder (salida forzada del examen)',
+                    });
+                });
+            }
+
             await evaluationService.responderIntento({
                 intentoId: currentIntento.id,
                 respuestas: payload,
@@ -850,14 +861,22 @@ export default function EvaluarPersonalPage() {
             setIsSelfEvalModalOpen(false);
 
             if (forzado) {
-                toast.error('Examen finalizado automáticamente por acumular 3 salidas de pantalla. Se registró la nota con las preguntas respondidas.');
+                toast.error('Examen cerrado por salir de la pantalla 3 veces. Se registró la nota con lo que alcanzaste a responder.');
             } else {
                 toast.success(finalizar ? '¡Cuestionario completado! Nota registrada automáticamente.' : 'Progreso guardado');
             }
 
             await loadPeriodData();
         } catch (error: any) {
+            console.error('Error al guardar cuestionario:', error);
             toast.error(error.response?.data?.message || 'Error al guardar el cuestionario');
+            if (forzado) {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen?.().catch(() => {});
+                }
+                setIsFullscreen(false);
+                setIsSelfEvalModalOpen(false);
+            }
         } finally {
             setSubmitting(false);
         }
