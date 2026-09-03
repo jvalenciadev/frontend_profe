@@ -289,9 +289,9 @@ export default function EvaluarPersonalPage() {
         const period = periods.find(p => p.id === selectedPeriod);
         if (!period || !period.criterios || period.criterios.length === 0) return [];
 
-        const targetCargoId = selectedAsignacion?.cargoId 
-            || selectedAsignacion?.cargo?.id 
-            || selectedAsignacion?.evaluado?.cargoPostulacionId 
+        const targetCargoId = selectedAsignacion?.cargoId
+            || selectedAsignacion?.cargo?.id
+            || selectedAsignacion?.evaluado?.cargoPostulacionId
             || selectedAsignacion?.evaluado?.cargoPostulacion?.id;
 
         if (targetCargoId) {
@@ -354,9 +354,9 @@ export default function EvaluarPersonalPage() {
         setTimeLeftSeconds(null);
 
         // Obtener criterios del periodo aplicables estrictamente al cargo del evaluado
-        const targetCargoId = asignacion.cargoId 
-            || asignacion.cargo?.id 
-            || asignacion.evaluado?.cargoPostulacionId 
+        const targetCargoId = asignacion.cargoId
+            || asignacion.cargo?.id
+            || asignacion.evaluado?.cargoPostulacionId
             || asignacion.evaluado?.cargoPostulacion?.id;
 
         const periodCriterios = (period.criterios || []).filter(c => {
@@ -823,7 +823,7 @@ export default function EvaluarPersonalPage() {
     const handleSubmitSelfEval = async (finalizar: boolean = true, forzado: boolean = false) => {
         if (!currentIntento || !selfAsignacion) return;
         const subcs = selectedCuestionario?.criterio?.subcriterios || [];
-        
+
         // Solo exige responder todas las preguntas si el usuario finaliza voluntariamente.
         // Si es forzado (3 infracciones o expiración de tiempo), se califica con lo que haya llenado.
         if (finalizar && !forzado && Object.keys(respuestasMap).length < subcs.length) {
@@ -860,7 +860,7 @@ export default function EvaluarPersonalPage() {
 
             // Salir de pantalla completa si está activa
             if (document.fullscreenElement) {
-                document.exitFullscreen?.().catch(() => {});
+                document.exitFullscreen?.().catch(() => { });
             }
             setIsFullscreen(false);
             setIsSelfEvalModalOpen(false);
@@ -880,7 +880,7 @@ export default function EvaluarPersonalPage() {
             toast.error(error.response?.data?.message || 'Error al guardar el cuestionario');
             if (forzado) {
                 if (document.fullscreenElement) {
-                    document.exitFullscreen?.().catch(() => {});
+                    document.exitFullscreen?.().catch(() => { });
                 }
                 setIsFullscreen(false);
                 setIsSelfEvalModalOpen(false);
@@ -1078,15 +1078,15 @@ export default function EvaluarPersonalPage() {
                     </div>
                 </div>
             ) : (
-            <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                <button
-                    onClick={() => setActiveTab('mis-asignaciones')}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                >
-                    <UserCheck className="w-4 h-4" />
-                    Personal que debo Evaluar ({filteredMisAsignaciones.length})
-                </button>
-            </div>
+                <div className="flex items-center gap-3 border-b border-border/40 pb-4">
+                    <button
+                        onClick={() => setActiveTab('mis-asignaciones')}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    >
+                        <UserCheck className="w-4 h-4" />
+                        Personal que debo Evaluar ({filteredMisAsignaciones.length})
+                    </button>
+                </div>
             )}
 
             {/* Buscador */}
@@ -2284,26 +2284,26 @@ export default function EvaluarPersonalPage() {
             })()}
 
             {/* ======================================================
-                MODAL DE RESULTADO FINAL
+                MODAL DE RESULTADO FINAL (MODO CLARO Y OSCURO DINÁMICO)
                 ====================================================== */}
             {isResultModalOpen && resultData && (() => {
                 const nota = resultData.nota;
                 const pct = Math.min(Math.max(nota, 0), 100);
 
-                // Escala de color institucional
+                // Escala de color institucional adaptada a modo claro y oscuro
                 let band: { label: string; color: string; bg: string; ring: string };
-                if (pct >= 90)      band = { label: 'Excelente',     color: 'text-emerald-400',  bg: 'bg-emerald-500/10',  ring: 'ring-emerald-500/50' };
-                else if (pct >= 76) band = { label: 'Muy Bueno',     color: 'text-blue-400',     bg: 'bg-blue-500/10',     ring: 'ring-blue-500/50' };
-                else if (pct >= 61) band = { label: 'Bueno',         color: 'text-amber-400',    bg: 'bg-amber-500/10',    ring: 'ring-amber-500/50' };
-                else if (pct >= 41) band = { label: 'Regular',       color: 'text-orange-400',   bg: 'bg-orange-500/10',   ring: 'ring-orange-500/50' };
-                else                band = { label: 'Insuficiente',  color: 'text-rose-400',     bg: 'bg-rose-500/10',     ring: 'ring-rose-500/50' };
+                if (pct >= 90) band = { label: 'Excelente', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/40 border-emerald-500/30' };
+                else if (pct >= 76) band = { label: 'Muy Bueno', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', ring: 'ring-blue-500/40 border-blue-500/30' };
+                else if (pct >= 61) band = { label: 'Bueno', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', ring: 'ring-amber-500/40 border-amber-500/30' };
+                else if (pct >= 41) band = { label: 'Regular', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-500/10', ring: 'ring-orange-500/40 border-orange-500/30' };
+                else band = { label: 'Insuficiente', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-500/10', ring: 'ring-rose-500/40 border-rose-500/30' };
 
                 return (
-                    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                        <div className={`relative w-full max-w-md rounded-3xl border border-white/10 bg-[#0f1117] shadow-2xl overflow-hidden ring-2 ${band.ring}`}>
+                    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4">
+                        <div className={`relative w-full max-w-md rounded-3xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden ring-2 ${band.ring}`}>
 
                             {/* Franja superior institucional */}
-                            <div className="h-2 w-full bg-gradient-to-r from-[#c9a751] via-[#e6c97d] to-[#c9a751]" />
+                            <div className="h-2.5 w-full bg-gradient-to-r from-[#c9a751] via-[#e6c97d] to-[#c9a751]" />
 
                             <div className="p-8 flex flex-col items-center gap-6 text-center">
 
@@ -2311,53 +2311,52 @@ export default function EvaluarPersonalPage() {
                                 {resultData.forzado ? (
                                     <div className="flex flex-col items-center gap-2">
                                         <div className="w-14 h-14 rounded-full bg-rose-500/10 ring-2 ring-rose-500/40 flex items-center justify-center">
-                                            <svg className="w-7 h-7 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <svg className="w-7 h-7 text-rose-500 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                                             </svg>
                                         </div>
-                                        <span className="text-xs font-semibold text-rose-400 uppercase tracking-widest">Examen cerrado automáticamente</span>
+                                        <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest">Examen cerrado automáticamente</span>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-14 h-14 rounded-full bg-[#c9a751]/10 ring-2 ring-[#c9a751]/40 flex items-center justify-center">
+                                        <div className="w-14 h-14 rounded-full bg-[#c9a751]/15 ring-2 ring-[#c9a751]/40 flex items-center justify-center">
                                             <svg className="w-7 h-7 text-[#c9a751]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </div>
-                                        <span className="text-xs font-semibold text-[#c9a751] uppercase tracking-widest">¡Evaluación Completada!</span>
+                                        <span className="text-xs font-black text-[#c9a751] uppercase tracking-widest">¡Evaluación Completada!</span>
                                     </div>
                                 )}
 
                                 {/* Nombre del cuestionario */}
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE</p>
-                                    <p className="text-sm font-bold text-white/90 leading-snug">{resultData.cuestionarioNombre}</p>
-                                    <p className="text-[10px] text-muted-foreground">Responsables Departamentales</p>
+                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE</p>
+                                    <p className="text-base font-black text-foreground leading-snug">{resultData.cuestionarioNombre}</p>
+                                    <p className="text-xs font-medium text-muted-foreground">Responsables Departamentales</p>
                                 </div>
 
-                                {/* Nota grande */}
+                                {/* Círculo de Nota Grande */}
                                 <div className={`w-40 h-40 rounded-full flex flex-col items-center justify-center ring-4 ${band.ring} ${band.bg}`}>
-                                    <span className={`text-5xl font-black tabular-nums ${band.color}`}>
+                                    <span className={`text-5xl font-black tabular-nums tracking-tight ${band.color}`}>
                                         {pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)}
                                     </span>
-                                    <span className="text-xs font-semibold text-muted-foreground mt-1">/ 100 pts</span>
+                                    <span className="text-xs font-bold text-muted-foreground mt-0.5">/ 100 pts</span>
                                     <span className={`text-xs font-black uppercase tracking-wider mt-1 ${band.color}`}>{band.label}</span>
                                 </div>
 
                                 {/* Barra de progreso */}
-                                <div className="w-full space-y-1">
-                                    <div className="h-2.5 w-full rounded-full bg-white/5 overflow-hidden">
+                                <div className="w-full space-y-1.5">
+                                    <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden border border-border/40">
                                         <div
-                                            className={`h-full rounded-full transition-all duration-700 ${
-                                                pct >= 90 ? 'bg-emerald-500' :
-                                                pct >= 76 ? 'bg-blue-500' :
-                                                pct >= 61 ? 'bg-amber-500' :
-                                                pct >= 41 ? 'bg-orange-500' : 'bg-rose-500'
-                                            }`}
+                                            className={`h-full rounded-full transition-all duration-700 ${pct >= 90 ? 'bg-emerald-500' :
+                                                    pct >= 76 ? 'bg-blue-500' :
+                                                        pct >= 61 ? 'bg-amber-500' :
+                                                            pct >= 41 ? 'bg-orange-500' : 'bg-rose-500'
+                                                }`}
                                             style={{ width: `${pct}%` }}
                                         />
                                     </div>
-                                    <div className="flex justify-between text-[9px] text-muted-foreground font-semibold">
+                                    <div className="flex justify-between text-[10px] text-muted-foreground font-bold">
                                         <span>0</span>
                                         <span>25</span>
                                         <span>50</span>
@@ -2366,15 +2365,15 @@ export default function EvaluarPersonalPage() {
                                     </div>
                                 </div>
 
-                                {/* Mensaje institucional */}
-                                <div className="w-full rounded-xl border border-white/5 bg-white/[0.03] p-4 space-y-1 text-left">
-                                    <p className="text-[10px] font-semibold text-[#c9a751] uppercase tracking-widest">Donde se asignará tu calificación</p>
-                                    <p className="text-xs text-white/80 leading-relaxed">
-                                        Rendimiento: <span className="font-bold text-white">20%</span>
+                                {/* Tarjeta de asignación e información */}
+                                <div className="w-full rounded-2xl border border-border bg-secondary/30 dark:bg-white/[0.03] p-4 space-y-1.5 text-left">
+                                    <p className="text-[10px] font-black text-[#c9a751] uppercase tracking-widest">Dónde se asignará tu calificación</p>
+                                    <p className="text-sm font-semibold text-foreground leading-relaxed">
+                                        Rendimiento: <span className="font-black text-foreground">20%</span>
                                         &nbsp;·&nbsp;
-                                        <span className="font-bold text-emerald-400">+6% / 30%</span>
+                                        <span className="font-black text-emerald-600 dark:text-emerald-400">+6% / 30%</span>
                                     </p>
-                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                    <p className="text-xs text-muted-foreground leading-normal mt-1">
                                         {resultData.forzado
                                             ? 'Tu nota fue registrada automáticamente con las preguntas que alcanzaste a responder antes de salir del examen.'
                                             : 'Tu nota fue registrada exitosamente. Esta calificación será considerada en el proceso de evaluación institucional del período activo.'}
@@ -2385,7 +2384,7 @@ export default function EvaluarPersonalPage() {
                                 <button
                                     type="button"
                                     onClick={() => { setIsResultModalOpen(false); setResultData(null); }}
-                                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#c9a751] to-[#e6c97d] text-black text-sm font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-[#c9a751]/20"
+                                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#c9a751] to-[#e6c97d] text-slate-950 text-sm font-black uppercase tracking-widest hover:opacity-95 active:scale-[0.99] transition-all shadow-lg shadow-[#c9a751]/25"
                                 >
                                     Aceptar y Cerrar
                                 </button>
