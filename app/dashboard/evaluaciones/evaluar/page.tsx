@@ -305,41 +305,84 @@ export default function EvaluarPersonalPage() {
         return period.criterios;
     }, [selectedPeriod, selectedAsignacion, periods]);
 
-    // Agrupación de misEvaluacionesPropias en tarjetas consolidadas (una por cuestionario/cargo)
+    // Agrupación de misEvaluacionesPropias en tarjetas consolidadas (UNA SOLA TARJETA POR CARGO/ROL)
     const misEvaluacionesAgrupadas = useMemo(() => {
-        // Separar autoevaluación de evaluaciones de supervisores
-        const autoAsig = misEvaluacionesPropias.filter(
-            a => a.tipoEvaluacion === 'AUTOEVALUACION' || a.evaluadorId === a.evaluadoId
-        );
-        const supervisorAsigs = misEvaluacionesPropias.filter(
-            a => a.tipoEvaluacion !== 'AUTOEVALUACION' && a.evaluadorId !== a.evaluadoId
-        );
-
-        // Agrupar evaluaciones de supervisores por cuestionarioId (o cargoId como fallback)
         const grupos: Map<string, {
             key: string;
+            cargoId: string;
             autoAsig: EvaluacionAdmins | null;
             supervisorAsigs: EvaluacionAdmins[];
+            cuestionarioPreferido?: EvaluacionCuestionario | null;
         }> = new Map();
 
-        // Registrar autoevaluaciones
-        autoAsig.forEach(a => {
-            const key = a.cuestionarioId || a.cargoId || a.id;
-            if (!key) return;
-            if (!grupos.has(key)) grupos.set(key, { key, autoAsig: null, supervisorAsigs: [] });
-            grupos.get(key)!.autoAsig = a;
+        misEvaluacionesPropias.forEach(a => {
+            // Unificar por el cargo o puesto del funcionario evaluado
+            const cargoKey = a.cargoId || a.evaluado?.cargoPostulacionId || (a.cargo?.nombre ? a.cargo.nombre.toLowerCase().trim() : 'general');
+            if (!grupos.has(cargoKey)) {
+                grupos.set(cargoKey, {
+                    key: cargoKey,
+                    cargoId: cargoKey,
+                    autoAsig: null,
+                    supervisorAsigs: [],
+                    cuestionarioPreferido: null,
+                });
+            }
+
+            const g = grupos.get(cargoKey)!;
+
+            // Detectar si es examen personal / autoevaluación
+            const esAuto = a.tipoEvaluacion === 'AUTOEVALUACION' || a.evaluadorId === a.evaluadoId;
+            if (esAuto) {
+                // Si existen varias instancias de autoevaluación, priorizar la que esté completada o con intentos reales
+                if (!g.autoAsig) {
+                    g.autoAsig = a;
+                } else {
+                    const estaCompletada = a.estadoEvaluacion === 'COMPLETADO';
+                    const anteriorCompletada = g.autoAsig.estadoEvaluacion === 'COMPLETADO';
+                    const tieneMasIntentos = (a.intentos?.length || 0) > (g.autoAsig.intentos?.length || 0);
+                    if ((estaCompletada && !anteriorCompletada) || tieneMasIntentos) {
+                        g.autoAsig = a;
+                    }
+                }
+            } else {
+                // Es evaluación de un supervisor institucional
+                // Evitar evaluadores duplicados: si ya existe para este evaluador, conservar la completada
+                const idx = g.supervisorAsigs.findIndex(s => s.evaluadorId === a.evaluadorId);
+                if (idx === -1) {
+                    g.supervisorAsigs.push(a);
+                } else if (a.estadoEvaluacion === 'COMPLETADO') {
+                    g.supervisorAsigs[idx] = a;
+                }
+            }
+
+            // Registrar cuestionario específico si viene nombrado
+            if (a.cuestionario && (!g.cuestionarioPreferido || g.cuestionarioPreferido.titulo === 'Cuestionario Estándar')) {
+                g.cuestionarioPreferido = a.cuestionario;
+            }
         });
 
-        // Registrar evaluaciones de supervisores
-        supervisorAsigs.forEach(a => {
-            const key = a.cuestionarioId || a.cargoId || a.id;
-            if (!key) return;
-            if (!grupos.has(key)) grupos.set(key, { key, autoAsig: null, supervisorAsigs: [] });
-            grupos.get(key)!.supervisorAsigs.push(a);
+        // Garantizar que si existe un cuestionario asignado a nivel general para este cargo, se asigne
+        grupos.forEach(g => {
+            if (!g.cuestionarioPreferido && cuestionarios.length > 0) {
+                const cuestCargo = cuestionarios.find(c => c.cargos?.some(cg => cg.cargoId === g.cargoId));
+                if (cuestCargo) g.cuestionarioPreferido = cuestCargo;
+            }
+            // Si no hay autoAsig explícita pero hay supervisores, crear autoAsig referencial para que no se oculte
+            if (!g.autoAsig && g.supervisorAsigs.length > 0) {
+                const base = g.supervisorAsigs[0];
+                g.autoAsig = {
+                    ...base,
+                    tipoEvaluacion: 'AUTOEVALUACION',
+                    evaluadorId: base.evaluadoId,
+                    estadoEvaluacion: 'PENDIENTE',
+                    puntajeFinal: null,
+                    intentos: [],
+                };
+            }
         });
 
         return Array.from(grupos.values());
-    }, [misEvaluacionesPropias]);
+    }, [misEvaluacionesPropias, cuestionarios]);
 
     // Iniciar o Continuar Evaluación de una Asignación por el Supervisor
     const handleStartEvaluation = async (asignacion: EvaluacionAdmins) => {
@@ -1248,7 +1291,9 @@ export default function EvaluarPersonalPage() {
                             <p className="text-xs text-muted-foreground">Cuestionarios que debes completar personalmente. Tu nota se calcula de forma automática.</p>
                         </div>
                         <span className="ml-auto px-3 py-1 rounded-full bg-violet-500/10 text-violet-600 text-xs font-black">
-                            {misEvaluacionesPropias.length} pendiente(s)
+                            {misEvaluacionesAgrupadas.filter(g => g.autoAsig?.estadoEvaluacion !== 'COMPLETADO').length === 0
+                                ? 'Evaluación Completada'
+                                : `${misEvaluacionesAgrupadas.filter(g => g.autoAsig?.estadoEvaluacion !== 'COMPLETADO').length} pendiente`}
                         </span>
                     </div>
 
@@ -1256,7 +1301,8 @@ export default function EvaluarPersonalPage() {
                         {misEvaluacionesAgrupadas.map((grupo) => {
                             const asig = grupo.autoAsig || grupo.supervisorAsigs[0];
                             if (!asig) return null;
-                            const cuest = resolveCuestionarioWithCriterio(asig);
+                            const cuest = (grupo.cuestionarioPreferido ? prepareCuestionarioForEvaluation(grupo.cuestionarioPreferido) : null)
+                                || resolveCuestionarioWithCriterio(asig);
                             const subcriterios = cuest?.criterio?.subcriterios || [];
 
                             // ── Datos del Examen Personal (autoevaluación) ──
@@ -1335,25 +1381,42 @@ export default function EvaluarPersonalPage() {
                                                 </span>
                                             </div>
                                             {todosLosCriteriosListos ? (
-                                                <div className="text-right">
-                                                    <span className="text-[9px] font-black uppercase text-muted-foreground block leading-tight mb-0.5">Nota Final Total</span>
-                                                    <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-600 flex items-center gap-1 shadow-sm">
-                                                        <Award className="w-3.5 h-3.5" />
-                                                        {notaFinalRedondeada}%
+                                                <div className="flex flex-col items-end flex-shrink-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                        <Award className="w-3.5 h-3.5" /> Nota Final Total
                                                     </span>
+                                                    <div className="flex items-baseline gap-0.5 mt-0.5">
+                                                        <span className="text-3xl md:text-4xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
+                                                            {notaFinalRedondeada}
+                                                        </span>
+                                                        <span className="text-base font-black text-emerald-600/70 dark:text-emerald-400/70">%</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Calificación 100% consolidada</span>
                                                 </div>
                                             ) : totalPesosCalculados > 0 ? (
-                                                <div className="text-right">
-                                                    <span className="text-[9px] font-black uppercase text-muted-foreground block leading-tight mb-0.5">Avance Ponderado</span>
-                                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/10 text-amber-600 flex items-center gap-1">
-                                                        <Sparkles className="w-3 h-3" />
-                                                        {notaFinalRedondeada}%
+                                                <div className="flex flex-col items-end flex-shrink-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                        <Sparkles className="w-3.5 h-3.5" /> Avance Ponderado
                                                     </span>
+                                                    <div className="flex items-baseline gap-0.5 mt-0.5">
+                                                        <span className="text-3xl md:text-4xl font-black tabular-nums tracking-tight text-amber-600 dark:text-amber-400">
+                                                            {notaFinalRedondeada}
+                                                        </span>
+                                                        <span className="text-base font-black text-amber-600/70 dark:text-amber-400/70">%</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-muted-foreground mt-0.5">En progreso ({totalPesosCalculados}% evaluado)</span>
                                                 </div>
                                             ) : (
-                                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-violet-500/10 text-violet-600">
-                                                    PENDIENTE
-                                                </span>
+                                                <div className="flex flex-col items-end flex-shrink-0">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Estado</span>
+                                                    <div className="flex items-baseline gap-0.5 mt-0.5">
+                                                        <span className="text-3xl md:text-4xl font-black tabular-nums tracking-tight text-violet-500 dark:text-violet-400">
+                                                            0
+                                                        </span>
+                                                        <span className="text-base font-black text-violet-500/70 dark:text-violet-400/70">%</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-violet-500/80 mt-0.5">Pendiente de rendir</span>
+                                                </div>
                                             )}
                                         </div>
 
