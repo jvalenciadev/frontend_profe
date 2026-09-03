@@ -30,7 +30,7 @@ import api from '@/lib/api';
 const DOCUMENT_TYPES: { id: CorTipoDocumento; label: string; icon: React.ElementType; color: string }[] = [
     { id: 'INFORME', label: 'Informe (INF)', icon: FileText, color: 'from-blue-500 to-indigo-600' },
     { id: 'NOTA_INTERNA', label: 'Nota Interna (NI)', icon: AlignLeft, color: 'from-emerald-500 to-teal-600' },
-    { id: 'MEMORANDUM', label: 'MemorÃ¡ndum (MEM)', icon: Type, color: 'from-amber-500 to-orange-600' },
+    { id: 'MEMORANDUM', label: 'Memorándum (MEM)', icon: Type, color: 'from-amber-500 to-orange-600' },
     { id: 'INSTRUCTIVO', label: 'Instructivo (INS)', icon: Users, color: 'from-purple-500 to-pink-600' },
 ];
 
@@ -151,7 +151,7 @@ function NuevaNotaPage() {
                 remitentes: remitentes.map(u => ({ userId: u.id, cargoLiteral: u.cargoLiteral })),
             });
             setSuccess(doc);
-            localStorage.setItem('profe_current_cor_id', doc.id); // LÃ³gica Senior: Persistencia
+            localStorage.setItem('profe_current_cor_id', doc.id); // Lógica Senior: Persistencia
             toast.success('CITE reservado correctamente');
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Error al emitir');
@@ -164,16 +164,16 @@ function NuevaNotaPage() {
         try {
             // Siempre usamos ENVIO: el backend registra el estado como ENVIADO
             // permitiendo al remitente cancelar si es necesario.
-            // Si hay vÃ­as, el detalle lo indica para el historial.
+            // Si hay vías, el detalle lo indica para el historial.
             const detalle = vias.length > 0
-                ? `Documento enviado oficialmente. Pasa por VÃ­a: ${vias.map(v => v.nombre).join(', ')} antes de llegar a: ${destinatarios.map(d => d.nombre).join(', ')}`
+                ? `Documento enviado oficialmente. Pasa por Vía: ${vias.map(v => v.nombre).join(', ')} antes de llegar a: ${destinatarios.map(d => d.nombre).join(', ')}`
                 : `Documento enviado oficialmente a: ${destinatarios.map(d => d.nombre).join(', ')}`;
             await avanzarEstado(success.id, 'ENVIO', detalle);
             localStorage.removeItem('profe_current_cor_id');
             toast.success('Documento enviado oficialmente');
             router.push('/dashboard/correspondencia/bandeja');
         } catch (err) {
-            toast.error('Error al confirmar el envÃ­o');
+            toast.error('Error al confirmar el envío');
         } finally { setConfirming(false); }
     };
 
@@ -181,7 +181,7 @@ function NuevaNotaPage() {
         const citeFinal = success?.cite || `${PREFIJOS[tipo]}/PROFE Nro. #/${currentYear}`;
         const hrFinal = success?.hr || hr || 'S/N';
 
-        // LÃ³gica Senior: Obtener Base64 real para MHTML
+        // Lógica Senior: Obtener Base64 real para MHTML
         let base64Image = "";
         try {
             const response = await fetch("/fondo_doc_profe.jpg");
@@ -252,7 +252,7 @@ function NuevaNotaPage() {
         
         <table class="meta-table" style="font-family: 'Arial'; font-size: 11pt;">
             ${destinatarios.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'A:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
-            ${vias.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'VÃ­a:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
+            ${vias.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'Vía:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
             ${remitentes.map((u, i) => `<tr><td class="meta-label" style="padding-bottom: 3pt;">${i === 0 ? 'De:' : ''}</td><td class="meta-value" style="padding-bottom: 3pt;">${(u.nombre + ' ' + u.apellidos).toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}<br><span style="font-size: 11pt; text-transform: uppercase;"><b>${u.cargoLiteral || u.cargoStr || 'PERSONAL PROFE'}</b></span></td></tr>`).join('')}
             <tr><td class="meta-label" style="padding-bottom: 3pt;">Ref.:</td><td class="meta-value" style="padding-bottom: 3pt;"><b>${(referencia || 'SIN REFERENCIA').toUpperCase()}</b></td></tr>
             <tr><td class="meta-label" style="padding-bottom: 3pt;">Fecha:</td><td class="meta-value" style="padding-bottom: 3pt;">La Paz, ${currentDateFormatted}</td></tr>
@@ -331,24 +331,24 @@ function NuevaNotaPage() {
         if (!success || !e.target.files?.[0]) return;
         const file = e.target.files[0];
 
-        // ValidaciÃ³n de tipo de archivo (PDF, Word, Excel)
+        // Validación de tipo de archivo (PDF, Word, Excel)
         if (!isValidMainFile(file)) {
-            toast.error('Tipo no vÃ¡lido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).');
+            toast.error('Tipo no válido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).');
             e.target.value = '';
             return;
         }
 
-        // ValidaciÃ³n de tamaÃ±o (LÃ­mite mÃ¡ximo de 5MB)
+        // Validación de tamaño (Límite máximo de 5MB)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
-            toast.error('El archivo es demasiado grande. El lÃ­mite mÃ¡ximo es de 5MB.');
+            toast.error('El archivo es demasiado grande. El límite máximo es de 5MB.');
             e.target.value = '';
             return;
         }
 
         setUploading(true);
         try {
-            // PrevisualizaciÃ³n local solo para PDF
+            // Previsualización local solo para PDF
             if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                 setPreviewUrl(URL.createObjectURL(file));
             } else {
@@ -373,7 +373,7 @@ function NuevaNotaPage() {
         if (!success) return;
         const file = e.target.files?.[0];
         if (!file) return;
-        if (!isValidMainFile(file)) { toast.error('Tipo no vÃ¡lido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).'); return; }
+        if (!isValidMainFile(file)) { toast.error('Tipo no válido. Se admiten PDF, Word (.doc/.docx) y Excel (.xls/.xlsx).'); return; }
         if (file.size > 5 * 1024 * 1024) { toast.error('El adjunto no puede superar 5MB'); return; }
         setUploadingAdj(true);
         try {
@@ -402,7 +402,7 @@ function NuevaNotaPage() {
 
     useEffect(() => {
         const recoverDraft = async () => {
-            if (!user) return; // LÃ³gica Senior: Esperar a que el usuario estÃ© disponible
+            if (!user) return; // Lógica Senior: Esperar a que el usuario esté disponible
             const savedId = localStorage.getItem('profe_current_cor_id');
             if (savedId && !success) {
                 try {
@@ -481,10 +481,10 @@ function NuevaNotaPage() {
                                 {vias.length > 0 ? (
                                     <>
                                         <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                        <span>El documento pasarÃ¡ por VÃA primero.</span>
+                                        <span>El documento pasará por VÍA primero.</span>
                                     </>
                                 ) : (
-                                    <span>El documento irÃ¡ al DESTINATARIO.</span>
+                                    <span>El documento irá al DESTINATARIO.</span>
                                 )}
                             </div>
                         </div>
@@ -498,19 +498,19 @@ function NuevaNotaPage() {
                             </div>
                             <div>
                                 <p className="text-xs font-black uppercase tracking-widest text-primary">Adjuntar Documentos Extra</p>
-                                <p className="text-[10px] text-muted-foreground font-medium">PDF, Word o Excel adicionales que acompaÃ±an al CITE (mÃ¡x. 5MB c/u)</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">PDF, Word o Excel adicionales que acompañan al CITE (máx. 5MB c/u)</p>
                             </div>
                             <label className={cn(
                                 'ml-auto h-9 px-4 rounded-xl border border-primary/40 text-primary text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-primary/10',
                                 uploadingAdj && 'opacity-50 pointer-events-none'
                             )}>
                                 {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-                                {uploadingAdj ? 'Subiendo...' : 'AÃ±adir Documento'}
+                                {uploadingAdj ? 'Subiendo...' : 'Añadir Documento'}
                                 <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
                             </label>
                         </div>
                         {adjuntos.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-2 font-medium">Sin adjuntos aÃºn</p>
+                            <p className="text-[10px] text-muted-foreground text-center py-2 font-medium">Sin adjuntos aún</p>
                         ) : (
                             <div className="space-y-2">
                                 {adjuntos.map((url, i) => (
@@ -518,7 +518,7 @@ function NuevaNotaPage() {
                                         <FileText className="w-4 h-4 text-primary shrink-0" />
                                         <a href={getImageUrl(url)} target="_blank" rel="noopener noreferrer"
                                             className="flex-1 text-xs font-bold text-foreground hover:text-primary truncate transition-colors">
-                                            Adjunto {i + 1} â€” {url.split('/').pop()}
+                                            Adjunto {i + 1} — {url.split('/').pop()}
                                         </a>
                                         <button onClick={() => handleRemoveAdjunto(i)}
                                             className="w-7 h-7 rounded-lg hover:bg-rose-500/15 flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all">
@@ -530,7 +530,7 @@ function NuevaNotaPage() {
                         )}
                     </div>
 
-                    {/* BotÃ³n para Descartar y Empezar de nuevo */}
+                    {/* Botón para Descartar y Empezar de nuevo */}
                     <div className="pt-4 flex justify-center">
                         <button
                             onClick={handleDescartarCITE}
@@ -549,7 +549,7 @@ function NuevaNotaPage() {
                                 <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Eye className="w-5 h-5" /></div>
-                                        <div><h3 className="text-sm font-black uppercase tracking-widest">PrevisualizaciÃ³n de Documento</h3><p className="text-[10px] text-muted-foreground font-bold uppercase">{success.cite}</p></div>
+                                        <div><h3 className="text-sm font-black uppercase tracking-widest">Previsualización de Documento</h3><p className="text-[10px] text-muted-foreground font-bold uppercase">{success.cite}</p></div>
                                     </div>
                                     <button onClick={() => setShowPreview(false)} className="w-10 h-10 rounded-xl hover:bg-muted transition-colors flex items-center justify-center"><X className="w-6 h-6" /></button>
                                 </div>
@@ -562,7 +562,7 @@ function NuevaNotaPage() {
                                         <div className="flex items-center gap-2.5">
                                             <Paperclip className="w-4 h-4 text-primary shrink-0" />
                                             <p className="text-xs font-bold text-foreground">
-                                                Â¿Deseas adjuntar algÃºn documento o anexo adicional antes de enviar?
+                                                ¿Deseas adjuntar algún documento o anexo adicional antes de enviar?
                                                 {adjuntos.length > 0 && (
                                                     <span className="ml-2 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 text-[10px] font-black uppercase border border-emerald-500/20">
                                                         {adjuntos.length} {adjuntos.length === 1 ? 'Adjunto cargado' : 'Adjuntos cargados'}
@@ -575,7 +575,7 @@ function NuevaNotaPage() {
                                             uploadingAdj && "opacity-50 pointer-events-none"
                                         )}>
                                             {uploadingAdj ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-                                            {uploadingAdj ? 'Subiendo...' : 'AÃ±adir Documento'}
+                                            {uploadingAdj ? 'Subiendo...' : 'Añadir Documento'}
                                             <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleAddAdjunto} disabled={uploadingAdj} />
                                         </label>
                                     </div>
@@ -618,7 +618,7 @@ function NuevaNotaPage() {
                         </motion.div>
                     )}
 
-                    {/* Modal de ConfirmaciÃ³n de Descarte */}
+                    {/* Modal de Confirmación de Descarte */}
                     {showDiscardModal && (
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -639,16 +639,16 @@ function NuevaNotaPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <h3 className="text-2xl font-black tracking-tight">Â¿Descartar <span className="text-rose-500">CITE</span>?</h3>
+                                    <h3 className="text-2xl font-black tracking-tight">¿Descartar <span className="text-rose-500">CITE</span>?</h3>
                                     <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-                                        Esta acciÃ³n cancelarÃ¡ el CITE <span className="font-black text-foreground">{success?.cite}</span> y reiniciarÃ¡ el formulario. El nÃºmero de CITE <span className="font-black text-rose-500">no podrÃ¡ recuperarse</span>.
+                                        Esta acción cancelará el CITE <span className="font-black text-foreground">{success?.cite}</span> y reiniciará el formulario. El número de CITE <span className="font-black text-rose-500">no podrá recuperarse</span>.
                                     </p>
                                 </div>
 
                                 <div className="w-full p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-center gap-2">
                                     <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                                     <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">
-                                        Esta acciÃ³n es irreversible
+                                        Esta acción es irreversible
                                     </p>
                                 </div>
 
@@ -666,7 +666,7 @@ function NuevaNotaPage() {
                                         className="flex-1 h-12 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-lg shadow-rose-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {discarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                                        {discarding ? 'Cancelando...' : 'SÃ­, descartar'}
+                                        {discarding ? 'Cancelando...' : 'Sí, descartar'}
                                     </button>
                                 </div>
                             </motion.div>
@@ -682,7 +682,7 @@ function NuevaNotaPage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
                 <div className="space-y-4">
                     <div className="flex items-center gap-3"><span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">Professional Drafting System</span></div>
-                    <h1 className="text-6xl font-black tracking-tighter leading-none">Nueva <span className="text-primary italic">VÃ­a PROFE</span></h1>
+                    <h1 className="text-6xl font-black tracking-tighter leading-none">Nueva <span className="text-primary italic">Vía PROFE</span></h1>
                 </div>
                 <div className="flex items-center gap-3 bg-card/50 p-2 rounded-2xl border border-border/50 backdrop-blur-xl">
                     <button onClick={handleSubmit} disabled={loading} className="h-12 px-8 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
@@ -704,7 +704,7 @@ function NuevaNotaPage() {
                             </div>
                             <div className="space-y-4 text-sm">
                                 <UserSelectorBlock label="A:" list={destinatarios} />
-                                {vias.length > 0 && <UserSelectorBlock label="VÃ­a:" list={vias} />}
+                                {vias.length > 0 && <UserSelectorBlock label="Vía:" list={vias} />}
                                 <UserSelectorBlock label="De:" list={remitentes} />
                                 <div className="flex gap-10 pt-2"><span className="w-16 font-black uppercase text-xs pt-1">Ref.:</span><div className="flex-1"><textarea value={referencia} onChange={e => setReferencia(e.target.value)} placeholder="Referencia del documento..." className="w-full bg-primary/5 rounded-xl px-4 py-2 font-black uppercase outline-none focus:ring-2 focus:ring-primary/20 resize-none h-12" /></div></div>
                                 <div className="flex gap-10"><span className="w-16 font-black uppercase text-xs">Fecha:</span><div className="flex-1 font-bold text-gray-800">La Paz, {currentDateFormatted}</div></div>
@@ -737,7 +737,7 @@ function NuevaNotaPage() {
                     />
                     <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl space-y-10">
                         <UserSelector label="Dirigido a" icon={Users} selected={destinatarios} excludeId={user?.id} onAdd={(u: any) => setDestinatarios(p => [...p, u])} onRemove={(id: any) => setDestinatarios(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setDestinatarios)} />
-                        <div className="h-px bg-border/20" /><UserSelector label="VÃ­a" icon={CornerRightDown} selected={vias} excludeId={user?.id} onAdd={(u: any) => setVias(p => [...p, u])} onRemove={(id: any) => setVias(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setVias)} /><div className="h-px bg-border/20" /><UserSelector label="De" icon={Check} selected={remitentes} onAdd={(u: any) => setRemitentes(p => [...p, u])} onRemove={(id: any) => setRemitentes(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setRemitentes)} />
+                        <div className="h-px bg-border/20" /><UserSelector label="Vía" icon={CornerRightDown} selected={vias} excludeId={user?.id} onAdd={(u: any) => setVias(p => [...p, u])} onRemove={(id: any) => setVias(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setVias)} /><div className="h-px bg-border/20" /><UserSelector label="De" icon={Check} selected={remitentes} onAdd={(u: any) => setRemitentes(p => [...p, u])} onRemove={(id: any) => setRemitentes(p => p.filter(u => u.id !== id))} onUpdateCargo={updateCargo(setRemitentes)} />
                     </div>
                 </div>
             </form>
@@ -762,14 +762,14 @@ function ConfigSidebar({ tipo, setTipo, plazoDias, setPlazoDias, isRespondiendo,
         <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl space-y-6">
             <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-black uppercase tracking-widest">ConfiguraciÃ³n</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest">Configuración</h3>
             </div>
 
             {isRespondiendo && (
                 <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-600 space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest">Respondiendo a H.R.</p>
                     <p className="text-xs font-bold font-mono">H.R. {hrPadre}</p>
-                    <p className="text-[9px] opacity-80">Se emitirÃ¡ un CITE propio en la misma H.R.</p>
+                    <p className="text-[9px] opacity-80">Se emitirá un CITE propio en la misma H.R.</p>
                 </div>
             )}
 
@@ -787,7 +787,7 @@ function ConfigSidebar({ tipo, setTipo, plazoDias, setPlazoDias, isRespondiendo,
 
             <div className="space-y-2 pt-2 border-t border-border/40">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-primary" /> Plazo de Respuesta (DÃ­as)
+                    <Calendar className="w-3.5 h-3.5 text-primary" /> Plazo de Respuesta (Días)
                 </p>
                 <input
                     type="number"
@@ -797,7 +797,7 @@ function ConfigSidebar({ tipo, setTipo, plazoDias, setPlazoDias, isRespondiendo,
                     onChange={(e) => setPlazoDias(parseInt(e.target.value, 10) || 7)}
                     className="w-full h-11 px-4 rounded-xl bg-background border border-border/50 focus:border-primary outline-none font-bold text-xs"
                 />
-                <p className="text-[9px] text-muted-foreground">Define el plazo lÃ­mite para el control de cumplimiento.</p>
+                <p className="text-[9px] text-muted-foreground">Define el plazo límite para el control de cumplimiento.</p>
             </div>
         </div>
     );

@@ -39,19 +39,19 @@ const TABS = [
     { id: 'enviados', label: 'Enviados', icon: Send },
     { id: 'enProceso', label: 'Borradores', icon: Clock },
     { id: 'archivados', label: 'Archivados', icon: Archive },
-    { id: 'historial', label: 'Historial de AuditorÃ­a', icon: History },
+    { id: 'historial', label: 'Historial de Auditoría', icon: History },
 ] as const;
 
 type TabType = typeof TABS[number]['id'];
 
 const DEPARTAMENTOS_LIST = [
     { id: 'TODOS', label: 'Todos los Departamentos', sigla: 'TODOS' },
-    { id: 'MESC', label: 'DirecciÃ³n Nacional (MESC)', sigla: 'MESC' },
+    { id: 'MESC', label: 'Dirección Nacional (MESC)', sigla: 'MESC' },
     { id: 'LP', label: 'La Paz (LP)', sigla: 'LP' },
     { id: 'CB', label: 'Cochabamba (CB)', sigla: 'CB' },
     { id: 'CH', label: 'Chuquisaca (CH)', sigla: 'CH' },
     { id: 'OR', label: 'Oruro (OR)', sigla: 'OR' },
-    { id: 'PT', label: 'PotosÃ­ (PT)', sigla: 'PT' },
+    { id: 'PT', label: 'Potosí (PT)', sigla: 'PT' },
     { id: 'TJ', label: 'Tarija (TJ)', sigla: 'TJ' },
     { id: 'SC', label: 'Santa Cruz (SC)', sigla: 'SC' },
     { id: 'BN', label: 'Beni (BN)', sigla: 'BN' },
@@ -63,10 +63,10 @@ export default function BandejaPage() {
     const { can } = useAbility();
     const router = useRouter();
 
-    // â€” PestaÃ±a Activa â€”
+    // — Pestaña Activa —
     const [tab, setTab] = useState<TabType>('recibidos');
 
-    // â€” Bandeja State â€”
+    // — Bandeja State —
     const [bandeja, setBandeja] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -74,28 +74,28 @@ export default function BandejaPage() {
     const [selected, setSelected] = useState<CorDocumento | null>(null);
     const [avanzando, setAvanzando] = useState(false);
 
-    // â€” AgrupaciÃ³n y Filtro por Departamento â€”
+    // — Agrupación y Filtro por Departamento —
     const [vistaAgrupada, setVistaAgrupada] = useState(false);
     const [selectedDeptFilter, setSelectedDeptFilter] = useState('TODOS');
 
-    // â€” Historial de AuditorÃ­a State â€”
+    // — Historial de Auditoría State —
     const [historialData, setHistorialData] = useState<CorHistorialTenantResponse | null>(null);
     const [loadingHistorial, setLoadingHistorial] = useState(false);
     const [historialSearch, setHistorialSearch] = useState('');
     const [historialAccionFilter, setHistorialAccionFilter] = useState('TODAS');
 
-    // Estados para DerivaciÃ³n DinÃ¡mica
+    // Estados para Derivación Dinámica
     const [accionSeleccionada, setAccionSeleccionada] = useState<string | null>(null);
     const [nuevoDest, setNuevoDest] = useState<any>(null);
     const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [detalle, setDetalle] = useState('');
 
-    // Modal de ConfirmaciÃ³n de DevoluciÃ³n
+    // Modal de Confirmación de Devolución
     const [confirmDevolucion, setConfirmDevolucion] = useState<{ doc: CorDocumento; creador: any } | null>(null);
-    // Modal de ConfirmaciÃ³n de Archivado
+    // Modal de Confirmación de Archivado
     const [confirmArchivado, setConfirmArchivado] = useState<CorDocumento | null>(null);
-    // Modal de ConfirmaciÃ³n de Cancelar EnvÃ­o/DerivaciÃ³n
+    // Modal de Confirmación de Cancelar Envío/Derivación
     const [confirmCancelar, setConfirmCancelar] = useState<{ doc: CorDocumento; label: string } | null>(null);
 
     // Guard CASL
@@ -125,7 +125,7 @@ export default function BandejaPage() {
             const data = await obtenerHistorialTenants(deptParam);
             setHistorialData(data);
         } catch (err: any) {
-            toast.error('Error al cargar el historial de auditorÃ­a');
+            toast.error('Error al cargar el historial de auditoría');
         } finally {
             setLoadingHistorial(false);
         }
@@ -136,7 +136,7 @@ export default function BandejaPage() {
         setSelected(null);
     }, [tab]);
 
-    // Fetch principal al cambiar tab (sin fetchHistorial en deps â€” evita re-disparos por selectedDeptFilter)
+    // Fetch principal al cambiar tab (sin fetchHistorial en deps — evita re-disparos por selectedDeptFilter)
     useEffect(() => {
         if (tab === 'historial') {
             fetchHistorial();
@@ -161,7 +161,7 @@ export default function BandejaPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchBandeja]);
 
-    // Limpiar estado del panel de acciÃ³n al cambiar documento seleccionado
+    // Limpiar estado del panel de acción al cambiar documento seleccionado
     useEffect(() => {
         setAccionSeleccionada(null);
         setNuevoDest(null);
@@ -171,7 +171,7 @@ export default function BandejaPage() {
 
     const docs = tab !== 'historial' ? (bandeja?.[tab] || []) : [];
 
-    // Documentos filtrados por bÃºsqueda y por Departamento
+    // Documentos filtrados por búsqueda y por Departamento
     const filtered = useMemo(() => {
         return docs.filter((doc: any) => {
             const docSigla = doc.tenantInfo?.abreviacion || doc.cite?.match(/PROFE\/([A-Z]+)\b/i)?.[1]?.toUpperCase() || 'NAC';
@@ -179,7 +179,7 @@ export default function BandejaPage() {
             const matchSearch = !search || [doc.cite, doc.hr, doc.referencia]
                 .some(s => s?.toLowerCase().includes(search.toLowerCase()));
 
-            // En Recibidos: ocultar solo si el usuario actual en sesiÃ³n ya emitiÃ³ una respuesta a este documento
+            // En Recibidos: ocultar solo si el usuario actual en sesión ya emitió una respuesta a este documento
             const yaRespondidoPorEsteUsuario = tab === 'recibidos' && Boolean(
                 doc.documentosHijos?.some((hijo: any) =>
                     hijo.participantes?.some((p: any) => p.rol === 'REMITENTE' && p.userId === user?.id)
@@ -260,7 +260,7 @@ export default function BandejaPage() {
 
                 return {
                     'FECHA REGISTRO': new Date(doc.createdAt).toLocaleString('es-BO'),
-                    'ÃšLTIMO MOVIMIENTO': ultimoMov
+                    'ÚLTIMO MOVIMIENTO': ultimoMov
                         ? new Date(ultimoMov.fecha).toLocaleString('es-BO')
                         : new Date(doc.createdAt).toLocaleString('es-BO'),
                     'V.E.R / TIPO': doc.tipo || 'HOJA DE RUTA',
@@ -292,7 +292,7 @@ export default function BandejaPage() {
 
     const handleAvanzar = async (doc: CorDocumento, accion: string) => {
         if (accion === 'DERIVACION' && !nuevoDest) {
-            toast.error('Debe seleccionar a quiÃ©n derivar el trÃ¡mite');
+            toast.error('Debe seleccionar a quién derivar el trámite');
             return;
         }
         setAvanzando(true);
@@ -300,19 +300,19 @@ export default function BandejaPage() {
             await avanzarEstado(
                 doc.id,
                 (accion === 'RECEPCION' && nuevoDest) ? 'DERIVACION' : accion,
-                detalle || `AcciÃ³n "${accion}" registrada desde la bandeja.`,
+                detalle || `Acción "${accion}" registrada desde la bandeja.`,
                 archivoUrl || undefined,
                 nuevoDest?.id || undefined
             );
             const mensajes: Record<string, string> = {
                 ENVIO: 'Documento enviado oficialmente',
-                RECEPCION: 'RecepciÃ³n confirmada',
+                RECEPCION: 'Recepción confirmada',
                 DERIVACION: 'Documento derivado correctamente',
                 DEVOLUCION: 'Documento devuelto al remitente',
-                CANCELAR: 'OperaciÃ³n realizada correctamente',
+                CANCELAR: 'Operación realizada correctamente',
                 ARCHIVADO: 'Documento archivado',
             };
-            toast.success(mensajes[accion] ?? `AcciÃ³n "${accion}" registrada`);
+            toast.success(mensajes[accion] ?? `Acción "${accion}" registrada`);
             setNuevoDest(null);
             setArchivoUrl(null);
             setDetalle('');
@@ -321,7 +321,7 @@ export default function BandejaPage() {
             setSelected(null);
         } catch (err: any) {
             if (!err.status) {
-                toast.error('Error de conexiÃ³n. Verifique su red e intente de nuevo.');
+                toast.error('Error de conexión. Verifique su red e intente de nuevo.');
             }
         } finally {
             setAvanzando(false);
@@ -333,7 +333,7 @@ export default function BandejaPage() {
         if (!file) return;
 
         if (file.size > 5 * 1024 * 1024) {
-            toast.error('El archivo excede el lÃ­mite de 5MB');
+            toast.error('El archivo excede el límite de 5MB');
             return;
         }
 
@@ -361,9 +361,9 @@ export default function BandejaPage() {
         const miParticipante = doc.participantes?.find((p: any) => p.userId === user?.id);
         const miRol = miParticipante?.rol || (tab === 'enviados' ? 'REMITENTE' : 'DESTINATARIO');
 
-        // Si el Ãºltimo movimiento de TRANSFERENCIA (DERIVACION/ENVIO/DEVOLUCION con destinatario)
+        // Si el último movimiento de TRANSFERENCIA (DERIVACION/ENVIO/DEVOLUCION con destinatario)
         // apunta al usuario actual, se le trata como destinatario activo aunque su rol formal sea REMITENTE.
-        // Se ignora RECEPCION ya que no transfiere la responsabilidad, solo confirma la recepciÃ³n.
+        // Se ignora RECEPCION ya que no transfiere la responsabilidad, solo confirma la recepción.
         const ultimoTransferSeg = (doc.seguimientos || []).find(
             (s: any) => s.destinatario && (s.accion === 'DERIVACION' || s.accion === 'ENVIO' || s.accion === 'DEVOLUCION')
         );
@@ -373,7 +373,7 @@ export default function BandejaPage() {
             (p: any) => p.rol === 'REMITENTE' && p.userId === user?.id
         );
 
-        // LÃ³gica Senior de CancelaciÃ³n:
+        // Lógica Senior de Cancelación:
         const diasTranscurridos = (Date.now() - new Date(doc.createdAt).getTime()) / (1000 * 60 * 60 * 24);
         const plazoMax = doc.plazoDias || 7;
         const excedioPlazo = diasTranscurridos > plazoMax;
@@ -381,7 +381,7 @@ export default function BandejaPage() {
         const yaRespondidoGlobal = Boolean((doc as any).documentosHijos?.length) ||
             (doc.seguimientos || []).some((s: any) => s.accion === 'RESPUESTA');
 
-        // El usuario actual ya emitiÃ³ su respuesta a esta Hoja de Ruta
+        // El usuario actual ya emitió su respuesta a esta Hoja de Ruta
         const yaRespondidoEsteUsuario = (doc.documentosHijos || []).some(
             (hijo: any) => hijo.participantes?.some((p: any) => p.rol === 'REMITENTE' && p.userId === user?.id)
         ) || (doc.seguimientos || []).some((s: any) => s.accion === 'RESPUESTA' && s.usuario?.id === user?.id);
@@ -390,7 +390,7 @@ export default function BandejaPage() {
             s.accion === 'RECEPCION' || (s.accion === 'DERIVACION' && s.usuario?.id !== user?.id) || s.accion === 'DEVOLUCION' || s.accion === 'ARCHIVADO'
         );
 
-        // El usuario actual ya confirmÃ³ recepciÃ³n â†’ ocultar botÃ³n Recibir TrÃ¡mite
+        // El usuario actual ya confirmó recepción â†’ ocultar botón Recibir Trámite
         const yaRecibioEsteUsuario = (doc.seguimientos || []).some((s: any) =>
             s.accion === 'RECEPCION' && s.usuario?.id === user?.id
         );
@@ -398,7 +398,7 @@ export default function BandejaPage() {
         const ultimoMov = doc.seguimientos?.[0];
         const fuiUltimoEmisor = ultimoMov?.usuario?.id === user?.id && (ultimoMov?.accion === 'ENVIO' || ultimoMov?.accion === 'DERIVACION');
 
-        // Se puede cancelar ÃšNICAMENTE si no se ha respondido, el destinatario no ha recepcionado/derivado, no ha excedido 7 dÃ­as y se es el remitente o emisor de la derivaciÃ³n.
+        // Se puede cancelar ÚNICAMENTE si no se ha respondido, el destinatario no ha recepcionado/derivado, no ha excedido 7 días y se es el remitente o emisor de la derivación.
         const puedeCancelar = !excedioPlazo && !yaRespondidoGlobal && !yaRecibidoODerivado && (isRemitente || fuiUltimoEmisor) && doc.estado !== 'ARCHIVADO' && doc.estado !== 'CANCELADO';
 
         if (accionSeleccionada) {
@@ -408,7 +408,7 @@ export default function BandejaPage() {
                 <div className="space-y-6 mt-4 p-6 rounded-[2rem] bg-accent/30 border border-accent/50 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                            {isReenvioDevolucion ? 'Subsanar ObservaciÃ³n y Reenviar' : `Confirmar ${accionSeleccionada}`}
+                            {isReenvioDevolucion ? 'Subsanar Observación y Reenviar' : `Confirmar ${accionSeleccionada}`}
                         </span>
                         <button onClick={() => { setAccionSeleccionada(null); setNuevoDest(null); setArchivoUrl(null); }} className="text-muted-foreground hover:text-foreground">
                             <X className="w-4 h-4" />
@@ -418,7 +418,7 @@ export default function BandejaPage() {
                     {(accionSeleccionada === 'DERIVACION' || isReenvioDevolucion) && (
                         <div className="space-y-4">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                {isReenvioDevolucion ? 'Reenviar a (Seleccionar VÃA o Destinatario)' : 'Â¿A quiÃ©n derivar?'}
+                                {isReenvioDevolucion ? 'Reenviar a (Seleccionar VÍA o Destinatario)' : '¿A quién derivar?'}
                             </p>
                             <UserSearchInline onSelect={setNuevoDest} selected={nuevoDest} />
                         </div>
@@ -426,7 +426,7 @@ export default function BandejaPage() {
 
                     <div className="space-y-4">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                            {isReenvioDevolucion ? 'Adjuntar Nuevo Documento Corregido (PDF de SubsanaciÃ³n)' : 'Archivo Adjunto (Opcional - MÃ¡x 5MB)'}
+                            {isReenvioDevolucion ? 'Adjuntar Nuevo Documento Corregido (PDF de Subsanación)' : 'Archivo Adjunto (Opcional - Máx 5MB)'}
                         </p>
                         <div className="relative group">
                             <input type="file" accept="application/pdf" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -447,7 +447,7 @@ export default function BandejaPage() {
 
                     <div className="space-y-2">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                            {isReenvioDevolucion ? 'Detalle de SubsanaciÃ³n / Respuesta a la ObservaciÃ³n' : 'Detalle o Comentario'}
+                            {isReenvioDevolucion ? 'Detalle de Subsanación / Respuesta a la Observación' : 'Detalle o Comentario'}
                         </p>
                         <textarea value={detalle} onChange={e => setDetalle(e.target.value)}
                             placeholder={isReenvioDevolucion ? "Describa las correcciones realizadas para subsanar..." : "Escriba observaciones de custodia..."}
@@ -456,7 +456,7 @@ export default function BandejaPage() {
 
                     <button onClick={() => handleAvanzar(doc, isDevuelto ? 'ENVIO' : accionSeleccionada)} disabled={avanzando}
                         className="w-full h-12 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
-                        {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : isReenvioDevolucion ? 'Confirmar SubsanaciÃ³n y Reenviar' : 'Confirmar OperaciÃ³n'}
+                        {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : isReenvioDevolucion ? 'Confirmar Subsanación y Reenviar' : 'Confirmar Operación'}
                     </button>
                 </div>
             );
@@ -473,7 +473,7 @@ export default function BandejaPage() {
                             setAccionSeleccionada('ENVIO');
                         }}
                             className="h-12 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2 col-span-2 shadow-lg shadow-primary/20">
-                            <RefreshCw className="w-4 h-4" /> Subsanar ObservaciÃ³n y Reenviar
+                            <RefreshCw className="w-4 h-4" /> Subsanar Observación y Reenviar
                         </button>
                         <Link href={`/dashboard/correspondencia/nuevo?id=${doc.id}`}
                             className="h-12 rounded-xl border border-border font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all flex items-center justify-center gap-2 col-span-2">
@@ -481,12 +481,12 @@ export default function BandejaPage() {
                         </Link>
                     </>
                 ) : isRemitente || tab === 'enviados' ? (
-                    /* 2. SI EL USUARIO ES EL REMITENTE (O PESTAÃ‘A ENVIADOS) */
+                    /* 2. SI EL USUARIO ES EL REMITENTE (O PESTAÑA ENVIADOS) */
                     <>
                         {puedeCancelar && (
-                            <button onClick={() => setConfirmCancelar({ doc, label: fuiUltimoEmisor && !isRemitente ? 'Cancelar DerivaciÃ³n' : 'Cancelar EnvÃ­o' })} disabled={avanzando}
+                            <button onClick={() => setConfirmCancelar({ doc, label: fuiUltimoEmisor && !isRemitente ? 'Cancelar Derivación' : 'Cancelar Envío' })} disabled={avanzando}
                                 className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                <X className="w-4 h-4" /> {fuiUltimoEmisor && !isRemitente ? 'Cancelar DerivaciÃ³n' : 'Cancelar EnvÃ­o'}
+                                <X className="w-4 h-4" /> {fuiUltimoEmisor && !isRemitente ? 'Cancelar Derivación' : 'Cancelar Envío'}
                             </button>
                         )}
                         {doc.estado === 'BORRADOR' && (
@@ -506,23 +506,23 @@ export default function BandejaPage() {
                     /* 3. SI EL USUARIO ES EL DESTINATARIO / VIA EN RECIBIDOS */
                     <>
                         {puedeCancelar && (
-                            <button onClick={() => setConfirmCancelar({ doc, label: 'Cancelar DerivaciÃ³n' })} disabled={avanzando}
+                            <button onClick={() => setConfirmCancelar({ doc, label: 'Cancelar Derivación' })} disabled={avanzando}
                                 className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                <X className="w-4 h-4" /> Cancelar DerivaciÃ³n
+                                <X className="w-4 h-4" /> Cancelar Derivación
                             </button>
                         )}
-                        {/* 1. RECIBIR â€” acciÃ³n primaria obligatoria antes de cualquier otra gestiÃ³n */}
+                        {/* 1. RECIBIR — acción primaria obligatoria antes de cualquier otra gestión */}
                         {!yaRecibioEsteUsuario && (
                             <button onClick={() => handleAvanzar(doc, 'RECEPCION')} disabled={avanzando}
                                 className="h-12 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
-                                {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Recibir TrÃ¡mite
+                                {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Recibir Trámite
                             </button>
                         )}
 
-                        {/* Los siguientes botones SOLO se habilitan despuÃ©s de recepcionar */}
+                        {/* Los siguientes botones SOLO se habilitan después de recepcionar */}
                         {yaRecibioEsteUsuario && (
                             <>
-                                {/* 2. RESPONDER â€” solo si este usuario aÃºn no ha respondido */}
+                                {/* 2. RESPONDER — solo si este usuario aún no ha respondido */}
                                 {!yaRespondidoEsteUsuario && (
                                     <Link href={`/dashboard/correspondencia/nuevo?padreId=${doc.id}&hrPadre=${encodeURIComponent(doc.hr || '')}`}
                                         className="h-12 rounded-xl bg-teal-500/10 text-teal-600 hover:bg-teal-500 hover:text-white border border-teal-500/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2 shadow-sm">
@@ -533,10 +533,10 @@ export default function BandejaPage() {
                                 {doc.estado !== 'ARCHIVADO' && (
                                     <button onClick={() => setAccionSeleccionada('DERIVACION')}
                                         className="h-12 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                        <ArrowUpRight className="w-4 h-4" /> Derivar TrÃ¡mite
+                                        <ArrowUpRight className="w-4 h-4" /> Derivar Trámite
                                     </button>
                                 )}
-                                {/* 4. DEVOLVER â€” reservado Ãºnicamente para destinatarios que NO sean el creador original */}
+                                {/* 4. DEVOLVER — reservado únicamente para destinatarios que NO sean el creador original */}
                                 {doc.estado !== 'ARCHIVADO' && !esCreadorOriginalDoc && (
                                     <button onClick={() => {
                                         const creador = doc.participantes?.find((p: any) => p.rol === 'REMITENTE');
@@ -546,7 +546,7 @@ export default function BandejaPage() {
                                         <AlertCircle className="w-4 h-4" /> Devolver al Remitente
                                     </button>
                                 )}
-                                {/* 5. ARCHIVAR â€” el backend valida que solo el creador original pueda ejecutar esta acciÃ³n */}
+                                {/* 5. ARCHIVAR — el backend valida que solo el creador original pueda ejecutar esta acción */}
                                 {doc.estado !== 'ARCHIVADO' && (
                                     <button onClick={() => { setConfirmArchivado(doc); setDetalle(''); }} disabled={avanzando}
                                         className="h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white border border-destructive/20 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 col-span-2">
@@ -592,7 +592,7 @@ export default function BandejaPage() {
                     <>
                         <div className="relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                            <input type="text" value={q} onChange={e => { setQ(e.target.value); search(e.target.value); }} placeholder="Buscar usuario para derivaciÃ³n..."
+                            <input type="text" value={q} onChange={e => { setQ(e.target.value); search(e.target.value); }} placeholder="Buscar usuario para derivación..."
                                 className="w-full h-11 pl-10 pr-4 rounded-xl bg-card border border-border text-[11px] font-bold outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-inner" />
                         </div>
                         <AnimatePresence>
@@ -623,7 +623,7 @@ export default function BandejaPage() {
     return (
         <div className="space-y-8 pb-20">
 
-            {/* ===== MODAL DE CONFIRMACIÃ“N DE CANCELAR ENVÃO ===== */}
+            {/* ===== MODAL DE CONFIRMACIÓN DE CANCELAR ENVÍO ===== */}
             <AnimatePresence>
                 {confirmCancelar && (
                     <>
@@ -639,9 +639,9 @@ export default function BandejaPage() {
                                     <X className="w-7 h-7 text-destructive" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-black tracking-tight">Â¿{confirmCancelar.label}?</h3>
+                                    <h3 className="text-lg font-black tracking-tight">¿{confirmCancelar.label}?</h3>
                                     <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                                        Â¿EstÃ¡s seguro? El documento volverÃ¡ a <span className="font-black text-foreground">Borradores</span> y no podrÃ¡ deshacerse fÃ¡cilmente. Los destinatarios ya no tendrÃ¡n acceso al envÃ­o activo.
+                                        ¿Estás seguro? El documento volverá a <span className="font-black text-foreground">Borradores</span> y no podrá deshacerse fácilmente. Los destinatarios ya no tendrán acceso al envío activo.
                                     </p>
                                 </div>
                             </div>
@@ -656,11 +656,11 @@ export default function BandejaPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <p className="text-[10px] font-black uppercase text-muted-foreground">Motivo de CancelaciÃ³n (Opcional)</p>
+                                <p className="text-[10px] font-black uppercase text-muted-foreground">Motivo de Cancelación (Opcional)</p>
                                 <textarea
                                     value={detalle}
                                     onChange={e => setDetalle(e.target.value)}
-                                    placeholder="Especifique el motivo por el cual cancela este envÃ­o..."
+                                    placeholder="Especifique el motivo por el cual cancela este envío..."
                                     className="w-full h-24 p-3 text-xs rounded-xl bg-muted/50 border border-border outline-none focus:border-destructive focus:ring-2 focus:ring-destructive/20 font-medium resize-none transition-all"
                                 />
                             </div>
@@ -678,7 +678,7 @@ export default function BandejaPage() {
                                     }}
                                     className="h-12 rounded-xl bg-destructive text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-destructive/20">
                                     {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                                    SÃ­, {confirmCancelar.label}
+                                    Sí, {confirmCancelar.label}
                                 </button>
                             </div>
                         </motion.div>
@@ -686,7 +686,7 @@ export default function BandejaPage() {
                 )}
             </AnimatePresence>
 
-            {/* ===== MODAL DE CONFIRMACIÃ“N DE DEVOLUCIÃ“N ===== */}
+            {/* ===== MODAL DE CONFIRMACIÓN DE DEVOLUCIÓN ===== */}
             <AnimatePresence>
                 {confirmDevolucion && (
                     <>
@@ -702,9 +702,9 @@ export default function BandejaPage() {
                                     <AlertCircle className="w-7 h-7 text-orange-500" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-black tracking-tight">Â¿Confirmar DevoluciÃ³n?</h3>
+                                    <h3 className="text-lg font-black tracking-tight">¿Confirmar Devolución?</h3>
                                     <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                                        El documento serÃ¡ enviado de vuelta al creador original del trÃ¡mite.
+                                        El documento será enviado de vuelta al creador original del trámite.
                                     </p>
                                 </div>
                             </div>
@@ -724,7 +724,7 @@ export default function BandejaPage() {
                                         {confirmDevolucion.creador.nombre?.[0]}
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Se devolverÃ¡ al Creador Original</p>
+                                        <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Se devolverá al Creador Original</p>
                                         <p className="text-xs font-black">{confirmDevolucion.creador.nombre} {confirmDevolucion.creador.apellidos}</p>
                                         <p className="text-[9px] text-muted-foreground">{confirmDevolucion.creador.cargoStr}</p>
                                     </div>
@@ -732,11 +732,11 @@ export default function BandejaPage() {
                             )}
 
                             <div className="space-y-2">
-                                <p className="text-[10px] font-black uppercase text-muted-foreground">Motivo de la DevoluciÃ³n (Obligatorio)</p>
+                                <p className="text-[10px] font-black uppercase text-muted-foreground">Motivo de la Devolución (Obligatorio)</p>
                                 <textarea
                                     value={detalle}
                                     onChange={e => setDetalle(e.target.value)}
-                                    placeholder="Describa el motivo de la devoluciÃ³n u observaciÃ³n al remitente..."
+                                    placeholder="Describa el motivo de la devolución u observación al remitente..."
                                     className="w-full h-24 p-3 text-xs rounded-xl bg-muted/50 border border-border outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 font-medium resize-none transition-all"
                                 />
                             </div>
@@ -754,7 +754,7 @@ export default function BandejaPage() {
                                     }}
                                     className="h-12 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20">
                                     {avanzando ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
-                                    Confirmar DevoluciÃ³n
+                                    Confirmar Devolución
                                 </button>
                             </div>
                         </motion.div>
@@ -762,7 +762,7 @@ export default function BandejaPage() {
                 )}
             </AnimatePresence>
 
-            {/* ===== MODAL DE CONFIRMACIÃ“N DE ARCHIVADO ===== */}
+            {/* ===== MODAL DE CONFIRMACIÓN DE ARCHIVADO ===== */}
             <AnimatePresence>
                 {confirmArchivado && (
                     <>
@@ -778,9 +778,9 @@ export default function BandejaPage() {
                                     <Archive className="w-7 h-7 text-destructive" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-black tracking-tight">Â¿Archivar Definitivamente?</h3>
+                                    <h3 className="text-lg font-black tracking-tight">¿Archivar Definitivamente?</h3>
                                     <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                                        Esta acciÃ³n cerrarÃ¡ la Hoja de Ruta <span className="font-black text-foreground">para todos los participantes</span>. Ya no se podrÃ¡ modificar, derivar ni responder.
+                                        Esta acción cerrará la Hoja de Ruta <span className="font-black text-foreground">para todos los participantes</span>. Ya no se podrá modificar, derivar ni responder.
                                     </p>
                                 </div>
                             </div>
@@ -789,9 +789,9 @@ export default function BandejaPage() {
                             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3 items-start">
                                 <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Importante â€” Antes de Archivar</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Importante — Antes de Archivar</p>
                                     <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                                        Si el proceso <span className="font-black">aÃºn no ha concluido</span>, los destinatarios deben <span className="font-black">responder a la Hoja de Ruta</span> primero. Archivar antes de recibir todas las respuestas cerrarÃ¡ el trÃ¡mite de forma permanente.
+                                        Si el proceso <span className="font-black">aún no ha concluido</span>, los destinatarios deben <span className="font-black">responder a la Hoja de Ruta</span> primero. Archivar antes de recibir todas las respuestas cerrará el trámite de forma permanente.
                                     </p>
                                 </div>
                             </div>
@@ -810,7 +810,7 @@ export default function BandejaPage() {
                                 <textarea
                                     value={detalle}
                                     onChange={e => setDetalle(e.target.value)}
-                                    placeholder="Escriba una observaciÃ³n o motivo por el cual archiva la Hoja de Ruta..."
+                                    placeholder="Escriba una observación o motivo por el cual archiva la Hoja de Ruta..."
                                     className="w-full h-24 p-3 text-xs rounded-xl bg-muted/50 border border-border outline-none focus:border-destructive focus:ring-2 focus:ring-destructive/20 font-medium resize-none transition-all"
                                 />
                             </div>
@@ -840,10 +840,10 @@ export default function BandejaPage() {
                 <div>
                     <h1 className="text-4xl font-black tracking-tighter flex items-center gap-3">
                         <Inbox className="w-8 h-8 text-primary" />
-                        Bandeja VÃ­a PROFE
+                        Bandeja Vía PROFE
                     </h1>
                     <p className="text-muted-foreground font-medium mt-2">
-                        Control de TrÃ¡mites, Hojas de Ruta y AuditorÃ­a de <span className="font-bold text-primary">cor_seguimiento</span> por Departamento.
+                        Control de Trámites, Hojas de Ruta y Auditoría de <span className="font-bold text-primary">Seguimiento</span> por Departamento.
                     </p>
                 </div>
 
@@ -868,7 +868,7 @@ export default function BandejaPage() {
                 </div>
             </div>
 
-            {/* Barra de Filtros Superior: Tabs + Buscador + AgrupaciÃ³n por Departamento */}
+            {/* Barra de Filtros Superior: Tabs + Buscador + Agrupación por Departamento */}
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                 {/* Tabs Principales integradas */}
                 <div className="flex flex-wrap items-center gap-2 bg-card/60 p-1.5 rounded-2xl border border-border/60 backdrop-blur-md shadow-sm">
@@ -923,7 +923,7 @@ export default function BandejaPage() {
                 </div>
             )}
 
-            {/* SECCIÃ“N BANDEJA: VISTAS (LISTA O AGRUPADA) */}
+            {/* SECCIÓN BANDEJA: VISTAS (LISTA O AGRUPADA) */}
             {tab !== 'historial' && (
                 <>
                     {vistaAgrupada ? (
@@ -936,7 +936,7 @@ export default function BandejaPage() {
                             ) : groupedByDept.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 bg-card rounded-[2.5rem] border border-border/50">
                                     <Building2 className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                                    <h3 className="text-lg font-black text-muted-foreground">No se encontraron trÃ¡mites para este Departamento</h3>
+                                    <h3 className="text-lg font-black text-muted-foreground">No se encontraron trámites para este Departamento</h3>
                                 </div>
                             ) : (
                                 groupedByDept.map((group) => (
@@ -1018,7 +1018,7 @@ export default function BandejaPage() {
                                                                     {ultimoSeguimiento?.usuario && (
                                                                         <span className="flex items-center gap-1">
                                                                             <User className="w-3 h-3 text-primary" />
-                                                                            Ãšltimo: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}
+                                                                            Último: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1070,7 +1070,7 @@ export default function BandejaPage() {
                                     <div className="w-20 h-20 rounded-[2rem] bg-muted flex items-center justify-center text-muted-foreground/30 mb-4">
                                         <Inbox className="w-10 h-10" />
                                     </div>
-                                    <h3 className="text-xl font-black tracking-tight text-muted-foreground">Bandeja VacÃ­a</h3>
+                                    <h3 className="text-xl font-black tracking-tight text-muted-foreground">Bandeja Vacía</h3>
                                     <p className="text-sm text-muted-foreground/60 mt-1 italic">No se encontraron documentos en "{TABS.find(t => t.id === tab)?.label}".</p>
                                 </div>
                             ) : (
@@ -1078,7 +1078,7 @@ export default function BandejaPage() {
                                     <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="border-b border-border/50 bg-muted/30">
-                                                <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">IdentificaciÃ³n / Departamento</th>
+                                                <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Identificación / Departamento</th>
                                                 <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Referencia y Custodia</th>
                                                 <th className="px-8 py-5 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado</th>
                                                 <th className="px-8 py-5 text-right text-[10px] font-black text-muted-foreground uppercase tracking-widest">Acciones</th>
@@ -1166,7 +1166,7 @@ export default function BandejaPage() {
                                                                     {ultimoSeguimiento?.usuario && (
                                                                         <div className="flex items-center gap-1.5 text-muted-foreground">
                                                                             <User className="w-3 h-3 text-primary shrink-0" />
-                                                                            <span>Ãšltimo: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}</span>
+                                                                            <span>Último: {ultimoSeguimiento.usuario.nombre} {ultimoSeguimiento.usuario.apellidos}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1189,7 +1189,7 @@ export default function BandejaPage() {
                                                                             doc.nivelAlerta === 'MORA' ? "text-orange-600" : "text-muted-foreground"
                                                                     )}>
                                                                         <Clock className="w-2.5 h-2.5" />
-                                                                        {doc.diasMora} DÃ­as en Custodia {doc.alerta && <ShieldAlert className="w-3 h-3 text-red-500 inline ml-0.5" />}
+                                                                        {doc.diasMora} Días en Custodia {doc.alerta && <ShieldAlert className="w-3 h-3 text-red-500 inline ml-0.5" />}
                                                                     </span>
                                                                 )}
                                                                 {plazoBadge}
@@ -1219,7 +1219,7 @@ export default function BandejaPage() {
                 </>
             )}
 
-            {/* SECCIÃ“N 2: HISTORIAL DE AUDITORÃA (COR_SEGUIMIENTO & SEGUIMIENTO_ID) */}
+            {/* SECCIÓN 2: HISTORIAL DE AUDITORÍA (COR_SEGUIMIENTO & SEGUIMIENTO_ID) */}
             {tab === 'historial' && (
                 <div className="space-y-8 animate-in fade-in duration-500">
                     {/* KPIs por Departamento */}
@@ -1230,7 +1230,7 @@ export default function BandejaPage() {
                                 <Activity className="w-5 h-5 text-primary" />
                             </div>
                             <h3 className="text-3xl font-black">{historialFiltrado.length}</h3>
-                            <p className="text-[10px] font-bold text-muted-foreground mt-1">Registros en cor_seguimiento</p>
+                            <p className="text-[10px] font-bold text-muted-foreground mt-1">Registros en Seguimiento</p>
                         </div>
 
                         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
@@ -1241,7 +1241,7 @@ export default function BandejaPage() {
                             <h3 className="text-3xl font-black">
                                 {historialFiltrado.filter(i => i.accion === 'CREACION').length}
                             </h3>
-                            <p className="text-[10px] font-bold text-emerald-600 mt-1">Nuevos trÃ¡mites registrados</p>
+                            <p className="text-[10px] font-bold text-emerald-600 mt-1">Nuevos trámites registrados</p>
                         </div>
 
                         <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
@@ -1263,7 +1263,7 @@ export default function BandejaPage() {
                             <h3 className="text-3xl font-black">
                                 {historialFiltrado.filter(i => i.accion === 'ARCHIVADO').length}
                             </h3>
-                            <p className="text-[10px] font-bold text-blue-600 mt-1">TrÃ¡mites concluidos</p>
+                            <p className="text-[10px] font-bold text-blue-600 mt-1">Trámites concluidos</p>
                         </div>
                     </div>
 
@@ -1277,15 +1277,15 @@ export default function BandejaPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                            {/* Filtro por AcciÃ³n */}
+                            {/* Filtro por Acción */}
                             <select value={historialAccionFilter} onChange={e => setHistorialAccionFilter(e.target.value)}
                                 className="h-11 px-4 rounded-2xl bg-muted/40 border border-border font-black text-[10px] uppercase tracking-wider outline-none focus:border-primary cursor-pointer">
                                 <option value="TODAS">Todas las Acciones</option>
-                                <option value="CREACION">CREACIÃ“N</option>
-                                <option value="ENVIO">ENVÃO</option>
-                                <option value="RECEPCION">RECEPCIÃ“N</option>
-                                <option value="DERIVACION">DERIVACIÃ“N</option>
-                                <option value="DEVOLUCION">DEVOLUCIÃ“N</option>
+                                <option value="CREACION">CREACIÓN</option>
+                                <option value="ENVIO">ENVÍO</option>
+                                <option value="RECEPCION">RECEPCIÓN</option>
+                                <option value="DERIVACION">DERIVACIÓN</option>
+                                <option value="DEVOLUCION">DEVOLUCIÓN</option>
                                 <option value="ARCHIVADO">ARCHIVADO</option>
                             </select>
 
@@ -1299,17 +1299,17 @@ export default function BandejaPage() {
                         </div>
                     </div>
 
-                    {/* Timeline de Seguimiento Auditable cor_seguimiento */}
+                    {/* Timeline de Seguimiento Auditable Seguimiento */}
                     <div className="bg-card border border-border/50 rounded-[2.5rem] p-8 shadow-xl">
                         {loadingHistorial ? (
                             <div className="flex flex-col items-center justify-center py-32 gap-4">
                                 <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Cargando Historial de cor_seguimiento...</p>
+                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Cargando Historial de Seguimiento...</p>
                             </div>
                         ) : historialFiltrado.length === 0 ? (
                             <div className="text-center py-20">
                                 <History className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                                <h3 className="text-lg font-black text-muted-foreground">Sin registros de auditorÃ­a para este filtro</h3>
+                                <h3 className="text-lg font-black text-muted-foreground">Sin registros de auditoría para este filtro</h3>
                             </div>
                         ) : (
                             <div className="relative border-l-2 border-primary/20 ml-6 space-y-8 pl-8">
@@ -1323,7 +1323,7 @@ export default function BandejaPage() {
                                             <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full bg-card border-4 border-primary shadow-md flex items-center justify-center" />
 
                                             <div className="bg-muted/30 border border-border/60 rounded-3xl p-6 hover:border-primary/40 transition-all shadow-sm">
-                                                {/* Header del Registro de AuditorÃ­a */}
+                                                {/* Header del Registro de Auditoría */}
                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         {/* departamento origen */}
@@ -1360,7 +1360,7 @@ export default function BandejaPage() {
                                                             </span>
                                                         )}
 
-                                                        {/* Badge de AcciÃ³n */}
+                                                        {/* Badge de Acción */}
                                                         <span className={cn(
                                                             "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
                                                             item.accion === 'CREACION' ? "bg-blue-500/10 text-blue-600 border-blue-500/20" :
@@ -1375,7 +1375,7 @@ export default function BandejaPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Detalle del TrÃ¡mite y Funcionario */}
+                                                {/* Detalle del Trámite y Funcionario */}
                                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-border/30 pt-4">
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1">
@@ -1433,7 +1433,7 @@ export default function BandejaPage() {
                                                 {item.archivoUrl && (
                                                     <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between">
                                                         <span className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1.5">
-                                                            <CheckCircle2 className="w-3.5 h-3.5" /> Archivo PDF Adjunto en esta AcciÃ³n
+                                                            <CheckCircle2 className="w-3.5 h-3.5" /> Archivo PDF Adjunto en esta Acción
                                                         </span>
                                                         <a href={getImageUrl(item.archivoUrl)} target="_blank" rel="noreferrer"
                                                             className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-600 font-black text-[9px] uppercase tracking-wider transition-all flex items-center gap-1.5">
@@ -1457,7 +1457,7 @@ export default function BandejaPage() {
                     <motion.div initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 100 }}
                         className="fixed top-0 right-0 bottom-0 w-full md:w-1/2 bg-card border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.2)] z-[100] p-10 flex flex-col">
                         <div className="flex items-center justify-between mb-10">
-                            <h2 className="text-xl font-black tracking-tight italic">GestiÃ³n de Custodia</h2>
+                            <h2 className="text-xl font-black tracking-tight italic">Gestión de Custodia</h2>
                             <button onClick={() => setSelected(null)} className="w-12 h-12 rounded-2xl hover:bg-accent flex items-center justify-center transition-colors border border-border/50">
                                 <X className="w-6 h-6" />
                             </button>
@@ -1477,7 +1477,7 @@ export default function BandejaPage() {
                                     <p className="text-xs font-bold text-foreground/90 mt-2 line-clamp-2 italic">"{selected.referencia}"</p>
                                 </div>
 
-                                {/* BotÃ³n Directo: Ver Documento PDF / Detalle */}
+                                {/* Botón Directo: Ver Documento PDF / Detalle */}
                                 {selected.archivoPdf ? (
                                     <a href={getImageUrl(selected.archivoPdf)} target="_blank" rel="noreferrer"
                                         className="w-full h-11 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
@@ -1501,7 +1501,7 @@ export default function BandejaPage() {
                                                 <a key={i} href={getImageUrl(url)} target="_blank" rel="noreferrer"
                                                     className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 hover:bg-primary/10 border border-border/40 text-xs font-bold text-foreground hover:text-primary transition-all truncate">
                                                     <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
-                                                    <span className="truncate">Adjunto {i + 1} â€” {url.split('/').pop()}</span>
+                                                    <span className="truncate">Adjunto {i + 1} — {url.split('/').pop()}</span>
                                                 </a>
                                             ))}
                                         </div>
@@ -1568,20 +1568,20 @@ export default function BandejaPage() {
                             {selected.estado !== 'ARCHIVADO' && selected.estado !== 'CANCELADO' && (
                                 <div className="space-y-4">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <ShieldCheck className="w-4 h-4 text-emerald-500" /> Acciones de GestiÃ³n Legal
+                                        <ShieldCheck className="w-4 h-4 text-emerald-500" /> Acciones de Gestión Legal
                                     </p>
                                     {renderActions(selected)}
                                 </div>
                             )}
 
-                            {/* HISTORIAL / LISTA DE SEGUIMIENTO COMPLETA DE ESTE TRÃMITE */}
+                            {/* HISTORIAL / LISTA DE SEGUIMIENTO COMPLETA DE ESTE TRÁMITE */}
                             <div className="space-y-4 pt-6 border-t border-border/50">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                     <Activity className="w-4 h-4 text-primary" /> Historial de Movimientos (Trazabilidad)
                                 </p>
 
                                 {(!selected.seguimientos || selected.seguimientos.length === 0) ? (
-                                    <p className="text-xs text-muted-foreground italic">Sin movimientos registrados aÃºn.</p>
+                                    <p className="text-xs text-muted-foreground italic">Sin movimientos registrados aún.</p>
                                 ) : (
                                     <div className="relative border-l-2 border-primary/20 ml-3 space-y-4 pl-4">
                                         {selected.seguimientos.map((seg: any) => (
@@ -1627,7 +1627,7 @@ export default function BandejaPage() {
                                                     {seg.archivoUrl && (
                                                         <a href={getImageUrl(seg.archivoUrl)} target="_blank" rel="noreferrer"
                                                             className="inline-flex items-center gap-1.5 text-[9px] font-black text-emerald-600 hover:underline pt-1">
-                                                            <Download className="w-3 h-3" /> Descargar PDF de esta acciÃ³n
+                                                            <Download className="w-3 h-3" /> Descargar PDF de esta acción
                                                         </a>
                                                     )}
                                                 </div>
