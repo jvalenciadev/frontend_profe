@@ -112,7 +112,7 @@ export default function EvaluarPersonalPage() {
             const [misAsign, misEval, allUsers, cuestList] = await Promise.all([
                 evaluationService.getMisPendientes(pId).catch(() => []),
                 evaluationService.getMisEvaluaciones(pId).catch(() => []),
-                evaluationService.getUsersToEvaluate(targetTenant, pId).catch(() => []),
+                isSuperAdmin ? evaluationService.getUsersToEvaluate(targetTenant, pId).catch(() => []) : Promise.resolve([]),
                 evaluationService.getCuestionarios(pId).catch(() => []),
             ]);
 
@@ -153,7 +153,7 @@ export default function EvaluarPersonalPage() {
                 const [misAsign, misEval, allUsers, cuestList] = await Promise.all([
                     evaluationService.getMisPendientes(active.id).catch(() => []),
                     evaluationService.getMisEvaluaciones(active.id).catch(() => []),
-                    evaluationService.getUsersToEvaluate(targetTenant, active.id).catch(() => []),
+                    isSuperAdmin ? evaluationService.getUsersToEvaluate(targetTenant, active.id).catch(() => []) : Promise.resolve([]),
                     evaluationService.getCuestionarios(active.id).catch(() => []),
                 ]);
 
@@ -208,22 +208,32 @@ export default function EvaluarPersonalPage() {
         }
     }, [timeLeftSeconds, isSelfEvalModalOpen, submitting, currentIntento]);
 
-    // Detección de cambio de pestaña / pérdida de foco (Integridad Académica)
+    // Detección de cambio de pestaña / pérdida de foco / abandono de pantalla completa (Integridad Académica)
     useEffect(() => {
         if (!isSelfEvalModalOpen || submitting) return;
 
+        const handleInfraccion = () => {
+            setCheatWarnings(prev => {
+                const next = prev + 1;
+                if (next >= 3) {
+                    toast.error('¡Límite de advertencias superado (3/3)! Finalizando examen y guardando respuestas...');
+                    handleSubmitSelfEval(true, true);
+                } else {
+                    toast.warning(`⚠️ Advertencia de Seguridad (${next}/3): Has salido de la pantalla o minimizado el examen. Al acumular 3 advertencias el cuestionario se cerrará y se calificará automáticamente.`);
+                }
+                return next;
+            });
+        };
+
         const handleVisibilityChange = () => {
             if (document.hidden) {
-                setCheatWarnings(prev => {
-                    const next = prev + 1;
-                    if (next >= 3) {
-                        toast.error('¡Violación de integridad! Has salido de la pantalla 3 veces. Auto-enviando examen...');
-                        handleSubmitSelfEval(true);
-                    } else {
-                        toast.warning(`⚠️ Advertencia de Seguridad (${next}/3): Has salido de la pantalla del examen. Al acumular 3 advertencias el examen se cerrará automáticamente.`);
-                    }
-                    return next;
-                });
+                handleInfraccion();
+            }
+        };
+
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement && isSelfEvalModalOpen && !submitting) {
+                handleInfraccion();
             }
         };
 
@@ -234,13 +244,15 @@ export default function EvaluarPersonalPage() {
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
         window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [isSelfEvalModalOpen, submitting]);
+    }, [isSelfEvalModalOpen, submitting, currentIntento, respuestasMap]);
 
     // Entorno Seguro de Examen: Bloqueo de copia y atajos
     useEffect(() => {
@@ -804,13 +816,17 @@ export default function EvaluarPersonalPage() {
         }
     };
 
-    const handleSubmitSelfEval = async (finalizar: boolean = true) => {
+    const handleSubmitSelfEval = async (finalizar: boolean = true, forzado: boolean = false) => {
         if (!currentIntento || !selfAsignacion) return;
         const subcs = selectedCuestionario?.criterio?.subcriterios || [];
-        if (finalizar && Object.keys(respuestasMap).length < subcs.length) {
+        
+        // Solo exige responder todas las preguntas si el usuario finaliza voluntariamente.
+        // Si es forzado (3 infracciones o expiración de tiempo), se califica con lo que haya llenado.
+        if (finalizar && !forzado && Object.keys(respuestasMap).length < subcs.length) {
             toast.warning(`Debes responder todas las preguntas (${Object.keys(respuestasMap).length}/${subcs.length})`);
             return;
         }
+
         try {
             setSubmitting(true);
             const payload = Object.entries(respuestasMap).map(([subId, val]) => ({
@@ -819,10 +835,27 @@ export default function EvaluarPersonalPage() {
                 puntaje: val.puntaje,
                 observacion: val.observacion,
             }));
-            await evaluationService.responderIntento({ intentoId: currentIntento.id, respuestas: payload, finalizar });
-            toast.success(finalizar ? '¡Cuestionario completado! Nota registrada automáticamente.' : 'Progreso guardado');
+
+            await evaluationService.responderIntento({
+                intentoId: currentIntento.id,
+                respuestas: payload,
+                finalizar: true // siempre finaliza y asienta la nota en el backend
+            });
+
+            // Salir de pantalla completa si está activa
+            if (document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => {});
+            }
+            setIsFullscreen(false);
             setIsSelfEvalModalOpen(false);
-            loadPeriodData();
+
+            if (forzado) {
+                toast.error('Examen finalizado automáticamente por acumular 3 salidas de pantalla. Se registró la nota con las preguntas respondidas.');
+            } else {
+                toast.success(finalizar ? '¡Cuestionario completado! Nota registrada automáticamente.' : 'Progreso guardado');
+            }
+
+            await loadPeriodData();
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Error al guardar el cuestionario');
         } finally {
@@ -1140,24 +1173,6 @@ export default function EvaluarPersonalPage() {
                                                         >
                                                             <Sparkles className="w-3.5 h-3.5" />
                                                             {asig.estadoEvaluacion === 'COMPLETADO' ? 'Revisar / Reevaluar' : 'Calificar'}
-                                                        </button>
-
-                                                        {asig.estadoEvaluacion === 'COMPLETADO' && (
-                                                            <button
-                                                                onClick={() => handleDownloadPdf(asig.id, `${asig.evaluado?.nombre}_${asig.evaluado?.apellidos}`)}
-                                                                className="p-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                                                                title="Descargar PDF Oficial"
-                                                            >
-                                                                <Download className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-
-                                                        <button
-                                                            onClick={() => handleOpenConsolidado(asig.evaluadoId)}
-                                                            className="p-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                                                            title="Ver Consolidado Multi-Evaluador"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>
