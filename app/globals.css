@@ -449,26 +449,45 @@
 .rte-table-wrap {
   width: 100%;
   overflow-x: auto;
-  margin: 1.5rem 0;
-  border-radius: 1rem;
+  margin: 1.75rem 0;
+  border-radius: 1.25rem;
   border: 1px solid var(--border);
+  border-top: 3px solid var(--primary);
   background: var(--card);
-  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.06);
   -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar sutil para la tabla en móviles y desktops */
+.rte-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.rte-table-wrap::-webkit-scrollbar-track {
+  background: hsl(var(--primary-h) var(--primary-s) 97%);
+  border-radius: 9999px;
+}
+.dark .rte-table-wrap::-webkit-scrollbar-track {
+  background: hsl(var(--primary-h) var(--primary-s) 15%);
+}
+.rte-table-wrap::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary-h) var(--primary-s) 75%);
+  border-radius: 9999px;
+}
+.dark .rte-table-wrap::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary-h) var(--primary-s) 35%);
 }
 
 .rte-content table,
 .prose table,
 .rte-table {
   width: 100% !important;
+  min-width: 580px; /* Evita que las columnas se aplasten en pantallas móviles */
   border-collapse: separate !important;
   border-spacing: 0 !important;
-  margin: 1rem 0 !important;
+  margin: 0 !important;
   font-size: 0.875rem !important;
   line-height: 1.5 !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 1rem !important;
-  overflow: hidden !important;
+  border: none !important;
   background: var(--card) !important;
 }
 
@@ -490,11 +509,11 @@
 .rte-th {
   color: var(--primary) !important;
   font-weight: 800 !important;
-  font-size: 0.75rem !important;
+  font-size: 0.72rem !important;
   text-transform: uppercase !important;
   letter-spacing: 0.08em !important;
-  padding: 0.85rem 1.1rem !important;
-  border-bottom: 1px solid var(--border) !important;
+  padding: 0.95rem 1.25rem !important;
+  border-bottom: 2px solid var(--border) !important;
   border-right: 1px solid var(--border) !important;
   text-align: left !important;
   vertical-align: middle !important;
@@ -512,11 +531,11 @@
 .prose td,
 .rte-table td,
 .rte-td {
-  padding: 0.8rem 1.1rem !important;
+  padding: 0.9rem 1.25rem !important;
   border-bottom: 1px solid var(--border) !important;
   border-right: 1px solid var(--border) !important;
   color: var(--foreground) !important;
-  vertical-align: top !important;
+  vertical-align: middle !important;
   font-size: 0.875rem !important;
 }
 
@@ -531,6 +550,42 @@
 .prose tbody tr:last-child td,
 .rte-table tbody tr:last-child td {
   border-bottom: none !important;
+}
+
+/* ── Formato especial por columnas de cronograma ── */
+/* Columna 1: Fecha */
+.rte-content tbody tr td:first-child,
+.prose tbody tr td:first-child,
+.rte-table tbody tr td:first-child {
+  white-space: nowrap !important;
+  font-weight: 700 !important;
+  color: var(--primary) !important;
+}
+
+/* Columna 2: Lugar */
+.rte-content tbody tr td:nth-child(2),
+.prose tbody tr td:nth-child(2),
+.rte-table tbody tr td:nth-child(2) {
+  font-weight: 500 !important;
+  color: var(--muted-foreground) !important;
+}
+
+/* Columna 3: Título */
+.rte-content tbody tr td:nth-child(3),
+.prose tbody tr td:nth-child(3),
+.rte-table tbody tr td:nth-child(3) {
+  font-weight: 700 !important;
+  color: var(--foreground) !important;
+  min-width: 180px;
+}
+
+/* Columna 4: Facilitador */
+.rte-content tbody tr td:nth-child(4),
+.prose tbody tr td:nth-child(4),
+.rte-table tbody tr td:nth-child(4) {
+  font-weight: 600 !important;
+  color: var(--foreground) !important;
+  white-space: nowrap !important;
 }
 
 .rte-content tbody tr:nth-child(even),
