@@ -8,7 +8,7 @@ import { AppAbility } from '@/lib/ability';
  * Proporciona acceso directo al objeto ability de CASL y métodos rápidos.
  */
 export function useAbility() {
-    const { ability, user, isSuperAdmin, logout } = useAuth();
+    const { ability, user, isSuperAdmin, logout, isLoading: authLoading } = useAuth();
 
     return {
         /** Instancia pura de CASL Ability */
@@ -17,6 +17,8 @@ export function useAbility() {
         can: (action: string, subject: string | any) => ability.can(action, subject),
         /** Indica si el usuario es superadmin (bypass total) */
         isSuperAdmin: isSuperAdmin(),
+        /** Verifica si el contexto de autenticación todavía está cargando */
+        authLoading,
         /** Verificar si el usuario tiene un rol específico */
         hasRole: (roleName: string) => {
             const roles: string[] = [];

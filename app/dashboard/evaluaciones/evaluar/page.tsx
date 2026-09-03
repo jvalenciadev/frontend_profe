@@ -66,7 +66,7 @@ const ESCALA_OPCIONES: { key: EscalaLikertKey; label: string; points: number; co
 ];
 
 export default function EvaluarPersonalPage() {
-    const { user, isSuperAdmin, can } = useAbility();
+    const { user, isSuperAdmin, can, authLoading } = useAbility();
 
     // Filtros y estados de navegación
     const [selectedPeriod, setSelectedPeriod] = useState<string>('');
@@ -174,8 +174,9 @@ export default function EvaluarPersonalPage() {
     };
 
     useEffect(() => {
+        if (authLoading) return; // esperar a que el contexto de auth hidrate
         loadInitialData();
-    }, [user?.id, user?.tenantId, isSuperAdmin]);
+    }, [user?.id, user?.tenantId, isSuperAdmin, authLoading]);
 
     const handlePeriodChange = (newPeriodId: string) => {
         setSelectedPeriod(newPeriodId);
@@ -947,6 +948,27 @@ export default function EvaluarPersonalPage() {
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
+
+    // Mientras el contexto de autenticación está hidratando, mostrar skeleton institucional
+    if (authLoading || (!user && loading)) {
+        return (
+            <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto min-h-screen">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="h-8 w-64 rounded-xl bg-muted/40 animate-pulse" />
+                        <div className="h-4 w-96 rounded-lg bg-muted/30 animate-pulse" />
+                    </div>
+                    <div className="h-10 w-48 rounded-2xl bg-muted/30 animate-pulse" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-28 rounded-3xl bg-muted/20 animate-pulse" />
+                    ))}
+                </div>
+                <div className="h-64 rounded-3xl bg-muted/20 animate-pulse" />
+            </div>
+        );
+    }
 
     if (!isSuperAdmin && !can('read', 'EvaluacionPuntaje')) {
         return (
