@@ -444,3 +444,116 @@
   color: #adb5bd; content: attr(data-placeholder);
   float: left; height: 0; pointer-events: none;
 }
+
+/* ===== TABLAS ELEGANTES PARA DESCRIPCIONES Y CONTENIDO RICO (RTE / PROSE) ===== */
+.rte-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05);
+  -webkit-overflow-scrolling: touch;
+}
+
+.rte-content table,
+.prose table,
+.rte-table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 1rem 0 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+  background: var(--card) !important;
+}
+
+.rte-content thead,
+.prose thead,
+.rte-table thead {
+  background: hsl(var(--primary-h) var(--primary-s) 95%) !important;
+}
+
+.dark .rte-content thead,
+.dark .prose thead,
+.dark .rte-table thead {
+  background: hsl(var(--primary-h) var(--primary-s) 18%) !important;
+}
+
+.rte-content th,
+.prose th,
+.rte-table th,
+.rte-th {
+  color: var(--primary) !important;
+  font-weight: 800 !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  padding: 0.85rem 1.1rem !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  text-align: left !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+.rte-content th:last-child,
+.prose th:last-child,
+.rte-table th:last-child,
+.rte-th:last-child {
+  border-right: none !important;
+}
+
+.rte-content td,
+.prose td,
+.rte-table td,
+.rte-td {
+  padding: 0.8rem 1.1rem !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  vertical-align: top !important;
+  font-size: 0.875rem !important;
+}
+
+.rte-content td:last-child,
+.prose td:last-child,
+.rte-table td:last-child,
+.rte-td:last-child {
+  border-right: none !important;
+}
+
+.rte-content tbody tr:last-child td,
+.prose tbody tr:last-child td,
+.rte-table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+.rte-content tbody tr:nth-child(even),
+.prose tbody tr:nth-child(even),
+.rte-table tbody tr:nth-child(even) {
+  background: hsl(var(--primary-h) var(--primary-s) 98% / 0.7) !important;
+}
+
+.dark .rte-content tbody tr:nth-child(even),
+.dark .prose tbody tr:nth-child(even),
+.dark .rte-table tbody tr:nth-child(even) {
+  background: hsl(var(--primary-h) var(--primary-s) 20% / 0.25) !important;
+}
+
+.rte-content tbody tr:hover td,
+.prose tbody tr:hover td,
+.rte-table tbody tr:hover td {
+  background: hsl(var(--primary-h) var(--primary-s) 92% / 0.5) !important;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.dark .rte-content tbody tr:hover td,
+.dark .prose tbody tr:hover td,
+.dark .rte-table tbody tr:hover td {
+  background: hsl(var(--primary-h) var(--primary-s) 30% / 0.35) !important;
+}

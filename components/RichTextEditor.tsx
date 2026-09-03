@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import {
     Bold, Italic, List, Heading1, Heading2,
     Link as LinkIcon, Image as ImageIcon,
-    Video, Code, Eye, Edit3, Type,
-    ChevronDown, AlignLeft, AlignCenter, AlignRight
+    Video, Eye, Edit3, Type,
+    AlignLeft, AlignCenter, AlignRight, Table,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,8 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
     const editorRef = useRef<HTMLDivElement>(null);
     const [isPreview, setIsPreview] = useState(false);
     const [focused, setFocused] = useState(false);
+    const [tablePickerOpen, setTablePickerOpen] = useState(false);
+    const [hovered, setHovered] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
 
     const cleanHtml = (html: string): string => {
         if (!html) return '';
@@ -101,9 +103,25 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
 
     const insertLink = () => {
         const url = prompt('Ingresa la URL del enlace:');
-        if (url) {
-            execCommand('createLink', url);
-        }
+        if (url) execCommand('createLink', url);
+    };
+
+    const insertTable = (rows: number, cols: number) => {
+        setTablePickerOpen(false);
+        if (rows < 1 || cols < 1) return;
+        const headerCells = Array.from({ length: cols })
+            .map((_, c) => `<th class="rte-th">Columna ${c + 1}</th>`)
+            .join('');
+        const bodyRows = Array.from({ length: Math.max(rows - 1, 1) })
+            .map(() => {
+                const cells = Array.from({ length: cols })
+                    .map(() => `<td class="rte-td"><br></td>`)
+                    .join('');
+                return `<tr>${cells}</tr>`;
+            })
+            .join('');
+        const html = `<div class="rte-table-wrap"><table class="rte-table"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table></div><p><br></p>`;
+        execCommand('insertHTML', html);
     };
 
     return (
@@ -143,10 +161,48 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                             <ToolbarButton onClick={() => execCommand('justifyRight')} icon={AlignRight} label="Derecha" />
                         </div>
 
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-border">
                             <ToolbarButton onClick={insertLink} icon={LinkIcon} label="Enlace" />
                             <ToolbarButton onClick={insertImage} icon={ImageIcon} label="Imagen" />
                             <ToolbarButton onClick={insertYoutube} icon={Video} label="Video YT" className="text-red-500 hover:bg-red-500/10" />
+                        </div>
+
+                        {/* Table picker */}
+                        <div className="relative">
+                            <ToolbarButton
+                                onClick={() => setTablePickerOpen(o => !o)}
+                                icon={Table}
+                                label="Tabla"
+                                className={tablePickerOpen ? 'bg-primary/10 text-primary' : ''}
+                            />
+                            {tablePickerOpen && (
+                                <div
+                                    className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-2xl p-3 shadow-2xl"
+                                    onMouseLeave={() => setHovered({ r: 0, c: 0 })}
+                                >
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2 text-center">
+                                        {hovered.r > 0 && hovered.c > 0 ? `${hovered.r} × ${hovered.c}` : 'Elige tamaño'}
+                                    </p>
+                                    <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(6, 1.5rem)' }}>
+                                        {Array.from({ length: 6 }).flatMap((_, r) =>
+                                            Array.from({ length: 6 }).map((_, c) => (
+                                                <button
+                                                    key={`${r}-${c}`}
+                                                    type="button"
+                                                    onMouseEnter={() => setHovered({ r: r + 1, c: c + 1 })}
+                                                    onClick={() => insertTable(r + 1, c + 1)}
+                                                    className={cn(
+                                                        'w-6 h-6 rounded border transition-all',
+                                                        r < hovered.r && c < hovered.c
+                                                            ? 'bg-primary border-primary'
+                                                            : 'bg-muted/60 border-border hover:bg-primary/20'
+                                                    )}
+                                                />
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}
@@ -156,7 +212,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
             <div className="relative min-h-[200px] flex flex-col">
                 {isPreview ? (
                     <div
-                        className="p-6 prose dark:prose-invert prose-sm max-w-none bg-card min-h-[200px] overflow-y-auto"
+                        className="p-6 prose dark:prose-invert prose-sm max-w-none bg-card min-h-[200px] overflow-y-auto rte-content"
                         dangerouslySetInnerHTML={{ __html: value || '<p class="text-muted-foreground italic">Vista previa vacía...</p>' }}
                     />
                 ) : (
@@ -166,7 +222,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                         onInput={handleInput}
                         onFocus={() => setFocused(true)}
                         onBlur={handleBlur}
-                        className="p-6 outline-none min-h-[200px] text-foreground font-medium leading-relaxed prose dark:prose-invert prose-sm max-w-none"
+                        className="p-6 outline-none min-h-[200px] text-foreground font-medium leading-relaxed prose dark:prose-invert prose-sm max-w-none rte-content"
                     />
                 )}
 
@@ -190,6 +246,21 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                 .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
                 .prose img { max-width: 100%; border-radius: 1rem; }
                 .prose iframe { border-radius: 1rem; width: 100%; aspect-ratio: 16/9; }
+
+                /* ── Tabla generada por el editor ─────────────────────── */
+                .rte-table-wrap { overflow-x: auto; margin: 1.25rem 0; border-radius: 0.75rem; border: 1px solid hsl(var(--border)); box-shadow: 0 1px 4px 0 rgb(0 0 0 / .06); }
+                .rte-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+                .rte-th { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.55rem 0.85rem; border: 1px solid hsl(var(--border)); text-align: left; white-space: nowrap; }
+                .rte-td { padding: 0.5rem 0.85rem; border: 1px solid hsl(var(--border)); vertical-align: top; min-width: 80px; line-height: 1.5; }
+                .rte-table tbody tr:nth-child(even) .rte-td { background: hsl(var(--muted) / 0.35); }
+                .rte-table tbody tr:hover .rte-td { background: hsl(var(--primary) / 0.05); }
+
+                /* ── Tablas sin clases rte- (compatibilidad / copy-paste) */
+                .rte-content table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; font-size: 0.84rem; border: 1px solid hsl(var(--border)); border-radius: 0.75rem; overflow: hidden; }
+                .rte-content table th { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.55rem 0.85rem; border: 1px solid hsl(var(--border)); text-align: left; }
+                .rte-content table td { padding: 0.5rem 0.85rem; border: 1px solid hsl(var(--border)); vertical-align: top; line-height: 1.5; }
+                .rte-content table tbody tr:nth-child(even) td { background: hsl(var(--muted) / 0.35); }
+                .rte-content table tbody tr:hover td { background: hsl(var(--primary) / 0.05); }
             `}</style>
         </div>
     );

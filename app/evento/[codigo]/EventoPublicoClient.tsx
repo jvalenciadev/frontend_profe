@@ -2039,10 +2039,14 @@ export default function EventoPublicoPage() {
                         {/* ── STEP INFO ── */}
                         {step === 'info' && (
                             <motion.div key="info" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
-                                {!persona && (
-                                    <div className="bg-card border border-border rounded-3xl p-8">
-                                        <h2 className="text-lg font-black uppercase text-foreground mb-3">Descripción</h2>
-                                        <div className="text-muted-foreground leading-relaxed italic prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: evento.descripcion }} />
+                                {/* ── DESCRIPCIÓN DEL EVENTO ── */}
+                                {evento.descripcion && (
+                                    <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-sm">
+                                        <h2 className="text-lg font-black uppercase text-foreground mb-4 flex items-center gap-2.5">
+                                            <span className="w-2 h-2 rounded-full bg-primary" />
+                                            Descripción del Evento
+                                        </h2>
+                                        <div className="text-foreground/90 leading-relaxed prose dark:prose-invert max-w-none rte-content overflow-x-auto" dangerouslySetInnerHTML={{ __html: evento.descripcion }} />
                                     </div>
                                 )}
 
