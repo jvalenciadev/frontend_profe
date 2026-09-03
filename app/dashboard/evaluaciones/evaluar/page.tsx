@@ -868,7 +868,7 @@ export default function EvaluarPersonalPage() {
             const notaFinal = result?.puntajeCalculado ?? result?.asignacionActualizada?.puntajeFinal ?? 0;
             setResultData({
                 nota: Number(notaFinal),
-                cuestionarioNombre: selectedCuestionario?.nombre || selfAsignacion?.cuestionario?.nombre || 'Cuestionario',
+                cuestionarioNombre: selectedCuestionario?.titulo || selfAsignacion?.cuestionario?.titulo || 'Cuestionario',
                 forzado,
             });
             setIsResultModalOpen(true);
