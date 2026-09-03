@@ -284,25 +284,36 @@ export default function EvaluarPersonalPage() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isSelfEvalModalOpen]);
 
-    // Criterios activos del Periodo para la asignación evaluada según su Cargo
+    // Criterios activos del Periodo para la asignación evaluada según su Cargo y Modalidad
+    // SUPERVISOR → todos los criterios del cargo
+    // PAR (Entre Pares) → SOLO el criterio con orden = 3 (Evaluación comunitaria)
     const activeCriterios = useMemo(() => {
         const period = periods.find(p => p.id === selectedPeriod);
         if (!period || !period.criterios || period.criterios.length === 0) return [];
+
+        const esPar = selectedAsignacion?.tipoEvaluacion === 'PAR';
 
         const targetCargoId = selectedAsignacion?.cargoId
             || selectedAsignacion?.cargo?.id
             || selectedAsignacion?.evaluado?.cargoPostulacionId
             || selectedAsignacion?.evaluado?.cargoPostulacion?.id;
 
+        let criteriosFiltrados = period.criterios;
+
         if (targetCargoId) {
-            return period.criterios.filter(c => {
+            criteriosFiltrados = period.criterios.filter(c => {
                 const tieneCargosConfigurados = c.cargos && c.cargos.length > 0;
-                if (!tieneCargosConfigurados) return true; // Criterio general
+                if (!tieneCargosConfigurados) return true;
                 return c.cargos!.some(cg => cg.cargoId === targetCargoId || (cg as any).cargo?.id === targetCargoId);
             });
         }
 
-        return period.criterios;
+        // Restricción de modalidad Entre Pares: solo criterio con orden 3
+        if (esPar) {
+            criteriosFiltrados = criteriosFiltrados.filter(c => Number(c.orden) === 3);
+        }
+
+        return criteriosFiltrados;
     }, [selectedPeriod, selectedAsignacion, periods]);
 
     // Agrupación de misEvaluacionesPropias en tarjetas consolidadas (UNA SOLA TARJETA POR CARGO/ROL)
@@ -396,21 +407,30 @@ export default function EvaluarPersonalPage() {
         setRespuestasMap({});
         setTimeLeftSeconds(null);
 
-        // Obtener criterios del periodo aplicables estrictamente al cargo del evaluado
+        // Obtener criterios del periodo aplicables al cargo del evaluado y a la modalidad
+        // SUPERVISOR → todos; PAR → solo orden 3 (Evaluación comunitaria)
+        const esPar = asignacion.tipoEvaluacion === 'PAR';
         const targetCargoId = asignacion.cargoId
             || asignacion.cargo?.id
             || asignacion.evaluado?.cargoPostulacionId
             || asignacion.evaluado?.cargoPostulacion?.id;
 
-        const periodCriterios = (period.criterios || []).filter(c => {
+        let periodCriterios = (period.criterios || []).filter(c => {
             const tieneCargosConfigurados = c.cargos && c.cargos.length > 0;
             if (!tieneCargosConfigurados) return true;
             if (!targetCargoId) return false;
             return c.cargos!.some(cg => cg.cargoId === targetCargoId || (cg as any).cargo?.id === targetCargoId);
         });
 
+        if (esPar) {
+            periodCriterios = periodCriterios.filter(c => Number(c.orden) === 3);
+        }
+
         if (periodCriterios.length === 0) {
-            toast.error('No hay criterios configurados en este periodo para el cargo de este funcionario.');
+            const msg = esPar
+                ? 'No hay criterio de Evaluación Comunitaria (orden 3) configurado para el cargo de este funcionario.'
+                : 'No hay criterios configurados en este periodo para el cargo de este funcionario.';
+            toast.error(msg);
             return;
         }
 
@@ -632,7 +652,12 @@ export default function EvaluarPersonalPage() {
     // Helper para resolver el porcentaje de progreso evaluado de una asignación
     const getAsignacionProgreso = (asig: EvaluacionAdmins) => {
         const period = periods.find(p => p.id === selectedPeriod);
-        const crits = period?.criterios?.filter(cr => !asig.cargoId || !cr.cargos?.length || cr.cargos.some(cg => cg.cargoId === asig.cargoId)) || [];
+        let crits = period?.criterios?.filter(cr => !asig.cargoId || !cr.cargos?.length || cr.cargos.some(cg => cg.cargoId === asig.cargoId)) || [];
+
+        // Si es Entre Pares, el funcionario solo evalúa el Criterio 3 (Evaluación comunitaria)
+        if (asig.tipoEvaluacion === 'PAR') {
+            crits = crits.filter(cr => Number(cr.orden) === 3);
+        }
 
         let totalSub = 0;
         crits.forEach(cr => {
@@ -646,7 +671,12 @@ export default function EvaluarPersonalPage() {
 
         // Consolidar respuestas únicas de todos los intentos de esta asignación
         const todasRespuestas = asig.intentos?.flatMap((i: any) => i.respuestas || []) || [];
-        const uniqueSubcriterios = new Set(todasRespuestas.map((r: any) => r.subcriterioId));
+        const subcritIdsPermitidos = new Set(crits.flatMap(cr => (cr.subcriterios || []).map((s: any) => s.id)));
+        const uniqueSubcriterios = new Set(
+            todasRespuestas
+                .filter((r: any) => subcritIdsPermitidos.size === 0 || subcritIdsPermitidos.has(r.subcriterioId))
+                .map((r: any) => r.subcriterioId)
+        );
         const respondidos = uniqueSubcriterios.size;
 
         if (totalSub > 0) {
@@ -1167,6 +1197,7 @@ export default function EvaluarPersonalPage() {
                                     <tr>
                                         <th className="py-4 px-6">Funcionario a Evaluar</th>
                                         <th className="py-4 px-6">Cargo</th>
+                                        <th className="py-4 px-6">Modalidad</th>
                                         <th className="py-4 px-6">Cuestionario Asignado</th>
                                         <th className="py-4 px-6">Estado / Avance / Última Fecha</th>
                                         <th className="py-4 px-6 text-right">Acción</th>
@@ -1175,6 +1206,16 @@ export default function EvaluarPersonalPage() {
                                 <tbody className="divide-y divide-border/20">
                                     {filteredMisAsignaciones.map((asig) => {
                                         const ultimaFecha = getUltimaFechaEvaluacion(asig);
+                                        const modalidadLabel = asig.tipoEvaluacion === 'PAR'
+                                            ? 'Entre Pares'
+                                            : asig.tipoEvaluacion === 'SUBORDINADO'
+                                                ? 'Equipo'
+                                                : 'Supervisor';
+                                        const modalidadColor = asig.tipoEvaluacion === 'PAR'
+                                            ? 'bg-violet-500/10 text-violet-600 border-violet-500/20'
+                                            : asig.tipoEvaluacion === 'SUBORDINADO'
+                                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                                : 'bg-primary/10 text-primary border-primary/20';
                                         return (
                                             <tr key={asig.id} className="hover:bg-secondary/20 transition-colors">
                                                 <td className="py-4 px-6">
@@ -1190,6 +1231,17 @@ export default function EvaluarPersonalPage() {
                                                 </td>
                                                 <td className="py-4 px-6 font-semibold text-foreground">
                                                     {asig.cargo?.nombre || asig.evaluado?.cargoPostulacion?.nombre || 'General / Sin Cargo'}
+                                                </td>
+                                                <td className="py-4 px-6">
+                                                    <span className={cn(
+                                                        "px-2.5 py-1 rounded-full text-[10px] font-black uppercase border",
+                                                        modalidadColor
+                                                    )}>
+                                                        {modalidadLabel}
+                                                    </span>
+                                                    {asig.tipoEvaluacion === 'PAR' && (
+                                                        <p className="text-[9px] text-muted-foreground mt-1">Solo Criterio Comunitario</p>
+                                                    )}
                                                 </td>
                                                 <td className="py-4 px-6 text-muted-foreground">
                                                     {asig.cuestionario?.titulo || 'Cuestionario Estándar'}
@@ -1699,8 +1751,20 @@ export default function EvaluarPersonalPage() {
                     <div className="space-y-6 px-1 pt-1">
                         {/* Cabecera del Evaluado & Temporizador */}
                         <div className="p-5 rounded-3xl bg-secondary/30 border border-border/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-primary">Funcionario Evaluado</span>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-primary">Funcionario Evaluado</span>
+                                    <span className={cn(
+                                        "px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border",
+                                        selectedAsignacion.tipoEvaluacion === 'PAR'
+                                            ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                                            : "bg-primary/10 text-primary border-primary/20"
+                                    )}>
+                                        {selectedAsignacion.tipoEvaluacion === 'PAR'
+                                            ? 'Modalidad: Entre Pares (Evaluación Comunitaria)'
+                                            : 'Modalidad: Supervisión Directa (Todos los Criterios)'}
+                                    </span>
+                                </div>
                                 <h3 className="text-base font-black text-foreground uppercase">
                                     {selectedAsignacion.evaluado?.nombre} {selectedAsignacion.evaluado?.apellidos}
                                 </h3>

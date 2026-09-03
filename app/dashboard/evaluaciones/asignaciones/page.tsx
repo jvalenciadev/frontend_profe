@@ -608,9 +608,21 @@ export default function AsignacionesEvaluacionPage() {
                                                 {a.cuestionario?.titulo || 'Cuestionario Estándar'}
                                             </td>
                                             <td className="py-4 px-6">
-                                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary uppercase">
+                                                <span className={cn(
+                                                    "px-2.5 py-1 rounded-full text-[10px] font-black uppercase border",
+                                                    a.tipoEvaluacion === 'PAR'
+                                                        ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                                                        : a.tipoEvaluacion === 'SUBORDINADO'
+                                                            ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                            : "bg-primary/10 text-primary border-primary/20"
+                                                )}>
                                                     {modalidadLabel}
                                                 </span>
+                                                {a.tipoEvaluacion === 'PAR' && (
+                                                    <span className="block text-[9px] font-semibold text-muted-foreground mt-0.5">
+                                                        Criterio 3 (Comunitaria)
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="py-4 px-6">
                                                 {a.estadoEvaluacion === 'COMPLETADO' ? (
@@ -695,9 +707,9 @@ export default function AsignacionesEvaluacionPage() {
                                 onChange={(e) => setTipoEvaluacion(e.target.value)}
                                 className="w-full p-2.5 rounded-2xl border border-border bg-card text-xs font-semibold focus:ring-2 focus:ring-primary/20 text-foreground"
                             >
-                                <option value="SUPERVISOR">Supervisión Directa</option>
-                                <option value="PAR">Evaluación entre Pares</option>
-                                <option value="SUBORDINADO">Evaluación de Equipo</option>
+                                <option value="SUPERVISOR">Supervisión Directa (Todos los criterios)</option>
+                                <option value="PAR">Entre Pares (Solo Criterio 3: Comunitaria)</option>
+                                <option value="SUBORDINADO">Evaluación de Equipo (Subordinado)</option>
                             </select>
                         </div>
 
@@ -952,8 +964,8 @@ export default function AsignacionesEvaluacionPage() {
                             </label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 {[
-                                    { id: 'SUPERVISOR', title: 'Supervisión Directa', desc: 'Evaluación jerárquica directa' },
-                                    { id: 'PAR', title: 'Entre Pares', desc: 'Evaluación mutua entre colegas' },
+                                    { id: 'SUPERVISOR', title: 'Supervisión Directa', desc: 'Evaluación jerárquica (todos los criterios)' },
+                                    { id: 'PAR', title: 'Entre Pares', desc: 'Evaluación comunitaria (Criterio 3)' },
                                     { id: 'SUBORDINADO', title: 'Equipo', desc: 'Evaluación ascendente de equipo' },
                                 ].map((mod) => {
                                     const isSelected = masivaTipo === mod.id;
@@ -978,6 +990,15 @@ export default function AsignacionesEvaluacionPage() {
                                     );
                                 })}
                             </div>
+                            {masivaTipo === 'PAR' ? (
+                                <p className="text-[11px] text-violet-600 dark:text-violet-400 font-bold px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                                    💡 <strong>Modalidad Entre Pares:</strong> El evaluador asignado solo responderá el <strong>Criterio 3 (Evaluación Comunitaria)</strong>. Los demás criterios quedan reservados para la supervisión y autoevaluación.
+                                </p>
+                            ) : (
+                                <p className="text-[11px] text-primary/80 font-bold px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
+                                    💡 <strong>Modalidad Supervisión Directa:</strong> El evaluador calificará todos los criterios institucionales aplicables al cargo del funcionario.
+                                </p>
+                            )}
                         </div>
                     </div>
 
