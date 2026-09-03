@@ -5,7 +5,7 @@ import {
     Bold, Italic, List, Heading1, Heading2,
     Link as LinkIcon, Image as ImageIcon,
     Video, Eye, Edit3, Type,
-    AlignLeft, AlignCenter, AlignRight, Table,
+    AlignLeft, AlignCenter, AlignRight, Table, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -106,11 +106,19 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
         if (url) execCommand('createLink', url);
     };
 
+    const DEFAULT_TABLE_HEADERS = ['Fecha', 'Lugar', 'Título', 'Facilitador', 'Modalidad', 'Observaciones'];
+
+    const insertDefaultTable = () => {
+        setTablePickerOpen(false);
+        const html = `<div class="rte-table-wrap"><table class="rte-table"><thead><tr><th class="rte-th">Fecha</th><th class="rte-th">Lugar</th><th class="rte-th">Título / Actividad</th><th class="rte-th">Facilitador</th></tr></thead><tbody><tr><td class="rte-td">10/10/2026 · 09:00</td><td class="rte-td">Aula Magna / Virtual</td><td class="rte-td">Inauguración y Módulo 1</td><td class="rte-td">Lic. Facilitador(a)</td></tr><tr><td class="rte-td">11/10/2026 · 09:00</td><td class="rte-td">Laboratorio 1</td><td class="rte-td">Taller Práctico</td><td class="rte-td">Lic. Facilitador(a)</td></tr></tbody></table></div><p><br></p>`;
+        execCommand('insertHTML', html);
+    };
+
     const insertTable = (rows: number, cols: number) => {
         setTablePickerOpen(false);
         if (rows < 1 || cols < 1) return;
         const headerCells = Array.from({ length: cols })
-            .map((_, c) => `<th class="rte-th">Columna ${c + 1}</th>`)
+            .map((_, c) => `<th class="rte-th">${DEFAULT_TABLE_HEADERS[c] || `Columna ${c + 1}`}</th>`)
             .join('');
         const bodyRows = Array.from({ length: Math.max(rows - 1, 1) })
             .map(() => {
@@ -177,29 +185,57 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
                             />
                             {tablePickerOpen && (
                                 <div
-                                    className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-2xl p-3 shadow-2xl"
+                                    className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-2xl p-3.5 shadow-2xl min-w-[260px]"
                                     onMouseLeave={() => setHovered({ r: 0, c: 0 })}
                                 >
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2 text-center">
-                                        {hovered.r > 0 && hovered.c > 0 ? `${hovered.r} × ${hovered.c}` : 'Elige tamaño'}
-                                    </p>
-                                    <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(6, 1.5rem)' }}>
-                                        {Array.from({ length: 6 }).flatMap((_, r) =>
-                                            Array.from({ length: 6 }).map((_, c) => (
-                                                <button
-                                                    key={`${r}-${c}`}
-                                                    type="button"
-                                                    onMouseEnter={() => setHovered({ r: r + 1, c: c + 1 })}
-                                                    onClick={() => insertTable(r + 1, c + 1)}
-                                                    className={cn(
-                                                        'w-6 h-6 rounded border transition-all',
-                                                        r < hovered.r && c < hovered.c
-                                                            ? 'bg-primary border-primary'
-                                                            : 'bg-muted/60 border-border hover:bg-primary/20'
-                                                    )}
-                                                />
-                                            ))
-                                        )}
+                                    {/* Botón por defecto: 1 clic */}
+                                    <div className="space-y-1.5 pb-2.5 border-b border-border/50 mb-2.5">
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+                                            Tabla Predeterminada (1 Clic)
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={insertDefaultTable}
+                                            className="w-full text-left px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 transition-all text-xs font-bold flex items-center justify-between group"
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5">
+                                                    <Sparkles className="w-3 h-3 text-primary" />
+                                                    Cronograma Oficial
+                                                </span>
+                                                <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-primary/80 mt-0.5">
+                                                    Fecha · Lugar · Título · Facilitador
+                                                </span>
+                                            </div>
+                                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-primary text-white">
+                                                Insertar
+                                            </span>
+                                        </button>
+                                    </div>
+
+                                    {/* Cuadrícula libre */}
+                                    <div>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 text-center">
+                                            {hovered.r > 0 && hovered.c > 0 ? `${hovered.r} filas × ${hovered.c} cols` : 'O personaliza el tamaño'}
+                                        </p>
+                                        <div className="grid gap-1 justify-center" style={{ gridTemplateColumns: 'repeat(6, 1.5rem)' }}>
+                                            {Array.from({ length: 6 }).flatMap((_, r) =>
+                                                Array.from({ length: 6 }).map((_, c) => (
+                                                    <button
+                                                        key={`${r}-${c}`}
+                                                        type="button"
+                                                        onMouseEnter={() => setHovered({ r: r + 1, c: c + 1 })}
+                                                        onClick={() => insertTable(r + 1, c + 1)}
+                                                        className={cn(
+                                                            'w-6 h-6 rounded border transition-all',
+                                                            r < hovered.r && c < hovered.c
+                                                                ? 'bg-primary border-primary'
+                                                                : 'bg-muted/60 border-border hover:bg-primary/20'
+                                                        )}
+                                                    />
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
