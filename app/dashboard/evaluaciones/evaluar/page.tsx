@@ -699,6 +699,13 @@ export default function EvaluarPersonalPage() {
             return;
         }
 
+        const intentosCount = (asig.intentos || []).length;
+        const maxIntentos = rawCuest.maxIntentos || 1;
+        if (asig.estadoEvaluacion === 'COMPLETADO' && intentosCount >= maxIntentos) {
+            toast.error('Has alcanzado el límite máximo de intentos para esta evaluación.');
+            return;
+        }
+
         // Preparar cuestionario con barajado aleatorio de preguntas y opciones si corresponde
         const cuest = prepareCuestionarioForEvaluation(rawCuest);
         setPendingAsignacion(asig);
@@ -993,28 +1000,10 @@ export default function EvaluarPersonalPage() {
             <div className="flex items-center gap-3 border-b border-border/40 pb-4">
                 <button
                     onClick={() => setActiveTab('mis-asignaciones')}
-                    className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all",
-                        activeTab === 'mis-asignaciones'
-                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    )}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 >
                     <UserCheck className="w-4 h-4" />
                     Personal que debo Evaluar ({filteredMisAsignaciones.length})
-                </button>
-
-                <button
-                    onClick={() => setActiveTab('todo-el-personal')}
-                    className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all",
-                        activeTab === 'todo-el-personal'
-                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    )}
-                >
-                    <Users className="w-4 h-4" />
-                    Consolidado General ({allUsersToEvaluate.length})
                 </button>
             </div>
             )}
@@ -1213,6 +1202,9 @@ export default function EvaluarPersonalPage() {
                             const ultimoIntentoExamen = intentosExamen[0]; // ordenados desc
                             const isExamenCompleted = autoAsig?.estadoEvaluacion === 'COMPLETADO';
                             const notaExamen = autoAsig?.puntajeFinal ?? ultimoIntentoExamen?.puntajeObtenido ?? null;
+                            const maxIntentos = cuest?.maxIntentos || 1;
+                            const intentosAgotados = intentosExamen.length >= maxIntentos;
+                            const yaNoPuedeRendir = isExamenCompleted && intentosAgotados;
 
                             // ── Datos de Evaluadores (supervisores) ──
                             const supervisores = grupo.supervisorAsigs;
@@ -1464,11 +1456,11 @@ export default function EvaluarPersonalPage() {
                                     <button
                                         type="button"
                                         onClick={() => handlePromptStartSelfEval(autoAsig || asig)}
-                                        disabled={submitting || cuest?.estado === 'inactivo'}
+                                        disabled={submitting || cuest?.estado === 'inactivo' || yaNoPuedeRendir}
                                         className={cn(
                                             "w-full py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm",
-                                            cuest?.estado === 'inactivo'
-                                                ? "bg-secondary text-muted-foreground cursor-not-allowed opacity-60 border border-border/40"
+                                            cuest?.estado === 'inactivo' || yaNoPuedeRendir
+                                                ? "bg-secondary text-muted-foreground cursor-not-allowed opacity-70 border border-border/40"
                                                 : isExamenCompleted
                                                     ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 cursor-pointer"
                                                     : "bg-primary text-primary-foreground hover:opacity-90 shadow-primary/20 cursor-pointer"
@@ -1478,14 +1470,18 @@ export default function EvaluarPersonalPage() {
                                             <Loader2 className="w-4 h-4 animate-spin" />
                                         ) : cuest?.estado === 'inactivo' ? (
                                             <Lock className="w-4 h-4" />
+                                        ) : yaNoPuedeRendir ? (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                         ) : (
                                             <Sparkles className="w-4 h-4" />
                                         )}
                                         {cuest?.estado === 'inactivo'
                                             ? 'Evaluación Deshabilitada'
-                                            : isExamenCompleted
-                                                ? 'Revisar / Volver a Rendir'
-                                                : 'Iniciar Cuestionario'}
+                                            : yaNoPuedeRendir
+                                                ? 'Evaluación Completada'
+                                                : isExamenCompleted
+                                                    ? 'Volver a Rendir'
+                                                    : 'Iniciar Cuestionario'}
                                     </button>
                                 </motion.div>
                             );
