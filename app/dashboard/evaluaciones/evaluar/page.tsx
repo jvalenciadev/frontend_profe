@@ -136,10 +136,17 @@ export default function EvaluarPersonalPage() {
                 isSuperAdmin ? departmentService.getAll().catch(() => []) : Promise.resolve([]),
             ]);
 
-            setPeriods(pData || []);
+            // Filtrar solo períodos activos y cuya fechaFin no haya pasado
+            const now = new Date();
+            const validPeriods = (pData || []).filter((p: any) => {
+                if (!p.activo) return false;
+                if (p.fechaFin && new Date(p.fechaFin) < now) return false;
+                return true;
+            });
+            setPeriods(validPeriods);
             setDepartments(dData || []);
 
-            const active = pData && pData.length > 0 ? (pData.find((p: any) => p.activo) || pData[0]) : null;
+            const active = validPeriods.length > 0 ? (validPeriods.find((p: any) => p.activo) || validPeriods[0]) : null;
             if (active) {
                 setSelectedPeriod(active.id);
                 const targetTenant = isSuperAdmin ? selectedDept : (user?.tenantId || '');
@@ -922,9 +929,12 @@ export default function EvaluarPersonalPage() {
                             onChange={(e) => handlePeriodChange(e.target.value)}
                             className="bg-transparent border-none text-xs font-bold focus:ring-0 cursor-pointer text-foreground"
                         >
+                            {periods.length === 0 && (
+                                <option value="" disabled>Sin períodos activos disponibles</option>
+                            )}
                             {periods.map(p => (
                                 <option key={p.id} value={p.id}>
-                                    {p.gestion} - {p.periodo} ({p.semestre}) {p.activo ? '(Activo)' : ''}
+                                    {p.gestion} - {p.semestre}
                                 </option>
                             ))}
                         </select>
@@ -967,6 +977,19 @@ export default function EvaluarPersonalPage() {
             </div>
 
             {/* Selector de Pestañas */}
+            {periods.length === 0 && !loading ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-24 border-2 border-dashed border-border/40 rounded-3xl text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                        <Lock className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="font-black text-foreground uppercase tracking-wide text-sm">Sin períodos activos</p>
+                        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                            No existe ningún período de evaluación activo en este momento o todos han concluido su fecha límite. Comuníquese con el Administrador para activar un nuevo período.
+                        </p>
+                    </div>
+                </div>
+            ) : (
             <div className="flex items-center gap-3 border-b border-border/40 pb-4">
                 <button
                     onClick={() => setActiveTab('mis-asignaciones')}
@@ -994,6 +1017,7 @@ export default function EvaluarPersonalPage() {
                     Consolidado General ({allUsersToEvaluate.length})
                 </button>
             </div>
+            )}
 
             {/* Buscador */}
             <div className="relative w-full sm:w-96">
