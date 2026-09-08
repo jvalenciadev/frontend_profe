@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { ImageUpload } from '@/components/ui/ImageUpload';
@@ -21,7 +21,7 @@ import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
-// â”€â”€â”€ Paleta de colores por tipo de evento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Paleta de colores por tipo de evento ──────────────────────────
 const TIPO_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
     default: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/30', dot: 'bg-primary' },
     congreso: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', dot: 'bg-purple-500' },
@@ -38,12 +38,143 @@ function getTipoColor(nombre?: string) {
 }
 
 function formatDate(dateStr: string) {
-    if (!dateStr) return 'â€”';
+    if (!dateStr) return '\u2014';
     const match = dateStr.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
     if (!match) return String(dateStr);
     const [_, year, month, day] = match;
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     return `${day} ${months[parseInt(month) - 1]} ${year}`;
+}
+
+function CampoOpcionesEditor({
+    value,
+    onChange,
+    tipo,
+}: {
+    value: string | string[];
+    onChange: (val: string) => void;
+    tipo: string;
+}) {
+    const [inputValue, setInputValue] = useState('');
+
+    const options: string[] = useMemo(() => {
+        if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+        if (typeof value === 'string') {
+            return value.split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        }
+        return [];
+    }, [value]);
+
+    const addOption = (text: string) => {
+        if (!text || !text.trim()) return;
+        const rawParts = text.split(',');
+        const newItems: string[] = [];
+        for (const p of rawParts) {
+            const trimmed = p.trim().replace(/^["']|["']$/g, '');
+            if (trimmed && !options.includes(trimmed) && !newItems.includes(trimmed)) {
+                newItems.push(trimmed);
+            }
+        }
+        if (newItems.length === 0) {
+            setInputValue('');
+            return;
+        }
+        const updated = [...options, ...newItems];
+        onChange(updated.join(', '));
+        setInputValue('');
+    };
+
+    const removeOption = (indexToRemove: number) => {
+        const updated = options.filter((_, idx) => idx !== indexToRemove);
+        onChange(updated.join(', '));
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addOption(inputValue);
+        } else if (e.key === ',') {
+            e.preventDefault();
+            addOption(inputValue);
+        }
+    };
+
+    return (
+        <div className="space-y-3 pt-3 border-t border-border/40 text-left">
+            <div className="flex items-center justify-between">
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-foreground flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-primary" />
+                        Opciones de Selección ({tipo === 'SINGLE_SELECT' ? 'Única' : 'Múltiple'})
+                        {options.length > 0 && (
+                            <span className="ml-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-black">
+                                {options.length} {options.length === 1 ? 'opción' : 'opciones'}
+                            </span>
+                        )}
+                    </label>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                        Define los valores que el participante podrá elegir en el formulario.
+                    </p>
+                </div>
+            </div>
+
+            <div className="flex gap-2">
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        value={inputValue}
+                        onChange={e => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Escribe una opción y presiona Enter o separa por comas (ej. Docente, Estudiante)..."
+                        className="w-full h-10 px-4 rounded-xl bg-card border border-border focus:border-primary outline-none text-xs font-medium placeholder:text-muted-foreground/60 transition-all"
+                    />
+                </div>
+                <button
+                    type="button"
+                    onClick={() => addOption(inputValue)}
+                    disabled={!inputValue.trim()}
+                    className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm shrink-0"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                </button>
+            </div>
+
+            {options.length > 0 ? (
+                <div className="space-y-1.5">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Opciones configuradas (haz clic en ✕ para quitar):
+                    </p>
+                    <div className="flex flex-wrap gap-2 p-3 rounded-2xl bg-card/60 border border-border/60 min-h-[48px] items-center">
+                        {options.map((opt, optIdx) => (
+                            <span
+                                key={optIdx}
+                                className="inline-flex items-center gap-2 pl-2.5 pr-1.5 py-1 rounded-xl bg-background border border-border text-xs font-bold text-foreground shadow-2xs hover:border-primary/50 transition-all"
+                            >
+                                <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[9px] flex items-center justify-center font-black">
+                                    {optIdx + 1}
+                                </span>
+                                <span>{opt}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => removeOption(optIdx)}
+                                    className="w-5 h-5 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-red-500 hover:text-white transition-all ml-0.5"
+                                    title={`Eliminar "${opt}"`}
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className="p-3.5 rounded-xl bg-muted/20 border border-dashed border-border text-center">
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                        💡 Sin opciones aún. Escribe arriba opciones como <span className="font-bold text-foreground">Docente, Estudiante, Particular</span> y haz clic en Agregar o presiona Enter.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default function EventosPage() {
@@ -306,7 +437,7 @@ export default function EventosPage() {
                 </div>
             </div>
 
-            {/* â”€â”€ FILTROS Y BÃšSQUEDA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── FILTROS Y BÚSQUEDA ── */}
             <div className="flex flex-wrap gap-3 mb-6 items-center">
                 <div className="relative flex-1 min-w-52">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -348,7 +479,7 @@ export default function EventosPage() {
                 </div>
             </div>
 
-            {/* â”€â”€ CONTENIDO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── CONTENIDO ── */}
             {loading ? (
                 <div className="space-y-3">
                     {Array(5).fill(0).map((_, i) => (
@@ -360,10 +491,10 @@ export default function EventosPage() {
                     className="flex flex-col items-center justify-center py-32 text-muted-foreground/30">
                     <Calendar className="w-16 h-16 mb-4" strokeWidth={1} />
                     <p className="text-sm font-black uppercase tracking-widest">Sin eventos registrados</p>
-                    <p className="text-xs mt-1">Crea el primero con el botÃ³n de arriba</p>
+                    <p className="text-xs mt-1">Crea el primero con el botón de arriba</p>
                 </motion.div>
             ) : viewMode === 'table' ? (
-                /* â”€â”€ VISTA TABLA â”€â”€ */
+                /* ── VISTA TABLA ── */
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     className="bg-card border border-border/60 rounded-3xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
@@ -378,7 +509,7 @@ export default function EventosPage() {
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Asistidos</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Estado</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Modalidad</th>
-                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">InscripciÃ³n</th>
+                                    <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Inscripción</th>
                                     <th className="text-center px-4 py-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Acciones</th>
                                 </tr>
                             </thead>
@@ -425,7 +556,7 @@ export default function EventosPage() {
                                                             {tipoNombre}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-muted-foreground text-xs">â€”</span>
+                                                        <span className="text-muted-foreground text-xs">{'\u2014'}</span>
                                                     )}
                                                 </td>
                                                 {/* Fecha */}
@@ -439,7 +570,7 @@ export default function EventosPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[160px]">
                                                         <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                                        <span className="truncate">{evento.lugar || 'â€”'}</span>
+                                                        <span className="truncate">{evento.lugar || '\u2014'}</span>
                                                     </div>
                                                 </td>
                                                 {/* Inscritos */}
@@ -468,10 +599,10 @@ export default function EventosPage() {
                                                             {modalidades.find(m => m.id === evento.modalidadIds)?.nombre}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-muted-foreground text-[10px]">â€”</span>
+                                                        <span className="text-muted-foreground text-[10px]">{'\u2014'}</span>
                                                     )}
                                                 </td>
-                                                {/* InscripciÃ³n */}
+                                                {/* Inscripción */}
                                                 <td className="px-4 py-4 text-center">
                                                     {(evento as any).inscripcionAbierta ? (
                                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500/10 text-green-400 text-[10px] font-black border border-green-500/20">
@@ -521,7 +652,7 @@ export default function EventosPage() {
                     </div>
                 </motion.div>
             ) : (
-                /* â”€â”€ VISTA GRID â”€â”€ */
+                /* ── VISTA GRID ── */
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     <AnimatePresence>
                         {filteredEventos.map((evento, idx) => {
@@ -576,7 +707,7 @@ export default function EventosPage() {
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                                     <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                                    <span className="truncate">{evento.lugar || 'â€”'}</span>
+                                                    <span className="truncate">{evento.lugar || '\u2014'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-blue-400">
                                                     <Users className="w-3.5 h-3.5" />
@@ -632,7 +763,7 @@ export default function EventosPage() {
                 </div>
             )}
 
-            {/* â”€â”€ MODAL CREAR/EDITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── MODAL CREAR/EDITAR ── */}
             {/* MODAL CREAR/EDITAR */}
             <AnimatePresence>
                 {isModalOpen && (
@@ -878,7 +1009,16 @@ export default function EventosPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            const newFields = [...formData.camposExtras, { label: '', tipo: 'TEXTO', esObligatorio: false, orden: formData.camposExtras.length }];
+                                                            const newFields = [
+                                                                ...formData.camposExtras,
+                                                                {
+                                                                    label: '',
+                                                                    tipo: 'SINGLE_SELECT',
+                                                                    opciones: '',
+                                                                    esObligatorio: false,
+                                                                    orden: formData.camposExtras.length
+                                                                }
+                                                            ];
                                                             setFormData({ ...formData, camposExtras: newFields });
                                                         }}
                                                         className="h-9 px-4 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center gap-2"
@@ -926,10 +1066,10 @@ export default function EventosPage() {
                                                                         }}
                                                                         className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-bold"
                                                                     >
-                                                                        <option value="TEXTO">Respuesta Abierta (Texto)</option>
-                                                                        <option value="BOOLEAN">Si / No (Boolean)</option>
                                                                         <option value="SINGLE_SELECT">Selección Única</option>
                                                                         <option value="MULTIPLE_SELECT">Selección Múltiple</option>
+                                                                        <option value="TEXTO">Respuesta Abierta (Texto)</option>
+                                                                        <option value="BOOLEAN">Si / No (Boolean)</option>
                                                                     </select>
                                                                 </div>
 
@@ -965,20 +1105,15 @@ export default function EventosPage() {
                                                             </div>
 
                                                             {(f.tipo === 'SINGLE_SELECT' || f.tipo === 'MULTIPLE_SELECT') && (
-                                                                <div className="space-y-2 text-left pt-2 border-t border-border/30">
-                                                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Opciones (separadas por coma)</label>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={typeof f.opciones === 'string' ? f.opciones : (Array.isArray(f.opciones) ? f.opciones.join(', ') : '')}
-                                                                        onChange={e => {
-                                                                            const newFields = [...formData.camposExtras];
-                                                                            newFields[i].opciones = e.target.value;
-                                                                            setFormData({ ...formData, camposExtras: newFields });
-                                                                        }}
-                                                                        className="w-full h-10 px-4 rounded-xl bg-card border border-border outline-none text-sm font-medium"
-                                                                        placeholder="Opción 1, Opción 2, Opción 3"
-                                                                    />
-                                                                </div>
+                                                                <CampoOpcionesEditor
+                                                                    value={f.opciones}
+                                                                    tipo={f.tipo}
+                                                                    onChange={val => {
+                                                                        const newFields = [...formData.camposExtras];
+                                                                        newFields[i].opciones = val;
+                                                                        setFormData({ ...formData, camposExtras: newFields });
+                                                                    }}
+                                                                />
                                                             )}
                                                         </div>
                                                     ))}
@@ -1059,7 +1194,7 @@ export default function EventosPage() {
                 )}
             </AnimatePresence>
 
-            {/* Modals de confirmaciÃ³n */}
+            {/* Modals de confirmación */}
             <ConfirmModal
                 isOpen={!!isDeleting}
                 onClose={() => setIsDeleting(null)}
