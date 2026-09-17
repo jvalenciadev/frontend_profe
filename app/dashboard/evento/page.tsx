@@ -195,7 +195,7 @@ export default function EventosPage() {
     const [formData, setFormData] = useState({
         nombre: '', descripcion: '', codigo: '', banner: '', afiche: '',
         modalidadIds: '', fecha: new Date().toISOString().split('T')[0],
-        inscripcionAbierta: true, asistencia: false, lugar: '', urlVideo: '',
+        inscripcionAbierta: true, lugar: '', urlVideo: '',
         totalInscritos: 0, estado: 'activo', tipoId: '', tenantId: '',
         camposExtras: [] as any[]
     });
@@ -248,7 +248,7 @@ export default function EventosPage() {
                 afiche: evento.afiche || '', modalidadIds: (evento as any).modalidadIds || '',
                 fecha: evento.fecha ? evento.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
                 inscripcionAbierta: (evento as any).inscripcionAbierta ?? true,
-                asistencia: evento.asistencia ?? false, lugar: evento.lugar || '',
+                lugar: evento.lugar || '',
                 urlVideo: (evento as any).urlVideo || '',
                 totalInscritos: evento.totalInscritos || 0, estado: evento.estado || 'activo',
                 tipoId: evento.tipoId || '', tenantId: evento.tenantId || '',
@@ -262,7 +262,7 @@ export default function EventosPage() {
             setFormData({
                 nombre: '', descripcion: '', codigo: '', banner: '', afiche: '',
                 modalidadIds: '', fecha: new Date().toISOString().split('T')[0],
-                inscripcionAbierta: true, asistencia: false, lugar: '', urlVideo: '',
+                inscripcionAbierta: true, lugar: '', urlVideo: '',
                 totalInscritos: 0, estado: 'activo',
                 tipoId: tipos[0]?.id || '',
                 tenantId: isSuperAdmin() ? '' : (user?.tenantId || ''),
@@ -324,6 +324,9 @@ export default function EventosPage() {
             delete (basePayload as any).deletedBy;
             delete (basePayload as any).createdAt;
             delete (basePayload as any).updatedAt;
+            // La asistencia y su código se gestionan exclusivamente desde el panel del evento
+            delete (basePayload as any).asistencia;
+            delete (basePayload as any).codigoAsistencia;
 
             const payload = {
                 ...basePayload,
@@ -334,7 +337,10 @@ export default function EventosPage() {
                 await eventoService.update(editingEvento.id, payload as any);
                 toast.success('Evento actualizado exitosamente');
             } else {
-                await eventoService.create(payload as any);
+                await eventoService.create({
+                    ...payload,
+                    asistencia: false,
+                } as any);
                 toast.success('Evento creado exitosamente');
             }
             setIsModalOpen(false);
@@ -963,36 +969,21 @@ export default function EventosPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Toggles */}
-                                                <div className="grid grid-cols-2 gap-4">
+                                                {/* Toggle Inscripción */}
+                                                <div>
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData({ ...formData, inscripcionAbierta: !formData.inscripcionAbierta })}
                                                         className={cn(
-                                                            'h-20 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2',
+                                                            'w-full h-16 rounded-2xl border-2 transition-all flex items-center justify-center gap-3',
                                                             formData.inscripcionAbierta
                                                                 ? 'bg-green-500/10 border-green-500/40 text-green-400'
                                                                 : 'bg-muted/30 border-transparent text-muted-foreground'
                                                         )}
                                                     >
                                                         <CheckCircle2 className="w-5 h-5" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest">
+                                                        <span className="text-xs font-black uppercase tracking-widest">
                                                             Inscripción {formData.inscripcionAbierta ? 'Abierta' : 'Cerrada'}
-                                                        </span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData({ ...formData, asistencia: !formData.asistencia })}
-                                                        className={cn(
-                                                            'h-20 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2',
-                                                            formData.asistencia
-                                                                ? 'bg-primary/10 border-primary/40 text-primary'
-                                                                : 'bg-muted/30 border-transparent text-muted-foreground'
-                                                        )}
-                                                    >
-                                                        <Activity className="w-5 h-5" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest">
-                                                            Control {formData.asistencia ? 'Activo' : 'Sin Asistencia'}
                                                         </span>
                                                     </button>
                                                 </div>
