@@ -37,10 +37,13 @@ import {
     X,
     ChevronDown,
     Check,
+    FileSpreadsheet,
+    Printer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { ReporteConsolidadoModal } from './ReporteConsolidadoModal';
 
 export default function AsignacionesEvaluacionPage() {
     const { user, isSuperAdmin, can } = useAbility();
@@ -59,6 +62,9 @@ export default function AsignacionesEvaluacionPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState<string>('');
     const [filterEstado, setFilterEstado] = useState<string>('');
+
+    // Modal Sábana Consolidada de Notas (Excel / PDF)
+    const [isReporteModalOpen, setIsReporteModalOpen] = useState(false);
 
     // Modal Asignación Individual
     const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
@@ -447,8 +453,16 @@ export default function AsignacionesEvaluacionPage() {
                     </div>
 
                     <button
+                        onClick={() => setIsReporteModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
+                    >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Imprimir / Reporte de Notas
+                    </button>
+
+                    <button
                         onClick={() => setIsIndividualModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-secondary text-secondary-foreground text-xs font-bold uppercase hover:bg-secondary/80 transition-all border border-border/40 shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-secondary text-secondary-foreground text-xs font-bold uppercase hover:bg-secondary/80 transition-all border border-border/40 shadow-sm cursor-pointer"
                     >
                         <UserPlus className="w-4 h-4 text-primary" />
                         Asignar 1 Evaluador
@@ -460,7 +474,7 @@ export default function AsignacionesEvaluacionPage() {
                             setIsEvaluadorDropdownOpen(false);
                             setIsMasivaModalOpen(true);
                         }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all shadow-md shadow-primary/20"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all shadow-md shadow-primary/20 cursor-pointer"
                     >
                         <Sparkles className="w-4 h-4" />
                         Asignación Masiva
@@ -1166,6 +1180,18 @@ export default function AsignacionesEvaluacionPage() {
                     </div>
                 </form>
             </Modal>
+
+            {/* Modal Sábana Consolidada de Notas (Excel & PDF) */}
+            <ReporteConsolidadoModal
+                isOpen={isReporteModalOpen}
+                onClose={() => setIsReporteModalOpen(false)}
+                asignaciones={asignaciones}
+                periods={periods}
+                selectedPeriod={selectedPeriod}
+                allUsers={allUsers}
+                cargos={cargos}
+                cuestionarios={cuestionarios}
+            />
         </div>
     );
 }
