@@ -1191,6 +1191,7 @@ export default function AsignacionesEvaluacionPage() {
                 allUsers={allUsers}
                 cargos={cargos}
                 cuestionarios={cuestionarios}
+                departments={departments}
             />
         </div>
     );
