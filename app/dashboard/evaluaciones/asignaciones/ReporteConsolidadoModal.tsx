@@ -106,11 +106,35 @@ export function ReporteConsolidadoModal({
         return 'Sin Cargo Asignado';
     };
 
-    // Criterios base del periodo ordenados
-    const baseCriterios = useMemo(() => {
-        if (!activePeriod?.criterios) return [];
-        return [...activePeriod.criterios].sort((a, b) => (a.orden || 0) - (b.orden || 0));
-    }, [activePeriod]);
+    // Agrupación de criterios en los 4 pilares reglamentarios oficiales (Orden 1, 2, 3 y 4)
+    const criteriosAgrupados = useMemo(() => {
+        return [
+            {
+                orden: 1,
+                nombre: 'Evaluación del inmediato superior y dependientes.',
+                nombreCorto: 'Inmediato Superior',
+                peso: 15,
+            },
+            {
+                orden: 2,
+                nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.',
+                nombreCorto: 'Factores Asociados (Examen)',
+                peso: 30,
+            },
+            {
+                orden: 3,
+                nombre: 'Evaluación comunitaria.',
+                nombreCorto: 'Comunitaria',
+                peso: 10,
+            },
+            {
+                orden: 4,
+                nombre: 'Recolección y verificación de evidencias.',
+                nombreCorto: 'Evidencias',
+                peso: 45,
+            },
+        ];
+    }, []);
 
     // Consolidación de todos los funcionarios evaluados
     const filasConsolidadas: FilaConsolidada[] = useMemo(() => {
@@ -128,7 +152,7 @@ export function ReporteConsolidadoModal({
             mapPorEvaluado.get(targetId)!.push(a);
         });
 
-        // 2. Procesar cada evaluado y calcular su nota
+        // 2. Procesar cada evaluado y calcular su nota en los 4 criterios
         const filas: FilaConsolidada[] = [];
 
         mapPorEvaluado.forEach((asigs, evaluadoId) => {
@@ -137,15 +161,7 @@ export function ReporteConsolidadoModal({
             const cargoNombre = getCargoNombre(userObj, cargoObj);
             const userCargoId = asigs[0]?.cargoId || userObj?.cargoPostulacionId || userObj?.cargoId || '';
 
-            // Criterios aplicables a este cargo
-            const critsCargo = baseCriterios.filter((cr) => {
-                if (!userCargoId || !cr.cargos || cr.cargos.length === 0) return true;
-                return cr.cargos.some((cg) => cg.cargoId === userCargoId || (cg as any).cargo?.id === userCargoId);
-            });
-
-            const critsToUse = critsCargo.length > 0 ? critsCargo : baseCriterios;
-
-            // Asignación de Examen Personal (autoevaluación)
+            // Asignación de Examen Personal (autoevaluación - Criterio 2)
             const autoAsig = asigs.find(
                 (a) => a.tipoEvaluacion === 'AUTOEVALUACION' || a.evaluadorId === a.evaluadoId
             );
@@ -158,7 +174,7 @@ export function ReporteConsolidadoModal({
                     ? Number(ultimoIntento.puntajeObtenido)
                     : null;
 
-            // Asignaciones de Supervisores
+            // Asignaciones de Supervisores (Criterios 1 y 4)
             const supervisorAsigs = asigs.filter(
                 (a) => a.tipoEvaluacion !== 'AUTOEVALUACION' && a.evaluadorId !== a.evaluadoId && a.tipoEvaluacion !== 'PAR'
             );
@@ -171,7 +187,7 @@ export function ReporteConsolidadoModal({
                 ? Math.round((notasSupervisores.reduce((a, b) => a + b, 0) / notasSupervisores.length) * 100) / 100
                 : null;
 
-            // Asignaciones Entre Pares (si existen para Criterio 3)
+            // Asignaciones Entre Pares (Criterio 3)
             const parAsigs = asigs.filter((a) => a.tipoEvaluacion === 'PAR');
             const paresCompletados = parAsigs.filter((s) => s.estadoEvaluacion === 'COMPLETADO');
             const notasPares = paresCompletados
@@ -182,35 +198,41 @@ export function ReporteConsolidadoModal({
                 : null;
 
             let sumaAportes = 0;
-            let todosCompletados = critsToUse.length > 0;
+            let todosCompletados = true;
             let alMenosUnoCompletado = false;
 
-            const criteriosValores = critsToUse.map((cr) => {
-                const isExamen = isCriterioCuestionarioPersonal(cr);
-                const peso = Number(cr.pesoPorcentaje) || 0;
-                const isComunitaria = Number(cr.orden) === 3 || cr.nombre.toLowerCase().includes('comunitaria');
-
+            const criteriosValores = criteriosAgrupados.map((cg) => {
                 let rendimiento = 0;
                 let isEvaluated = false;
 
-                if (isExamen) {
-                    if (notaExamen !== null) {
-                        rendimiento = notaExamen;
-                        isEvaluated = isExamenCompleted;
-                    } else {
-                        todosCompletados = false;
-                    }
-                } else if (isComunitaria && parAsigs.length > 0) {
-                    if (promedioPares !== null) {
-                        rendimiento = promedioPares;
-                        isEvaluated = true;
-                    } else if (promedioSupervisores !== null) {
+                if (cg.orden === 1) {
+                    // C1: Inmediato superior (15%)
+                    if (promedioSupervisores !== null) {
                         rendimiento = promedioSupervisores;
                         isEvaluated = true;
                     } else {
                         todosCompletados = false;
                     }
-                } else {
+                } else if (cg.orden === 2) {
+                    // C2: Factores asociados / Examen personal (30%)
+                    if (notaExamen !== null) {
+                        rendimiento = notaExamen;
+                        isEvaluated = isExamenCompleted;
+                        if (!isExamenCompleted) todosCompletados = false;
+                    } else {
+                        todosCompletados = false;
+                    }
+                } else if (cg.orden === 3) {
+                    // C3: Evaluación comunitaria (10%)
+                    const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                    if (notaCom !== null) {
+                        rendimiento = notaCom;
+                        isEvaluated = true;
+                    } else {
+                        todosCompletados = false;
+                    }
+                } else if (cg.orden === 4) {
+                    // C4: Recolección y verificación de evidencias (45%)
                     if (promedioSupervisores !== null) {
                         rendimiento = promedioSupervisores;
                         isEvaluated = true;
@@ -219,18 +241,16 @@ export function ReporteConsolidadoModal({
                     }
                 }
 
-                if (isEvaluated) {
-                    alMenosUnoCompletado = true;
-                }
+                if (isEvaluated) alMenosUnoCompletado = true;
 
-                const aporte = isEvaluated ? Math.round(((rendimiento * peso) / 100) * 100) / 100 : 0;
+                const aporte = isEvaluated ? Math.round(((rendimiento * cg.peso) / 100) * 100) / 100 : 0;
                 sumaAportes += aporte;
 
                 return {
-                    id: cr.id || String(cr.orden || 'crit'),
-                    nombre: cr.nombre,
-                    orden: Number(cr.orden) || 1,
-                    peso,
+                    id: `crit-${cg.orden}`,
+                    nombre: cg.nombre,
+                    orden: cg.orden,
+                    peso: cg.peso,
                     rendimiento,
                     aporte,
                     isEvaluated,
@@ -264,7 +284,7 @@ export function ReporteConsolidadoModal({
         });
 
         return filas.sort((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
-    }, [activePeriod, asignaciones, allUsers, baseCriterios, cargos, cuestionarios]);
+    }, [activePeriod, asignaciones, allUsers, criteriosAgrupados, cargos, cuestionarios]);
 
     // Filtrado interactivo
     const filteredFilas = useMemo(() => {
@@ -304,7 +324,7 @@ export function ReporteConsolidadoModal({
     }, [filasConsolidadas]);
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // EXPORTACIÓN A EXCEL (.XLSX)
+    // EXPORTACIÓN A EXCEL (.XLSX) - EXACTAMENTE 4 CRITERIOS
     // ─────────────────────────────────────────────────────────────────────────────
     const handleExportExcel = async () => {
         if (filteredFilas.length === 0) {
@@ -316,39 +336,38 @@ export function ReporteConsolidadoModal({
             setGeneratingExcel(true);
             const XLSX = await import('xlsx');
 
-            // Construir encabezados dinámicos de criterios
-            const critHeaders = baseCriterios.map((c, i) => `Criterio ${i + 1} (${c.pesoPorcentaje || 0}%)`);
-
             const excelRows = filteredFilas.map((f, index) => {
-                const row: Record<string, any> = {
+                const c1 = f.criteriosValores.find((v) => v.orden === 1);
+                const c2 = f.criteriosValores.find((v) => v.orden === 2);
+                const c3 = f.criteriosValores.find((v) => v.orden === 3);
+                const c4 = f.criteriosValores.find((v) => v.orden === 4);
+
+                return {
                     'N°': index + 1,
                     'CÉDULA DE IDENTIDAD': f.ci,
                     'APELLIDOS Y NOMBRES': f.nombreCompleto,
                     'CARGO / PUESTO': f.cargo,
+                    'C1 - INMEDIATO SUPERIOR (15%)': c1 && c1.isEvaluated ? c1.aporte : 0,
+                    'C2 - FACTORES ASOCIADOS (30%)': c2 && c2.isEvaluated ? c2.aporte : 0,
+                    'C3 - COMUNITARIA (10%)': c3 && c3.isEvaluated ? c3.aporte : 0,
+                    'C4 - EVIDENCIAS (45%)': c4 && c4.isEvaluated ? c4.aporte : 0,
+                    'NOTA FINAL TOTAL (%)': f.notaFinalTotal,
+                    'ESTADO': f.estado === 'CONSOLIDADO' ? 'CONSOLIDADO' : f.estado === 'EN_PROCESO' ? 'EN PROCESO' : 'PENDIENTE',
                 };
-
-                // Asignar criterios 1..N
-                baseCriterios.forEach((bc, idx) => {
-                    const colKey = critHeaders[idx];
-                    const cv = f.criteriosValores.find((v) => v.orden === bc.orden || v.id === bc.id);
-                    row[colKey] = cv && cv.isEvaluated ? cv.aporte : 0;
-                });
-
-                row['NOTA FINAL (%)'] = f.notaFinalTotal;
-                row['ESTADO'] = f.estado === 'CONSOLIDADO' ? 'CONSOLIDADO' : f.estado === 'EN_PROCESO' ? 'EN PROCESO' : 'PENDIENTE';
-                return row;
             });
 
             const worksheet = XLSX.utils.json_to_sheet(excelRows);
 
-            // Anchos de columna automáticos
             worksheet['!cols'] = [
                 { wch: 6 },  // N°
                 { wch: 16 }, // CI
                 { wch: 36 }, // Nombres
-                { wch: 30 }, // Cargo
-                ...baseCriterios.map(() => ({ wch: 22 })),
-                { wch: 16 }, // Total
+                { wch: 32 }, // Cargo
+                { wch: 28 }, // C1
+                { wch: 28 }, // C2
+                { wch: 24 }, // C3
+                { wch: 24 }, // C4
+                { wch: 18 }, // Total
                 { wch: 16 }, // Estado
             ];
 
@@ -357,7 +376,7 @@ export function ReporteConsolidadoModal({
 
             const fileName = `SABANA_NOTAS_PROFE_${activePeriod?.gestion || '2026'}_${activePeriod?.periodo || 'P1'}.xlsx`.replace(/\s+/g, '_');
             XLSX.writeFile(workbook, fileName);
-            toast.success('Archivo Excel descargado exitosamente');
+            toast.success('Archivo Excel descargado exitosamente con los 4 criterios agrupados');
         } catch (error) {
             toast.error('Error al exportar a Excel');
         } finally {
@@ -379,7 +398,6 @@ export function ReporteConsolidadoModal({
             const { default: jsPDF } = await import('jspdf');
             const { default: autoTable } = await import('jspdf-autotable');
 
-            // Formato horizontal (landscape) carta/A4 para amplitud de columnas
             const doc = new jsPDF({
                 orientation: 'landscape',
                 unit: 'mm',
@@ -406,7 +424,7 @@ export function ReporteConsolidadoModal({
 
             doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(203, 213, 225); // Slate 300
+            doc.setTextColor(203, 213, 225);
             doc.text('PROGRAMA DE FORMACIÓN ESPECIALIZADA (PROFE) • SISTEMA DE EVALUACIÓN DEL DESEMPEÑO DOCENTE Y ADMINISTRATIVO', 14, 15);
 
             doc.setFontSize(8);
@@ -414,36 +432,41 @@ export function ReporteConsolidadoModal({
             doc.setTextColor(234, 179, 8); // Amber 500
             doc.text(`SÁBANA DE NOTAS CONSOLIDADAS • ${periodoTexto.toUpperCase()}`, 14, 20);
 
-            // Metadatos de emisión a la derecha
             doc.setFontSize(7);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(226, 232, 240);
             doc.text(`Fecha de Emisión: ${fechaEmision}`, 265, 12, { align: 'right' });
             doc.text(`Total Funcionarios: ${filteredFilas.length} | Promedio General: ${metricas.promedio}%`, 265, 18, { align: 'right' });
 
-            // Cabeceras de tabla
+            // Cabeceras de tabla fijas y agrupadas en los 4 criterios
             const headers = [
                 'N°',
                 'C.I.',
                 'APELLIDOS Y NOMBRES',
                 'CARGO / PUESTO',
-                ...baseCriterios.map((c, i) => `C${i + 1}\n(${c.pesoPorcentaje || 0}%)`),
+                'C1 (15%)\nInmediato Sup.',
+                'C2 (30%)\nFact. Asociados',
+                'C3 (10%)\nComunitaria',
+                'C4 (45%)\nEvidencias',
                 'TOTAL\n(100%)',
                 'ESTADO',
             ];
 
             const rows = filteredFilas.map((f, i) => {
-                const critVals = baseCriterios.map((bc) => {
-                    const cv = f.criteriosValores.find((v) => v.orden === bc.orden || v.id === bc.id);
-                    return cv && cv.isEvaluated ? `${cv.aporte.toFixed(1)}` : '0.0';
-                });
+                const c1 = f.criteriosValores.find((v) => v.orden === 1);
+                const c2 = f.criteriosValores.find((v) => v.orden === 2);
+                const c3 = f.criteriosValores.find((v) => v.orden === 3);
+                const c4 = f.criteriosValores.find((v) => v.orden === 4);
 
                 return [
                     i + 1,
                     f.ci,
                     f.nombreCompleto,
                     f.cargo,
-                    ...critVals,
+                    c1 && c1.isEvaluated ? `${c1.aporte.toFixed(1)}` : '0.0',
+                    c2 && c2.isEvaluated ? `${c2.aporte.toFixed(1)}` : '0.0',
+                    c3 && c3.isEvaluated ? `${c3.aporte.toFixed(1)}` : '0.0',
+                    c4 && c4.isEvaluated ? `${c4.aporte.toFixed(1)}` : '0.0',
                     `${f.notaFinalTotal.toFixed(1)}%`,
                     f.estado === 'CONSOLIDADO' ? 'CONSOLIDADO' : f.estado === 'EN_PROCESO' ? 'EN PROCESO' : 'PENDIENTE',
                 ];
@@ -469,23 +492,21 @@ export function ReporteConsolidadoModal({
                     fontSize: 7.5,
                 },
                 columnStyles: {
-                    0: { halign: 'center', cellWidth: 8 },  // N°
-                    1: { halign: 'center', cellWidth: 20 }, // CI
-                    2: { cellWidth: 55, fontStyle: 'bold' }, // Nombres
-                    3: { cellWidth: 45 },                  // Cargo
-                    // Criterios dinámicos
-                    4: { halign: 'center', cellWidth: 18 },
-                    5: { halign: 'center', cellWidth: 18 },
-                    6: { halign: 'center', cellWidth: 18 },
-                    7: { halign: 'center', cellWidth: 18 },
+                    0: { halign: 'center', cellWidth: 8 },   // N°
+                    1: { halign: 'center', cellWidth: 20 },  // CI
+                    2: { cellWidth: 55, fontStyle: 'bold' },  // Nombres
+                    3: { cellWidth: 45 },                   // Cargo
+                    4: { halign: 'center', cellWidth: 22 },  // C1
+                    5: { halign: 'center', cellWidth: 24 },  // C2
+                    6: { halign: 'center', cellWidth: 22 },  // C3
+                    7: { halign: 'center', cellWidth: 22 },  // C4
                     8: { halign: 'center', cellWidth: 20, fontStyle: 'bold', textColor: [16, 185, 129] }, // Total
-                    9: { halign: 'center', cellWidth: 24 }, // Estado
+                    9: { halign: 'center', cellWidth: 24 },  // Estado
                 },
                 alternateRowStyles: {
                     fillColor: [248, 250, 252],
                 },
                 didDrawPage: (data) => {
-                    // Pie de página institucional con números de página
                     const str = `Página ${data.pageNumber} de ${doc.getNumberOfPages()}`;
                     doc.setFontSize(7);
                     doc.setTextColor(148, 163, 184);
@@ -515,7 +536,7 @@ export function ReporteConsolidadoModal({
 
             const pdfFileName = `SABANA_NOTAS_PROFE_${activePeriod?.gestion || '2026'}.pdf`;
             doc.save(pdfFileName);
-            toast.success('Documento PDF oficial generado y descargado');
+            toast.success('Documento PDF oficial descargado con éxito');
         } catch (error) {
             toast.error('Error al generar el PDF de la sábana de notas');
         } finally {
@@ -551,7 +572,7 @@ export function ReporteConsolidadoModal({
                             Consolidado General de Notas por Criterio
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Visualización de aportes por criterio (C1..C4) y calificación final total sobre 100%.
+                            Visualización agrupada en 4 Criterios: C1 (15%), C2 (30%), C3 (10%), C4 (45%) y Calificación Final sobre 100%.
                         </p>
                     </div>
 
@@ -649,7 +670,7 @@ export function ReporteConsolidadoModal({
                     </div>
                 </div>
 
-                {/* Tabla Sábana de Notas */}
+                {/* Tabla Sábana de Notas - 4 Criterios */}
                 <div className="bg-card rounded-3xl border border-border/40 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto max-h-[58vh]">
                         <table className="w-full text-left text-xs border-collapse">
@@ -659,10 +680,12 @@ export function ReporteConsolidadoModal({
                                     <th className="py-3.5 px-4 w-28">C.I.</th>
                                     <th className="py-3.5 px-4 min-w-[220px]">Funcionario</th>
                                     <th className="py-3.5 px-4 min-w-[180px]">Cargo</th>
-                                    {baseCriterios.map((c, idx) => (
-                                        <th key={c.id || idx} className="py-3.5 px-3 text-center min-w-[110px]">
-                                            <span className="block text-foreground">C{idx + 1}</span>
-                                            <span className="text-[9px] font-bold text-muted-foreground">({c.pesoPorcentaje || 0}%)</span>
+                                    {criteriosAgrupados.map((c) => (
+                                        <th key={c.orden} className="py-3.5 px-3 text-center min-w-[120px]">
+                                            <span className="block text-foreground font-black">C{c.orden} ({c.peso}%)</span>
+                                            <span className="block text-[9px] font-medium text-muted-foreground truncate max-w-[130px]" title={c.nombre}>
+                                                {c.nombreCorto}
+                                            </span>
                                         </th>
                                     ))}
                                     <th className="py-3.5 px-4 text-center min-w-[90px] text-primary">Total</th>
@@ -672,7 +695,7 @@ export function ReporteConsolidadoModal({
                             <tbody className="divide-y divide-border/30">
                                 {filteredFilas.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6 + baseCriterios.length} className="text-center py-12 text-muted-foreground">
+                                        <td colSpan={10} className="text-center py-12 text-muted-foreground">
                                             No se encontraron funcionarios asignados que coincidan con la búsqueda.
                                         </td>
                                     </tr>
@@ -693,11 +716,11 @@ export function ReporteConsolidadoModal({
                                                 {f.cargo}
                                             </td>
 
-                                            {/* Criterios 1..N */}
-                                            {baseCriterios.map((bc, idx) => {
-                                                const cv = f.criteriosValores.find((v) => v.orden === bc.orden || v.id === bc.id);
+                                            {/* Criterios 1 al 4 agrupados */}
+                                            {criteriosAgrupados.map((cg) => {
+                                                const cv = f.criteriosValores.find((v) => v.orden === cg.orden);
                                                 return (
-                                                    <td key={bc.id || idx} className="py-3 px-3 text-center">
+                                                    <td key={cg.orden} className="py-3 px-3 text-center">
                                                         {cv && cv.isEvaluated ? (
                                                             <div>
                                                                 <span className="font-black text-foreground">
@@ -761,10 +784,11 @@ export function ReporteConsolidadoModal({
                         Mostrando <strong>{filteredFilas.length}</strong> de <strong>{filasConsolidadas.length}</strong> funcionarios asignados.
                     </span>
                     <span className="italic">
-                        * Nota: Los valores de los criterios C1 a C4 reflejan el aporte ponderado sobre el peso asignado en el reglamento.
+                        * C1: Inmediato Superior (15%) • C2: Factores Asociados (30%) • C3: Comunitaria (10%) • C4: Evidencias (45%). Suma máxima: 100%.
                     </span>
                 </div>
             </div>
         </Modal>
     );
 }
+
