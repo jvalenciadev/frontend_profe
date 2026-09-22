@@ -1053,6 +1053,50 @@ export default function EventoPublicoPage() {
         return true;
     }, [evento, progreso, localVideosVistos]);
 
+    const isPreguntaObligatoria = useCallback((p: any): boolean => {
+        if (!p) return false;
+        if (p.obligatorio !== undefined && p.obligatorio !== null) {
+            return Boolean(p.obligatorio);
+        }
+        if (p.esObligatorio !== undefined && p.esObligatorio !== null) {
+            return Boolean(p.esObligatorio);
+        }
+        if (cuestionarioActivo?.esObligatorio) {
+            return true;
+        }
+        return true;
+    }, [cuestionarioActivo]);
+
+    const isPreguntaRespondida = useCallback((preguntaId: string): boolean => {
+        const val = respuestas[preguntaId];
+        if (val === undefined || val === null) return false;
+        if (typeof val === 'string') return val.trim().length > 0;
+        if (Array.isArray(val)) return val.length > 0;
+        return true;
+    }, [respuestas]);
+
+    const canAdvanceFromCurrent = useCallback((currentSlideIdx: number, pregs: any[], hasVideo: boolean): boolean => {
+        const currentPregIdx = hasVideo ? currentSlideIdx - 1 : currentSlideIdx;
+        if (currentPregIdx < 0) return true;
+        const currentPreg = pregs[currentPregIdx];
+        if (!currentPreg) return true;
+        if (isPreguntaObligatoria(currentPreg) && !isPreguntaRespondida(currentPreg.id)) {
+            return false;
+        }
+        return true;
+    }, [isPreguntaObligatoria, isPreguntaRespondida]);
+
+    const checkPrecedingObligatorias = useCallback((targetSlideIdx: number, pregs: any[], hasVideo: boolean): { canGo: boolean; missingIdx?: number } => {
+        const targetPregIdx = hasVideo ? targetSlideIdx - 1 : targetSlideIdx;
+        for (let i = 0; i < targetPregIdx && i < pregs.length; i++) {
+            const p = pregs[i];
+            if (isPreguntaObligatoria(p) && !isPreguntaRespondida(p.id)) {
+                return { canGo: false, missingIdx: hasVideo ? i + 1 : i };
+            }
+        }
+        return { canGo: true };
+    }, [isPreguntaObligatoria, isPreguntaRespondida]);
+
     const generos = [
         { id: '1', nombre: 'MASCULINO' },
         { id: '2', nombre: 'FEMENINO' }
@@ -1627,6 +1671,22 @@ export default function EventoPublicoPage() {
     const handleEnviarCuestionario = useCallback(async (queuedData?: any) => {
         const evt = evento;
         if (!evt || !cuestionarioActivo || !persona) return;
+
+        // Validar que todas las preguntas obligatorias estén completadas
+        if (cuestionarioActivo.preguntas && cuestionarioActivo.preguntas.length > 0) {
+            const missingIdx = cuestionarioActivo.preguntas.findIndex((p: any) => {
+                return isPreguntaObligatoria(p) && !isPreguntaRespondida(p.id);
+            });
+            if (missingIdx !== -1) {
+                toast.error('Debes completar todas las preguntas obligatorias antes de enviar el formulario.');
+                const hasVideo = !!cuestionarioActivo.urlVideo;
+                const targetSlide = hasVideo ? missingIdx + 1 : missingIdx;
+                setSlideDirection(targetSlide < preguntaIdx ? 'backward' : 'forward');
+                setPreguntaIdx(targetSlide);
+                return;
+            }
+        }
+
         setSubmitting(true);
         setLastSavedStatus('saving');
 
@@ -2508,6 +2568,10 @@ export default function EventoPublicoPage() {
                                                                 key={c.id}
                                                                 ref={(el) => { moduleItemRefs.current[c.id] = el; }}
                                                                 onClick={() => {
+                                                                    if (!canStart && !isFinished) {
+                                                                        toast.warning('Debes completar los módulos obligatorios anteriores para habilitar este paso.');
+                                                                        return;
+                                                                    }
                                                                     setSelectedModuleId(c.id);
                                                                     setMobileTab('content');
                                                                 }}
@@ -2842,6 +2906,17 @@ export default function EventoPublicoPage() {
                                                                                     <button
                                                                                         key={p.id}
                                                                                         onClick={() => {
+                                                                                            if (slideIdx > preguntaIdx) {
+                                                                                                const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                                if (!check.canGo) {
+                                                                                                    toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                                                    if (check.missingIdx !== undefined) {
+                                                                                                        setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                        setPreguntaIdx(check.missingIdx);
+                                                                                                    }
+                                                                                                    return;
+                                                                                                }
+                                                                                            }
                                                                                             setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                                             setPreguntaIdx(slideIdx);
                                                                                         }}
@@ -2984,6 +3059,17 @@ export default function EventoPublicoPage() {
                                                                                             <button
                                                                                                 key={pregs[i].id}
                                                                                                 onClick={() => {
+                                                                                                    if (slideIdx > preguntaIdx) {
+                                                                                                        const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                                        if (!check.canGo) {
+                                                                                                            toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                                                            if (check.missingIdx !== undefined) {
+                                                                                                                setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                                setPreguntaIdx(check.missingIdx);
+                                                                                                            }
+                                                                                                            return;
+                                                                                                        }
+                                                                                                    }
                                                                                                     setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                                                     setPreguntaIdx(slideIdx);
                                                                                                 }}
@@ -3012,6 +3098,17 @@ export default function EventoPublicoPage() {
                                                                                             <button
                                                                                                 onClick={() => {
                                                                                                     const slideIdx = hasVideo ? totalPregs : totalPregs - 1;
+                                                                                                    if (slideIdx > preguntaIdx) {
+                                                                                                        const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                                        if (!check.canGo) {
+                                                                                                            toast.warning('Debes responder las preguntas obligatorias antes de avanzar.');
+                                                                                                            if (check.missingIdx !== undefined) {
+                                                                                                                setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                                setPreguntaIdx(check.missingIdx);
+                                                                                                            }
+                                                                                                            return;
+                                                                                                        }
+                                                                                                    }
                                                                                                     setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                                                     setPreguntaIdx(slideIdx);
                                                                                                 }}
@@ -3032,6 +3129,10 @@ export default function EventoPublicoPage() {
                                                                                         <button
                                                                                             disabled={preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1)}
                                                                                             onClick={() => {
+                                                                                                if (!canAdvanceFromCurrent(preguntaIdx, pregs, hasVideo)) {
+                                                                                                    toast.warning('Esta pregunta es obligatoria. Debes completarla antes de pasar a la siguiente.');
+                                                                                                    return;
+                                                                                                }
                                                                                                 setSlideDirection('forward');
                                                                                                 setPreguntaIdx(prev => Math.min(hasVideo ? totalPregs : totalPregs - 1, prev + 1));
                                                                                             }}
@@ -3094,6 +3195,17 @@ export default function EventoPublicoPage() {
                                                                                                         <button
                                                                                                             key={p.id}
                                                                                                             onClick={() => {
+                                                                                                                if (slideIdx > preguntaIdx) {
+                                                                                                                    const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                                                    if (!check.canGo) {
+                                                                                                                        toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                                                                        if (check.missingIdx !== undefined) {
+                                                                                                                            setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                                            setPreguntaIdx(check.missingIdx);
+                                                                                                                        }
+                                                                                                                        return;
+                                                                                                                    }
+                                                                                                                }
                                                                                                                 setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                                                                 setPreguntaIdx(slideIdx);
                                                                                                             }}
@@ -3479,7 +3591,14 @@ export default function EventoPublicoPage() {
                                                                                                     <span className="text-sm font-black text-primary">{pregRealIdx + 1}</span>
                                                                                                 </div>
                                                                                                 <div>
-                                                                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                                                        {isPreguntaObligatoria(preg) && (
+                                                                                                            <span className="text-[8px] font-black uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                                                                                                Obligatoria *
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
                                                                                                     <p className="text-[10px] font-bold text-muted-foreground leading-none mt-1">
                                                                                                         {preg.tipo === 'SINGLE' ? 'Selección única' : preg.tipo === 'MULTIPLE' ? 'Selección múltiple' : preg.tipo === 'TRUE_FALSE' ? 'Verdadero / Falso' : 'Respuesta abierta'}
                                                                                                         {cuestionarioActivo.esEvaluativo && <>{' • '}<span className="text-primary font-black">{preg.puntos} pt{preg.puntos !== 1 ? 's' : ''}</span></>}
@@ -3587,10 +3706,19 @@ export default function EventoPublicoPage() {
                                                                                                     {!isLastQuestion ? (
                                                                                                         <button
                                                                                                             onClick={() => {
+                                                                                                                if (!canAdvanceFromCurrent(preguntaIdx, cuestionarioActivo.preguntas, hasVideo)) {
+                                                                                                                    toast.warning('Esta pregunta es obligatoria. Debes completarla antes de pasar a la siguiente.');
+                                                                                                                    return;
+                                                                                                                }
                                                                                                                 setSlideDirection('forward');
                                                                                                                 setPreguntaIdx(i => i + 1);
                                                                                                             }}
-                                                                                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                                                                                                            className={cn(
+                                                                                                                "flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl font-black text-xs uppercase transition-all shadow-lg",
+                                                                                                                isPreguntaObligatoria(preg) && !isPreguntaRespondida(preg.id)
+                                                                                                                    ? "bg-primary/75 hover:bg-primary text-white shadow-primary/10"
+                                                                                                                    : "bg-primary text-white hover:opacity-90 shadow-primary/20"
+                                                                                                            )}
                                                                                                         >
                                                                                                             Siguiente <ChevronRight className="w-4 h-4" />
                                                                                                         </button>
@@ -4308,6 +4436,17 @@ export default function EventoPublicoPage() {
                                                                 disabled={deshabilitado}
                                                                 onClick={() => {
                                                                     if (deshabilitado) return;
+                                                                    if (slideIdx > preguntaIdx) {
+                                                                        const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                        if (!check.canGo) {
+                                                                            toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                            if (check.missingIdx !== undefined) {
+                                                                                setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                setPreguntaIdx(check.missingIdx);
+                                                                            }
+                                                                            return;
+                                                                        }
+                                                                    }
                                                                     setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                     setPreguntaIdx(slideIdx);
                                                                 }}
@@ -4454,6 +4593,17 @@ export default function EventoPublicoPage() {
                                                                         disabled={deshabilitado}
                                                                         onClick={() => {
                                                                             if (deshabilitado) return;
+                                                                            if (slideIdx > preguntaIdx) {
+                                                                                const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                if (!check.canGo) {
+                                                                                    toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                                    if (check.missingIdx !== undefined) {
+                                                                                        setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                        setPreguntaIdx(check.missingIdx);
+                                                                                    }
+                                                                                    return;
+                                                                                }
+                                                                            }
                                                                             setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                             setPreguntaIdx(slideIdx);
                                                                         }}
@@ -4485,6 +4635,17 @@ export default function EventoPublicoPage() {
                                                                     <button
                                                                         onClick={() => {
                                                                             const slideIdx = hasVideo ? totalPregs : totalPregs - 1;
+                                                                            if (slideIdx > preguntaIdx) {
+                                                                                const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                if (!check.canGo) {
+                                                                                    toast.warning('Debes responder las preguntas obligatorias antes de avanzar.');
+                                                                                    if (check.missingIdx !== undefined) {
+                                                                                        setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                        setPreguntaIdx(check.missingIdx);
+                                                                                    }
+                                                                                    return;
+                                                                                }
+                                                                            }
                                                                             setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                             setPreguntaIdx(slideIdx);
                                                                         }}
@@ -4504,6 +4665,10 @@ export default function EventoPublicoPage() {
                                                             <button
                                                                 disabled={preguntaIdx === (hasVideo ? totalPregs : totalPregs - 1) || deshabilitado}
                                                                 onClick={() => {
+                                                                    if (!canAdvanceFromCurrent(preguntaIdx, pregs, hasVideo)) {
+                                                                        toast.warning('Esta pregunta es obligatoria. Debes completarla antes de pasar a la siguiente.');
+                                                                        return;
+                                                                    }
                                                                     setSlideDirection('forward');
                                                                     setPreguntaIdx(prev => Math.min(hasVideo ? totalPregs : totalPregs - 1, prev + 1));
                                                                 }}
@@ -4566,6 +4731,17 @@ export default function EventoPublicoPage() {
                                                                                 <button
                                                                                     key={p.id}
                                                                                     onClick={() => {
+                                                                                        if (slideIdx > preguntaIdx) {
+                                                                                            const check = checkPrecedingObligatorias(slideIdx, pregs, hasVideo);
+                                                                                            if (!check.canGo) {
+                                                                                                toast.warning('Debes responder la pregunta obligatoria antes de avanzar.');
+                                                                                                if (check.missingIdx !== undefined) {
+                                                                                                    setSlideDirection(check.missingIdx < preguntaIdx ? 'backward' : 'forward');
+                                                                                                    setPreguntaIdx(check.missingIdx);
+                                                                                                }
+                                                                                                return;
+                                                                                            }
+                                                                                        }
                                                                                         setSlideDirection(slideIdx < preguntaIdx ? 'backward' : 'forward');
                                                                                         setPreguntaIdx(slideIdx);
                                                                                     }}
@@ -4822,7 +4998,14 @@ export default function EventoPublicoPage() {
                                                                     <span className="text-sm font-black text-primary">{pregRealIdx + 1}</span>
                                                                 </div>
                                                                 <div>
-                                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Pregunta {pregRealIdx + 1} de {cuestionarioActivo.preguntas.length}</span>
+                                                                        {isPreguntaObligatoria(preg) && (
+                                                                            <span className="text-[8px] font-black uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                                                                                Obligatoria *
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                     <p className="text-[10px] font-bold text-muted-foreground leading-none mt-1">
                                                                         {preg.tipo === 'SINGLE' ? 'Selección única' : preg.tipo === 'MULTIPLE' ? 'Selección múltiple' : preg.tipo === 'TRUE_FALSE' ? 'Verdadero / Falso' : 'Respuesta abierta'}
                                                                         {' • '}<span className="text-primary font-black">{preg.puntos} pt{preg.puntos !== 1 ? 's' : ''}</span>
@@ -4929,10 +5112,19 @@ export default function EventoPublicoPage() {
                                                                     {!isLastQuestion ? (
                                                                         <button
                                                                             onClick={() => {
+                                                                                if (!canAdvanceFromCurrent(preguntaIdx, cuestionarioActivo.preguntas, hasVideo)) {
+                                                                                    toast.warning('Esta pregunta es obligatoria. Debes completarla antes de pasar a la siguiente.');
+                                                                                    return;
+                                                                                }
                                                                                 setSlideDirection('forward');
                                                                                 setPreguntaIdx(i => i + 1);
                                                                             }}
-                                                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                                                                            className={cn(
+                                                                                "flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl font-black text-xs uppercase transition-all shadow-lg",
+                                                                                isPreguntaObligatoria(preg) && !isPreguntaRespondida(preg.id)
+                                                                                    ? "bg-primary/75 hover:bg-primary text-white shadow-primary/10"
+                                                                                    : "bg-primary text-white hover:opacity-90 shadow-primary/20"
+                                                                            )}
                                                                         >
                                                                             Siguiente <ChevronRight className="w-4 h-4" />
                                                                         </button>
