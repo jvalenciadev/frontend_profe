@@ -53,6 +53,11 @@ class EventoService {
         const response = await api.get('/tipos-evento');
         return response.data;
     }
+
+    async getHistorialByCi(ci: string): Promise<any> {
+        const response = await api.get(`/eventos-inscripciones/historial-ci/${encodeURIComponent(ci)}`);
+        return response.data;
+    }
 }
 
 export const eventoService = new EventoService();

@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import { HistorialParticipanteModal } from '@/components/evento/HistorialParticipanteModal';
 
 // ─── Paleta de colores por tipo de evento ──────────────────────────
 const TIPO_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -201,6 +202,7 @@ export default function EventosPage() {
     });
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+    const [isHistorialModalOpen, setIsHistorialModalOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
 
     useEffect(() => { loadData(); }, []);
@@ -412,13 +414,22 @@ export default function EventosPage() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2.5 h-12 px-6 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Nuevo Evento
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsHistorialModalOpen(true)}
+                            className="flex items-center gap-2.5 h-12 px-5 rounded-2xl bg-card border border-border hover:border-primary/50 text-foreground font-black text-xs uppercase tracking-wider hover:bg-muted/40 transition-all shadow-sm active:scale-95"
+                        >
+                            <Search className="w-4 h-4 text-primary" />
+                            Buscar por CI
+                        </button>
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="flex items-center gap-2.5 h-12 px-6 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Nuevo Evento
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Pills */}
@@ -1209,6 +1220,10 @@ export default function EventosPage() {
                 cancelText="Seguir editando"
                 variant="info"
                 loading={isLoading}
+            />
+            <HistorialParticipanteModal
+                isOpen={isHistorialModalOpen}
+                onClose={() => setIsHistorialModalOpen(false)}
             />
         </div>
     );

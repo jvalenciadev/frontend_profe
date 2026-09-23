@@ -347,7 +347,7 @@ function Descargo({ tipo, persona, evento, resultado, inscripcionId, cuestionari
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
             doc.setTextColor(grisText[0], grisText[1], grisText[2]);
-            doc.text(`${tipoEvento}  ·  FECHA: ${fechaEvento}  ·  LUGAR: ${lugarEvento}`, PW / 2, y, { align: 'center' });
+            doc.text(`${tipoEvento}  ·  FECHA: ${fechaEvento}  `, PW / 2, y, { align: 'center' });
             y += 6;
 
             // Línea divisora
@@ -851,7 +851,7 @@ export default function EventoPublicoPage() {
         apellido2: '',
         correo: '',
         celular: '',
-        expedido: 'LP',
+        expedido: '',
         complemento: '',
         generoId: '1',
         departamentoId: '',
@@ -1128,7 +1128,7 @@ export default function EventoPublicoPage() {
             apellido2: '',
             correo: '',
             celular: '',
-            expedido: 'LP',
+            expedido: '',
             complemento: '',
             generoId: '1',
             departamentoId: '',
@@ -1467,7 +1467,7 @@ export default function EventoPublicoPage() {
                     correo: result.persona.correo || '',
                     celular: result.persona.celular || '',
                     generoId: result.persona.generoId?.toString() || '1',
-                    expedido: result.persona.expedido || 'LP',
+                    expedido: result.persona.expedido || '',
                     departamentoId: evento?.tenantId || '',
                     modalidadId: '',
                     codigoAsistencia: '',
@@ -1485,7 +1485,7 @@ export default function EventoPublicoPage() {
                     correo: '',
                     celular: '',
                     generoId: '1',
-                    expedido: 'LP',
+                    expedido: '',
                     departamentoId: evento?.tenantId || '',
                     modalidadId: '',
                     codigoAsistencia: '',
@@ -1578,6 +1578,10 @@ export default function EventoPublicoPage() {
             const result = await eventoPublicoService.inscribirse(evt.id, {
                 ...form,
                 ci: ciLimpio,
+                nombre1: form.nombre1.trim(),
+                nombre2: (form.nombre2 || '').trim(),
+                apellido1: form.apellido1.trim(),
+                apellido2: (form.apellido2 || '').trim(),
                 departamentoId: form.departamentoId,
                 modalidadId: form.modalidadId,
                 respuestasExtras: Object.entries(form.respuestasExtras).map(([campoId, valor]) => ({ campoId, valor })),
@@ -4216,7 +4220,7 @@ export default function EventoPublicoPage() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="p-4 rounded-2xl bg-muted/30 border border-border">
                                                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Nombre Completo</span>
-                                                    <p className="font-bold text-foreground uppercase">{form.nombre1} {form.nombre2} {form.apellido1} {form.apellido2}</p>
+                                                    <p className="font-bold text-foreground uppercase">{[form.nombre1, form.nombre2, form.apellido1, form.apellido2].filter(Boolean).map((s: string) => s.trim()).filter(Boolean).join(' ')}</p>
                                                 </div>
                                                 <div className="p-4 rounded-2xl bg-muted/30 border border-border">
                                                     <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest block mb-1">Cédula de Identidad</span>
