@@ -318,7 +318,7 @@ export function HistorialParticipanteModal({
                                                             i.esEvaluativo === false ? (
                                                                 <span
                                                                     key={i.id}
-                                                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5 bg-muted/40 text-muted-foreground border-border/60"
+                                                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
                                                                 >
                                                                     <span>{i.titulo}:</span>
                                                                     <strong>Respondido</strong>
