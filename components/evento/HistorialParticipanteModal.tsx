@@ -305,13 +305,7 @@ export function HistorialParticipanteModal({
                                                         </div>
                                                     </div>
 
-                                                    <Link
-                                                        href={`/dashboard/evento/${ins.evento?.id}`}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/80 hover:border-primary/40 bg-muted/20 hover:bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-all self-start"
-                                                    >
-                                                        <span>Ver Evento</span>
-                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                    </Link>
+
                                                 </div>
 
                                                 {/* Evaluaciones / Intentos */}
@@ -321,19 +315,29 @@ export function HistorialParticipanteModal({
                                                             <Award className="w-3 h-3 text-primary" /> Evaluaciones:
                                                         </span>
                                                         {ins.intentos.map((i: any) => (
-                                                            <span
-                                                                key={i.id}
-                                                                className={cn(
-                                                                    "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5",
-                                                                    i.aprobado
-                                                                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                                                                        : "bg-red-500/10 text-red-600 border-red-500/30"
-                                                                )}
-                                                            >
-                                                                <span>{i.titulo}:</span>
-                                                                <strong className="font-mono">{i.nota !== null ? `${i.nota} pts` : 'Completado'}</strong>
-                                                                <span>{i.aprobado ? '· Aprobado' : '· Reprobado'}</span>
-                                                            </span>
+                                                            i.esEvaluativo === false ? (
+                                                                <span
+                                                                    key={i.id}
+                                                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5 bg-muted/40 text-muted-foreground border-border/60"
+                                                                >
+                                                                    <span>{i.titulo}:</span>
+                                                                    <strong>Respondido</strong>
+                                                                </span>
+                                                            ) : (
+                                                                <span
+                                                                    key={i.id}
+                                                                    className={cn(
+                                                                        "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5",
+                                                                        i.aprobado
+                                                                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                                                            : "bg-red-500/10 text-red-600 border-red-500/30"
+                                                                    )}
+                                                                >
+                                                                    <span>{i.titulo}:</span>
+                                                                    <strong className="font-mono">{i.nota !== null ? `${i.nota} pts` : '—'}</strong>
+                                                                    <span>{i.aprobado ? '· Aprobado' : '· Reprobado'}</span>
+                                                                </span>
+                                                            )
                                                         ))}
                                                     </div>
                                                 )}
