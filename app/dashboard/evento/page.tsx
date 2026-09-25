@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { useAuth } from '@/contexts/AuthContext';
@@ -205,6 +206,15 @@ export default function EventosPage() {
     const [isHistorialModalOpen, setIsHistorialModalOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
 
+    const isCodigoDuplicado = useMemo(() => {
+        if (!formData.codigo?.trim()) return false;
+        const cod = formData.codigo.trim().toLowerCase();
+        return eventos.some(e =>
+            e.codigo?.trim().toLowerCase() === cod &&
+            (!editingEvento || e.id !== editingEvento.id)
+        );
+    }, [formData.codigo, eventos, editingEvento]);
+
     useEffect(() => { loadData(); }, []);
     useEffect(() => { if (user) loadMetadata(); }, [user, isSuperAdmin]);
 
@@ -285,6 +295,10 @@ export default function EventosPage() {
                 toast.error('El Código Interno es obligatorio para generar la URL pública');
                 return;
             }
+            if (isCodigoDuplicado) {
+                toast.error(`El código "${formData.codigo}" ya está en uso por otro evento. Debe ser único.`);
+                return;
+            }
         }
         setActiveStep(s => s + 1);
     };
@@ -298,6 +312,12 @@ export default function EventosPage() {
         }
         if (!formData.codigo?.trim()) {
             toast.error('El Código Interno es obligatorio para generar la URL pública');
+            setActiveStep(0);
+            setIsConfirmingSave(false);
+            return;
+        }
+        if (isCodigoDuplicado) {
+            toast.error(`El código "${formData.codigo}" ya está en uso por otro evento. Debe ser único.`);
             setActiveStep(0);
             setIsConfirmingSave(false);
             return;
@@ -348,8 +368,9 @@ export default function EventosPage() {
             setIsModalOpen(false);
             setIsConfirmingSave(false);
             loadData();
-        } catch (error) {
-            toast.error('Error al guardar el evento');
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || 'Error al guardar el evento';
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -634,13 +655,13 @@ export default function EventosPage() {
                                                 {/* Acciones */}
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center justify-center gap-2">
-                                                        <button
-                                                            onClick={() => router.push(`/dashboard/evento/${evento.id}`)}
+                                                        <Link
+                                                            href={`/dashboard/evento/${evento.id}`}
                                                             className="h-8 px-3 rounded-xl bg-primary/10 text-primary text-xs font-black hover:bg-primary/20 transition-all flex items-center gap-1.5"
                                                         >
                                                             <Settings2 className="w-3.5 h-3.5" />
                                                             Panel
-                                                        </button>
+                                                        </Link>
                                                         <button
                                                             onClick={() => handleOpenModal(evento)}
                                                             className="w-8 h-8 rounded-xl bg-muted text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all flex items-center justify-center"
@@ -763,13 +784,13 @@ export default function EventosPage() {
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => router.push(`/dashboard/evento/${evento.id}`)}
+                                                <Link
+                                                    href={`/dashboard/evento/${evento.id}`}
                                                     className="flex items-center gap-1.5 h-8 px-4 rounded-xl bg-primary text-white text-xs font-black hover:bg-primary/90 transition-all"
                                                 >
                                                     <Settings2 className="w-3.5 h-3.5" />
                                                     Panel
-                                                </button>
+                                                </Link>
                                             </div>
                                         </div>
                                     </Card>
@@ -889,12 +910,23 @@ export default function EventosPage() {
                                                                     .replace(/[^a-z0-9_\-]/g, '');                    // solo alfanum + _ -
                                                                 setFormData({ ...formData, codigo: raw });
                                                             }}
-                                                            className="w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 border-transparent focus:border-primary transition-all outline-none text-sm font-bold font-mono"
+                                                            className={cn(
+                                                                "w-full h-12 px-5 rounded-2xl bg-muted/40 border-2 transition-all outline-none text-sm font-bold font-mono",
+                                                                isCodigoDuplicado
+                                                                    ? "border-red-500 focus:border-red-500 bg-red-500/5 text-red-500"
+                                                                    : "border-transparent focus:border-primary"
+                                                            )}
                                                             placeholder="lapaz_federacionrural_taller1"
                                                         />
-                                                        <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest pl-1 flex items-center gap-1">
-                                                            <span>⚠</span> Esta será la URL pública del evento: <span className="font-mono text-primary lowercase">/evento/{formData.codigo || '...'}</span>
-                                                        </p>
+                                                        {isCodigoDuplicado ? (
+                                                            <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest pl-1 flex items-center gap-1">
+                                                                <span>❌</span> El código "{formData.codigo}" ya está en uso por otro evento. Debe ser único.
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest pl-1 flex items-center gap-1">
+                                                                <span>⚠</span> Esta será la URL pública del evento: <span className="font-mono text-primary lowercase">/evento/{formData.codigo || '...'}</span>
+                                                            </p>
+                                                        )}
                                                         <p className="text-[9px] text-muted-foreground font-medium pl-1">
                                                             Solo minúsculas, sin espacios, sin tildes, sin ñ. Usa guion bajo _ para separar palabras.
                                                         </p>
@@ -1182,7 +1214,7 @@ export default function EventosPage() {
                                         <button
                                             type="button"
                                             onClick={() => setIsConfirmingSave(true)}
-                                            disabled={isLoading || !formData.nombre?.trim() || !formData.codigo?.trim()}
+                                            disabled={isLoading || !formData.nombre?.trim() || !formData.codigo?.trim() || isCodigoDuplicado}
                                             className="h-11 px-8 rounded-2xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
                                         >
                                             {isLoading ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
