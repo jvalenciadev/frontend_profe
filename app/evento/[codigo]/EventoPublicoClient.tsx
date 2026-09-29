@@ -2384,14 +2384,6 @@ export default function EventoPublicoPage() {
 
                                         {/* ── BANNER EVENTO COMPLETADO ── */}
                                         {(evento.cuestionarios?.length > 0) && evento.cuestionarios.every((c: any) => isStepFinished(c.id)) && (() => {
-                                            // Fecha certificado = eve_fecha del evento + 1 mes
-                                            const fechaEvento = evento.fecha ? new Date(evento.fecha) : null;
-                                            const fechaCert = fechaEvento ? new Date(fechaEvento) : null;
-                                            if (fechaCert) fechaCert.setMonth(fechaCert.getMonth() + 1);
-                                            const fechaCertLabel = fechaCert && !isNaN(fechaCert.getTime())
-                                                ? fechaCert.toLocaleDateString('es-BO', { day: 'numeric', month: 'long', year: 'numeric' })
-                                                : null;
-
                                             return (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -16, scale: 0.96 }}
@@ -2448,15 +2440,13 @@ export default function EventoPublicoPage() {
                                                                     <p className="text-sm sm:text-base font-black text-primary mt-1">Digital oficial</p>
                                                                 </div>
                                                             </div>
-                                                            {fechaCertLabel && (
-                                                                <div className="flex-1 min-w-[160px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-card border border-border/60">
-                                                                    <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
-                                                                    <div className="text-left">
-                                                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-none">Disponible el</p>
-                                                                        <p className="text-sm sm:text-base font-black text-foreground mt-1">{fechaCertLabel}</p>
-                                                                    </div>
+                                                            <div className="flex-1 min-w-[160px] flex items-center gap-3 px-5 py-4 rounded-2xl bg-card border border-border/60">
+                                                                <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
+                                                                <div className="text-left">
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-none">Disponible en</p>
+                                                                    <p className="text-sm sm:text-base font-black text-foreground mt-1">1 mes</p>
                                                                 </div>
-                                                            )}
+                                                            </div>
                                                         </div>
 
                                                         {/* Certificate info footer */}
@@ -2624,16 +2614,22 @@ export default function EventoPublicoPage() {
                                                                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                                                         {(c.esEvaluativo || (c.preguntas && c.preguntas.length > 0)) ? (
                                                                             <>
-                                                                                <span className={cn(
-                                                                                    "text-[9px] font-black flex items-center gap-1",
-                                                                                    isFinished ? "text-emerald-500" : canStart ? "text-muted-foreground" : "text-muted-foreground/50"
-                                                                                )}>
-                                                                                    {isFinished
-                                                                                        ? <><CheckCircle2 className="w-3 h-3 shrink-0" /><span>Completado</span></>
-                                                                                        : canStart
-                                                                                            ? <><Unlock className="w-3 h-3 shrink-0" /><span>Disponible</span></>
-                                                                                            : <><Lock className="w-3 h-3 shrink-0" /><span>Bloqueado</span></>}
-                                                                                </span>
+                                                                                {(() => {
+                                                                                    const lim = prog?.limiteIntentos ?? c.limiteIntentos;
+                                                                                    const numInt = prog?.numeroIntentos || (isFinished ? 1 : 0);
+                                                                                    return (
+                                                                                        <span className={cn(
+                                                                                            "text-[9px] font-black flex items-center gap-1",
+                                                                                            isFinished ? "text-emerald-500" : canStart ? "text-muted-foreground" : "text-muted-foreground/50"
+                                                                                        )}>
+                                                                                            {isFinished
+                                                                                                ? <><CheckCircle2 className="w-3 h-3 shrink-0" /><span>Completado{lim && lim > 1 ? ` (${numInt}/${lim})` : ''}</span></>
+                                                                                                : canStart
+                                                                                                    ? <><Unlock className="w-3 h-3 shrink-0" /><span>Disponible</span></>
+                                                                                                    : <><Lock className="w-3 h-3 shrink-0" /><span>Bloqueado</span></>}
+                                                                                        </span>
+                                                                                    );
+                                                                                })()}
                                                                                 {c.esEvaluativo && prog?.nota !== null && prog?.nota !== undefined && (
                                                                                     <span className={cn(
                                                                                         "text-[9px] font-black px-1.5 py-0.5 rounded-md",
@@ -2703,7 +2699,8 @@ export default function EventoPublicoPage() {
                                                     }
 
                                                     // 2. SI EL MÓDULO ESTÁ COMPLETADO (FINISHED) - MOSTRAR RESULTADOS
-                                                    if (isFinished || (resultado && cuestionarioActivo?.id === c.id)) {
+                                                    const isActivelyTakingQuiz = cuestionarioActivo && cuestionarioActivo.id === c.id && !resultado;
+                                                    if (!isActivelyTakingQuiz && (isFinished || (resultado && cuestionarioActivo?.id === c.id))) {
                                                         const progBackend = progreso.find((p: any) => p.id === c.id);
                                                         const prog = (resultado && cuestionarioActivo?.id === c.id) ? resultado : progBackend;
                                                         const pVal = Number(prog?.puntaje ?? prog?.puntos ?? prog?.score ?? 0);
@@ -2712,7 +2709,8 @@ export default function EventoPublicoPage() {
                                                         const isAprobado = !!prog?.aprobado || (prog?.nota !== null && prog?.nota !== undefined && prog?.nota >= (c.puntajeMinimo || 75));
                                                         const isPerfect = (prog?.nota ?? 0) >= 100 || isAprobado;
                                                         const limitValue = prog?.limiteIntentos ?? c.limiteIntentos;
-                                                        const hasReachedLimit = limitValue != null && (prog?.numeroIntentos || 0) >= limitValue;
+                                                        const numIntentosActual = prog?.numeroIntentos || (isFinished ? 1 : 0);
+                                                        const hasReachedLimit = limitValue != null && numIntentosActual >= limitValue;
 
                                                         const currentIndex = sortedCuestionarios.findIndex((x: any) => x.id === c.id);
                                                         const siguienteCues = currentIndex !== -1 && currentIndex < sortedCuestionarios.length - 1
@@ -2765,6 +2763,11 @@ export default function EventoPublicoPage() {
                                                                                 <span className="flex items-center justify-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Evaluación Pendiente</span>
                                                                             )}
                                                                         </p>
+                                                                        {limitValue && (
+                                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2">
+                                                                                Intentos: {numIntentosActual} de {limitValue} {hasReachedLimit ? '· Agotados' : `· (${limitValue - numIntentosActual} disponible${limitValue - numIntentosActual === 1 ? '' : 's'})`}
+                                                                            </p>
+                                                                        )}
                                                                     </div>
 
                                                                     {c.esEvaluativo && (
@@ -2817,7 +2820,7 @@ export default function EventoPublicoPage() {
                                                                                 Siguiente Módulo <ArrowRight className="w-4 h-4" />
                                                                             </button>
                                                                         )}
-                                                                        {!sinPreguntas && !isPerfect && !hasReachedLimit && (
+                                                                        {!sinPreguntas && !hasReachedLimit && (
                                                                             <button
                                                                                 onClick={() => {
                                                                                     localStorage.removeItem(`cuestionario_session_${evento.id}`);
@@ -2825,7 +2828,7 @@ export default function EventoPublicoPage() {
                                                                                 }}
                                                                                 className="w-full h-14 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-amber-500/20 hover:bg-amber-400 transition-all flex items-center justify-center gap-3"
                                                                             >
-                                                                                <RotateCcw className="w-4 h-4" /> Reintentar Evaluación
+                                                                                <RotateCcw className="w-4 h-4" /> {c.esEvaluativo ? 'Reintentar Evaluación' : 'Realizar Nuevo Intento / Responder'} {limitValue ? `(Intento ${numIntentosActual + 1} de ${limitValue})` : ''}
                                                                             </button>
                                                                         )}
                                                                     </div>
