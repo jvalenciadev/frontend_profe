@@ -285,9 +285,6 @@ function VerificationContent() {
                                     <ArrowLeft className="w-4 h-4" /> Inicio
                                 </Button>
                             </Link>
-                            <Button onClick={() => window.print()} size="lg" className="px-10 rounded-[2rem] flex items-center gap-3">
-                                <FileText className="w-4 h-4" /> Imprimir Verificación
-                            </Button>
                         </div>
                     </motion.div>
                 )}
