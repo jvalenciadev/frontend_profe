@@ -16,6 +16,49 @@ import { getImageUrl } from '@/lib/utils';
 /* --- Helpers --- */
 const IMG = (src: string) => getImageUrl(src);
 
+/* --- Mock Data Manual (Frontend Only) --- */
+const MANUAL_VERIFICATIONS: Record<string, any> = {
+    '1JPDX3': {
+        valid: true,
+        evaluation: {
+            user: {
+                nombre: 'JORGE ADALBERTO',
+                apellidos: 'MAMANI CALLE',
+                username: '6784179',
+                imagen: null,
+            },
+            puntajeTotal: 98,
+            periodoEval: {
+                periodo: 'HOJA DE CONCEPTO',
+                gestion: '2025',
+            },
+            puntajes: [
+                {
+                    criterio: { nombre: 'Asistencia, puntualidad y disciplina en cumplimiento de los deberes docentes.', puntajeMaximo: 10 },
+                    puntaje: 10,
+                },
+                {
+                    criterio: { nombre: 'Rasgo positivos de personalidad y caráter, simpatia y cordialidad en sus relaciones profesionales.', puntajeMaximo: 10 },
+                    puntaje: 10,
+                },
+                {
+                    criterio: { nombre: 'Ascendencia moral y disposición de ánimo estimulante para los estudiantes.', puntajeMaximo: 10 },
+                    puntaje: 10,
+                },
+                {
+                    criterio: { nombre: 'Interés por perfeccionar su preparación ténica y cultural', puntajeMaximo: 10 },
+                    puntaje: 10,
+                },
+                {
+                    criterio: { nombre: 'Iniciativa en beneficio del mejoramiento de la educación', puntajeMaximo: 10 },
+                    puntaje: 10,
+                },
+            ],
+            createdAt: '2025-11-20T10:00:00.000Z',
+        },
+    },
+};
+
 function VerificationContent() {
     const searchParams = useSearchParams();
     const code = searchParams?.get('code') || '';
@@ -25,6 +68,13 @@ function VerificationContent() {
 
     useEffect(() => {
         if (!code) {
+            setIsLoading(false);
+            return;
+        }
+
+        const normalizedCode = code.trim().toUpperCase();
+        if (MANUAL_VERIFICATIONS[normalizedCode]) {
+            setResult(MANUAL_VERIFICATIONS[normalizedCode]);
             setIsLoading(false);
             return;
         }
