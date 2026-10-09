@@ -27,7 +27,7 @@ const MANUAL_VERIFICATIONS: Record<string, any> = {
                 username: '6784179',
                 imagen: null,
             },
-            puntajeTotal: 98,
+            puntajeTotal: 50,
             periodoEval: {
                 periodo: 'HOJA DE CONCEPTO',
                 gestion: '2025',
@@ -38,7 +38,7 @@ const MANUAL_VERIFICATIONS: Record<string, any> = {
                     puntaje: 10,
                 },
                 {
-                    criterio: { nombre: 'Rasgo positivos de personalidad y caráter, simpatia y cordialidad en sus relaciones profesionales.', puntajeMaximo: 10 },
+                    criterio: { nombre: 'Rasgos positivos de personalidad y carácter, simpatía y cordialidad en sus relaciones profesionales.', puntajeMaximo: 10 },
                     puntaje: 10,
                 },
                 {
@@ -46,11 +46,11 @@ const MANUAL_VERIFICATIONS: Record<string, any> = {
                     puntaje: 10,
                 },
                 {
-                    criterio: { nombre: 'Interés por perfeccionar su preparación ténica y cultural', puntajeMaximo: 10 },
+                    criterio: { nombre: 'Interés por perfeccionar su preparación técnica y cultural.', puntajeMaximo: 10 },
                     puntaje: 10,
                 },
                 {
-                    criterio: { nombre: 'Iniciativa en beneficio del mejoramiento de la educación', puntajeMaximo: 10 },
+                    criterio: { nombre: 'Iniciativa en beneficio del mejoramiento de la educación.', puntajeMaximo: 10 },
                     puntaje: 10,
                 },
             ],
@@ -121,6 +121,8 @@ function VerificationContent() {
     }
 
     const { valid, evaluation, message } = result || {};
+    const puntajeMaximo = (evaluation?.puntajes || []).reduce((acc: number, p: any) => acc + (Number(p.criterio?.puntajeMaximo) || 0), 0) || 100;
+    const porcentajeVisual = Math.min(Math.round(((Number(evaluation?.puntajeTotal) || 0) / puntajeMaximo) * 100), 100);
 
     return (
         <div className="max-w-4xl mx-auto space-y-12 pb-20">
@@ -204,19 +206,12 @@ function VerificationContent() {
                                             <h5 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                                                 {evaluation.user?.nombre} {evaluation.user?.apellidos}
                                             </h5>
-                                            <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                Docente / Administrativo
-                                            </p>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                                    <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
                                         <div className="space-y-1">
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Cédula / ID</p>
                                             <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{evaluation.user?.username || '—'}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Institución</p>
-                                            <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200 leading-tight">ESFM TECNOLÓGICO EL ALTO</p>
                                         </div>
                                     </div>
                                 </div>
@@ -231,7 +226,7 @@ function VerificationContent() {
                                     <div className="relative">
                                         <svg className="w-32 h-32 transform -rotate-90 overflow-visible">
                                             <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-slate-100 dark:text-slate-700" />
-                                            <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="10" fill="transparent" strokeDasharray={352} strokeDashoffset={352 - (352 * Math.min(evaluation.puntajeTotal, 100)) / 100} className="text-primary-600" />
+                                            <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="10" fill="transparent" strokeDasharray={352} strokeDashoffset={352 - (352 * Math.min(porcentajeVisual, 100)) / 100} className="text-primary-600" />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                                             <span className="text-4xl font-black text-slate-900 dark:text-white">{evaluation.puntajeTotal}</span>
