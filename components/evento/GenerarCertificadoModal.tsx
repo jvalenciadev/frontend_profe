@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Award, X, CheckCircle2, AlertCircle, FileSpreadsheet, Loader2,
     ArrowRight, ArrowLeft, Search, RefreshCw, Users, BookOpen,
-    GraduationCap, CheckSquare, Square, ChevronRight, School, Sparkles
+    GraduationCap, CheckSquare, Square, ChevronRight, School, Sparkles,
+    Calendar, Check, ChevronDown, ChevronUp, AlertTriangle, Lock
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '@/lib/api';
+import { eventoService, type Evento } from '@/services/eventoService';
 import { toast } from 'sonner';
-import { type Evento } from '@/services/eventoService';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 // ─── Estructura de Ciclos y Talleres ──────────────────────────────────────────
 export interface TallerDef {
@@ -108,6 +110,7 @@ export interface ParticipanteTallerInfo {
     inscrito: boolean;
     asistio: boolean;
     inscripcionId?: string;
+    eventoId?: string;
 }
 
 export interface ParticipanteConsolidado {
@@ -128,41 +131,53 @@ interface GenerarCertificadoModalProps {
     isOpen: boolean;
     onClose: () => void;
     eventosDisponibles: Evento[];
+    onEventosUpdated?: () => void;
 }
 
 export function GenerarCertificadoModal({
     isOpen,
     onClose,
     eventosDisponibles,
+    onEventosUpdated,
 }: GenerarCertificadoModalProps) {
     const [mounted, setMounted] = useState(false);
-    // Pasos: 1 = Elegir Ciclo, 2 = Asignar Talleres a Eventos, 3 = Consolidado y Generar
     const [step, setStep] = useState<1 | 2 | 3>(1);
 
     // Selección de Ciclo
     const [selectedCiclo, setSelectedCiclo] = useState<CicloDef | null>(null);
     const [filtroNivel, setFiltroNivel] = useState<'TODOS' | 'Primaria' | 'Secundaria'>('TODOS');
 
-    // Mapeo de evento por taller: { 1: eventoId, 2: eventoId, 3: eventoId }
-    const [tallerEventos, setTallerEventos] = useState<Record<number, string>>({
-        1: '',
-        2: '',
-        3: '',
-    });
-
-    // Carga y consolidación de participantes
-    const [loadingConsolidado, setLoadingConsolidado] = useState(false);
-    const [participantes, setParticipantes] = useState<ParticipanteConsolidado[]>([]);
-    const [rawInscripcionesTaller, setRawInscripcionesTaller] = useState<Record<number, any[]>>({
+    // Mapeo MÚLTIPLE de eventos por taller: { 1: string[], 2: string[], 3: string[] }
+    const [tallerEventos, setTallerEventos] = useState<Record<number, string[]>>({
         1: [],
         2: [],
         3: [],
     });
 
+    // Filtros de búsqueda en la selección de eventos del paso 2
+    const [searchTaller, setSearchTaller] = useState<Record<number, string>>({
+        1: '',
+        2: '',
+        3: '',
+    });
+    const [tallerOpenAccordion, setTallerOpenAccordion] = useState<Record<number, boolean>>({
+        1: true,
+        2: false,
+        3: false,
+    });
+
+    // Carga y consolidación de participantes
+    const [loadingConsolidado, setLoadingConsolidado] = useState(false);
+    const [participantes, setParticipantes] = useState<ParticipanteConsolidado[]>([]);
+
     // Filtros de la tabla consolidada
     const [searchQuery, setSearchQuery] = useState('');
     const [filtroAsistencia, setFiltroAsistencia] = useState<'TODOS' | 'ASISTIO_3' | 'ASISTIO_2' | 'ASISTIO_1' | 'PENDIENTES'>('TODOS');
     const [modificandoAsistenciaId, setModificandoAsistenciaId] = useState<string | null>(null);
+
+    // Modal de Confirmación para Finalizar Eventos y Generar Excel
+    const [isConfirmingExcel, setIsConfirmingExcel] = useState(false);
+    const [finalizandoEventos, setFinalizandoEventos] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -170,43 +185,89 @@ export function GenerarCertificadoModal({
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
-            // Reset state
             setStep(1);
             setSelectedCiclo(null);
-            setTallerEventos({ 1: '', 2: '', 3: '' });
+            setTallerEventos({ 1: [], 2: [], 3: [] });
+            setSearchTaller({ 1: '', 2: '', 3: '' });
+            setTallerOpenAccordion({ 1: true, 2: false, 3: false });
             setParticipantes([]);
             setSearchQuery('');
             setFiltroAsistencia('TODOS');
+            setIsConfirmingExcel(false);
+            setFinalizandoEventos(false);
         }
         return () => {
             document.body.style.overflow = 'unset';
         };
     }, [isOpen]);
 
-    // Intentar auto-asignar eventos basados en nombres parecidos al seleccionar ciclo
+    // Seleccionar ciclo y auto-sugerir eventos con nombres coincidentes
     const handleSelectCiclo = (ciclo: CicloDef) => {
         setSelectedCiclo(ciclo);
-        const nuevoMapeo: Record<number, string> = { 1: '', 2: '', 3: '' };
+        const nuevoMapeo: Record<number, string[]> = { 1: [], 2: [], 3: [] };
 
         ciclo.talleres.forEach((taller) => {
             const tallerNombreNorm = taller.nombre.toLowerCase();
-            const match = eventosDisponibles.find((e) => {
-                const evNorm = (e.nombre || '').toLowerCase();
-                return evNorm.includes(tallerNombreNorm) || tallerNombreNorm.includes(evNorm);
-            });
-            if (match) {
-                nuevoMapeo[taller.numero] = match.id;
-            }
+            const matches = eventosDisponibles
+                .filter((e) => {
+                    const evNorm = (e.nombre || '').toLowerCase();
+                    return evNorm.includes(tallerNombreNorm) || tallerNombreNorm.includes(evNorm);
+                })
+                .map((e) => e.id);
+            nuevoMapeo[taller.numero] = matches;
         });
 
         setTallerEventos(nuevoMapeo);
         setStep(2);
     };
 
-    // Carga de inscripciones de los 3 eventos asociados
+    // Alternar selección de un evento dentro de un taller específico
+    const toggleEventoEnTaller = (numTaller: number, eventoId: string) => {
+        setTallerEventos((prev) => {
+            const actuales = prev[numTaller] || [];
+            const existe = actuales.includes(eventoId);
+            const actualizados = existe
+                ? actuales.filter((id) => id !== eventoId)
+                : [...actuales, eventoId];
+            return {
+                ...prev,
+                [numTaller]: actualizados,
+            };
+        });
+    };
+
+    // Seleccionar o deseleccionar todos los eventos filtrados para un taller
+    const toggleTodosVisiblesEnTaller = (numTaller: number, eventosIdsVisibles: string[]) => {
+        setTallerEventos((prev) => {
+            const actuales = prev[numTaller] || [];
+            const todosSeleccionados = eventosIdsVisibles.every((id) => actuales.includes(id));
+            let actualizados: string[];
+            if (todosSeleccionados) {
+                actualizados = actuales.filter((id) => !eventosIdsVisibles.includes(id));
+            } else {
+                actualizados = Array.from(new Set([...actuales, ...eventosIdsVisibles]));
+            }
+            return {
+                ...prev,
+                [numTaller]: actualizados,
+            };
+        });
+    };
+
+    // Resumen de eventos únicos seleccionados en total
+    const totalEventosSeleccionados = useMemo(() => {
+        const setIds = new Set<string>();
+        (tallerEventos[1] || []).forEach((id) => setIds.add(id));
+        (tallerEventos[2] || []).forEach((id) => setIds.add(id));
+        (tallerEventos[3] || []).forEach((id) => setIds.add(id));
+        return setIds;
+    }, [tallerEventos]);
+
+    // Carga de inscripciones de TODOS los eventos seleccionados en los 3 talleres
     const handleCargarYConsolidar = async () => {
-        if (!tallerEventos[1] && !tallerEventos[2] && !tallerEventos[3]) {
-            toast.error('Debe seleccionar al menos un evento para los talleres');
+        const total = (tallerEventos[1]?.length || 0) + (tallerEventos[2]?.length || 0) + (tallerEventos[3]?.length || 0);
+        if (total === 0) {
+            toast.error('Debe seleccionar al menos un evento en alguno de los talleres');
             return;
         }
 
@@ -215,12 +276,10 @@ export function GenerarCertificadoModal({
             const fetchEventInscripciones = async (eventoId: string) => {
                 if (!eventoId) return [];
                 try {
-                    // Intento 1: exportación sin paginación (rápida)
                     const res = await api.get(`/eventos-inscripciones/export/${eventoId}`);
                     const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
                     if (data && data.length > 0) return data;
                 } catch {
-                    // Fallback a listado estándar con limit alto
                     try {
                         const resFallback = await api.get('/eventos-inscripciones', {
                             params: { eventoId, limit: 5000, page: 1 },
@@ -237,13 +296,16 @@ export function GenerarCertificadoModal({
                 return [];
             };
 
-            const [ins1, ins2, ins3] = await Promise.all([
-                fetchEventInscripciones(tallerEventos[1]),
-                fetchEventInscripciones(tallerEventos[2]),
-                fetchEventInscripciones(tallerEventos[3]),
+            // Cargar en paralelo todas las inscripciones por taller
+            const [listasTaller1, listasTaller2, listasTaller3] = await Promise.all([
+                Promise.all((tallerEventos[1] || []).map((id) => fetchEventInscripciones(id))),
+                Promise.all((tallerEventos[2] || []).map((id) => fetchEventInscripciones(id))),
+                Promise.all((tallerEventos[3] || []).map((id) => fetchEventInscripciones(id))),
             ]);
 
-            setRawInscripcionesTaller({ 1: ins1, 2: ins2, 3: ins3 });
+            const ins1 = listasTaller1.flat();
+            const ins2 = listasTaller2.flat();
+            const ins3 = listasTaller3.flat();
 
             // Consolidación por C.I.
             const mapCi: Record<string, ParticipanteConsolidado> = {};
@@ -277,12 +339,15 @@ export function GenerarCertificadoModal({
                         };
                     }
 
-                    // Asignar al taller correspondiente
                     const tallerKey = `taller${numTaller}` as 'taller1' | 'taller2' | 'taller3';
+                    const prevInfo = mapCi[ci][tallerKey];
+
+                    // Si ya tenía registro en este taller por otro evento paralelo, mantener la asistencia si fue presente
                     mapCi[ci][tallerKey] = {
                         inscrito: true,
-                        asistio,
-                        inscripcionId: item.id,
+                        asistio: prevInfo.asistio || asistio,
+                        inscripcionId: item.id || prevInfo.inscripcionId,
+                        eventoId: item.eventoId || prevInfo.eventoId,
                     };
                 });
             };
@@ -312,7 +377,7 @@ export function GenerarCertificadoModal({
 
             setParticipantes(resultado);
             setStep(3);
-            toast.success(`Datos consolidados: ${resultado.length} participantes encontrados`);
+            toast.success(`Datos consolidados de ${total} eventos: ${resultado.length} participantes únicos encontrados`);
         } catch (error) {
             console.error('Error al consolidar participantes:', error);
             toast.error('Error al cargar datos de participantes de los eventos');
@@ -345,7 +410,6 @@ export function GenerarCertificadoModal({
                 asistencia: nuevoValor,
             });
 
-            // Actualizar estado local
             setParticipantes((prev) => {
                 const copy = [...prev];
                 const target = { ...copy[pIndex] };
@@ -418,16 +482,31 @@ export function GenerarCertificadoModal({
         });
     }, [participantes, searchQuery, filtroAsistencia]);
 
-    // ── Exportación a Excel de 4 Hojas ──────────────────────────────────────────
-    const exportarExcel4Hojas = () => {
+    // ── Exportación a Excel de 4 Hojas y Cierre de Eventos ───────────────────────
+    const ejecutarGeneracionExcelYFinalizar = async () => {
         if (!selectedCiclo) return;
 
+        setFinalizandoEventos(true);
         try {
+            // 1. Cambiar estado a 'finalizado' para todos los eventos seleccionados
+            const uniqueEventIds = Array.from(totalEventosSeleccionados);
+            if (uniqueEventIds.length > 0) {
+                const toastCloseId = toast.loading(`Finalizando ${uniqueEventIds.length} eventos y bloqueando URLs...`);
+                await Promise.all(
+                    uniqueEventIds.map((id) =>
+                        eventoService.update(id, {
+                            estado: 'finalizado',
+                            inscripcionAbierta: false,
+                        })
+                    )
+                );
+                toast.dismiss(toastCloseId);
+            }
+
+            // 2. Construir el Excel de 4 hojas
             const wb = XLSX.utils.book_new();
 
             // 1ra HOJA: CENTRALIZADOR
-            // Formato exacto requerido:
-            // No | C.I. | COMPLEMENTO | NOMBRES | APELLIDOS | CELULAR | CORREO | ASISTIO 3 TALLERES | URL
             const centralizadorRows = participantes.map((p, idx) => [
                 idx + 1,
                 p.ci,
@@ -444,14 +523,12 @@ export function GenerarCertificadoModal({
                 ['No', 'C.I.', 'COMPLEMENTO', 'NOMBRES', 'APELLIDOS', 'CELULAR', 'CORREO', 'ASISTIO 3 TALLERES', 'URL'],
                 ...centralizadorRows,
             ]);
-            // Anchos de columna
             wsCentralizador['!cols'] = [
                 { wch: 6 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 14 }, { wch: 28 }, { wch: 22 }, { wch: 15 }
             ];
             XLSX.utils.book_append_sheet(wb, wsCentralizador, 'Centralizador');
 
             // Función para generar hoja por taller
-            // No | C.I. | COMPLEMENTO | NOMBRES | APELLIDOS | CELULAR | CORREO | ASISTENCIA
             const generarHojaTaller = (numTaller: 1 | 2 | 3, sheetName: string) => {
                 const tallerKey = `taller${numTaller}` as 'taller1' | 'taller2' | 'taller3';
                 const listaTaller = participantes.filter((p) => p[tallerKey].inscrito);
@@ -489,10 +566,18 @@ export function GenerarCertificadoModal({
             const nombreArchivo = `Certificados_${selectedCiclo.nombre.replace(/[\s-]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(wb, nombreArchivo);
 
-            toast.success(`Excel con 4 hojas generado y descargado: ${nombreArchivo}`);
+            toast.success(`Excel generado y descargado exitosamente. Se finalizaron ${uniqueEventIds.length} eventos.`);
+            setIsConfirmingExcel(false);
+
+            // Recargar datos en la vista principal
+            if (onEventosUpdated) {
+                onEventosUpdated();
+            }
         } catch (error) {
-            console.error('Error al exportar Excel:', error);
-            toast.error('Error al generar el libro de Excel');
+            console.error('Error al generar Excel o finalizar eventos:', error);
+            toast.error('Ocurrió un error al finalizar los eventos o generar el Excel');
+        } finally {
+            setFinalizandoEventos(false);
         }
     };
 
@@ -529,7 +614,7 @@ export function GenerarCertificadoModal({
                                 </h2>
                                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                                     {step === 1 && 'Paso 1: Antes de generar seleccione a qué ciclo pertenece'}
-                                    {step === 2 && `Paso 2: Asignar Eventos a los Talleres de ${selectedCiclo?.nombre}`}
+                                    {step === 2 && `Paso 2: Asignar Eventos a los Talleres de ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} eventos seleccionados)`}
                                     {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (4 Hojas)`}
                                 </p>
                             </div>
@@ -542,7 +627,7 @@ export function GenerarCertificadoModal({
                             </span>
                             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                             <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 2 ? 'bg-primary text-white' : 'text-muted-foreground'}`}>
-                                2. Talleres
+                                2. Talleres ({totalEventosSeleccionados.size})
                             </span>
                             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                             <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 3 ? 'bg-primary text-white' : 'text-muted-foreground'}`}>
@@ -652,19 +737,24 @@ export function GenerarCertificadoModal({
                             </div>
                         )}
 
-                        {/* ── PASO 2: ASIGNAR TALLERES A EVENTOS ────────────────────────────── */}
+                        {/* ── PASO 2: ASIGNAR MÚLTIPLES EVENTOS A LOS TALLERES ─────────────── */}
                         {step === 2 && selectedCiclo && (
                             <div className="space-y-6">
                                 <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between flex-wrap gap-4">
                                     <div>
-                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/20 text-primary">
-                                            {selectedCiclo.nivel}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/20 text-primary">
+                                                {selectedCiclo.nivel}
+                                            </span>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500">
+                                                {totalEventosSeleccionados.size} eventos seleccionados en total
+                                            </span>
+                                        </div>
                                         <h3 className="text-lg font-black text-foreground mt-1">
                                             {selectedCiclo.nombre}
                                         </h3>
                                         <p className="text-xs text-muted-foreground font-medium">
-                                            Vincule a qué evento del sistema corresponde cada uno de los 3 talleres obligatorios.
+                                            Seleccione uno o más eventos para cada taller (soporta centralizar decenas de talleres o paralelos simultáneos).
                                         </p>
                                     </div>
                                     <button
@@ -678,61 +768,202 @@ export function GenerarCertificadoModal({
 
                                 <div className="space-y-4">
                                     {selectedCiclo.talleres.map((taller) => {
-                                        const evSeleccionado = eventosDisponibles.find(
-                                            (e) => e.id === tallerEventos[taller.numero]
+                                        const seleccionadosIds = tallerEventos[taller.numero] || [];
+                                        const busqueda = (searchTaller[taller.numero] || '').toLowerCase();
+                                        const isOpenAccordion = tallerOpenAccordion[taller.numero] ?? false;
+
+                                        // Filtrar eventos por la búsqueda de este taller
+                                        const eventosFiltrados = eventosDisponibles.filter((e) => {
+                                            if (!busqueda) return true;
+                                            const nom = (e.nombre || '').toLowerCase();
+                                            const lug = (e.lugar || '').toLowerCase();
+                                            const cod = (e.codigo || '').toLowerCase();
+                                            return nom.includes(busqueda) || lug.includes(busqueda) || cod.includes(busqueda);
+                                        });
+
+                                        // Estadísticas acumuladas para este taller
+                                        const eventosSeleccionadosObjs = eventosDisponibles.filter((e) =>
+                                            seleccionadosIds.includes(e.id)
+                                        );
+                                        const sumaInscritos = eventosSeleccionadosObjs.reduce(
+                                            (acc, e) => acc + (e.inscritos || 0),
+                                            0
+                                        );
+                                        const sumaAsistidos = eventosSeleccionadosObjs.reduce(
+                                            (acc, e) => acc + (e.asistidos || 0),
+                                            0
                                         );
 
                                         return (
                                             <div
                                                 key={taller.numero}
-                                                className="p-5 rounded-2xl border border-border bg-card/60 space-y-3"
+                                                className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs"
                                             >
-                                                <div className="flex items-center justify-between flex-wrap gap-2">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <span className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs font-black">
+                                                {/* Header del Taller */}
+                                                <div
+                                                    onClick={() =>
+                                                        setTallerOpenAccordion((prev) => ({
+                                                            ...prev,
+                                                            [taller.numero]: !isOpenAccordion,
+                                                        }))
+                                                    }
+                                                    className="p-4 bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer flex items-center justify-between flex-wrap gap-3 border-b border-border/50"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs font-black shrink-0">
                                                             {taller.numero}
                                                         </span>
                                                         <div>
-                                                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                                                                Taller {taller.numero}
-                                                            </p>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
+                                                                    Taller {taller.numero}
+                                                                </span>
+                                                                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-black">
+                                                                    {seleccionadosIds.length} eventos asignados
+                                                                </span>
+                                                            </div>
                                                             <h4 className="text-sm font-bold text-foreground">
                                                                 {taller.nombre}
                                                             </h4>
                                                         </div>
                                                     </div>
 
-                                                    {evSeleccionado && (
-                                                        <div className="flex items-center gap-3 text-xs bg-muted/40 px-3 py-1.5 rounded-xl border border-border/60">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-2 text-xs bg-card px-3 py-1.5 rounded-xl border border-border">
                                                             <span className="text-muted-foreground font-medium">
-                                                                Inscritos: <strong className="text-foreground">{evSeleccionado.inscritos || 0}</strong>
+                                                                Inscritos: <strong className="text-foreground">{sumaInscritos}</strong>
                                                             </span>
                                                             <span className="text-muted-foreground font-medium">
-                                                                Asistidos: <strong className="text-foreground">{evSeleccionado.asistidos || 0}</strong>
+                                                                • Asistidos: <strong className="text-foreground">{sumaAsistidos}</strong>
                                                             </span>
                                                         </div>
-                                                    )}
+                                                        <span className="text-muted-foreground">
+                                                            {isOpenAccordion ? (
+                                                                <ChevronUp className="w-5 h-5" />
+                                                            ) : (
+                                                                <ChevronDown className="w-5 h-5" />
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-3">
-                                                    <select
-                                                        value={tallerEventos[taller.numero] || ''}
-                                                        onChange={(e) =>
-                                                            setTallerEventos((prev) => ({
-                                                                ...prev,
-                                                                [taller.numero]: e.target.value,
-                                                            }))
-                                                        }
-                                                        className="w-full h-11 px-4 rounded-xl bg-background border border-border focus:border-amber-500 text-xs font-bold text-foreground outline-none transition-all"
-                                                    >
-                                                        <option value="">-- Seleccionar evento que corresponde a este taller --</option>
-                                                        {eventosDisponibles.map((ev) => (
-                                                            <option key={ev.id} value={ev.id}>
-                                                                {ev.nombre} ({ev.fecha ? ev.fecha.slice(0, 10) : 'Sin fecha'}) — {ev.inscritos || 0} inscritos
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
+                                                {/* Contenido Desplegable: Buscador y Checklist de Eventos */}
+                                                {isOpenAccordion && (
+                                                    <div className="p-4 space-y-4">
+                                                        {/* Barra de Búsqueda y Botón Seleccionar Todos */}
+                                                        <div className="flex items-center gap-3 flex-wrap">
+                                                            <div className="relative flex-1 min-w-[220px]">
+                                                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                                <input
+                                                                    type="text"
+                                                                    value={searchTaller[taller.numero] || ''}
+                                                                    onChange={(e) =>
+                                                                        setSearchTaller((prev) => ({
+                                                                            ...prev,
+                                                                            [taller.numero]: e.target.value,
+                                                                        }))
+                                                                    }
+                                                                    placeholder={`Buscar eventos para Taller ${taller.numero}...`}
+                                                                    className="w-full h-10 pl-10 pr-4 rounded-xl bg-background border border-border text-xs font-medium outline-none focus:border-amber-500 transition-all"
+                                                                />
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    toggleTodosVisiblesEnTaller(
+                                                                        taller.numero,
+                                                                        eventosFiltrados.map((e) => e.id)
+                                                                    )
+                                                                }
+                                                                className="h-10 px-4 rounded-xl bg-background border border-border hover:border-amber-500/50 text-xs font-bold text-foreground flex items-center gap-2 transition-all shrink-0"
+                                                            >
+                                                                <CheckSquare className="w-4 h-4 text-amber-500" />
+                                                                {eventosFiltrados.every((e) => seleccionadosIds.includes(e.id))
+                                                                    ? 'Deseleccionar visibles'
+                                                                    : 'Seleccionar todos los visibles'}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Lista Scrolleable de Eventos con Checkboxes */}
+                                                        <div className="max-h-60 overflow-y-auto border border-border/80 rounded-xl divide-y divide-border/60 bg-background/50">
+                                                            {eventosFiltrados.length === 0 ? (
+                                                                <div className="p-6 text-center text-xs text-muted-foreground">
+                                                                    No se encontraron eventos coincidentes con la búsqueda.
+                                                                </div>
+                                                            ) : (
+                                                                eventosFiltrados.map((ev) => {
+                                                                    const isSelected = seleccionadosIds.includes(ev.id);
+                                                                    return (
+                                                                        <label
+                                                                            key={ev.id}
+                                                                            className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/40 transition-colors text-xs ${
+                                                                                isSelected ? 'bg-amber-500/10' : ''
+                                                                            }`}
+                                                                        >
+                                                                            <div className="flex items-center gap-3">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isSelected}
+                                                                                    onChange={() =>
+                                                                                        toggleEventoEnTaller(taller.numero, ev.id)
+                                                                                    }
+                                                                                    className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
+                                                                                />
+                                                                                <div>
+                                                                                    <p className="font-bold text-foreground">
+                                                                                        {ev.nombre}
+                                                                                    </p>
+                                                                                    <p className="text-[10px] text-muted-foreground">
+                                                                                        Fecha: {ev.fecha ? ev.fecha.slice(0, 10) : 'Sin fecha'}{' '}
+                                                                                        {ev.lugar ? `• Lugar: ${ev.lugar}` : ''}
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                                <span className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                                                                                    {ev.inscritos || 0} inscritos
+                                                                                </span>
+                                                                                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                                                    {ev.asistidos || 0} asistidos
+                                                                                </span>
+                                                                            </div>
+                                                                        </label>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+
+                                                        {/* Chips de Eventos Seleccionados para quitar rápido */}
+                                                        {eventosSeleccionadosObjs.length > 0 && (
+                                                            <div className="pt-2">
+                                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                                                                    Eventos vinculados a este taller ({eventosSeleccionadosObjs.length}):
+                                                                </p>
+                                                                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                                                    {eventosSeleccionadosObjs.map((ev) => (
+                                                                        <span
+                                                                            key={ev.id}
+                                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-foreground"
+                                                                        >
+                                                                            <span className="truncate max-w-[200px]">{ev.nombre}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    toggleEventoEnTaller(taller.numero, ev.id)
+                                                                                }
+                                                                                className="hover:text-red-500 transition-colors"
+                                                                            >
+                                                                                <X className="w-3 h-3" />
+                                                                            </button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -750,16 +981,16 @@ export function GenerarCertificadoModal({
                                     <button
                                         type="button"
                                         onClick={handleCargarYConsolidar}
-                                        disabled={loadingConsolidado || (!tallerEventos[1] && !tallerEventos[2] && !tallerEventos[3])}
+                                        disabled={loadingConsolidado || totalEventosSeleccionados.size === 0}
                                         className="px-6 h-11 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-black uppercase tracking-wider hover:from-amber-600 hover:to-amber-700 transition-all flex items-center gap-2.5 shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {loadingConsolidado ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" /> Consolidando Asistencias...
+                                                <Loader2 className="w-4 h-4 animate-spin" /> Consolidando Asistencias de {totalEventosSeleccionados.size} eventos...
                                             </>
                                         ) : (
                                             <>
-                                                Revisar Asistencias e Inscripciones <ArrowRight className="w-4 h-4" />
+                                                Revisar Asistencias e Inscripciones ({totalEventosSeleccionados.size} eventos) <ArrowRight className="w-4 h-4" />
                                             </>
                                         )}
                                     </button>
@@ -774,14 +1005,19 @@ export function GenerarCertificadoModal({
                                 <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
                                         <div>
-                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500">
-                                                {selectedCiclo.nivel}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500">
+                                                    {selectedCiclo.nivel}
+                                                </span>
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/20 text-primary">
+                                                    {totalEventosSeleccionados.size} eventos consolidados
+                                                </span>
+                                            </div>
                                             <h3 className="text-xl font-black text-foreground mt-1">
                                                 Consolidado: {selectedCiclo.nombre}
                                             </h3>
                                             <p className="text-xs text-muted-foreground font-medium">
-                                                Participantes registrados en los 3 talleres del ciclo. Puede marcar asistencia a los talleres faltantes directamente desde esta lista.
+                                                Participantes registrados en los talleres del ciclo. Puede marcar asistencia a los talleres faltantes directamente desde esta lista antes de generar el Excel.
                                             </p>
                                         </div>
 
@@ -799,7 +1035,7 @@ export function GenerarCertificadoModal({
 
                                             <button
                                                 type="button"
-                                                onClick={exportarExcel4Hojas}
+                                                onClick={() => setIsConfirmingExcel(true)}
                                                 className="px-6 h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-lg shadow-green-600/20 active:scale-95"
                                             >
                                                 <FileSpreadsheet className="w-4 h-4" />
@@ -1108,7 +1344,7 @@ export function GenerarCertificadoModal({
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={exportarExcel4Hojas}
+                                            onClick={() => setIsConfirmingExcel(true)}
                                             className="px-6 h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-lg shadow-green-600/20 active:scale-95"
                                         >
                                             <FileSpreadsheet className="w-4 h-4" />
@@ -1120,6 +1356,34 @@ export function GenerarCertificadoModal({
                         )}
                     </div>
                 </motion.div>
+
+                {/* MODAL DE CONFIRMACIÓN OBLIGATORIA ANTES DE GENERAR EXCEL */}
+                <ConfirmModal
+                    isOpen={isConfirmingExcel}
+                    onClose={() => setIsConfirmingExcel(false)}
+                    onConfirm={ejecutarGeneracionExcelYFinalizar}
+                    title="¿Estás seguro de generar el Excel?"
+                    description={
+                        <div className="space-y-3 text-xs">
+                            <p className="font-semibold text-foreground">
+                                Ten en cuenta que esas URL no se podrán usar, ya que el estado del evento estará en <span className="font-bold text-amber-500 uppercase">finalizado</span>.
+                            </p>
+                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 space-y-1">
+                                <div className="flex items-center gap-2 font-bold text-xs">
+                                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+                                    <span>Acción irreversible de cierre:</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed">
+                                    Se cambiará el estado de los <strong>{totalEventosSeleccionados.size} eventos seleccionados</strong> a <code>finalizado</code> y se cerrará permanentemente la inscripción y acceso a las URLs de registro.
+                                </p>
+                            </div>
+                        </div>
+                    }
+                    confirmText="Sí, finalizar eventos y generar Excel"
+                    cancelText="Cancelar y revisar"
+                    variant="warning"
+                    loading={finalizandoEventos}
+                />
             </div>
         </AnimatePresence>
     );

@@ -1272,6 +1272,7 @@ export default function EventosPage() {
                 isOpen={isCertificadoModalOpen}
                 onClose={() => setIsCertificadoModalOpen(false)}
                 eventosDisponibles={eventos}
+                onEventosUpdated={loadData}
             />
         </div>
     );
