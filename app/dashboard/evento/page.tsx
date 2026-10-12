@@ -13,7 +13,7 @@ import {
     Calendar, Plus, Search, Edit, Trash2, MapPin, Tag,
     Building2, Activity, CheckCircle2, Save, Trophy, Users,
     X, Settings2, Clock, Filter, LayoutGrid, LayoutList,
-    Zap, ChevronDown, Globe, Lock, Eye
+    Zap, ChevronDown, Globe, Lock, Eye, Award
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ import { getImageUrl, cn, stripHtml } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { HistorialParticipanteModal } from '@/components/evento/HistorialParticipanteModal';
+import { GenerarCertificadoModal } from '@/components/evento/GenerarCertificadoModal';
 
 // ─── Paleta de colores por tipo de evento ──────────────────────────
 const TIPO_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -204,6 +205,7 @@ export default function EventosPage() {
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [isConfirmingSave, setIsConfirmingSave] = useState(false);
     const [isHistorialModalOpen, setIsHistorialModalOpen] = useState(false);
+    const [isCertificadoModalOpen, setIsCertificadoModalOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
 
     const isCodigoDuplicado = useMemo(() => {
@@ -435,20 +437,29 @@ export default function EventosPage() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:items-end gap-2.5">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setIsHistorialModalOpen(true)}
+                                className="flex items-center gap-2.5 h-12 px-5 rounded-2xl bg-card border border-border hover:border-primary/50 text-foreground font-black text-xs uppercase tracking-wider hover:bg-muted/40 transition-all shadow-sm active:scale-95"
+                            >
+                                <Search className="w-4 h-4 text-primary" />
+                                Buscar por CI
+                            </button>
+                            <button
+                                onClick={() => handleOpenModal()}
+                                className="flex items-center gap-2.5 h-12 px-6 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Nuevo Evento
+                            </button>
+                        </div>
                         <button
-                            onClick={() => setIsHistorialModalOpen(true)}
-                            className="flex items-center gap-2.5 h-12 px-5 rounded-2xl bg-card border border-border hover:border-primary/50 text-foreground font-black text-xs uppercase tracking-wider hover:bg-muted/40 transition-all shadow-sm active:scale-95"
+                            onClick={() => setIsCertificadoModalOpen(true)}
+                            className="flex items-center justify-center gap-2.5 h-11 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 active:scale-95 w-full border border-amber-400/30"
                         >
-                            <Search className="w-4 h-4 text-primary" />
-                            Buscar por CI
-                        </button>
-                        <button
-                            onClick={() => handleOpenModal()}
-                            className="flex items-center gap-2.5 h-12 px-6 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nuevo Evento
+                            <Award className="w-4 h-4" />
+                            Generar Certificado
                         </button>
                     </div>
                 </div>
@@ -1256,6 +1267,11 @@ export default function EventosPage() {
             <HistorialParticipanteModal
                 isOpen={isHistorialModalOpen}
                 onClose={() => setIsHistorialModalOpen(false)}
+            />
+            <GenerarCertificadoModal
+                isOpen={isCertificadoModalOpen}
+                onClose={() => setIsCertificadoModalOpen(false)}
+                eventosDisponibles={eventos}
             />
         </div>
     );
