@@ -42,6 +42,30 @@ export function cleanHtmlText(raw: string | null | undefined): string {
         .trim();
 }
 
+// ─── Utilidad para extraer exclusivamente enlaces válidos (https:// o http://) ───
+export function extraerUrlsDeTexto(raw: string | null | undefined): string[] {
+    if (!raw) return [];
+    const str = String(raw);
+    const urlRegex = /(https?:\/\/[^\s"'<>]+|www\.[^\s"'<>]+)/gi;
+    const matches = str.match(urlRegex);
+    if (!matches) return [];
+
+    const urlsValidas: string[] = [];
+    matches.forEach((u) => {
+        let cleaned = u.replace(/[.,;:)\]>]+$/, '').trim();
+        if (cleaned.toLowerCase().startsWith('www.')) {
+            cleaned = `https://${cleaned}`;
+        }
+        if (cleaned && (cleaned.startsWith('http://') || cleaned.startsWith('https://'))) {
+            if (!urlsValidas.includes(cleaned)) {
+                urlsValidas.push(cleaned);
+            }
+        }
+    });
+
+    return urlsValidas;
+}
+
 // ─── Estructura de Ciclos y Talleres ──────────────────────────────────────────
 export interface TallerDef {
     numero: number;
@@ -517,10 +541,7 @@ export function GenerarCertificadoModal({
                                                 rawVal !== 'Sin respuesta' &&
                                                 rawVal !== 'Sin texto'
                                             ) {
-                                                const urls = String(rawVal)
-                                                    .split(/\s*\|\s*|\s*;\s*|\n+/)
-                                                    .map((u) => u.trim())
-                                                    .filter(Boolean);
+                                                const urls = extraerUrlsDeTexto(rawVal);
 
                                                 if (urls.length > 0) {
                                                     if (!respuestasPorCi[ci]) {
@@ -752,9 +773,13 @@ export function GenerarCertificadoModal({
             const preg = cues.preguntas.find((p) => p.idUnico === selectedId);
             if (preg && preg.respuestasPorCi[ci]) {
                 preg.respuestasPorCi[ci].forEach((u) => {
-                    if (u && !urls.includes(u)) {
-                        urls.push(u);
-                    }
+                    const extracted = extraerUrlsDeTexto(u);
+                    const list = extracted.length > 0 ? extracted : (u.startsWith('http://') || u.startsWith('https://') ? [u] : []);
+                    list.forEach((link) => {
+                        if (link && !urls.includes(link)) {
+                            urls.push(link);
+                        }
+                    });
                 });
             }
         });
