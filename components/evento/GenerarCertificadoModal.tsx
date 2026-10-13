@@ -7,10 +7,11 @@ import {
     Award, X, CheckCircle2, AlertCircle, FileSpreadsheet, Loader2,
     ArrowRight, ArrowLeft, Search, RefreshCw, Users, BookOpen,
     GraduationCap, CheckSquare, Square, ChevronRight, School, Sparkles,
-    Calendar, Check, ChevronDown, ChevronUp, AlertTriangle, Lock, Link2
+    Calendar, Check, ChevronDown, ChevronUp, AlertTriangle, Lock, Link2,
+    HelpCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import api from '@/lib/api';
+import api, { viewsApi } from '@/lib/api';
 import { eventoService, type Evento } from '@/services/eventoService';
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -105,6 +106,19 @@ export const CICLOS_LIST: CicloDef[] = [
     },
 ];
 
+// Estructura de pregunta de tipo TEXTO para URL de evidencia
+export interface OpcionPreguntaTexto {
+    idUnico: string;
+    cuestionarioId: string;
+    cuestionarioTitulo: string;
+    preguntaId: string;
+    preguntaTexto: string;
+    eventoId: string;
+    eventoNombre: string;
+    respondidosCount: number;
+    respuestasPorCi: Record<string, string[]>;
+}
+
 // Estructura consolidada del participante
 export interface ParticipanteTallerInfo {
     inscrito: boolean;
@@ -118,6 +132,7 @@ export interface ParticipanteConsolidado {
     complemento: string;
     nombres: string;
     apellidos: string;
+    genero: string;
     celular: string;
     correo: string;
     taller1: ParticipanteTallerInfo;
@@ -147,15 +162,7 @@ export function GenerarCertificadoModal({
     const [selectedCiclo, setSelectedCiclo] = useState<CicloDef | null>(null);
     const [filtroNivel, setFiltroNivel] = useState<'TODOS' | 'Primaria' | 'Secundaria'>('TODOS');
 
-    // FILTRO ESTRICTO: Solo eventos NO finalizados (estado === 'activo')
-    const eventosActivos = useMemo(() => {
-        return (eventosDisponibles || []).filter((e) => {
-            const est = (e.estado || '').toLowerCase().trim();
-            return est === 'activo';
-        });
-    }, [eventosDisponibles]);
-
-    // Mapeo MÚLTIPLE de eventos por taller: { 1: string[], 2: string[], 3: string[] }
+    // Mapeo MÚLTIPLE de eventos por taller (SIEMPRE INICIA VACÍO / DESTIQUEADO)
     const [tallerEventos, setTallerEventos] = useState<Record<number, string[]>>({
         1: [],
         2: [],
@@ -168,6 +175,11 @@ export function GenerarCertificadoModal({
         2: '',
         3: '',
     });
+    const [filtroEstadoTaller, setFiltroEstadoTaller] = useState<Record<number, 'TODOS' | 'ACTIVO' | 'FINALIZADO'>>({
+        1: 'TODOS',
+        2: 'TODOS',
+        3: 'TODOS',
+    });
     const [tallerOpenAccordion, setTallerOpenAccordion] = useState<Record<number, boolean>>({
         1: true,
         2: false,
@@ -177,6 +189,11 @@ export function GenerarCertificadoModal({
     // Carga y consolidación de participantes
     const [loadingConsolidado, setLoadingConsolidado] = useState(false);
     const [participantes, setParticipantes] = useState<ParticipanteConsolidado[]>([]);
+
+    // Cuestionarios y preguntas tipo TEXTO
+    const [loadingCuestionarios, setLoadingCuestionarios] = useState(false);
+    const [opcionesPreguntasTexto, setOpcionesPreguntasTexto] = useState<OpcionPreguntaTexto[]>([]);
+    const [preguntaTextoSeleccionadaId, setPreguntaTextoSeleccionadaId] = useState<string>('');
 
     // Filtros de la tabla consolidada
     const [searchQuery, setSearchQuery] = useState('');
@@ -197,8 +214,11 @@ export function GenerarCertificadoModal({
             setSelectedCiclo(null);
             setTallerEventos({ 1: [], 2: [], 3: [] });
             setSearchTaller({ 1: '', 2: '', 3: '' });
+            setFiltroEstadoTaller({ 1: 'TODOS', 2: 'TODOS', 3: 'TODOS' });
             setTallerOpenAccordion({ 1: true, 2: false, 3: false });
             setParticipantes([]);
+            setOpcionesPreguntasTexto([]);
+            setPreguntaTextoSeleccionadaId('');
             setSearchQuery('');
             setFiltroAsistencia('TODOS');
             setIsConfirmingExcel(false);
@@ -209,23 +229,10 @@ export function GenerarCertificadoModal({
         };
     }, [isOpen]);
 
-    // Seleccionar ciclo y auto-sugerir únicamente eventos ACTIVOS con nombres coincidentes
+    // Seleccionar ciclo: SIEMPRE DESTIQUEADO (sin preselección automática)
     const handleSelectCiclo = (ciclo: CicloDef) => {
         setSelectedCiclo(ciclo);
-        const nuevoMapeo: Record<number, string[]> = { 1: [], 2: [], 3: [] };
-
-        ciclo.talleres.forEach((taller) => {
-            const tallerNombreNorm = taller.nombre.toLowerCase();
-            const matches = eventosActivos
-                .filter((e) => {
-                    const evNorm = (e.nombre || '').toLowerCase();
-                    return evNorm.includes(tallerNombreNorm) || tallerNombreNorm.includes(evNorm);
-                })
-                .map((e) => e.id);
-            nuevoMapeo[taller.numero] = matches;
-        });
-
-        setTallerEventos(nuevoMapeo);
+        setTallerEventos({ 1: [], 2: [], 3: [] });
         setStep(2);
     };
 
@@ -311,15 +318,16 @@ export function GenerarCertificadoModal({
         return items;
     }, [selectedCiclo, tallerEventos, eventosDisponibles]);
 
-    // Carga de inscripciones de TODOS los eventos seleccionados en los 3 talleres
+    // Carga de inscripciones de TODOS los eventos seleccionados en los 3 talleres + Cuestionarios TEXTO
     const handleCargarYConsolidar = async () => {
         const total = (tallerEventos[1]?.length || 0) + (tallerEventos[2]?.length || 0) + (tallerEventos[3]?.length || 0);
         if (total === 0) {
-            toast.error('Debe seleccionar al menos un evento activo en alguno de los talleres');
+            toast.error('Debe tiquear al menos un evento en alguno de los talleres');
             return;
         }
 
         setLoadingConsolidado(true);
+        setLoadingCuestionarios(true);
         try {
             const fetchEventInscripciones = async (eventoId: string) => {
                 if (!eventoId) return [];
@@ -344,7 +352,7 @@ export function GenerarCertificadoModal({
                 return [];
             };
 
-            // Cargar en paralelo todas las inscripciones por taller
+            // 1. Cargar en paralelo todas las inscripciones por taller
             const [listasTaller1, listasTaller2, listasTaller3] = await Promise.all([
                 Promise.all((tallerEventos[1] || []).map((id) => fetchEventInscripciones(id))),
                 Promise.all((tallerEventos[2] || []).map((id) => fetchEventInscripciones(id))),
@@ -371,12 +379,27 @@ export function GenerarCertificadoModal({
                     const correo = String(persona.correo || item.correo || '');
                     const asistio = Boolean(item.asistencia);
 
+                    // Extracción normalizada de género
+                    const rawGen = persona.genero?.nombre || persona.genero || persona.generoId || item.genero || item.generoId;
+                    let genero = '';
+                    if (rawGen !== undefined && rawGen !== null && rawGen !== '') {
+                        const str = String(rawGen).trim();
+                        if (str === '1' || str.toLowerCase() === 'm' || str.toLowerCase().startsWith('masc')) {
+                            genero = 'MASCULINO';
+                        } else if (str === '2' || str.toLowerCase() === 'f' || str.toLowerCase().startsWith('fem')) {
+                            genero = 'FEMENINO';
+                        } else {
+                            genero = str.toUpperCase();
+                        }
+                    }
+
                     if (!mapCi[ci]) {
                         mapCi[ci] = {
                             ci,
                             complemento,
                             nombres,
                             apellidos,
+                            genero,
                             celular,
                             correo,
                             taller1: { inscrito: false, asistio: false },
@@ -385,6 +408,8 @@ export function GenerarCertificadoModal({
                             totalInscritos: 0,
                             totalAsistidos: 0,
                         };
+                    } else if (!mapCi[ci].genero && genero) {
+                        mapCi[ci].genero = genero;
                     }
 
                     const tallerKey = `taller${numTaller}` as 'taller1' | 'taller2' | 'taller3';
@@ -422,13 +447,103 @@ export function GenerarCertificadoModal({
             });
 
             setParticipantes(resultado);
+
+            // 2. Cargar Cuestionarios y preguntas tipo TEXTO de los eventos seleccionados
+            const uniqueEventIds = Array.from(totalEventosSeleccionados);
+            const opcionesTexto: OpcionPreguntaTexto[] = [];
+
+            await Promise.all(
+                uniqueEventIds.map(async (eventoId) => {
+                    try {
+                        const resCues = await api.get('/evento-cuestionarios', {
+                            params: { eventoId },
+                        });
+                        const cuesList: any[] = Array.isArray(resCues.data) ? resCues.data : (resCues.data?.data ?? []);
+                        const evObj = eventosDisponibles.find((e) => e.id === eventoId);
+
+                        await Promise.all(
+                            cuesList.map(async (cues) => {
+                                try {
+                                    const resExp = await viewsApi.get(
+                                        `/public/eventos/cuestionario/${cues.id}/exportar-respuestas`
+                                    );
+                                    const { cuestionario, preguntas, intentos } = resExp.data || {};
+                                    const pregsTexto = (preguntas || []).filter(
+                                        (p: any) => p.tipo === 'TEXTO' || p.eve_pre_tipo === 'TEXTO'
+                                    );
+
+                                    pregsTexto.forEach((preg: any) => {
+                                        const respuestasPorCi: Record<string, string[]> = {};
+                                        const cisRespondidos = new Set<string>();
+
+                                        (intentos || []).forEach((it: any) => {
+                                            const ci = String(it.ci || '').trim();
+                                            if (!ci) return;
+                                            const rawVal = it.respuestas?.[preg.id];
+                                            if (
+                                                rawVal &&
+                                                rawVal !== 'Sin respuesta' &&
+                                                rawVal !== 'Sin texto'
+                                            ) {
+                                                const urls = String(rawVal)
+                                                    .split(/\s*\|\s*|\s*;\s*|\n+/)
+                                                    .map((u) => u.trim())
+                                                    .filter(Boolean);
+
+                                                if (urls.length > 0) {
+                                                    if (!respuestasPorCi[ci]) {
+                                                        respuestasPorCi[ci] = [];
+                                                    }
+                                                    urls.forEach((u) => {
+                                                        if (!respuestasPorCi[ci].includes(u)) {
+                                                            respuestasPorCi[ci].push(u);
+                                                        }
+                                                    });
+                                                    cisRespondidos.add(ci);
+                                                }
+                                            }
+                                        });
+
+                                        opcionesTexto.push({
+                                            idUnico: `${cues.id}_${preg.id}`,
+                                            cuestionarioId: cues.id,
+                                            cuestionarioTitulo: cues.titulo || cuestionario?.titulo || 'Cuestionario',
+                                            preguntaId: preg.id,
+                                            preguntaTexto: preg.texto || 'Pregunta de evidencia',
+                                            eventoId,
+                                            eventoNombre: evObj?.nombre || 'Evento',
+                                            respondidosCount: cisRespondidos.size,
+                                            respuestasPorCi,
+                                        });
+                                    });
+                                } catch {
+                                    // Ignorar si falla un cuestionario puntual
+                                }
+                            })
+                        );
+                    } catch {
+                        // Ignorar si falla el listado de cuestionarios
+                    }
+                })
+            );
+
+            // Ordenar opciones por mayor cantidad de respondidos
+            opcionesTexto.sort((a, b) => b.respondidosCount - a.respondidosCount);
+            setOpcionesPreguntasTexto(opcionesTexto);
+
+            // Si hay opciones y ninguna seleccionada, autoseleccionar la que más respondidos tenga
+            if (opcionesTexto.length > 0 && !preguntaTextoSeleccionadaId) {
+                setPreguntaTextoSeleccionadaId(opcionesTexto[0].idUnico);
+            }
+
             setStep(3);
-            toast.success(`Datos consolidados de ${total} eventos activos: ${resultado.length} participantes únicos encontrados`);
+            toast.success(`Datos consolidados de ${total} eventos: ${resultado.length} participantes únicos encontrados`);
         } catch (error) {
             console.error('Error al consolidar participantes:', error);
             toast.error('Error al cargar datos de participantes de los eventos');
         } finally {
             setLoadingConsolidado(false);
+            setLoadingCuestionarios(false);
         }
     };
 
@@ -528,16 +643,21 @@ export function GenerarCertificadoModal({
         });
     }, [participantes, searchQuery, filtroAsistencia]);
 
-    // ── Exportación a Excel de 4 Hojas + Hoja de Trazabilidad URLs ───────────────
+    // Opción seleccionada de pregunta TEXTO
+    const preguntaTextoSeleccionada = useMemo(() => {
+        return opcionesPreguntasTexto.find((o) => o.idUnico === preguntaTextoSeleccionadaId) || null;
+    }, [opcionesPreguntasTexto, preguntaTextoSeleccionadaId]);
+
+    // ── Exportación a Excel de 4 Hojas (con URLs por intentos) + Trazabilidad URLs ──
     const ejecutarGeneracionExcelYFinalizar = async () => {
         if (!selectedCiclo) return;
 
         setFinalizandoEventos(true);
         try {
-            // 1. Cambiar estado a 'finalizado' para todos los eventos seleccionados
+            // 1. Cambiar estado a 'finalizado' para los eventos seleccionados que aún estén activos
             const uniqueEventIds = Array.from(totalEventosSeleccionados);
             if (uniqueEventIds.length > 0) {
-                const toastCloseId = toast.loading(`Finalizando ${uniqueEventIds.length} eventos y cerrando URLs...`);
+                const toastCloseId = toast.loading(`Finalizando eventos y bloqueando URLs...`);
                 await Promise.all(
                     uniqueEventIds.map((id) =>
                         eventoService.update(id, {
@@ -552,26 +672,55 @@ export function GenerarCertificadoModal({
             // 2. Construir el Excel con las hojas requeridas
             const wb = XLSX.utils.book_new();
 
-            // 1ra HOJA: CENTRALIZADOR
-            const centralizadorRows = participantes.map((p, idx) => [
-                idx + 1,
-                p.ci,
-                p.complemento || '',
-                p.nombres,
-                p.apellidos,
-                p.celular,
-                p.correo,
-                p.totalAsistidos === 3 ? 'SI' : 'NO',
-                '', // URL con datos vacíos tal como fue solicitado
-            ]);
+            // Calcular máximo número de URLs registradas en los intentos para expandir columnas URL 1, URL 2, URL 3...
+            let maxUrls = 1;
+            if (preguntaTextoSeleccionada) {
+                participantes.forEach((p) => {
+                    const uList = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+                    if (uList.length > maxUrls) maxUrls = uList.length;
+                });
+            }
+
+            // Encabezados de URLs: URL si es 1 intento o URL1, URL2, URL3... si hay múltiples intentos
+            const urlHeaders = preguntaTextoSeleccionada
+                ? maxUrls > 1
+                    ? Array.from({ length: maxUrls }, (_, i) => `URL${i + 1}`)
+                    : ['URL']
+                : ['URL'];
+
+            // 1ra HOJA: CENTRALIZADOR (con GENERO y URLs dinámicas de múltiples intentos)
+            // No | C.I. | COMPLEMENTO | NOMBRES | APELLIDOS | GENERO | CELULAR | CORREO | ASISTIO 3 TALLERES | URL 1 | URL 2 ...
+            const centralizadorRows = participantes.map((p, idx) => {
+                let urlValues: string[] = [''];
+                if (preguntaTextoSeleccionada) {
+                    const userUrls = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+                    urlValues = Array.from({ length: maxUrls }, (_, i) => userUrls[i] || '');
+                }
+
+                return [
+                    idx + 1,
+                    p.ci,
+                    p.complemento || '',
+                    p.nombres,
+                    p.apellidos,
+                    p.genero || '',
+                    p.celular,
+                    p.correo,
+                    p.totalAsistidos === 3 ? 'SI' : 'NO',
+                    ...urlValues,
+                ];
+            });
 
             const wsCentralizador = XLSX.utils.aoa_to_sheet([
-                ['No', 'C.I.', 'COMPLEMENTO', 'NOMBRES', 'APELLIDOS', 'CELULAR', 'CORREO', 'ASISTIO 3 TALLERES', 'URL'],
+                ['No', 'C.I.', 'COMPLEMENTO', 'NOMBRES', 'APELLIDOS', 'GENERO', 'CELULAR', 'CORREO', 'ASISTIO 3 TALLERES', ...urlHeaders],
                 ...centralizadorRows,
             ]);
-            wsCentralizador['!cols'] = [
-                { wch: 6 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 14 }, { wch: 28 }, { wch: 22 }, { wch: 15 }
+
+            const colWidths = [
+                { wch: 6 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 22 },
+                ...Array.from({ length: maxUrls }, () => ({ wch: 35 })),
             ];
+            wsCentralizador['!cols'] = colWidths;
             XLSX.utils.book_append_sheet(wb, wsCentralizador, 'Centralizador');
 
             // Función para generar hoja por taller
@@ -681,8 +830,8 @@ export function GenerarCertificadoModal({
                                 </h2>
                                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                                     {step === 1 && 'Paso 1: Antes de generar seleccione a qué ciclo pertenece'}
-                                    {step === 2 && `Paso 2: Asignar Eventos Activos a los Talleres de ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} eventos seleccionados)`}
-                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (4 Hojas + URLs)`}
+                                    {step === 2 && `Paso 2: Tiquear Eventos para ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} seleccionados)`}
+                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (Centralizador con Género y URLs por intento)`}
                                 </p>
                             </div>
                         </div>
@@ -726,7 +875,7 @@ export function GenerarCertificadoModal({
                                                 Antes de generar seleccione a qué ciclo pertenece:
                                             </p>
                                             <p className="text-xs text-muted-foreground font-medium">
-                                                Solo se mostrarán eventos en estado <span className="font-bold text-amber-500 uppercase">Activo</span> (los finalizados quedan excluidos automáticamente).
+                                                Al avanzar, todos los eventos aparecerán destiqueados para que elija manualmente cuáles desea centralizar (puede reutilizar activos y finalizados).
                                             </p>
                                         </div>
                                     </div>
@@ -804,7 +953,7 @@ export function GenerarCertificadoModal({
                             </div>
                         )}
 
-                        {/* ── PASO 2: ASIGNAR MÚLTIPLES EVENTOS ACTIVOS A LOS TALLERES ─────── */}
+                        {/* ── PASO 2: ASIGNAR MÚLTIPLES EVENTOS (DESTIQUEADOS POR DEFECTO) ─── */}
                         {step === 2 && selectedCiclo && (
                             <div className="space-y-6">
                                 <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between flex-wrap gap-4">
@@ -813,18 +962,18 @@ export function GenerarCertificadoModal({
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/20 text-primary">
                                                 {selectedCiclo.nivel}
                                             </span>
-                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                                                Solo Eventos Activos ({eventosActivos.length} disponibles)
-                                            </span>
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500">
-                                                {totalEventosSeleccionados.size} seleccionados
+                                                {totalEventosSeleccionados.size} eventos tiqueados
+                                            </span>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                                                Reutilización de finalizados habilitada
                                             </span>
                                         </div>
                                         <h3 className="text-lg font-black text-foreground mt-1">
                                             {selectedCiclo.nombre}
                                         </h3>
                                         <p className="text-xs text-muted-foreground font-medium">
-                                            Seleccione uno o más eventos activos para cada taller. Podrá visualizar el código de evento (<code>eve_codigo</code>) y su URL pública.
+                                            Tiquee manualmente los eventos correspondientes a cada taller. Todos inician destiqueados.
                                         </p>
                                     </div>
                                     <button
@@ -840,10 +989,15 @@ export function GenerarCertificadoModal({
                                     {selectedCiclo.talleres.map((taller) => {
                                         const seleccionadosIds = tallerEventos[taller.numero] || [];
                                         const busqueda = (searchTaller[taller.numero] || '').toLowerCase();
+                                        const filtroEst = filtroEstadoTaller[taller.numero] || 'TODOS';
                                         const isOpenAccordion = tallerOpenAccordion[taller.numero] ?? false;
 
-                                        // Filtrar ÚNICAMENTE sobre eventosActivos
-                                        const eventosFiltrados = eventosActivos.filter((e) => {
+                                        // Filtrar sobre todos los eventos disponibles permitiendo reutilizar finalizados
+                                        const eventosFiltrados = eventosDisponibles.filter((e) => {
+                                            const est = (e.estado || '').toLowerCase().trim();
+                                            if (filtroEst === 'ACTIVO' && est !== 'activo') return false;
+                                            if (filtroEst === 'FINALIZADO' && est !== 'finalizado') return false;
+
                                             if (!busqueda) return true;
                                             const nom = (e.nombre || '').toLowerCase();
                                             const lug = (e.lugar || '').toLowerCase();
@@ -851,7 +1005,7 @@ export function GenerarCertificadoModal({
                                             return nom.includes(busqueda) || lug.includes(busqueda) || cod.includes(busqueda);
                                         });
 
-                                        const eventosSeleccionadosObjs = eventosActivos.filter((e) =>
+                                        const eventosSeleccionadosObjs = eventosDisponibles.filter((e) =>
                                             seleccionadosIds.includes(e.id)
                                         );
                                         const sumaInscritos = eventosSeleccionadosObjs.reduce(
@@ -888,7 +1042,7 @@ export function GenerarCertificadoModal({
                                                                     Taller {taller.numero}
                                                                 </span>
                                                                 <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-black">
-                                                                    {seleccionadosIds.length} eventos asignados
+                                                                    {seleccionadosIds.length} eventos tiqueados
                                                                 </span>
                                                             </div>
                                                             <h4 className="text-sm font-bold text-foreground">
@@ -916,10 +1070,10 @@ export function GenerarCertificadoModal({
                                                     </div>
                                                 </div>
 
-                                                {/* Contenido Desplegable: Buscador y Checklist de Eventos */}
+                                                {/* Contenido Desplegable */}
                                                 {isOpenAccordion && (
                                                     <div className="p-4 space-y-4">
-                                                        <div className="flex items-center gap-3 flex-wrap">
+                                                        <div className="flex items-center gap-3 flex-wrap justify-between">
                                                             <div className="relative flex-1 min-w-[220px]">
                                                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                                 <input
@@ -931,9 +1085,32 @@ export function GenerarCertificadoModal({
                                                                             [taller.numero]: e.target.value,
                                                                         }))
                                                                     }
-                                                                    placeholder={`Buscar evento activo por nombre o eve_codigo...`}
+                                                                    placeholder={`Buscar por nombre o eve_codigo...`}
                                                                     className="w-full h-10 pl-10 pr-4 rounded-xl bg-background border border-border text-xs font-medium outline-none focus:border-amber-500 transition-all"
                                                                 />
+                                                            </div>
+
+                                                            {/* Filtros rápido de estado */}
+                                                            <div className="flex items-center gap-1 bg-background p-1 rounded-xl border border-border">
+                                                                {(['TODOS', 'ACTIVO', 'FINALIZADO'] as const).map((est) => (
+                                                                    <button
+                                                                        key={est}
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setFiltroEstadoTaller((prev) => ({
+                                                                                ...prev,
+                                                                                [taller.numero]: est,
+                                                                            }))
+                                                                        }
+                                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                                                                            filtroEst === est
+                                                                                ? 'bg-amber-500 text-white'
+                                                                                : 'text-muted-foreground hover:text-foreground'
+                                                                        }`}
+                                                                    >
+                                                                        {est}
+                                                                    </button>
+                                                                ))}
                                                             </div>
 
                                                             <button
@@ -947,21 +1124,22 @@ export function GenerarCertificadoModal({
                                                                 className="h-10 px-4 rounded-xl bg-background border border-border hover:border-amber-500/50 text-xs font-bold text-foreground flex items-center gap-2 transition-all shrink-0"
                                                             >
                                                                 <CheckSquare className="w-4 h-4 text-amber-500" />
-                                                                {eventosFiltrados.every((e) => seleccionadosIds.includes(e.id))
+                                                                {eventosFiltrados.length > 0 && eventosFiltrados.every((e) => seleccionadosIds.includes(e.id))
                                                                     ? 'Deseleccionar visibles'
-                                                                    : 'Seleccionar todos los visibles'}
+                                                                    : 'Tiquear todos los visibles'}
                                                             </button>
                                                         </div>
 
-                                                        {/* Lista de Eventos con eve_codigo y URL */}
+                                                        {/* Lista de Eventos con Checkbox, eve_codigo, URL y estado */}
                                                         <div className="max-h-60 overflow-y-auto border border-border/80 rounded-xl divide-y divide-border/60 bg-background/50">
                                                             {eventosFiltrados.length === 0 ? (
                                                                 <div className="p-6 text-center text-xs text-muted-foreground">
-                                                                    No hay eventos activos que coincidan con la búsqueda.
+                                                                    No se encontraron eventos coincidentes.
                                                                 </div>
                                                             ) : (
                                                                 eventosFiltrados.map((ev) => {
                                                                     const isSelected = seleccionadosIds.includes(ev.id);
+                                                                    const isFinalizado = (ev.estado || '').toLowerCase() === 'finalizado';
                                                                     const cod = ev.codigo || ev.id;
                                                                     return (
                                                                         <label
@@ -980,13 +1158,22 @@ export function GenerarCertificadoModal({
                                                                                     className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
                                                                                 />
                                                                                 <div>
-                                                                                    <div className="flex items-center gap-2">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
                                                                                         <p className="font-bold text-foreground">
                                                                                             {ev.nombre}
                                                                                         </p>
                                                                                         <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                                                                                             {cod}
                                                                                         </span>
+                                                                                        {isFinalizado ? (
+                                                                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-muted text-muted-foreground border border-border">
+                                                                                                Finalizado (Reutilizable)
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                                                                Activo
+                                                                                            </span>
+                                                                                        )}
                                                                                     </div>
                                                                                     <p className="text-[10px] text-muted-foreground mt-0.5">
                                                                                         URL: <span className="font-mono text-muted-foreground">/evento/{cod}</span>
@@ -1014,7 +1201,7 @@ export function GenerarCertificadoModal({
                                                         {eventosSeleccionadosObjs.length > 0 && (
                                                             <div className="pt-2">
                                                                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                                                                    Eventos activos asignados a Taller {taller.numero} ({eventosSeleccionadosObjs.length}):
+                                                                    Eventos tiqueados para Taller {taller.numero} ({eventosSeleccionadosObjs.length}):
                                                                 </p>
                                                                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                                                                     {eventosSeleccionadosObjs.map((ev) => (
@@ -1076,7 +1263,7 @@ export function GenerarCertificadoModal({
                             </div>
                         )}
 
-                        {/* ── PASO 3: CONSOLIDADO, LISTA DE EVE_CODIGO/URLS Y GENERAR ───────── */}
+                        {/* ── PASO 3: CONSOLIDADO, LISTA DE EVE_CODIGO/URLS, CUESTIONARIO Y GENERAR ── */}
                         {step === 3 && selectedCiclo && (
                             <div className="space-y-6">
                                 {/* Banner de Ciclo y Estadísticas */}
@@ -1172,6 +1359,106 @@ export function GenerarCertificadoModal({
                                             </span>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* ── SELECCIÓN DE CUESTIONARIO Y PREGUNTA TIPO TEXTO (URL DE EVIDENCIA) ── */}
+                                <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black">
+                                                <HelpCircle className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                                                    Cuestionario de Evidencia / URL (Pregunta tipo TEXTO)
+                                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-black">
+                                                        Seleccione solo UNO
+                                                    </span>
+                                                </h4>
+                                                <p className="text-[10px] text-muted-foreground font-medium">
+                                                    El cuestionario elegido alimentará las columnas de URLs del Centralizador. Si el participante realizó varios intentos se crearán columnas: <code>URL 1 | URL 2 | URL 3...</code>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {loadingCuestionarios && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando preguntas de tipo TEXTO...
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {opcionesPreguntasTexto.length === 0 ? (
+                                        <div className="p-3.5 rounded-xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
+                                            {loadingCuestionarios
+                                                ? 'Consultando cuestionarios de los eventos seleccionados...'
+                                                : 'No se encontraron preguntas de tipo TEXTO en los cuestionarios de los eventos seleccionados. La columna URL se generará vacía.'}
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                                            {/* Opción para dejar sin cuestionario */}
+                                            <label
+                                                onClick={() => setPreguntaTextoSeleccionadaId('')}
+                                                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 text-xs ${
+                                                    !preguntaTextoSeleccionadaId
+                                                        ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary/20'
+                                                        : 'border-border bg-card/60 hover:bg-muted/30'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="preguntaTextoRadio"
+                                                    checked={!preguntaTextoSeleccionadaId}
+                                                    onChange={() => setPreguntaTextoSeleccionadaId('')}
+                                                    className="mt-0.5 text-primary accent-primary"
+                                                />
+                                                <div>
+                                                    <p className="font-bold text-foreground">Ninguno (Dejar columna URL vacía)</p>
+                                                    <p className="text-[10px] text-muted-foreground">No vincular respuestas de cuestionarios de evidencia.</p>
+                                                </div>
+                                            </label>
+
+                                            {/* Opciones encontradas de preguntas tipo TEXTO */}
+                                            {opcionesPreguntasTexto.map((opc) => {
+                                                const isSelected = preguntaTextoSeleccionadaId === opc.idUnico;
+                                                return (
+                                                    <label
+                                                        key={opc.idUnico}
+                                                        onClick={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
+                                                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 text-xs ${
+                                                            isSelected
+                                                                ? 'border-purple-500 bg-purple-500/10 shadow-xs ring-1 ring-purple-500/20'
+                                                                : 'border-border bg-card/60 hover:bg-muted/30'
+                                                        }`}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name="preguntaTextoRadio"
+                                                            checked={isSelected}
+                                                            onChange={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
+                                                            className="mt-0.5 text-purple-600 accent-purple-600"
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="font-black text-foreground truncate">
+                                                                    {opc.cuestionarioTitulo}
+                                                                </span>
+                                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-500/15 text-purple-600 dark:text-purple-400 shrink-0">
+                                                                    {opc.respondidosCount} respondieron
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-foreground font-semibold truncate mt-0.5">
+                                                                Pregunta (TEXTO): &quot;{opc.preguntaTexto}&quot;
+                                                            </p>
+                                                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                                                Evento: {opc.eventoNombre}
+                                                            </p>
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* ── LISTA DE EVE_CODIGO Y URLS DE LAS CUALES SE SACÓ Y A QUÉ TALLER PERTENECIÓ ── */}
@@ -1275,7 +1562,7 @@ export function GenerarCertificadoModal({
                                     </div>
                                 </div>
 
-                                {/* Tabla Consolidada de Participantes */}
+                                {/* Tabla Consolidada de Participantes con Género y URLs */}
                                 <div className="border border-border rounded-2xl overflow-hidden bg-card">
                                     <div className="overflow-x-auto max-h-[440px]">
                                         <table className="w-full text-left border-collapse text-xs">
@@ -1289,19 +1576,25 @@ export function GenerarCertificadoModal({
                                                     <th className="py-3 px-3 text-center">Taller 3</th>
                                                     <th className="py-3 px-3 text-center">Inscrito</th>
                                                     <th className="py-3 px-3 text-center">Asistencias</th>
+                                                    {preguntaTextoSeleccionada && (
+                                                        <th className="py-3 px-3 text-center">URLs Evidencia</th>
+                                                    )}
                                                     <th className="py-3 px-3 text-center">Estado</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-border/60 font-medium">
                                                 {filteredParticipantes.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                                                        <td colSpan={preguntaTextoSeleccionada ? 10 : 9} className="py-8 text-center text-muted-foreground">
                                                             No se encontraron participantes con los filtros seleccionados
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     filteredParticipantes.map((p, idx) => {
                                                         const isApto = p.totalAsistidos === 3;
+                                                        const urlsUsuario = preguntaTextoSeleccionada
+                                                            ? preguntaTextoSeleccionada.respuestasPorCi[p.ci] || []
+                                                            : [];
 
                                                         return (
                                                             <tr
@@ -1325,9 +1618,14 @@ export function GenerarCertificadoModal({
                                                                     <div className="font-bold text-foreground">
                                                                         {p.nombres} {p.apellidos}
                                                                     </div>
-                                                                    <div className="text-[10px] text-muted-foreground">
-                                                                        {p.celular ? `Cel: ${p.celular}` : ''}{' '}
-                                                                        {p.correo ? `• ${p.correo}` : ''}
+                                                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                                                        {p.genero && (
+                                                                            <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[9px] border border-primary/20">
+                                                                                {p.genero}
+                                                                            </span>
+                                                                        )}
+                                                                        {p.celular ? <span>Cel: {p.celular}</span> : null}
+                                                                        {p.correo ? <span>• {p.correo}</span> : null}
                                                                     </div>
                                                                 </td>
 
@@ -1452,6 +1750,21 @@ export function GenerarCertificadoModal({
                                                                     </span>
                                                                 </td>
 
+                                                                {/* URLS EVIDENCIA SI HAY SELECCIÓN */}
+                                                                {preguntaTextoSeleccionada && (
+                                                                    <td className="py-2.5 px-3 text-center">
+                                                                        {urlsUsuario.length > 0 ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold text-[10px]">
+                                                                                {urlsUsuario.length} {urlsUsuario.length === 1 ? 'URL' : 'URLs'}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-muted-foreground italic">
+                                                                                Sin URL
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                )}
+
                                                                 {/* ESTADO DE CERTIFICADO */}
                                                                 <td className="py-2.5 px-3 text-center">
                                                                     {isApto ? (
@@ -1508,12 +1821,12 @@ export function GenerarCertificadoModal({
                     description={
                         <div className="space-y-3 text-xs">
                             <p className="font-semibold text-foreground">
-                                Ten en cuenta que esas URL no se podrán usar, ya que el estado del evento estará en <span className="font-bold text-amber-500 uppercase">finalizado</span>.
+                                Ten en cuenta que esas URL no se podrán usar si estaban activas, ya que el estado del evento estará en <span className="font-bold text-amber-500 uppercase">finalizado</span>.
                             </p>
                             <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 space-y-2">
                                 <div className="flex items-center gap-2 font-bold text-xs">
                                     <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
-                                    <span>Se finalizarán {listaEventosAsignadosConDetalle.length} URLs de eventos ({totalEventosSeleccionados.size} eventos únicos):</span>
+                                    <span>Se finalizarán / cerrarán las URLs de {listaEventosAsignadosConDetalle.length} eventos asignados:</span>
                                 </div>
                                 <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 font-mono text-[10px]">
                                     {listaEventosAsignadosConDetalle.map((item, i) => (
@@ -1528,7 +1841,7 @@ export function GenerarCertificadoModal({
                                     ))}
                                 </div>
                                 <p className="text-[10px] leading-relaxed opacity-80 pt-1.5 border-t border-amber-500/20">
-                                    Se cambiará permanentemente su estado a <code>finalizado</code> y se cerrará el acceso a sus URLs.
+                                    Se cambiará permanentemente su estado a <code>finalizado</code> y se cerrará el acceso a sus URLs públicas.
                                 </p>
                             </div>
                         </div>
