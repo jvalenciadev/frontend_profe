@@ -113,9 +113,13 @@ export interface OpcionPreguntaTexto {
     cuestionarioTitulo: string;
     preguntaId: string;
     preguntaTexto: string;
+    preguntaNumero?: number;
+    totalPreguntasTextoEnCuestionario?: number;
     eventoId: string;
     eventoNombre: string;
+    eventoCodigo?: string;
     respondidosCount: number;
+    maxIntentosCount?: number;
     respuestasPorCi: Record<string, string[]>;
 }
 
@@ -156,7 +160,7 @@ export function GenerarCertificadoModal({
     onEventosUpdated,
 }: GenerarCertificadoModalProps) {
     const [mounted, setMounted] = useState(false);
-    const [step, setStep] = useState<1 | 2 | 3>(1);
+    const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
     // Selección de Ciclo
     const [selectedCiclo, setSelectedCiclo] = useState<CicloDef | null>(null);
@@ -648,6 +652,45 @@ export function GenerarCertificadoModal({
         return opcionesPreguntasTexto.find((o) => o.idUnico === preguntaTextoSeleccionadaId) || null;
     }, [opcionesPreguntasTexto, preguntaTextoSeleccionadaId]);
 
+    // Cuestionarios agrupados con todas sus preguntas tipo TEXT/TEXTO
+    const cuestionariosAgrupados = useMemo(() => {
+        const map = new Map<string, {
+            cuestionarioId: string;
+            cuestionarioTitulo: string;
+            eventoId: string;
+            eventoNombre: string;
+            eventoCodigo: string;
+            preguntas: OpcionPreguntaTexto[];
+        }>();
+
+        opcionesPreguntasTexto.forEach((opc) => {
+            if (!map.has(opc.cuestionarioId)) {
+                map.set(opc.cuestionarioId, {
+                    cuestionarioId: opc.cuestionarioId,
+                    cuestionarioTitulo: opc.cuestionarioTitulo,
+                    eventoId: opc.eventoId,
+                    eventoNombre: opc.eventoNombre,
+                    eventoCodigo: opc.eventoCodigo || '',
+                    preguntas: [],
+                });
+            }
+            map.get(opc.cuestionarioId)!.preguntas.push(opc);
+        });
+
+        return Array.from(map.values());
+    }, [opcionesPreguntasTexto]);
+
+    // Máximo número de URLs registrado en la pregunta seleccionada
+    const maxUrlsSeleccionados = useMemo(() => {
+        if (!preguntaTextoSeleccionada) return 1;
+        let max = 1;
+        participantes.forEach((p) => {
+            const uList = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+            if (uList.length > max) max = uList.length;
+        });
+        return max;
+    }, [preguntaTextoSeleccionada, participantes]);
+
     // ── Exportación a Excel de 4 Hojas (con URLs por intentos) + Trazabilidad URLs ──
     const ejecutarGeneracionExcelYFinalizar = async () => {
         if (!selectedCiclo) return;
@@ -831,23 +874,28 @@ export function GenerarCertificadoModal({
                                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                                     {step === 1 && 'Paso 1: Antes de generar seleccione a qué ciclo pertenece'}
                                     {step === 2 && `Paso 2: Tiquear Eventos para ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} seleccionados)`}
-                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (Centralizador con Género y URLs por intento)`}
+                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Marcado en Caliente (${participantes.length} participantes)`}
+                                    {step === 4 && `Paso 4: Seleccionar Pregunta de Evidencia como URL & Generar Excel`}
                                 </p>
                             </div>
                         </div>
 
                         {/* Stepper Pills */}
                         <div className="hidden sm:flex items-center gap-2 bg-background/80 px-3 py-1.5 rounded-2xl border border-border">
-                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 1 ? 'bg-primary text-white' : 'text-muted-foreground'}`}>
+                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 1 ? 'bg-amber-500 text-white' : 'text-muted-foreground'}`}>
                                 1. Ciclo
                             </span>
                             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 2 ? 'bg-primary text-white' : 'text-muted-foreground'}`}>
+                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 2 ? 'bg-amber-500 text-white' : 'text-muted-foreground'}`}>
                                 2. Talleres ({totalEventosSeleccionados.size})
                             </span>
                             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 3 ? 'bg-primary text-white' : 'text-muted-foreground'}`}>
-                                3. Consolidado
+                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 3 ? 'bg-amber-500 text-white' : 'text-muted-foreground'}`}>
+                                3. Asistencias ({participantes.length})
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${step === 4 ? 'bg-purple-600 text-white' : 'text-muted-foreground'}`}>
+                                4. Pregunta URL ({opcionesPreguntasTexto.length})
                             </span>
                         </div>
 
@@ -885,11 +933,10 @@ export function GenerarCertificadoModal({
                                                 key={nivel}
                                                 type="button"
                                                 onClick={() => setFiltroNivel(nivel)}
-                                                className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                                                    filtroNivel === nivel
-                                                        ? 'bg-amber-500 text-white shadow-sm'
-                                                        : 'text-muted-foreground hover:text-foreground'
-                                                }`}
+                                                className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${filtroNivel === nivel
+                                                    ? 'bg-amber-500 text-white shadow-sm'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
                                             >
                                                 {nivel}
                                             </button>
@@ -906,11 +953,10 @@ export function GenerarCertificadoModal({
                                                 <div
                                                     key={ciclo.id}
                                                     onClick={() => handleSelectCiclo(ciclo)}
-                                                    className={`group relative p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                                                        isSelected
-                                                            ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-2 ring-amber-500/30'
-                                                            : 'border-border/80 bg-card hover:border-amber-500/50 hover:bg-muted/20'
-                                                    }`}
+                                                    className={`group relative p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${isSelected
+                                                        ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-2 ring-amber-500/30'
+                                                        : 'border-border/80 bg-card hover:border-amber-500/50 hover:bg-muted/20'
+                                                        }`}
                                                 >
                                                     <div className="space-y-3">
                                                         <div className="flex items-center justify-between">
@@ -1102,11 +1148,10 @@ export function GenerarCertificadoModal({
                                                                                 [taller.numero]: est,
                                                                             }))
                                                                         }
-                                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
-                                                                            filtroEst === est
-                                                                                ? 'bg-amber-500 text-white'
-                                                                                : 'text-muted-foreground hover:text-foreground'
-                                                                        }`}
+                                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${filtroEst === est
+                                                                            ? 'bg-amber-500 text-white'
+                                                                            : 'text-muted-foreground hover:text-foreground'
+                                                                            }`}
                                                                     >
                                                                         {est}
                                                                     </button>
@@ -1144,9 +1189,8 @@ export function GenerarCertificadoModal({
                                                                     return (
                                                                         <label
                                                                             key={ev.id}
-                                                                            className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/40 transition-colors text-xs ${
-                                                                                isSelected ? 'bg-amber-500/10' : ''
-                                                                            }`}
+                                                                            className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/40 transition-colors text-xs ${isSelected ? 'bg-amber-500/10' : ''
+                                                                                }`}
                                                                         >
                                                                             <div className="flex items-center gap-3">
                                                                                 <input
@@ -1361,170 +1405,6 @@ export function GenerarCertificadoModal({
                                     </div>
                                 </div>
 
-                                {/* ── SELECCIÓN DE CUESTIONARIO Y PREGUNTA TIPO TEXTO (URL DE EVIDENCIA) ── */}
-                                <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
-                                    <div className="flex items-center justify-between flex-wrap gap-2">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black">
-                                                <HelpCircle className="w-4 h-4" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
-                                                    Cuestionario de Evidencia / URL (Pregunta tipo TEXTO)
-                                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-black">
-                                                        Seleccione solo UNO
-                                                    </span>
-                                                </h4>
-                                                <p className="text-[10px] text-muted-foreground font-medium">
-                                                    El cuestionario elegido alimentará las columnas de URLs del Centralizador. Si el participante realizó varios intentos se crearán columnas: <code>URL 1 | URL 2 | URL 3...</code>
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {loadingCuestionarios && (
-                                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando preguntas de tipo TEXTO...
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {opcionesPreguntasTexto.length === 0 ? (
-                                        <div className="p-3.5 rounded-xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
-                                            {loadingCuestionarios
-                                                ? 'Consultando cuestionarios de los eventos seleccionados...'
-                                                : 'No se encontraron preguntas de tipo TEXTO en los cuestionarios de los eventos seleccionados. La columna URL se generará vacía.'}
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                                            {/* Opción para dejar sin cuestionario */}
-                                            <label
-                                                onClick={() => setPreguntaTextoSeleccionadaId('')}
-                                                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 text-xs ${
-                                                    !preguntaTextoSeleccionadaId
-                                                        ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary/20'
-                                                        : 'border-border bg-card/60 hover:bg-muted/30'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="preguntaTextoRadio"
-                                                    checked={!preguntaTextoSeleccionadaId}
-                                                    onChange={() => setPreguntaTextoSeleccionadaId('')}
-                                                    className="mt-0.5 text-primary accent-primary"
-                                                />
-                                                <div>
-                                                    <p className="font-bold text-foreground">Ninguno (Dejar columna URL vacía)</p>
-                                                    <p className="text-[10px] text-muted-foreground">No vincular respuestas de cuestionarios de evidencia.</p>
-                                                </div>
-                                            </label>
-
-                                            {/* Opciones encontradas de preguntas tipo TEXTO */}
-                                            {opcionesPreguntasTexto.map((opc) => {
-                                                const isSelected = preguntaTextoSeleccionadaId === opc.idUnico;
-                                                return (
-                                                    <label
-                                                        key={opc.idUnico}
-                                                        onClick={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
-                                                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 text-xs ${
-                                                            isSelected
-                                                                ? 'border-purple-500 bg-purple-500/10 shadow-xs ring-1 ring-purple-500/20'
-                                                                : 'border-border bg-card/60 hover:bg-muted/30'
-                                                        }`}
-                                                    >
-                                                        <input
-                                                            type="radio"
-                                                            name="preguntaTextoRadio"
-                                                            checked={isSelected}
-                                                            onChange={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
-                                                            className="mt-0.5 text-purple-600 accent-purple-600"
-                                                        />
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <span className="font-black text-foreground truncate">
-                                                                    {opc.cuestionarioTitulo}
-                                                                </span>
-                                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-500/15 text-purple-600 dark:text-purple-400 shrink-0">
-                                                                    {opc.respondidosCount} respondieron
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-[11px] text-foreground font-semibold truncate mt-0.5">
-                                                                Pregunta (TEXTO): &quot;{opc.preguntaTexto}&quot;
-                                                            </p>
-                                                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                                                                Evento: {opc.eventoNombre}
-                                                            </p>
-                                                        </div>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* ── LISTA DE EVE_CODIGO Y URLS DE LAS CUALES SE SACÓ Y A QUÉ TALLER PERTENECIÓ ── */}
-                                <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                                                <Link2 className="w-4 h-4" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
-                                                    Lista de Códigos de Eventos (eve_codigo) y URLs Utilizadas ({listaEventosAsignadosConDetalle.length})
-                                                </h4>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    Detalle de origen: a qué taller perteneció cada URL de registro.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                                            Pasarán a Finalizado
-                                        </span>
-                                    </div>
-
-                                    <div className="max-h-52 overflow-y-auto rounded-xl border border-border divide-y divide-border/60 bg-muted/10">
-                                        {listaEventosAsignadosConDetalle.map((item, idx) => (
-                                            <div
-                                                key={`${item.eventoId}-${idx}`}
-                                                className="p-3 flex items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <span className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">
-                                                        T{item.tallerNumero}
-                                                    </span>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-foreground truncate">
-                                                            {item.nombre}
-                                                        </p>
-                                                        <p className="text-[10px] text-muted-foreground truncate">
-                                                            Perteneció a: <strong className="text-foreground">{item.tallerNombre}</strong>
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    <div className="text-right">
-                                                        <span className="font-mono text-[11px] font-black bg-primary/15 text-primary px-2.5 py-0.5 rounded-md border border-primary/20">
-                                                            {item.codigo}
-                                                        </span>
-                                                        <p className="font-mono text-[9px] text-muted-foreground mt-0.5">
-                                                            {item.url}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right text-[10px]">
-                                                        <span className="font-bold text-foreground block">
-                                                            {item.inscritos} ins.
-                                                        </span>
-                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
-                                                            {item.asistidos} asis.
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
                                 {/* Barra de Filtros y Búsqueda */}
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div className="relative flex-1 min-w-[260px]">
@@ -1550,11 +1430,10 @@ export function GenerarCertificadoModal({
                                                 key={f.id}
                                                 type="button"
                                                 onClick={() => setFiltroAsistencia(f.id as any)}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                                                    filtroAsistencia === f.id
-                                                        ? 'bg-amber-500 text-white shadow-sm'
-                                                        : 'text-muted-foreground hover:text-foreground'
-                                                }`}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${filtroAsistencia === f.id
+                                                    ? 'bg-amber-500 text-white shadow-sm'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
                                             >
                                                 {f.label}
                                             </button>
@@ -1599,9 +1478,8 @@ export function GenerarCertificadoModal({
                                                         return (
                                                             <tr
                                                                 key={p.ci}
-                                                                className={`hover:bg-muted/30 transition-colors ${
-                                                                    isApto ? 'bg-emerald-500/[0.02]' : ''
-                                                                }`}
+                                                                className={`hover:bg-muted/30 transition-colors ${isApto ? 'bg-emerald-500/[0.02]' : ''
+                                                                    }`}
                                                             >
                                                                 <td className="py-2.5 px-3 text-center text-muted-foreground text-[11px] font-bold">
                                                                     {idx + 1}
@@ -1638,11 +1516,10 @@ export function GenerarCertificadoModal({
                                                                             onClick={() =>
                                                                                 handleToggleAsistencia(p.ci, 1, !p.taller1.asistio)
                                                                             }
-                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                                                                                p.taller1.asistio
-                                                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
-                                                                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                                                                            }`}
+                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${p.taller1.asistio
+                                                                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                                                                                : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                                                                                }`}
                                                                             title="Haz clic para marcar o desmarcar asistencia"
                                                                         >
                                                                             {p.taller1.asistio ? (
@@ -1671,11 +1548,10 @@ export function GenerarCertificadoModal({
                                                                             onClick={() =>
                                                                                 handleToggleAsistencia(p.ci, 2, !p.taller2.asistio)
                                                                             }
-                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                                                                                p.taller2.asistio
-                                                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
-                                                                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                                                                            }`}
+                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${p.taller2.asistio
+                                                                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                                                                                : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                                                                                }`}
                                                                             title="Haz clic para marcar o desmarcar asistencia"
                                                                         >
                                                                             {p.taller2.asistio ? (
@@ -1704,11 +1580,10 @@ export function GenerarCertificadoModal({
                                                                             onClick={() =>
                                                                                 handleToggleAsistencia(p.ci, 3, !p.taller3.asistio)
                                                                             }
-                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                                                                                p.taller3.asistio
-                                                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
-                                                                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                                                                            }`}
+                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${p.taller3.asistio
+                                                                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                                                                                : 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                                                                                }`}
                                                                             title="Haz clic para marcar o desmarcar asistencia"
                                                                         >
                                                                             {p.taller3.asistio ? (
@@ -1738,13 +1613,12 @@ export function GenerarCertificadoModal({
                                                                 {/* TOTAL ASISTIDOS */}
                                                                 <td className="py-2.5 px-3 text-center">
                                                                     <span
-                                                                        className={`inline-block px-2.5 py-1 rounded-lg font-black text-[11px] ${
-                                                                            p.totalAsistidos === 3
-                                                                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                                                                : p.totalAsistidos === 2
+                                                                        className={`inline-block px-2.5 py-1 rounded-lg font-black text-[11px] ${p.totalAsistidos === 3
+                                                                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                                                            : p.totalAsistidos === 2
                                                                                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                                                                                 : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                                                                        }`}
+                                                                            }`}
                                                                     >
                                                                         asistio a {p.totalAsistidos}
                                                                     </span>
@@ -1799,13 +1673,333 @@ export function GenerarCertificadoModal({
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setIsConfirmingExcel(true)}
-                                            className="px-6 h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-lg shadow-green-600/20 active:scale-95"
+                                            onClick={() => setStep(4)}
+                                            className="px-6 h-11 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-lg shadow-purple-600/20 active:scale-95"
                                         >
-                                            <FileSpreadsheet className="w-4 h-4" />
-                                            Generar Excel (Centralizador + 3 Talleres)
+                                            Siguiente: Seleccionar Evidencia URL (Paso 4)
+                                            <ArrowRight className="w-4 h-4" />
                                         </button>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── PASO 4: SELECCIÓN DE PREGUNTA URL DE EVIDENCIA & GENERAR EXCEL ── */}
+                        {step === 4 && (
+                            <div className="space-y-6">
+                                {/* Banner Informativo de Paso 4 */}
+                                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/20 space-y-3">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black">
+                                                <HelpCircle className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black uppercase tracking-tight text-foreground flex items-center gap-2">
+                                                    Paso 4: Seleccionar Pregunta para URL de Evidencia
+                                                    <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-black">
+                                                        Seleccione solo 1
+                                                    </span>
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground font-medium">
+                                                    De los {totalEventosSeleccionados.size} eventos seleccionados se encontraron {cuestionariosAgrupados.length} cuestionarios con {opcionesPreguntasTexto.length} preguntas de tipo TEXT/TEXTO. Elija de cuál extraer las URLs.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {loadingCuestionarios && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 font-bold bg-purple-500/10 px-3 py-1.5 rounded-xl border border-purple-500/20">
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando respuestas...
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Resumen de la columna resultante */}
+                                    <div className="pt-2.5 border-t border-purple-500/15 flex items-center justify-between flex-wrap gap-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground font-medium">Formato de Columnas en Centralizador:</span>
+                                            {preguntaTextoSeleccionada ? (
+                                                <span className="font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-500/15 px-2.5 py-0.5 rounded-md border border-purple-500/25">
+                                                    {maxUrlsSeleccionados > 1
+                                                        ? Array.from({ length: maxUrlsSeleccionados }, (_, i) => `URL${i + 1}`).join(' | ')
+                                                        : 'URL'}
+                                                </span>
+                                            ) : (
+                                                <span className="font-mono text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md">
+                                                    URL (Vacía)
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {preguntaTextoSeleccionada && (
+                                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                                {preguntaTextoSeleccionada.respondidosCount} participantes tienen enlace registrado ({maxUrlsSeleccionados > 1 ? `hasta ${maxUrlsSeleccionados} intentos detectados` : '1 intento'})
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Listado de Cuestionarios y Preguntas tipo TEXTO */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                            <BookOpen className="w-4 h-4 text-purple-500" />
+                                            Cuestionarios y Preguntas de Evidencia ({cuestionariosAgrupados.length} cuestionarios)
+                                        </h4>
+                                        <span className="text-[10px] text-muted-foreground">
+                                            Haga clic en la pregunta de la cual desea extraer la URL
+                                        </span>
+                                    </div>
+
+                                    {opcionesPreguntasTexto.length === 0 ? (
+                                        <div className="p-8 rounded-2xl bg-muted/20 border border-dashed border-border text-center space-y-2">
+                                            <p className="text-sm font-bold text-foreground">
+                                                {loadingCuestionarios
+                                                    ? 'Buscando cuestionarios y preguntas tipo TEXT en los eventos seleccionados...'
+                                                    : 'No se encontraron preguntas de tipo TEXT/TEXTO en los cuestionarios de los eventos seleccionados.'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Puede continuar para generar el Excel; la columna URL se exportará vacía.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
+                                            {/* Opción 1: Dejar vacío */}
+                                            <label
+                                                onClick={() => setPreguntaTextoSeleccionadaId('')}
+                                                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${!preguntaTextoSeleccionadaId
+                                                        ? 'border-primary bg-primary/10 shadow-xs ring-2 ring-primary/30'
+                                                        : 'border-border bg-card/60 hover:bg-muted/30'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="preguntaTextoRadioStep4"
+                                                    checked={!preguntaTextoSeleccionadaId}
+                                                    onChange={() => setPreguntaTextoSeleccionadaId('')}
+                                                    className="mt-1 text-primary accent-primary"
+                                                />
+                                                <div>
+                                                    <p className="text-xs font-bold text-foreground">
+                                                        Ninguno (Dejar columna URL vacía)
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                        No vincular respuestas de cuestionarios. La columna URL en el Excel Centralizador quedará en blanco.
+                                                    </p>
+                                                </div>
+                                            </label>
+
+                                            {/* Cuestionarios agrupados con todas sus preguntas tipo TEXT */}
+                                            {cuestionariosAgrupados.map((cues) => (
+                                                <div
+                                                    key={cues.cuestionarioId}
+                                                    className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs space-y-3 p-4"
+                                                >
+                                                    {/* Cabecera del Cuestionario */}
+                                                    <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-border/60">
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <div className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                                                <BookOpen className="w-3.5 h-3.5" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <h5 className="text-xs font-black text-foreground truncate">
+                                                                    {cues.cuestionarioTitulo}
+                                                                </h5>
+                                                                <p className="text-[10px] text-muted-foreground truncate">
+                                                                    Evento: {cues.eventoNombre}{' '}
+                                                                    {cues.eventoCodigo ? (
+                                                                        <span className="font-mono font-bold text-primary">[{cues.eventoCodigo}]</span>
+                                                                    ) : null}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                                                            {cues.preguntas.length} {cues.preguntas.length === 1 ? 'pregunta TEXT' : 'preguntas TEXT'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Preguntas de tipo TEXT dentro de este cuestionario (incluso si hay 2 o más) */}
+                                                    <div className="space-y-2 pt-1">
+                                                        {cues.preguntas.map((opc) => {
+                                                            const isSelected = preguntaTextoSeleccionadaId === opc.idUnico;
+                                                            return (
+                                                                <label
+                                                                    key={opc.idUnico}
+                                                                    onClick={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
+                                                                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3.5 text-xs ${isSelected
+                                                                            ? 'border-purple-500 bg-purple-500/15 shadow-sm ring-2 ring-purple-500/30'
+                                                                            : 'border-border/70 bg-muted/20 hover:bg-muted/40'
+                                                                        }`}
+                                                                >
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="preguntaTextoRadioStep4"
+                                                                        checked={isSelected}
+                                                                        onChange={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
+                                                                        className="mt-1 text-purple-600 accent-purple-600 shrink-0"
+                                                                    />
+                                                                    <div className="flex-1 min-w-0 space-y-1">
+                                                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                            <span className="font-bold text-foreground flex items-center gap-2">
+                                                                                <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
+                                                                                    Pregunta {opc.preguntaNumero || 1} (TEXTO)
+                                                                                </span>
+                                                                            </span>
+
+                                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                                                                    {opc.respondidosCount} respondieron
+                                                                                </span>
+                                                                                {opc.maxIntentosCount && opc.maxIntentosCount > 1 ? (
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                                                                        Hasta {opc.maxIntentosCount} intentos
+                                                                                    </span>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <p className="text-xs text-foreground font-semibold leading-relaxed">
+                                                                            &quot;{opc.preguntaTexto}&quot;
+                                                                        </p>
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Vista Previa de Primeras Filas con URLs */}
+                                {preguntaTextoSeleccionada && (
+                                    <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 text-amber-500" />
+                                                Vista Previa de URLs en Centralizador (Primeros 5 participantes)
+                                            </h4>
+                                            <span className="font-mono text-[10px] text-muted-foreground">
+                                                {maxUrlsSeleccionados > 1 ? `${maxUrlsSeleccionados} columnas (URL1 a URL${maxUrlsSeleccionados})` : '1 columna (URL)'}
+                                            </span>
+                                        </div>
+
+                                        <div className="overflow-x-auto rounded-xl border border-border">
+                                            <table className="w-full text-left border-collapse text-xs">
+                                                <thead className="bg-muted/50 border-b border-border text-[10px] font-black uppercase text-muted-foreground">
+                                                    <tr>
+                                                        <th className="p-2.5 text-center w-10">No</th>
+                                                        <th className="p-2.5">C.I.</th>
+                                                        <th className="p-2.5">Participante</th>
+                                                        <th className="p-2.5 text-center">Asistió 3</th>
+                                                        {Array.from({ length: maxUrlsSeleccionados }, (_, i) => (
+                                                            <th key={i} className="p-2.5 text-purple-600 dark:text-purple-400">
+                                                                {maxUrlsSeleccionados > 1 ? `URL${i + 1}` : 'URL'}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/60 font-medium">
+                                                    {participantes.slice(0, 5).map((p, idx) => {
+                                                        const userUrls = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+                                                        return (
+                                                            <tr key={p.ci} className="hover:bg-muted/20">
+                                                                <td className="p-2 text-center text-muted-foreground font-bold">{idx + 1}</td>
+                                                                <td className="p-2 font-mono font-bold">{p.ci}</td>
+                                                                <td className="p-2">{p.nombres} {p.apellidos}</td>
+                                                                <td className="p-2 text-center font-bold">
+                                                                    {p.totalAsistidos === 3 ? (
+                                                                        <span className="text-emerald-600 dark:text-emerald-400">SI</span>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">NO</span>
+                                                                    )}
+                                                                </td>
+                                                                {Array.from({ length: maxUrlsSeleccionados }, (_, i) => (
+                                                                    <td key={i} className="p-2 font-mono text-[11px] text-foreground max-w-[200px] truncate">
+                                                                        {userUrls[i] || <span className="text-muted-foreground italic">Vacío</span>}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Lista de Códigos de Eventos y URLs a Finalizar */}
+                                <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                                <Link2 className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                                                    Lista de Códigos de Eventos (eve_codigo) y URLs Utilizadas ({listaEventosAsignadosConDetalle.length})
+                                                </h4>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    Detalle de origen: a qué taller perteneció cada URL de registro.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                            Pasarán a Finalizado
+                                        </span>
+                                    </div>
+
+                                    <div className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border/60 bg-muted/10">
+                                        {listaEventosAsignadosConDetalle.map((item, idx) => (
+                                            <div
+                                                key={`${item.eventoId}-${idx}`}
+                                                className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <span className="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center text-[9px] font-black shrink-0">
+                                                        T{item.tallerNumero}
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-foreground truncate">{item.nombre}</p>
+                                                        <p className="text-[10px] text-muted-foreground truncate">
+                                                            Perteneció a: <strong className="text-foreground">{item.tallerNombre}</strong>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className="font-mono text-[10px] font-black bg-primary/15 text-primary px-2 py-0.5 rounded border border-primary/20">
+                                                        {item.codigo}
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                                        {item.inscritos} ins. • <strong className="text-emerald-600 dark:text-emerald-400">{item.asistidos} asis.</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Footer con acciones de Paso 4 */}
+                                <div className="pt-4 border-t border-border flex items-center justify-between flex-wrap gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep(3)}
+                                        className="px-5 h-11 rounded-xl bg-card border border-border text-xs font-black uppercase tracking-wider hover:bg-muted/30 transition-all flex items-center gap-2"
+                                    >
+                                        <ArrowLeft className="w-4 h-4" /> Volver a Asistencias (Paso 3)
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsConfirmingExcel(true)}
+                                        className="px-6 h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-lg shadow-green-600/20 active:scale-95"
+                                    >
+                                        <FileSpreadsheet className="w-4 h-4" />
+                                        Generar Excel Centralizador (4 Hojas)
+                                    </button>
                                 </div>
                             </div>
                         )}
