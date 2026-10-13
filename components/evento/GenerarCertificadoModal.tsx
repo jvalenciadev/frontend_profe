@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,7 +14,33 @@ import * as XLSX from 'xlsx';
 import api, { viewsApi } from '@/lib/api';
 import { eventoService, type Evento } from '@/services/eventoService';
 import { toast } from 'sonner';
-import { ConfirmModal } from '@/components/ConfirmModal';
+import { ConfirmModal } from '../ConfirmModal';
+// ─── Utilidad para sanitizar textos con HTML de preguntas y cuestionarios ────
+export function cleanHtmlText(raw: string | null | undefined): string {
+    if (!raw) return '';
+    try {
+        if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
+            const doc = new DOMParser().parseFromString(String(raw), 'text/html');
+            const text = doc.body.textContent || '';
+            const cleaned = text.replace(/\s+/g, ' ').trim();
+            if (cleaned) return cleaned;
+        }
+    } catch {
+        // Fallback a regex
+    }
+    return String(raw)
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 
 // ─── Estructura de Ciclos y Talleres ──────────────────────────────────────────
 export interface TallerDef {
@@ -197,7 +223,7 @@ export function GenerarCertificadoModal({
     // Cuestionarios y preguntas tipo TEXTO
     const [loadingCuestionarios, setLoadingCuestionarios] = useState(false);
     const [opcionesPreguntasTexto, setOpcionesPreguntasTexto] = useState<OpcionPreguntaTexto[]>([]);
-    const [preguntaTextoSeleccionadaId, setPreguntaTextoSeleccionadaId] = useState<string>('');
+    const [preguntasSeleccionadasPorCuestionario, setPreguntasSeleccionadasPorCuestionario] = useState<Record<string, string>>({});
 
     // Filtros de la tabla consolidada
     const [searchQuery, setSearchQuery] = useState('');
@@ -222,7 +248,7 @@ export function GenerarCertificadoModal({
             setTallerOpenAccordion({ 1: true, 2: false, 3: false });
             setParticipantes([]);
             setOpcionesPreguntasTexto([]);
-            setPreguntaTextoSeleccionadaId('');
+            setPreguntasSeleccionadasPorCuestionario({});
             setSearchQuery('');
             setFiltroAsistencia('TODOS');
             setIsConfirmingExcel(false);
@@ -452,7 +478,7 @@ export function GenerarCertificadoModal({
 
             setParticipantes(resultado);
 
-            // 2. Cargar Cuestionarios y preguntas tipo TEXTO de los eventos seleccionados
+            // 2. Cargar Cuestionarios y preguntas tipo TEXT/TEXTO de los eventos seleccionados
             const uniqueEventIds = Array.from(totalEventosSeleccionados);
             const opcionesTexto: OpcionPreguntaTexto[] = [];
 
@@ -472,13 +498,15 @@ export function GenerarCertificadoModal({
                                         `/public/eventos/cuestionario/${cues.id}/exportar-respuestas`
                                     );
                                     const { cuestionario, preguntas, intentos } = resExp.data || {};
-                                    const pregsTexto = (preguntas || []).filter(
-                                        (p: any) => p.tipo === 'TEXTO' || p.eve_pre_tipo === 'TEXTO'
-                                    );
+                                    const pregsTexto = (preguntas || []).filter((p: any) => {
+                                        const t = String(p.tipo || p.eve_pre_tipo || '').trim().toUpperCase();
+                                        return t === 'TEXTO' || t === 'TEXT' || t.startsWith('TEXT');
+                                    });
 
-                                    pregsTexto.forEach((preg: any) => {
+                                    pregsTexto.forEach((preg: any, idxPreg: number) => {
                                         const respuestasPorCi: Record<string, string[]> = {};
                                         const cisRespondidos = new Set<string>();
+                                        let maxIntentosEnPreg = 1;
 
                                         (intentos || []).forEach((it: any) => {
                                             const ci = String(it.ci || '').trim();
@@ -503,20 +531,30 @@ export function GenerarCertificadoModal({
                                                             respuestasPorCi[ci].push(u);
                                                         }
                                                     });
+                                                    if (respuestasPorCi[ci].length > maxIntentosEnPreg) {
+                                                        maxIntentosEnPreg = respuestasPorCi[ci].length;
+                                                    }
                                                     cisRespondidos.add(ci);
                                                 }
                                             }
                                         });
 
+                                        const cleanTitulo = cleanHtmlText(cues.titulo || cuestionario?.titulo || 'Cuestionario');
+                                        const cleanPregTexto = cleanHtmlText(preg.texto || `Pregunta ${idxPreg + 1}`);
+
                                         opcionesTexto.push({
                                             idUnico: `${cues.id}_${preg.id}`,
                                             cuestionarioId: cues.id,
-                                            cuestionarioTitulo: cues.titulo || cuestionario?.titulo || 'Cuestionario',
+                                            cuestionarioTitulo: cleanTitulo,
                                             preguntaId: preg.id,
-                                            preguntaTexto: preg.texto || 'Pregunta de evidencia',
+                                            preguntaTexto: cleanPregTexto,
+                                            preguntaNumero: idxPreg + 1,
+                                            totalPreguntasTextoEnCuestionario: pregsTexto.length,
                                             eventoId,
                                             eventoNombre: evObj?.nombre || 'Evento',
+                                            eventoCodigo: evObj?.codigo || '',
                                             respondidosCount: cisRespondidos.size,
+                                            maxIntentosCount: maxIntentosEnPreg,
                                             respuestasPorCi,
                                         });
                                     });
@@ -531,14 +569,44 @@ export function GenerarCertificadoModal({
                 })
             );
 
-            // Ordenar opciones por mayor cantidad de respondidos
-            opcionesTexto.sort((a, b) => b.respondidosCount - a.respondidosCount);
+            // Ordenar opciones por cuestionario y número de pregunta
+            opcionesTexto.sort((a, b) => {
+                if (a.cuestionarioId !== b.cuestionarioId) {
+                    return a.cuestionarioTitulo.localeCompare(b.cuestionarioTitulo);
+                }
+                return (a.preguntaNumero || 1) - (b.preguntaNumero || 1);
+            });
             setOpcionesPreguntasTexto(opcionesTexto);
 
-            // Si hay opciones y ninguna seleccionada, autoseleccionar la que más respondidos tenga
-            if (opcionesTexto.length > 0 && !preguntaTextoSeleccionadaId) {
-                setPreguntaTextoSeleccionadaId(opcionesTexto[0].idUnico);
-            }
+            // Inicializar selección individual por cada formulario (preseleccionar pregunta de evidencia si coincide con palabras clave)
+            const initialSelection: Record<string, string> = {};
+            const byCues: Record<string, OpcionPreguntaTexto[]> = {};
+            opcionesTexto.forEach((opc) => {
+                if (!byCues[opc.cuestionarioId]) byCues[opc.cuestionarioId] = [];
+                byCues[opc.cuestionarioId].push(opc);
+            });
+
+            Object.entries(byCues).forEach(([cuesId, pregs]) => {
+                const matchEvidencia = pregs.find((p) => {
+                    const txt = p.preguntaTexto.toLowerCase();
+                    return (
+                        txt.includes('drive') ||
+                        txt.includes('enlace') ||
+                        txt.includes('link') ||
+                        txt.includes('video') ||
+                        txt.includes('producto') ||
+                        txt.includes('adjunte')
+                    );
+                });
+
+                if (matchEvidencia) {
+                    initialSelection[cuesId] = matchEvidencia.idUnico;
+                } else if (pregs.length > 0) {
+                    const sorted = [...pregs].sort((a, b) => b.respondidosCount - a.respondidosCount);
+                    initialSelection[cuesId] = sorted[0].idUnico;
+                }
+            });
+            setPreguntasSeleccionadasPorCuestionario(initialSelection);
 
             setStep(3);
             toast.success(`Datos consolidados de ${total} eventos: ${resultado.length} participantes únicos encontrados`);
@@ -647,11 +715,6 @@ export function GenerarCertificadoModal({
         });
     }, [participantes, searchQuery, filtroAsistencia]);
 
-    // Opción seleccionada de pregunta TEXTO
-    const preguntaTextoSeleccionada = useMemo(() => {
-        return opcionesPreguntasTexto.find((o) => o.idUnico === preguntaTextoSeleccionadaId) || null;
-    }, [opcionesPreguntasTexto, preguntaTextoSeleccionadaId]);
-
     // Cuestionarios agrupados con todas sus preguntas tipo TEXT/TEXTO
     const cuestionariosAgrupados = useMemo(() => {
         const map = new Map<string, {
@@ -680,16 +743,38 @@ export function GenerarCertificadoModal({
         return Array.from(map.values());
     }, [opcionesPreguntasTexto]);
 
-    // Máximo número de URLs registrado en la pregunta seleccionada
+    // Función para obtener todas las URLs asignadas a un participante según las preguntas seleccionadas en cada formulario
+    const getUrlsParaParticipante = useCallback((ci: string): string[] => {
+        const urls: string[] = [];
+        cuestionariosAgrupados.forEach((cues) => {
+            const selectedId = preguntasSeleccionadasPorCuestionario[cues.cuestionarioId];
+            if (!selectedId) return;
+            const preg = cues.preguntas.find((p) => p.idUnico === selectedId);
+            if (preg && preg.respuestasPorCi[ci]) {
+                preg.respuestasPorCi[ci].forEach((u) => {
+                    if (u && !urls.includes(u)) {
+                        urls.push(u);
+                    }
+                });
+            }
+        });
+        return urls;
+    }, [cuestionariosAgrupados, preguntasSeleccionadasPorCuestionario]);
+
+    // Total de participantes que tienen al menos una URL registrada
+    const totalParticipantesConUrl = useMemo(() => {
+        return participantes.filter((p) => getUrlsParaParticipante(p.ci).length > 0).length;
+    }, [participantes, getUrlsParaParticipante]);
+
+    // Máximo número de URLs registrado en los participantes según las preguntas seleccionadas por formulario
     const maxUrlsSeleccionados = useMemo(() => {
-        if (!preguntaTextoSeleccionada) return 1;
         let max = 1;
         participantes.forEach((p) => {
-            const uList = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+            const uList = getUrlsParaParticipante(p.ci);
             if (uList.length > max) max = uList.length;
         });
         return max;
-    }, [preguntaTextoSeleccionada, participantes]);
+    }, [participantes, getUrlsParaParticipante]);
 
     // ── Exportación a Excel de 4 Hojas (con URLs por intentos) + Trazabilidad URLs ──
     const ejecutarGeneracionExcelYFinalizar = async () => {
@@ -717,28 +802,21 @@ export function GenerarCertificadoModal({
 
             // Calcular máximo número de URLs registradas en los intentos para expandir columnas URL 1, URL 2, URL 3...
             let maxUrls = 1;
-            if (preguntaTextoSeleccionada) {
-                participantes.forEach((p) => {
-                    const uList = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
-                    if (uList.length > maxUrls) maxUrls = uList.length;
-                });
-            }
+            participantes.forEach((p) => {
+                const uList = getUrlsParaParticipante(p.ci);
+                if (uList.length > maxUrls) maxUrls = uList.length;
+            });
 
             // Encabezados de URLs: URL si es 1 intento o URL1, URL2, URL3... si hay múltiples intentos
-            const urlHeaders = preguntaTextoSeleccionada
-                ? maxUrls > 1
-                    ? Array.from({ length: maxUrls }, (_, i) => `URL${i + 1}`)
-                    : ['URL']
+            const urlHeaders = maxUrls > 1
+                ? Array.from({ length: maxUrls }, (_, i) => `URL${i + 1}`)
                 : ['URL'];
 
-            // 1ra HOJA: CENTRALIZADOR (con GENERO y URLs dinámicas de múltiples intentos)
+            // 1ra HOJA: CENTRALIZADOR (con GENERO y URLs dinámicas de múltiples intentos o formularios)
             // No | C.I. | COMPLEMENTO | NOMBRES | APELLIDOS | GENERO | CELULAR | CORREO | ASISTIO 3 TALLERES | URL 1 | URL 2 ...
             const centralizadorRows = participantes.map((p, idx) => {
-                let urlValues: string[] = [''];
-                if (preguntaTextoSeleccionada) {
-                    const userUrls = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
-                    urlValues = Array.from({ length: maxUrls }, (_, i) => userUrls[i] || '');
-                }
+                const userUrls = getUrlsParaParticipante(p.ci);
+                const urlValues = Array.from({ length: maxUrls }, (_, i) => userUrls[i] || '');
 
                 return [
                     idx + 1,
@@ -1455,7 +1533,7 @@ export function GenerarCertificadoModal({
                                                     <th className="py-3 px-3 text-center">Taller 3</th>
                                                     <th className="py-3 px-3 text-center">Inscrito</th>
                                                     <th className="py-3 px-3 text-center">Asistencias</th>
-                                                    {preguntaTextoSeleccionada && (
+                                                    {totalParticipantesConUrl > 0 && (
                                                         <th className="py-3 px-3 text-center">URLs Evidencia</th>
                                                     )}
                                                     <th className="py-3 px-3 text-center">Estado</th>
@@ -1464,16 +1542,14 @@ export function GenerarCertificadoModal({
                                             <tbody className="divide-y divide-border/60 font-medium">
                                                 {filteredParticipantes.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={preguntaTextoSeleccionada ? 10 : 9} className="py-8 text-center text-muted-foreground">
+                                                        <td colSpan={totalParticipantesConUrl > 0 ? 10 : 9} className="py-8 text-center text-muted-foreground">
                                                             No se encontraron participantes con los filtros seleccionados
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     filteredParticipantes.map((p, idx) => {
                                                         const isApto = p.totalAsistidos === 3;
-                                                        const urlsUsuario = preguntaTextoSeleccionada
-                                                            ? preguntaTextoSeleccionada.respuestasPorCi[p.ci] || []
-                                                            : [];
+                                                        const urlsUsuario = getUrlsParaParticipante(p.ci);
 
                                                         return (
                                                             <tr
@@ -1625,7 +1701,7 @@ export function GenerarCertificadoModal({
                                                                 </td>
 
                                                                 {/* URLS EVIDENCIA SI HAY SELECCIÓN */}
-                                                                {preguntaTextoSeleccionada && (
+                                                                {totalParticipantesConUrl > 0 && (
                                                                     <td className="py-2.5 px-3 text-center">
                                                                         {urlsUsuario.length > 0 ? (
                                                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold text-[10px]">
@@ -1698,11 +1774,11 @@ export function GenerarCertificadoModal({
                                                 <h3 className="text-sm font-black uppercase tracking-tight text-foreground flex items-center gap-2">
                                                     Paso 4: Seleccionar Pregunta para URL de Evidencia
                                                     <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-black">
-                                                        Seleccione solo 1
+                                                        Seleccione 1 por formulario
                                                     </span>
                                                 </h3>
                                                 <p className="text-xs text-muted-foreground font-medium">
-                                                    De los {totalEventosSeleccionados.size} eventos seleccionados se encontraron {cuestionariosAgrupados.length} cuestionarios con {opcionesPreguntasTexto.length} preguntas de tipo TEXT/TEXTO. Elija de cuál extraer las URLs.
+                                                    De los {totalEventosSeleccionados.size} eventos seleccionados se encontraron {cuestionariosAgrupados.length} formularios con {opcionesPreguntasTexto.length} preguntas de tipo TEXT/TEXTO. Puede seleccionar 1 pregunta por cada formulario para extraer las URLs de evidencia.
                                                 </p>
                                             </div>
                                         </div>
@@ -1718,7 +1794,7 @@ export function GenerarCertificadoModal({
                                     <div className="pt-2.5 border-t border-purple-500/15 flex items-center justify-between flex-wrap gap-2 text-xs">
                                         <div className="flex items-center gap-2">
                                             <span className="text-muted-foreground font-medium">Formato de Columnas en Centralizador:</span>
-                                            {preguntaTextoSeleccionada ? (
+                                            {totalParticipantesConUrl > 0 ? (
                                                 <span className="font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-500/15 px-2.5 py-0.5 rounded-md border border-purple-500/25">
                                                     {maxUrlsSeleccionados > 1
                                                         ? Array.from({ length: maxUrlsSeleccionados }, (_, i) => `URL${i + 1}`).join(' | ')
@@ -1731,9 +1807,9 @@ export function GenerarCertificadoModal({
                                             )}
                                         </div>
 
-                                        {preguntaTextoSeleccionada && (
+                                        {totalParticipantesConUrl > 0 && (
                                             <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                                {preguntaTextoSeleccionada.respondidosCount} participantes tienen enlace registrado ({maxUrlsSeleccionados > 1 ? `hasta ${maxUrlsSeleccionados} intentos detectados` : '1 intento'})
+                                                {totalParticipantesConUrl} participantes tienen enlace registrado ({maxUrlsSeleccionados > 1 ? `hasta ${maxUrlsSeleccionados} enlaces/intentos detectados` : '1 intento'})
                                             </span>
                                         )}
                                     </div>
@@ -1744,10 +1820,10 @@ export function GenerarCertificadoModal({
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                                             <BookOpen className="w-4 h-4 text-purple-500" />
-                                            Cuestionarios y Preguntas de Evidencia ({cuestionariosAgrupados.length} cuestionarios)
+                                            Formularios y Preguntas de Evidencia ({cuestionariosAgrupados.length} formularios)
                                         </h4>
-                                        <span className="text-[10px] text-muted-foreground">
-                                            Haga clic en la pregunta de la cual desea extraer la URL
+                                        <span className="text-[10px] text-muted-foreground font-medium">
+                                            Seleccione 1 pregunta por cada formulario para extraer las evidencias
                                         </span>
                                     </div>
 
@@ -1763,118 +1839,141 @@ export function GenerarCertificadoModal({
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
-                                            {/* Opción 1: Dejar vacío */}
-                                            <label
-                                                onClick={() => setPreguntaTextoSeleccionadaId('')}
-                                                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${!preguntaTextoSeleccionadaId
-                                                        ? 'border-primary bg-primary/10 shadow-xs ring-2 ring-primary/30'
-                                                        : 'border-border bg-card/60 hover:bg-muted/30'
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="preguntaTextoRadioStep4"
-                                                    checked={!preguntaTextoSeleccionadaId}
-                                                    onChange={() => setPreguntaTextoSeleccionadaId('')}
-                                                    className="mt-1 text-primary accent-primary"
-                                                />
-                                                <div>
-                                                    <p className="text-xs font-bold text-foreground">
-                                                        Ninguno (Dejar columna URL vacía)
-                                                    </p>
-                                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                                        No vincular respuestas de cuestionarios. La columna URL en el Excel Centralizador quedará en blanco.
-                                                    </p>
-                                                </div>
-                                            </label>
-
-                                            {/* Cuestionarios agrupados con todas sus preguntas tipo TEXT */}
-                                            {cuestionariosAgrupados.map((cues) => (
-                                                <div
-                                                    key={cues.cuestionarioId}
-                                                    className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs space-y-3 p-4"
-                                                >
-                                                    {/* Cabecera del Cuestionario */}
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-border/60">
-                                                        <div className="flex items-center gap-2.5 min-w-0">
-                                                            <div className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
-                                                                <BookOpen className="w-3.5 h-3.5" />
+                                        <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                                            {cuestionariosAgrupados.map((cues) => {
+                                                const selPregId = preguntasSeleccionadasPorCuestionario[cues.cuestionarioId] || '';
+                                                return (
+                                                    <div
+                                                        key={cues.cuestionarioId}
+                                                        className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs space-y-3 p-4"
+                                                    >
+                                                        {/* Cabecera del Formulario / Cuestionario */}
+                                                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-border/60">
+                                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                                <div className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                                                    <BookOpen className="w-3.5 h-3.5" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <h5 className="text-xs font-black text-foreground truncate">
+                                                                        {cues.cuestionarioTitulo}
+                                                                    </h5>
+                                                                    <p className="text-[10px] text-muted-foreground truncate">
+                                                                        Evento: {cues.eventoNombre}{' '}
+                                                                        {cues.eventoCodigo ? (
+                                                                            <span className="font-mono font-bold text-primary">[{cues.eventoCodigo}]</span>
+                                                                        ) : null}
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                            <div className="min-w-0">
-                                                                <h5 className="text-xs font-black text-foreground truncate">
-                                                                    {cues.cuestionarioTitulo}
-                                                                </h5>
-                                                                <p className="text-[10px] text-muted-foreground truncate">
-                                                                    Evento: {cues.eventoNombre}{' '}
-                                                                    {cues.eventoCodigo ? (
-                                                                        <span className="font-mono font-bold text-primary">[{cues.eventoCodigo}]</span>
-                                                                    ) : null}
-                                                                </p>
+
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                                    {cues.preguntas.length} {cues.preguntas.length === 1 ? 'pregunta TEXT' : 'preguntas TEXT'}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-muted-foreground">
+                                                                    (Seleccione 1)
+                                                                </span>
                                                             </div>
                                                         </div>
 
-                                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
-                                                            {cues.preguntas.length} {cues.preguntas.length === 1 ? 'pregunta TEXT' : 'preguntas TEXT'}
-                                                        </span>
-                                                    </div>
+                                                        {/* Opciones dentro de este Formulario */}
+                                                        <div className="space-y-2 pt-1">
+                                                            {/* Opción para no extraer de este formulario */}
+                                                            <label
+                                                                onClick={() =>
+                                                                    setPreguntasSeleccionadasPorCuestionario((prev) => ({
+                                                                        ...prev,
+                                                                        [cues.cuestionarioId]: '',
+                                                                    }))
+                                                                }
+                                                                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 text-xs ${!selPregId
+                                                                    ? 'border-muted-foreground/40 bg-muted/40 font-bold'
+                                                                    : 'border-border/60 bg-muted/10 hover:bg-muted/30 text-muted-foreground'
+                                                                    }`}
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`radio_cuestionario_${cues.cuestionarioId}`}
+                                                                    checked={!selPregId}
+                                                                    onChange={() =>
+                                                                        setPreguntasSeleccionadasPorCuestionario((prev) => ({
+                                                                            ...prev,
+                                                                            [cues.cuestionarioId]: '',
+                                                                        }))
+                                                                    }
+                                                                    className="text-muted-foreground accent-muted-foreground shrink-0"
+                                                                />
+                                                                <span className="text-xs">
+                                                                    Ninguna pregunta en este formulario (No extraer URL de aquí)
+                                                                </span>
+                                                            </label>
 
-                                                    {/* Preguntas de tipo TEXT dentro de este cuestionario (incluso si hay 2 o más) */}
-                                                    <div className="space-y-2 pt-1">
-                                                        {cues.preguntas.map((opc) => {
-                                                            const isSelected = preguntaTextoSeleccionadaId === opc.idUnico;
-                                                            return (
-                                                                <label
-                                                                    key={opc.idUnico}
-                                                                    onClick={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
-                                                                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3.5 text-xs ${isSelected
+                                                            {/* Preguntas de tipo TEXT en este formulario */}
+                                                            {cues.preguntas.map((opc) => {
+                                                                const isSelected = selPregId === opc.idUnico;
+                                                                return (
+                                                                    <label
+                                                                        key={opc.idUnico}
+                                                                        onClick={() =>
+                                                                            setPreguntasSeleccionadasPorCuestionario((prev) => ({
+                                                                                ...prev,
+                                                                                [cues.cuestionarioId]: opc.idUnico,
+                                                                            }))
+                                                                        }
+                                                                        className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3.5 text-xs ${isSelected
                                                                             ? 'border-purple-500 bg-purple-500/15 shadow-sm ring-2 ring-purple-500/30'
                                                                             : 'border-border/70 bg-muted/20 hover:bg-muted/40'
-                                                                        }`}
-                                                                >
-                                                                    <input
-                                                                        type="radio"
-                                                                        name="preguntaTextoRadioStep4"
-                                                                        checked={isSelected}
-                                                                        onChange={() => setPreguntaTextoSeleccionadaId(opc.idUnico)}
-                                                                        className="mt-1 text-purple-600 accent-purple-600 shrink-0"
-                                                                    />
-                                                                    <div className="flex-1 min-w-0 space-y-1">
-                                                                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                                                                            <span className="font-bold text-foreground flex items-center gap-2">
-                                                                                <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
-                                                                                    Pregunta {opc.preguntaNumero || 1} (TEXTO)
-                                                                                </span>
-                                                                            </span>
-
-                                                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                                                                                    {opc.respondidosCount} respondieron
-                                                                                </span>
-                                                                                {opc.maxIntentosCount && opc.maxIntentosCount > 1 ? (
-                                                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                                                                        Hasta {opc.maxIntentosCount} intentos
+                                                                            }`}
+                                                                    >
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`radio_cuestionario_${cues.cuestionarioId}`}
+                                                                            checked={isSelected}
+                                                                            onChange={() =>
+                                                                                setPreguntasSeleccionadasPorCuestionario((prev) => ({
+                                                                                    ...prev,
+                                                                                    [cues.cuestionarioId]: opc.idUnico,
+                                                                                }))
+                                                                            }
+                                                                            className="mt-1 text-purple-600 accent-purple-600 shrink-0"
+                                                                        />
+                                                                        <div className="flex-1 min-w-0 space-y-1">
+                                                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                                <span className="font-bold text-foreground flex items-center gap-2">
+                                                                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
+                                                                                        Pregunta {opc.preguntaNumero || 1} (TEXTO)
                                                                                     </span>
-                                                                                ) : null}
-                                                                            </div>
-                                                                        </div>
+                                                                                </span>
 
-                                                                        <p className="text-xs text-foreground font-semibold leading-relaxed">
-                                                                            &quot;{opc.preguntaTexto}&quot;
-                                                                        </p>
-                                                                    </div>
-                                                                </label>
-                                                            );
-                                                        })}
+                                                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                                                                        {opc.respondidosCount} respondieron
+                                                                                    </span>
+                                                                                    {opc.maxIntentosCount && opc.maxIntentosCount > 1 ? (
+                                                                                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                                                                            Hasta {opc.maxIntentosCount} intentos
+                                                                                        </span>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <p className="text-xs text-foreground font-semibold leading-relaxed">
+                                                                                &quot;{cleanHtmlText(opc.preguntaTexto)}&quot;
+                                                                            </p>
+                                                                        </div>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Vista Previa de Primeras Filas con URLs */}
-                                {preguntaTextoSeleccionada && (
+                                {totalParticipantesConUrl > 0 && (
                                     <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
@@ -1903,7 +2002,7 @@ export function GenerarCertificadoModal({
                                                 </thead>
                                                 <tbody className="divide-y divide-border/60 font-medium">
                                                     {participantes.slice(0, 5).map((p, idx) => {
-                                                        const userUrls = preguntaTextoSeleccionada.respuestasPorCi[p.ci] || [];
+                                                        const userUrls = getUrlsParaParticipante(p.ci);
                                                         return (
                                                             <tr key={p.ci} className="hover:bg-muted/20">
                                                                 <td className="p-2 text-center text-muted-foreground font-bold">{idx + 1}</td>
