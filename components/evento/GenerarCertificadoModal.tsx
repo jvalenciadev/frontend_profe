@@ -7,7 +7,7 @@ import {
     Award, X, CheckCircle2, AlertCircle, FileSpreadsheet, Loader2,
     ArrowRight, ArrowLeft, Search, RefreshCw, Users, BookOpen,
     GraduationCap, CheckSquare, Square, ChevronRight, School, Sparkles,
-    Calendar, Check, ChevronDown, ChevronUp, AlertTriangle, Lock
+    Calendar, Check, ChevronDown, ChevronUp, AlertTriangle, Lock, Link2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '@/lib/api';
@@ -147,6 +147,14 @@ export function GenerarCertificadoModal({
     const [selectedCiclo, setSelectedCiclo] = useState<CicloDef | null>(null);
     const [filtroNivel, setFiltroNivel] = useState<'TODOS' | 'Primaria' | 'Secundaria'>('TODOS');
 
+    // FILTRO ESTRICTO: Solo eventos NO finalizados (estado === 'activo')
+    const eventosActivos = useMemo(() => {
+        return (eventosDisponibles || []).filter((e) => {
+            const est = (e.estado || '').toLowerCase().trim();
+            return est === 'activo';
+        });
+    }, [eventosDisponibles]);
+
     // Mapeo MÚLTIPLE de eventos por taller: { 1: string[], 2: string[], 3: string[] }
     const [tallerEventos, setTallerEventos] = useState<Record<number, string[]>>({
         1: [],
@@ -201,14 +209,14 @@ export function GenerarCertificadoModal({
         };
     }, [isOpen]);
 
-    // Seleccionar ciclo y auto-sugerir eventos con nombres coincidentes
+    // Seleccionar ciclo y auto-sugerir únicamente eventos ACTIVOS con nombres coincidentes
     const handleSelectCiclo = (ciclo: CicloDef) => {
         setSelectedCiclo(ciclo);
         const nuevoMapeo: Record<number, string[]> = { 1: [], 2: [], 3: [] };
 
         ciclo.talleres.forEach((taller) => {
             const tallerNombreNorm = taller.nombre.toLowerCase();
-            const matches = eventosDisponibles
+            const matches = eventosActivos
                 .filter((e) => {
                     const evNorm = (e.nombre || '').toLowerCase();
                     return evNorm.includes(tallerNombreNorm) || tallerNombreNorm.includes(evNorm);
@@ -263,11 +271,51 @@ export function GenerarCertificadoModal({
         return setIds;
     }, [tallerEventos]);
 
+    // Lista detallada de eve_codigo y URLs vinculadas por taller
+    const listaEventosAsignadosConDetalle = useMemo(() => {
+        if (!selectedCiclo) return [];
+
+        const items: {
+            tallerNumero: number;
+            tallerNombre: string;
+            eventoId: string;
+            nombre: string;
+            codigo: string;
+            url: string;
+            inscritos: number;
+            asistidos: number;
+            estado: string;
+        }[] = [];
+
+        selectedCiclo.talleres.forEach((taller) => {
+            const ids = tallerEventos[taller.numero] || [];
+            ids.forEach((id) => {
+                const ev = eventosDisponibles.find((e) => e.id === id);
+                if (ev) {
+                    const cod = ev.codigo || ev.id;
+                    items.push({
+                        tallerNumero: taller.numero,
+                        tallerNombre: taller.nombre,
+                        eventoId: ev.id,
+                        nombre: ev.nombre,
+                        codigo: cod,
+                        url: `/evento/${cod}`,
+                        inscritos: ev.inscritos || 0,
+                        asistidos: ev.asistidos || 0,
+                        estado: ev.estado || 'activo',
+                    });
+                }
+            });
+        });
+
+        return items;
+    }, [selectedCiclo, tallerEventos, eventosDisponibles]);
+
     // Carga de inscripciones de TODOS los eventos seleccionados en los 3 talleres
     const handleCargarYConsolidar = async () => {
         const total = (tallerEventos[1]?.length || 0) + (tallerEventos[2]?.length || 0) + (tallerEventos[3]?.length || 0);
         if (total === 0) {
-            toast.error('Debe seleccionar al menos un evento en alguno de los talleres');
+            toast.error('Debe seleccionar al menos un evento activo en alguno de los talleres');
             return;
         }
 
@@ -342,7 +390,6 @@ export function GenerarCertificadoModal({
                     const tallerKey = `taller${numTaller}` as 'taller1' | 'taller2' | 'taller3';
                     const prevInfo = mapCi[ci][tallerKey];
 
-                    // Si ya tenía registro en este taller por otro evento paralelo, mantener la asistencia si fue presente
                     mapCi[ci][tallerKey] = {
                         inscrito: true,
                         asistio: prevInfo.asistio || asistio,
@@ -367,7 +414,6 @@ export function GenerarCertificadoModal({
                 };
             });
 
-            // Ordenar: primero los que tienen 3 asistencias, luego 2, luego 1
             resultado.sort((a, b) => {
                 if (b.totalAsistidos !== a.totalAsistidos) {
                     return b.totalAsistidos - a.totalAsistidos;
@@ -377,7 +423,7 @@ export function GenerarCertificadoModal({
 
             setParticipantes(resultado);
             setStep(3);
-            toast.success(`Datos consolidados de ${total} eventos: ${resultado.length} participantes únicos encontrados`);
+            toast.success(`Datos consolidados de ${total} eventos activos: ${resultado.length} participantes únicos encontrados`);
         } catch (error) {
             console.error('Error al consolidar participantes:', error);
             toast.error('Error al cargar datos de participantes de los eventos');
@@ -482,7 +528,7 @@ export function GenerarCertificadoModal({
         });
     }, [participantes, searchQuery, filtroAsistencia]);
 
-    // ── Exportación a Excel de 4 Hojas y Cierre de Eventos ───────────────────────
+    // ── Exportación a Excel de 4 Hojas + Hoja de Trazabilidad URLs ───────────────
     const ejecutarGeneracionExcelYFinalizar = async () => {
         if (!selectedCiclo) return;
 
@@ -491,7 +537,7 @@ export function GenerarCertificadoModal({
             // 1. Cambiar estado a 'finalizado' para todos los eventos seleccionados
             const uniqueEventIds = Array.from(totalEventosSeleccionados);
             if (uniqueEventIds.length > 0) {
-                const toastCloseId = toast.loading(`Finalizando ${uniqueEventIds.length} eventos y bloqueando URLs...`);
+                const toastCloseId = toast.loading(`Finalizando ${uniqueEventIds.length} eventos y cerrando URLs...`);
                 await Promise.all(
                     uniqueEventIds.map((id) =>
                         eventoService.update(id, {
@@ -503,7 +549,7 @@ export function GenerarCertificadoModal({
                 toast.dismiss(toastCloseId);
             }
 
-            // 2. Construir el Excel de 4 hojas
+            // 2. Construir el Excel con las hojas requeridas
             const wb = XLSX.utils.book_new();
 
             // 1ra HOJA: CENTRALIZADOR
@@ -516,7 +562,7 @@ export function GenerarCertificadoModal({
                 p.celular,
                 p.correo,
                 p.totalAsistidos === 3 ? 'SI' : 'NO',
-                '', // URL con datos vacíos
+                '', // URL con datos vacíos tal como fue solicitado
             ]);
 
             const wsCentralizador = XLSX.utils.aoa_to_sheet([
@@ -563,13 +609,34 @@ export function GenerarCertificadoModal({
             // 4ta HOJA: Taller 3
             generarHojaTaller(3, 'Taller 3');
 
+            // 5ta HOJA: Trazabilidad de eve_codigo y URLs utilizadas
+            const rowsUrls = listaEventosAsignadosConDetalle.map((item, idx) => [
+                idx + 1,
+                `Taller ${item.tallerNumero}`,
+                item.tallerNombre,
+                item.codigo,
+                item.url,
+                item.nombre,
+                item.inscritos,
+                item.asistidos,
+                'finalizado',
+            ]);
+
+            const wsUrls = XLSX.utils.aoa_to_sheet([
+                ['No', 'TALLER', 'TALLER_NOMBRE', 'EVE_CODIGO', 'URL', 'NOMBRE_EVENTO', 'INSCRITOS', 'ASISTIDOS', 'ESTADO_FINAL'],
+                ...rowsUrls,
+            ]);
+            wsUrls['!cols'] = [
+                { wch: 6 }, { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 28 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+            ];
+            XLSX.utils.book_append_sheet(wb, wsUrls, 'URLs_Eventos');
+
             const nombreArchivo = `Certificados_${selectedCiclo.nombre.replace(/[\s-]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(wb, nombreArchivo);
 
             toast.success(`Excel generado y descargado exitosamente. Se finalizaron ${uniqueEventIds.length} eventos.`);
             setIsConfirmingExcel(false);
 
-            // Recargar datos en la vista principal
             if (onEventosUpdated) {
                 onEventosUpdated();
             }
@@ -614,8 +681,8 @@ export function GenerarCertificadoModal({
                                 </h2>
                                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                                     {step === 1 && 'Paso 1: Antes de generar seleccione a qué ciclo pertenece'}
-                                    {step === 2 && `Paso 2: Asignar Eventos a los Talleres de ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} eventos seleccionados)`}
-                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (4 Hojas)`}
+                                    {step === 2 && `Paso 2: Asignar Eventos Activos a los Talleres de ${selectedCiclo?.nombre} (${totalEventosSeleccionados.size} eventos seleccionados)`}
+                                    {step === 3 && `Paso 3: Consolidado de Asistencias & Exportación Excel (4 Hojas + URLs)`}
                                 </p>
                             </div>
                         </div>
@@ -659,7 +726,7 @@ export function GenerarCertificadoModal({
                                                 Antes de generar seleccione a qué ciclo pertenece:
                                             </p>
                                             <p className="text-xs text-muted-foreground font-medium">
-                                                Cada ciclo contempla 3 talleres específicos obligatorios + evidencia para la emisión de certificación.
+                                                Solo se mostrarán eventos en estado <span className="font-bold text-amber-500 uppercase">Activo</span> (los finalizados quedan excluidos automáticamente).
                                             </p>
                                         </div>
                                     </div>
@@ -737,7 +804,7 @@ export function GenerarCertificadoModal({
                             </div>
                         )}
 
-                        {/* ── PASO 2: ASIGNAR MÚLTIPLES EVENTOS A LOS TALLERES ─────────────── */}
+                        {/* ── PASO 2: ASIGNAR MÚLTIPLES EVENTOS ACTIVOS A LOS TALLERES ─────── */}
                         {step === 2 && selectedCiclo && (
                             <div className="space-y-6">
                                 <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between flex-wrap gap-4">
@@ -746,15 +813,18 @@ export function GenerarCertificadoModal({
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/20 text-primary">
                                                 {selectedCiclo.nivel}
                                             </span>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                                Solo Eventos Activos ({eventosActivos.length} disponibles)
+                                            </span>
                                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500">
-                                                {totalEventosSeleccionados.size} eventos seleccionados en total
+                                                {totalEventosSeleccionados.size} seleccionados
                                             </span>
                                         </div>
                                         <h3 className="text-lg font-black text-foreground mt-1">
                                             {selectedCiclo.nombre}
                                         </h3>
                                         <p className="text-xs text-muted-foreground font-medium">
-                                            Seleccione uno o más eventos para cada taller (soporta centralizar decenas de talleres o paralelos simultáneos).
+                                            Seleccione uno o más eventos activos para cada taller. Podrá visualizar el código de evento (<code>eve_codigo</code>) y su URL pública.
                                         </p>
                                     </div>
                                     <button
@@ -772,8 +842,8 @@ export function GenerarCertificadoModal({
                                         const busqueda = (searchTaller[taller.numero] || '').toLowerCase();
                                         const isOpenAccordion = tallerOpenAccordion[taller.numero] ?? false;
 
-                                        // Filtrar eventos por la búsqueda de este taller
-                                        const eventosFiltrados = eventosDisponibles.filter((e) => {
+                                        // Filtrar ÚNICAMENTE sobre eventosActivos
+                                        const eventosFiltrados = eventosActivos.filter((e) => {
                                             if (!busqueda) return true;
                                             const nom = (e.nombre || '').toLowerCase();
                                             const lug = (e.lugar || '').toLowerCase();
@@ -781,8 +851,7 @@ export function GenerarCertificadoModal({
                                             return nom.includes(busqueda) || lug.includes(busqueda) || cod.includes(busqueda);
                                         });
 
-                                        // Estadísticas acumuladas para este taller
-                                        const eventosSeleccionadosObjs = eventosDisponibles.filter((e) =>
+                                        const eventosSeleccionadosObjs = eventosActivos.filter((e) =>
                                             seleccionadosIds.includes(e.id)
                                         );
                                         const sumaInscritos = eventosSeleccionadosObjs.reduce(
@@ -850,7 +919,6 @@ export function GenerarCertificadoModal({
                                                 {/* Contenido Desplegable: Buscador y Checklist de Eventos */}
                                                 {isOpenAccordion && (
                                                     <div className="p-4 space-y-4">
-                                                        {/* Barra de Búsqueda y Botón Seleccionar Todos */}
                                                         <div className="flex items-center gap-3 flex-wrap">
                                                             <div className="relative flex-1 min-w-[220px]">
                                                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -863,7 +931,7 @@ export function GenerarCertificadoModal({
                                                                             [taller.numero]: e.target.value,
                                                                         }))
                                                                     }
-                                                                    placeholder={`Buscar eventos para Taller ${taller.numero}...`}
+                                                                    placeholder={`Buscar evento activo por nombre o eve_codigo...`}
                                                                     className="w-full h-10 pl-10 pr-4 rounded-xl bg-background border border-border text-xs font-medium outline-none focus:border-amber-500 transition-all"
                                                                 />
                                                             </div>
@@ -885,15 +953,16 @@ export function GenerarCertificadoModal({
                                                             </button>
                                                         </div>
 
-                                                        {/* Lista Scrolleable de Eventos con Checkboxes */}
+                                                        {/* Lista de Eventos con eve_codigo y URL */}
                                                         <div className="max-h-60 overflow-y-auto border border-border/80 rounded-xl divide-y divide-border/60 bg-background/50">
                                                             {eventosFiltrados.length === 0 ? (
                                                                 <div className="p-6 text-center text-xs text-muted-foreground">
-                                                                    No se encontraron eventos coincidentes con la búsqueda.
+                                                                    No hay eventos activos que coincidan con la búsqueda.
                                                                 </div>
                                                             ) : (
                                                                 eventosFiltrados.map((ev) => {
                                                                     const isSelected = seleccionadosIds.includes(ev.id);
+                                                                    const cod = ev.codigo || ev.id;
                                                                     return (
                                                                         <label
                                                                             key={ev.id}
@@ -911,12 +980,18 @@ export function GenerarCertificadoModal({
                                                                                     className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
                                                                                 />
                                                                                 <div>
-                                                                                    <p className="font-bold text-foreground">
-                                                                                        {ev.nombre}
-                                                                                    </p>
-                                                                                    <p className="text-[10px] text-muted-foreground">
-                                                                                        Fecha: {ev.fecha ? ev.fecha.slice(0, 10) : 'Sin fecha'}{' '}
-                                                                                        {ev.lugar ? `• Lugar: ${ev.lugar}` : ''}
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <p className="font-bold text-foreground">
+                                                                                            {ev.nombre}
+                                                                                        </p>
+                                                                                        <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                                                            {cod}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                                                        URL: <span className="font-mono text-muted-foreground">/evento/{cod}</span>
+                                                                                        {ev.fecha ? ` • Fecha: ${ev.fecha.slice(0, 10)}` : ''}
+                                                                                        {ev.lugar ? ` • Lugar: ${ev.lugar}` : ''}
                                                                                     </p>
                                                                                 </div>
                                                                             </div>
@@ -935,11 +1010,11 @@ export function GenerarCertificadoModal({
                                                             )}
                                                         </div>
 
-                                                        {/* Chips de Eventos Seleccionados para quitar rápido */}
+                                                        {/* Chips de Eventos Seleccionados con eve_codigo */}
                                                         {eventosSeleccionadosObjs.length > 0 && (
                                                             <div className="pt-2">
                                                                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                                                                    Eventos vinculados a este taller ({eventosSeleccionadosObjs.length}):
+                                                                    Eventos activos asignados a Taller {taller.numero} ({eventosSeleccionadosObjs.length}):
                                                                 </p>
                                                                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                                                                     {eventosSeleccionadosObjs.map((ev) => (
@@ -947,13 +1022,16 @@ export function GenerarCertificadoModal({
                                                                             key={ev.id}
                                                                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-foreground"
                                                                         >
-                                                                            <span className="truncate max-w-[200px]">{ev.nombre}</span>
+                                                                            <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                                                                                [{ev.codigo || ev.id}]
+                                                                            </span>
+                                                                            <span className="truncate max-w-[180px]">{ev.nombre}</span>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() =>
                                                                                     toggleEventoEnTaller(taller.numero, ev.id)
                                                                                 }
-                                                                                className="hover:text-red-500 transition-colors"
+                                                                                className="hover:text-red-500 transition-colors ml-0.5"
                                                                             >
                                                                                 <X className="w-3 h-3" />
                                                                             </button>
@@ -998,7 +1076,7 @@ export function GenerarCertificadoModal({
                             </div>
                         )}
 
-                        {/* ── PASO 3: CONSOLIDADO, MARCAR ASISTENCIA Y EXPORTAR EXCEL ────────── */}
+                        {/* ── PASO 3: CONSOLIDADO, LISTA DE EVE_CODIGO/URLS Y GENERAR ───────── */}
                         {step === 3 && selectedCiclo && (
                             <div className="space-y-6">
                                 {/* Banner de Ciclo y Estadísticas */}
@@ -1096,6 +1174,70 @@ export function GenerarCertificadoModal({
                                     </div>
                                 </div>
 
+                                {/* ── LISTA DE EVE_CODIGO Y URLS DE LAS CUALES SE SACÓ Y A QUÉ TALLER PERTENECIÓ ── */}
+                                <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                                <Link2 className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                                                    Lista de Códigos de Eventos (eve_codigo) y URLs Utilizadas ({listaEventosAsignadosConDetalle.length})
+                                                </h4>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    Detalle de origen: a qué taller perteneció cada URL de registro.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                            Pasarán a Finalizado
+                                        </span>
+                                    </div>
+
+                                    <div className="max-h-52 overflow-y-auto rounded-xl border border-border divide-y divide-border/60 bg-muted/10">
+                                        {listaEventosAsignadosConDetalle.map((item, idx) => (
+                                            <div
+                                                key={`${item.eventoId}-${idx}`}
+                                                className="p-3 flex items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <span className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                                                        T{item.tallerNumero}
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-foreground truncate">
+                                                            {item.nombre}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground truncate">
+                                                            Perteneció a: <strong className="text-foreground">{item.tallerNombre}</strong>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3 shrink-0">
+                                                    <div className="text-right">
+                                                        <span className="font-mono text-[11px] font-black bg-primary/15 text-primary px-2.5 py-0.5 rounded-md border border-primary/20">
+                                                            {item.codigo}
+                                                        </span>
+                                                        <p className="font-mono text-[9px] text-muted-foreground mt-0.5">
+                                                            {item.url}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right text-[10px]">
+                                                        <span className="font-bold text-foreground block">
+                                                            {item.inscritos} ins.
+                                                        </span>
+                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold block">
+                                                            {item.asistidos} asis.
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {/* Barra de Filtros y Búsqueda */}
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div className="relative flex-1 min-w-[260px]">
@@ -1135,7 +1277,7 @@ export function GenerarCertificadoModal({
 
                                 {/* Tabla Consolidada de Participantes */}
                                 <div className="border border-border rounded-2xl overflow-hidden bg-card">
-                                    <div className="overflow-x-auto max-h-[460px]">
+                                    <div className="overflow-x-auto max-h-[440px]">
                                         <table className="w-full text-left border-collapse text-xs">
                                             <thead className="sticky top-0 bg-muted/90 backdrop-blur-md border-b border-border z-10">
                                                 <tr className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
@@ -1357,7 +1499,7 @@ export function GenerarCertificadoModal({
                     </div>
                 </motion.div>
 
-                {/* MODAL DE CONFIRMACIÓN OBLIGATORIA ANTES DE GENERAR EXCEL */}
+                {/* MODAL DE CONFIRMACIÓN OBLIGATORIA CON LISTADO DE EVE_CODIGO Y URLS */}
                 <ConfirmModal
                     isOpen={isConfirmingExcel}
                     onClose={() => setIsConfirmingExcel(false)}
@@ -1368,13 +1510,25 @@ export function GenerarCertificadoModal({
                             <p className="font-semibold text-foreground">
                                 Ten en cuenta que esas URL no se podrán usar, ya que el estado del evento estará en <span className="font-bold text-amber-500 uppercase">finalizado</span>.
                             </p>
-                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 space-y-1">
+                            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 space-y-2">
                                 <div className="flex items-center gap-2 font-bold text-xs">
                                     <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
-                                    <span>Acción irreversible de cierre:</span>
+                                    <span>Se finalizarán {listaEventosAsignadosConDetalle.length} URLs de eventos ({totalEventosSeleccionados.size} eventos únicos):</span>
                                 </div>
-                                <p className="text-[11px] leading-relaxed">
-                                    Se cambiará el estado de los <strong>{totalEventosSeleccionados.size} eventos seleccionados</strong> a <code>finalizado</code> y se cerrará permanentemente la inscripción y acceso a las URLs de registro.
+                                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 font-mono text-[10px]">
+                                    {listaEventosAsignadosConDetalle.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-background/60 border border-amber-500/20">
+                                            <span className="font-bold text-foreground truncate">
+                                                [T{item.tallerNumero}] {item.nombre}
+                                            </span>
+                                            <span className="text-primary font-bold shrink-0">
+                                                {item.codigo} ({item.url})
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] leading-relaxed opacity-80 pt-1.5 border-t border-amber-500/20">
+                                    Se cambiará permanentemente su estado a <code>finalizado</code> y se cerrará el acceso a sus URLs.
                                 </p>
                             </div>
                         </div>
@@ -1383,6 +1537,7 @@ export function GenerarCertificadoModal({
                     cancelText="Cancelar y revisar"
                     variant="warning"
                     loading={finalizandoEventos}
+                    maxWidth="max-w-xl"
                 />
             </div>
         </AnimatePresence>
