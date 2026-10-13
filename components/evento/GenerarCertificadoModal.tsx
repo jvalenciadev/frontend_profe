@@ -879,25 +879,77 @@ export function GenerarCertificadoModal({
             // 4ta HOJA: Taller 3
             generarHojaTaller(3, 'Taller 3');
 
-            // 5ta HOJA: Trazabilidad de eve_codigo y URLs utilizadas
-            const rowsUrls = listaEventosAsignadosConDetalle.map((item, idx) => [
-                idx + 1,
-                `Taller ${item.tallerNumero}`,
-                item.tallerNombre,
-                item.codigo,
-                item.url,
-                item.nombre,
-                item.inscritos,
-                item.asistidos,
-                'finalizado',
-            ]);
+            // 5ta HOJA: Trazabilidad de eve_codigo, URLs utilizadas y Cuestionarios
+            const rowsUrls = listaEventosAsignadosConDetalle.map((item, idx) => {
+                const cuesList = cuestionariosAgrupados.filter((c) => c.eventoId === item.eventoId);
+                const tieneCuestionario = cuesList.length > 0 ? 'SI' : 'NO';
+                const titulosCuestionario = cuesList.map((c) => c.cuestionarioTitulo).join(' | ') || 'Sin cuestionario';
+
+                const preguntasDesc: string[] = [];
+                let respuestasTotal = 0;
+
+                cuesList.forEach((c) => {
+                    const selId = preguntasSeleccionadasPorCuestionario[c.cuestionarioId];
+                    const preg = c.preguntas.find((p) => p.idUnico === selId);
+                    if (preg) {
+                        preguntasDesc.push(`Pregunta ${preg.preguntaNumero || 1} (TEXTO): "${cleanHtmlText(preg.preguntaTexto)}"`);
+                        respuestasTotal += preg.respondidosCount || 0;
+                    } else if (selId === '') {
+                        preguntasDesc.push('Ninguna (deseleccionada manualmente)');
+                    }
+                });
+
+                const preguntaSeleccionada = preguntasDesc.length > 0 ? preguntasDesc.join(' | ') : 'Sin pregunta seleccionada';
+
+                return [
+                    idx + 1,
+                    `Taller ${item.tallerNumero}`,
+                    item.tallerNombre,
+                    item.codigo,
+                    item.url,
+                    item.nombre,
+                    item.inscritos,
+                    item.asistidos,
+                    'finalizado',
+                    tieneCuestionario,
+                    titulosCuestionario,
+                    preguntaSeleccionada,
+                    respuestasTotal,
+                ];
+            });
 
             const wsUrls = XLSX.utils.aoa_to_sheet([
-                ['No', 'TALLER', 'TALLER_NOMBRE', 'EVE_CODIGO', 'URL', 'NOMBRE_EVENTO', 'INSCRITOS', 'ASISTIDOS', 'ESTADO_FINAL'],
+                [
+                    'No',
+                    'TALLER',
+                    'TALLER_NOMBRE',
+                    'EVE_CODIGO',
+                    'URL',
+                    'NOMBRE_EVENTO',
+                    'INSCRITOS',
+                    'ASISTIDOS',
+                    'ESTADO_FINAL',
+                    'TIENE_CUESTIONARIO',
+                    'CUESTIONARIO',
+                    'PREGUNTA_SELECCIONADA',
+                    'CANTIDAD_RESPUESTAS_URL',
+                ],
                 ...rowsUrls,
             ]);
             wsUrls['!cols'] = [
-                { wch: 6 }, { wch: 12 }, { wch: 35 }, { wch: 18 }, { wch: 28 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+                { wch: 6 },
+                { wch: 12 },
+                { wch: 35 },
+                { wch: 22 },
+                { wch: 30 },
+                { wch: 40 },
+                { wch: 12 },
+                { wch: 12 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 35 },
+                { wch: 60 },
+                { wch: 25 },
             ];
             XLSX.utils.book_append_sheet(wb, wsUrls, 'URLs_Eventos');
 
@@ -2050,34 +2102,71 @@ export function GenerarCertificadoModal({
                                         </span>
                                     </div>
 
-                                    <div className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border/60 bg-muted/10">
-                                        {listaEventosAsignadosConDetalle.map((item, idx) => (
-                                            <div
-                                                key={`${item.eventoId}-${idx}`}
-                                                className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                    <span className="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center text-[9px] font-black shrink-0">
-                                                        T{item.tallerNumero}
-                                                    </span>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-foreground truncate">{item.nombre}</p>
-                                                        <p className="text-[10px] text-muted-foreground truncate">
-                                                            Perteneció a: <strong className="text-foreground">{item.tallerNombre}</strong>
-                                                        </p>
+                                    <div className="max-h-52 overflow-y-auto rounded-xl border border-border divide-y divide-border/60 bg-muted/10">
+                                        {listaEventosAsignadosConDetalle.map((item, idx) => {
+                                            const cuesList = cuestionariosAgrupados.filter((c) => c.eventoId === item.eventoId);
+                                            const preguntasSel = cuesList
+                                                .map((c) => {
+                                                    const selId = preguntasSeleccionadasPorCuestionario[c.cuestionarioId];
+                                                    return c.preguntas.find((p) => p.idUnico === selId);
+                                                })
+                                                .filter(Boolean);
+
+                                            return (
+                                                <div
+                                                    key={`${item.eventoId}-${idx}`}
+                                                    className="p-2.5 flex items-start justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
+                                                >
+                                                    <div className="flex items-start gap-2.5 min-w-0">
+                                                        <span className="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">
+                                                            T{item.tallerNumero}
+                                                        </span>
+                                                        <div className="min-w-0 space-y-1">
+                                                            <p className="font-bold text-foreground truncate">{item.nombre}</p>
+                                                            <p className="text-[10px] text-muted-foreground truncate">
+                                                                Perteneció a: <strong className="text-foreground">{item.tallerNombre}</strong>
+                                                            </p>
+                                                            <div className="flex items-center gap-1.5 flex-wrap text-[10px] pt-0.5">
+                                                                {cuesList.length > 0 ? (
+                                                                    <>
+                                                                        <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20">
+                                                                            Cuestionario: {cuesList.map((c) => c.cuestionarioTitulo).join(', ')}
+                                                                        </span>
+                                                                        {preguntasSel.length > 0 ? (
+                                                                            preguntasSel.map((ps, pIdx) => (
+                                                                                <span
+                                                                                    key={pIdx}
+                                                                                    className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20"
+                                                                                >
+                                                                                    Pregunta {ps!.preguntaNumero || 1}: {ps!.respondidosCount} con URL
+                                                                                </span>
+                                                                            ))
+                                                                        ) : (
+                                                                            <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground italic">
+                                                                                Sin pregunta seleccionada
+                                                                            </span>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="px-2 py-0.5 rounded bg-muted/60 text-muted-foreground">
+                                                                        Sin cuestionario
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                        <span className="font-mono text-[10px] font-black bg-primary/15 text-primary px-2 py-0.5 rounded border border-primary/20">
+                                                            {item.codigo}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground font-medium">
+                                                            {item.inscritos} ins. • <strong className="text-emerald-600 dark:text-emerald-400">{item.asistidos} asis.</strong>
+                                                        </span>
                                                     </div>
                                                 </div>
-
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <span className="font-mono text-[10px] font-black bg-primary/15 text-primary px-2 py-0.5 rounded border border-primary/20">
-                                                        {item.codigo}
-                                                    </span>
-                                                    <span className="text-[10px] text-muted-foreground font-medium">
-                                                        {item.inscritos} ins. • <strong className="text-emerald-600 dark:text-emerald-400">{item.asistidos} asis.</strong>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
