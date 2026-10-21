@@ -250,16 +250,12 @@ export async function renderHojaConceptoPagina(
         { content: `${Math.round(f.resultado * 10) / 10}`, styles: { halign: 'center', fontStyle: 'bold' } }
     ]);
 
-    // Fila final de Resultado y Calificación Total (Total: 5 columnas: 2 + 1 + 1 + 1)
+    // Fila final de Resultado y Calificación Total (Total: 4 columnas: 2 + 1 + 1)
     rowsFormularios.push([
         {
             content: 'RESULTADO Y CALIFICACIÓN TOTAL:',
             colSpan: 2,
             styles: { fontStyle: 'bold', halign: 'left' }
-        },
-        {
-            content: calificacionCualitativa,
-            styles: { fontStyle: 'bold', halign: 'center' }
         },
         {
             content: '100%',

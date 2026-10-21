@@ -330,6 +330,7 @@ export default function EvaluarPersonalPage() {
             cargoId: string;
             autoAsig: EvaluacionAdmins | null;
             supervisorAsigs: EvaluacionAdmins[];
+            parAsigs: EvaluacionAdmins[];
             cuestionarioPreferido?: EvaluacionCuestionario | null;
         }> = new Map();
 
@@ -342,6 +343,7 @@ export default function EvaluarPersonalPage() {
                     cargoId: cargoKey,
                     autoAsig: null,
                     supervisorAsigs: [],
+                    parAsigs: [],
                     cuestionarioPreferido: null,
                 });
             }
@@ -362,9 +364,16 @@ export default function EvaluarPersonalPage() {
                         g.autoAsig = a;
                     }
                 }
+            } else if (a.tipoEvaluacion === 'PAR') {
+                // Es evaluación Entre Pares (Criterio 3: Comunitaria)
+                const idx = g.parAsigs.findIndex(s => s.evaluadorId === a.evaluadorId);
+                if (idx === -1) {
+                    g.parAsigs.push(a);
+                } else if (a.estadoEvaluacion === 'COMPLETADO') {
+                    g.parAsigs[idx] = a;
+                }
             } else {
-                // Es evaluación de un supervisor institucional
-                // Evitar evaluadores duplicados: si ya existe para este evaluador, conservar la completada
+                // Es evaluación de un supervisor institucional (Criterios 1 y 4)
                 const idx = g.supervisorAsigs.findIndex(s => s.evaluadorId === a.evaluadorId);
                 if (idx === -1) {
                     g.supervisorAsigs.push(a);
@@ -1386,6 +1395,17 @@ export default function EvaluarPersonalPage() {
                                 ? Math.round((notasSupervisores.reduce((a, b) => a + b, 0) / notasSupervisores.length) * 100) / 100
                                 : null;
 
+                            // ── Datos Entre Pares (Criterio 3: Comunitaria) ──
+                            const pares = grupo.parAsigs;
+                            const totalPares = pares.length;
+                            const paresCompletados = pares.filter(s => s.estadoEvaluacion === 'COMPLETADO');
+                            const notasPares = paresCompletados
+                                .map(s => s.puntajeFinal)
+                                .filter((n): n is number => n !== null && n !== undefined);
+                            const promedioPares = notasPares.length > 0
+                                ? Math.round((notasPares.reduce((a, b) => a + b, 0) / notasPares.length) * 100) / 100
+                                : null;
+
                             // ── Cálculo de Nota Ponderada Consolidada ──
                             const period = periods.find(p => p.id === selectedPeriod);
                             const crits = (period?.criterios || []).filter(cr =>
@@ -1399,16 +1419,31 @@ export default function EvaluarPersonalPage() {
                             crits.forEach(cr => {
                                 const isExamen = isCriterioCuestionarioPersonal(cr);
                                 const peso = cr.pesoPorcentaje || 0;
-                                if (isExamen) {
-                                    if (notaExamen !== null) {
-                                        notaFinalPonderada += (notaExamen * peso) / 100;
+                                const orden = Number(cr.orden);
+
+                                if (isExamen || orden === 2) {
+                                    if (notaExamen !== null && isExamenCompleted) {
+                                        const ap = Math.round(((notaExamen * peso) / 100) * 100) / 100;
+                                        notaFinalPonderada += ap;
+                                        totalPesosCalculados += peso;
+                                    } else {
+                                        todosLosCriteriosListos = false;
+                                    }
+                                } else if (orden === 3) {
+                                    // Criterio 3: Comunitaria (Entre Pares o fallback a supervisión)
+                                    const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                                    if (notaCom !== null) {
+                                        const ap = Math.round(((notaCom * peso) / 100) * 100) / 100;
+                                        notaFinalPonderada += ap;
                                         totalPesosCalculados += peso;
                                     } else {
                                         todosLosCriteriosListos = false;
                                     }
                                 } else {
+                                    // Criterios 1 y 4: Inmediato superior y verificación de evidencias
                                     if (promedioSupervisores !== null) {
-                                        notaFinalPonderada += (promedioSupervisores * peso) / 100;
+                                        const ap = Math.round(((promedioSupervisores * peso) / 100) * 100) / 100;
+                                        notaFinalPonderada += ap;
                                         totalPesosCalculados += peso;
                                     } else {
                                         todosLosCriteriosListos = false;
@@ -1503,6 +1538,26 @@ export default function EvaluarPersonalPage() {
                                             </div>
                                         )}
 
+                                        {/* Estado de Evaluaciones Entre Pares */}
+                                        {totalPares > 0 && (
+                                            <div className="p-2.5 rounded-2xl bg-secondary/40 border border-border/30 flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                                                    <span className="font-bold text-[11px] text-foreground">
+                                                        Evaluación comunitaria (pares)
+                                                    </span>
+                                                </div>
+                                                <span className={cn(
+                                                    "px-2 py-0.5 rounded-md text-[10px] font-black",
+                                                    paresCompletados.length === totalPares && totalPares > 0
+                                                        ? "bg-emerald-500/10 text-emerald-600"
+                                                        : "bg-amber-500/10 text-amber-600"
+                                                )}>
+                                                    {paresCompletados.length} de {totalPares} evaluaciones completadas
+                                                </span>
+                                            </div>
+                                        )}
+
                                         {/* Desglose Ponderado de Criterios (Anónimo y en Porcentajes) */}
                                         {crits.length > 0 && (
                                             <div className="space-y-2">
@@ -1517,8 +1572,22 @@ export default function EvaluarPersonalPage() {
                                                 {crits.map((cr, ci) => {
                                                     const isExamen = isCriterioCuestionarioPersonal(cr);
                                                     const peso = cr.pesoPorcentaje || 0;
-                                                    const isEvaluated = isExamen ? isExamenCompleted : (totalCompletados > 0 && promedioSupervisores !== null);
-                                                    const notaBase = isExamen ? (notaExamen ?? 0) : (promedioSupervisores ?? 0);
+                                                    const orden = Number(cr.orden);
+
+                                                    let isEvaluated = false;
+                                                    let notaBase = 0;
+
+                                                    if (isExamen || orden === 2) {
+                                                        isEvaluated = isExamenCompleted;
+                                                        notaBase = notaExamen ?? 0;
+                                                    } else if (orden === 3) {
+                                                        const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                                                        isEvaluated = notaCom !== null;
+                                                        notaBase = notaCom ?? 0;
+                                                    } else {
+                                                        isEvaluated = totalCompletados > 0 && promedioSupervisores !== null;
+                                                        notaBase = promedioSupervisores ?? 0;
+                                                    }
                                                     const aporte = isEvaluated ? Math.round(((notaBase * peso) / 100) * 100) / 100 : 0;
 
                                                     return (
@@ -2483,9 +2552,9 @@ export default function EvaluarPersonalPage() {
                                     <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden border border-border/40">
                                         <div
                                             className={`h-full rounded-full transition-all duration-700 ${pct >= 90 ? 'bg-emerald-500' :
-                                                    pct >= 76 ? 'bg-blue-500' :
-                                                        pct >= 61 ? 'bg-amber-500' :
-                                                            pct >= 41 ? 'bg-orange-500' : 'bg-rose-500'
+                                                pct >= 76 ? 'bg-blue-500' :
+                                                    pct >= 61 ? 'bg-amber-500' :
+                                                        pct >= 41 ? 'bg-orange-500' : 'bg-rose-500'
                                                 }`}
                                             style={{ width: `${pct}%` }}
                                         />
