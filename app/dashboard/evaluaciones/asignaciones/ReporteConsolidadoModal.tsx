@@ -645,8 +645,7 @@ export function ReporteConsolidadoModal({
 
         // Mapear los formularios aplicados en los 4 criterios oficiales
         const formularios = fila.criteriosValores && fila.criteriosValores.length > 0
-            ? fila.criteriosValores.map((cv, idx) => ({
-                codigo: `DO0${idx + 1}`,
+            ? fila.criteriosValores.map((cv) => ({
                 nombre: cv.nombre || (
                     cv.orden === 1 ? 'Evaluación Inmediato Superior' :
                         cv.orden === 2 ? 'Autoevaluacion' :
@@ -656,10 +655,10 @@ export function ReporteConsolidadoModal({
                 resultado: Math.round(cv.aporte * 10) / 10,
             }))
             : [
-                { codigo: 'DO01', nombre: 'Evaluación del inmediato superior y dependientes.', pesoPorcentaje: 15, resultado: 0 },
-                { codigo: 'DO02', nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.', pesoPorcentaje: 30, resultado: 0 },
-                { codigo: 'DO03', nombre: 'Evaluación comunitaria.', pesoPorcentaje: 10, resultado: 0 },
-                { codigo: 'DO04', nombre: 'Recolección y verificación de evidencias.', pesoPorcentaje: 45, resultado: 0 },
+                { nombre: 'Evaluación del inmediato superior y dependientes.', pesoPorcentaje: 15, resultado: 0 },
+                { nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.', pesoPorcentaje: 30, resultado: 0 },
+                { nombre: 'Evaluación comunitaria.', pesoPorcentaje: 10, resultado: 0 },
+                { nombre: 'Recolección y verificación de evidencias.', pesoPorcentaje: 45, resultado: 0 },
             ];
 
         return {

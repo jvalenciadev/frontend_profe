@@ -83,7 +83,7 @@ export default function MiFichaPage() {
             puntajeTotal: number;
             codigoVerificacion: string;
             formularios: {
-                codigo: string;
+                codigo?: string;
                 nombre: string;
                 pesoPorcentaje: number;
                 resultado: number;
@@ -185,7 +185,6 @@ export default function MiFichaPage() {
                 sumaAportes += aporte;
 
                 return {
-                    codigo: `DO0${idx + 1}`,
                     nombre: cg.nombre,
                     pesoPorcentaje: cg.peso,
                     resultado: Math.round(aporte * 10) / 10,
@@ -1423,12 +1422,9 @@ export default function MiFichaPage() {
                                                         <span className="text-right">Resultado</span>
                                                     </div>
                                                     <div className="divide-y divide-border/20 text-xs font-medium">
-                                                        {grupo.formularios.map((f) => (
-                                                            <div key={f.codigo} className="px-4 py-2.5 grid grid-cols-[1fr_60px_70px] items-center gap-2 hover:bg-muted/20 transition-colors">
+                                                        {grupo.formularios.map((f, fIdx) => (
+                                                            <div key={f.nombre || fIdx} className="px-4 py-2.5 grid grid-cols-[1fr_60px_70px] items-center gap-2 hover:bg-muted/20 transition-colors">
                                                                 <div className="flex items-start gap-2 min-w-0 pr-1">
-                                                                    <span className="font-mono text-[10px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
-                                                                        {f.codigo}
-                                                                    </span>
                                                                     <span className="text-foreground text-[11px] leading-tight line-clamp-2">
                                                                         {f.nombre}
                                                                     </span>

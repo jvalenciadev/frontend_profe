@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 
 export interface FormularioEvaluado {
     no?: number;
-    codigo: string;
+    codigo?: string;
     nombre: string;
     pesoPorcentaje: number;
     resultado: number;
@@ -239,10 +239,10 @@ export async function renderHojaConceptoPagina(
 
     // Preparar filas de formularios
     const rowsFormularios: any[] = (datos.formularios.length > 0 ? datos.formularios : [
-        { codigo: 'DO01', nombre: 'Evaluación del inmediato superior y dependientes.', pesoPorcentaje: 15, resultado: 0 },
-        { codigo: 'DO02', nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.', pesoPorcentaje: 30, resultado: 0 },
-        { codigo: 'DO03', nombre: 'Evaluación comunitaria.', pesoPorcentaje: 10, resultado: 0 },
-        { codigo: 'DO04', nombre: 'Recolección y verificación de evidencias.', pesoPorcentaje: 45, resultado: 0 }
+        { nombre: 'Evaluación del inmediato superior y dependientes.', pesoPorcentaje: 15, resultado: 0 },
+        { nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.', pesoPorcentaje: 30, resultado: 0 },
+        { nombre: 'Evaluación comunitaria.', pesoPorcentaje: 10, resultado: 0 },
+        { nombre: 'Recolección y verificación de evidencias.', pesoPorcentaje: 45, resultado: 0 }
     ]).map((f, idx) => [
         { content: String(idx + 1), styles: { halign: 'center' } },
         { content: f.nombre },
