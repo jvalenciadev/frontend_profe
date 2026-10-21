@@ -200,11 +200,26 @@ export function ReporteConsolidadoModal({
             );
             const totalSupervisores = supervisorAsigs.length;
             const supervisoresCompletados = supervisorAsigs.filter((s) => s.estadoEvaluacion === 'COMPLETADO');
-            const notasSupervisores = supervisoresCompletados
+
+            // Helper: promedio de supervisores filtrado por el orden del criterio de su cuestionario
+            // Permite separar C1 (inmediato superior) de C4 (evidencias) que usan distinto cuestionario
+            const getPromedioSupByCriterioOrden = (orden: number): number | null => {
+                const delCrit = supervisoresCompletados.filter((s) => {
+                    const o = Number((s as any).cuestionario?.criterio?.orden);
+                    return o === orden;
+                });
+                if (delCrit.length === 0) return null;
+                const notas = delCrit.map((s) => Number(s.puntajeFinal)).filter((n) => !isNaN(n));
+                if (notas.length === 0) return null;
+                return Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100;
+            };
+
+            // Fallback: promedio global de supervisores (cuando no hay join de criterio)
+            const notasSupervisoresGlobal = supervisoresCompletados
                 .map((s) => Number(s.puntajeFinal))
-                .filter((n) => !isNaN(n) && n !== null);
-            const promedioSupervisores = notasSupervisores.length > 0
-                ? Math.round((notasSupervisores.reduce((a, b) => a + b, 0) / notasSupervisores.length) * 100) / 100
+                .filter((n) => !isNaN(n));
+            const promedioSupervisoresGlobal = notasSupervisoresGlobal.length > 0
+                ? Math.round((notasSupervisoresGlobal.reduce((a, b) => a + b, 0) / notasSupervisoresGlobal.length) * 100) / 100
                 : null;
 
             // Asignaciones Entre Pares (Criterio 3)
@@ -226,9 +241,10 @@ export function ReporteConsolidadoModal({
                 let isEvaluated = false;
 
                 if (cg.orden === 1) {
-                    // C1: Inmediato superior (15%)
-                    if (promedioSupervisores !== null) {
-                        rendimiento = promedioSupervisores;
+                    // C1: Inmediato superior (15%) — solo supervisores asignados al criterio orden 1
+                    const nota = getPromedioSupByCriterioOrden(1) ?? promedioSupervisoresGlobal;
+                    if (nota !== null) {
+                        rendimiento = nota;
                         isEvaluated = true;
                     } else {
                         todosCompletados = false;
@@ -243,8 +259,8 @@ export function ReporteConsolidadoModal({
                         todosCompletados = false;
                     }
                 } else if (cg.orden === 3) {
-                    // C3: Evaluación comunitaria (10%)
-                    const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                    // C3: Evaluación comunitaria (10%) — pares o fallback C1
+                    const notaCom = promedioPares !== null ? promedioPares : (getPromedioSupByCriterioOrden(1) ?? promedioSupervisoresGlobal);
                     if (notaCom !== null) {
                         rendimiento = notaCom;
                         isEvaluated = true;
@@ -252,9 +268,10 @@ export function ReporteConsolidadoModal({
                         todosCompletados = false;
                     }
                 } else if (cg.orden === 4) {
-                    // C4: Recolección y verificación de evidencias (45%)
-                    if (promedioSupervisores !== null) {
-                        rendimiento = promedioSupervisores;
+                    // C4: Recolección y verificación de evidencias (45%) — solo supervisores del criterio orden 4
+                    const nota = getPromedioSupByCriterioOrden(4) ?? promedioSupervisoresGlobal;
+                    if (nota !== null) {
+                        rendimiento = nota;
                         isEvaluated = true;
                     } else {
                         todosCompletados = false;

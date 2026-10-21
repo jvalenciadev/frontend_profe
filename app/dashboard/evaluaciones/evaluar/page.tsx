@@ -1388,11 +1388,28 @@ export default function EvaluarPersonalPage() {
                             const totalSupervisores = supervisores.length;
                             const supervisoresCompletados = supervisores.filter(s => s.estadoEvaluacion === 'COMPLETADO');
                             const totalCompletados = supervisoresCompletados.length;
-                            const notasSupervisores = supervisoresCompletados
+
+                            // Separar supervisores por criterio (orden) para calcular C1 y C4 independientemente
+                            // C1 = orden 1 (Inmediato Superior), C4 = orden 4 (Evidencias)
+                            const getPromedioByCriterioOrden = (orden: number): number | null => {
+                                const delCriterio = supervisoresCompletados.filter(s => {
+                                    const o = Number((s as any).cuestionario?.criterio?.orden);
+                                    return o === orden;
+                                });
+                                if (delCriterio.length === 0) return null;
+                                const notas = delCriterio
+                                    .map(s => s.puntajeFinal)
+                                    .filter((n): n is number => n !== null && n !== undefined);
+                                if (notas.length === 0) return null;
+                                return Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100;
+                            };
+
+                            // Fallback: si no hay cuestionario.criterio.orden (datos sin join), promedio global
+                            const notasSupervisoresGlobal = supervisoresCompletados
                                 .map(s => s.puntajeFinal)
                                 .filter((n): n is number => n !== null && n !== undefined);
-                            const promedioSupervisores = notasSupervisores.length > 0
-                                ? Math.round((notasSupervisores.reduce((a, b) => a + b, 0) / notasSupervisores.length) * 100) / 100
+                            const promedioSupervisoresGlobal = notasSupervisoresGlobal.length > 0
+                                ? Math.round((notasSupervisoresGlobal.reduce((a, b) => a + b, 0) / notasSupervisoresGlobal.length) * 100) / 100
                                 : null;
 
                             // ── Datos Entre Pares (Criterio 3: Comunitaria) ──
@@ -1430,8 +1447,8 @@ export default function EvaluarPersonalPage() {
                                         todosLosCriteriosListos = false;
                                     }
                                 } else if (orden === 3) {
-                                    // Criterio 3: Comunitaria (Entre Pares o fallback a supervisión)
-                                    const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                                    // Criterio 3: Comunitaria (Entre Pares o fallback a supervisión C1)
+                                    const notaCom = promedioPares !== null ? promedioPares : (getPromedioByCriterioOrden(1) ?? promedioSupervisoresGlobal);
                                     if (notaCom !== null) {
                                         const ap = Math.round(((notaCom * peso) / 100) * 100) / 100;
                                         notaFinalPonderada += ap;
@@ -1440,9 +1457,10 @@ export default function EvaluarPersonalPage() {
                                         todosLosCriteriosListos = false;
                                     }
                                 } else {
-                                    // Criterios 1 y 4: Inmediato superior y verificación de evidencias
-                                    if (promedioSupervisores !== null) {
-                                        const ap = Math.round(((promedioSupervisores * peso) / 100) * 100) / 100;
+                                    // Criterios 1 y 4: cada uno con su propio promedio por criterio
+                                    const notaCrit = getPromedioByCriterioOrden(orden) ?? promedioSupervisoresGlobal;
+                                    if (notaCrit !== null) {
+                                        const ap = Math.round(((notaCrit * peso) / 100) * 100) / 100;
                                         notaFinalPonderada += ap;
                                         totalPesosCalculados += peso;
                                     } else {
@@ -1581,12 +1599,13 @@ export default function EvaluarPersonalPage() {
                                                         isEvaluated = isExamenCompleted;
                                                         notaBase = notaExamen ?? 0;
                                                     } else if (orden === 3) {
-                                                        const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                                                        const notaCom = promedioPares !== null ? promedioPares : (getPromedioByCriterioOrden(1) ?? promedioSupervisoresGlobal);
                                                         isEvaluated = notaCom !== null;
                                                         notaBase = notaCom ?? 0;
                                                     } else {
-                                                        isEvaluated = totalCompletados > 0 && promedioSupervisores !== null;
-                                                        notaBase = promedioSupervisores ?? 0;
+                                                        const notaCrit = getPromedioByCriterioOrden(orden) ?? promedioSupervisoresGlobal;
+                                                        isEvaluated = totalCompletados > 0 && notaCrit !== null;
+                                                        notaBase = notaCrit ?? 0;
                                                     }
                                                     const aporte = isEvaluated ? Math.round(((notaBase * peso) / 100) * 100) / 100 : 0;
 
