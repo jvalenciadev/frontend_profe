@@ -80,7 +80,7 @@ export default function EvaluarPersonalPage() {
     const [allUsersToEvaluate, setAllUsersToEvaluate] = useState<any[]>([]);
     const [cuestionarios, setCuestionarios] = useState<EvaluacionCuestionario[]>([]);
     const [departments, setDepartments] = useState<any[]>([]);
-    const [selectedDept, setSelectedDept] = useState<string>(user?.tenantId || '');
+    const [selectedDept, setSelectedDept] = useState<string>('');
 
     // Modal de Evaluación Interactiva (supervisor evalúa a subordinado)
     const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
@@ -173,10 +173,17 @@ export default function EvaluarPersonalPage() {
         }
     };
 
+    // Sincronizar selectedDept cuando user hidrata (evita doble recarga)
+    useEffect(() => {
+        if (user?.tenantId && !selectedDept) {
+            setSelectedDept(user.tenantId);
+        }
+    }, [user?.tenantId]);
+
     useEffect(() => {
         if (authLoading) return; // esperar a que el contexto de auth hidrate
         loadInitialData();
-    }, [user?.id, user?.tenantId, isSuperAdmin, authLoading]);
+    }, [user?.id, isSuperAdmin, authLoading]);
 
     const handlePeriodChange = (newPeriodId: string) => {
         setSelectedPeriod(newPeriodId);

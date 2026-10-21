@@ -30,6 +30,7 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FichaPDF } from '@/components/FichaPDF';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
+import { descargarHojaConceptoIndividual, getCalificacionOficial } from '@/lib/hojaConceptoPdf';
 
 export default function MiFichaPage() {
     const { updateUser } = useAuth();
@@ -43,6 +44,171 @@ export default function MiFichaPage() {
     const [uploading, setUploading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [evaluations, setEvaluations] = useState<any[]>([]);
+
+    // Agrupación de criterios en los 4 pilares reglamentarios oficiales (Orden 1, 2, 3 y 4)
+    const criteriosOficiales = useMemo(() => [
+        {
+            orden: 1,
+            nombre: 'Evaluación del inmediato superior y dependientes.',
+            nombreCorto: 'Inmediato Superior',
+            peso: 15,
+        },
+        {
+            orden: 2,
+            nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.',
+            nombreCorto: 'Factores Asociados (Examen)',
+            peso: 30,
+        },
+        {
+            orden: 3,
+            nombre: 'Evaluación comunitaria.',
+            nombreCorto: 'Comunitaria',
+            peso: 10,
+        },
+        {
+            orden: 4,
+            nombre: 'Recolección y verificación de evidencias.',
+            nombreCorto: 'Evidencias',
+            peso: 45,
+        },
+    ], []);
+
+    // Agrupación consolidada por evaluacion_periodo
+    const evaluacionesPorPeriodo = useMemo(() => {
+        if (!evaluations || evaluations.length === 0) return [];
+        const gruposMap = new Map<string, {
+            periodoId: string;
+            periodo: any;
+            evaluaciones: any[];
+            puntajeTotal: number;
+            codigoVerificacion: string;
+            formularios: {
+                codigo: string;
+                nombre: string;
+                pesoPorcentaje: number;
+                resultado: number;
+                aporte: number;
+            }[];
+        }>();
+
+        evaluations.forEach((ev: any) => {
+            const pId = ev.periodoId || ev.periodo?.id || 'sin-periodo';
+            if (!gruposMap.has(pId)) {
+                gruposMap.set(pId, {
+                    periodoId: pId,
+                    periodo: ev.periodo || { gestion: '2026', periodo: '1RA. FASE', semestre: 'PRIMER SEMESTRE' },
+                    evaluaciones: [],
+                    puntajeTotal: 0,
+                    codigoVerificacion: ev.codigoVerificacion || '',
+                    formularios: []
+                });
+            }
+            const grupo = gruposMap.get(pId)!;
+            grupo.evaluaciones.push(ev);
+            if (!grupo.codigoVerificacion && ev.codigoVerificacion) {
+                grupo.codigoVerificacion = ev.codigoVerificacion;
+            }
+        });
+
+        return Array.from(gruposMap.values()).map((grupo) => {
+            const asigs = grupo.evaluaciones;
+
+            // Asignación de Examen Personal (autoevaluación - Criterio 2)
+            const autoAsig = asigs.find(
+                (a: any) => a.tipoEvaluacion === 'AUTOEVALUACION' || a.evaluadorId === a.evaluadoId
+            );
+            const intentosExamen = autoAsig?.intentos || [];
+            const ultimoIntento = intentosExamen[0];
+            const isExamenCompleted = autoAsig?.estadoEvaluacion === 'COMPLETADO';
+            const notaExamen = autoAsig?.puntajeFinal !== null && autoAsig?.puntajeFinal !== undefined
+                ? Number(autoAsig.puntajeFinal)
+                : ultimoIntento?.puntajeObtenido !== null && ultimoIntento?.puntajeObtenido !== undefined
+                    ? Number(ultimoIntento.puntajeObtenido)
+                    : null;
+
+            // Asignaciones de Supervisores (Criterios 1 y 4)
+            const supervisorAsigs = asigs.filter(
+                (a: any) => a.tipoEvaluacion !== 'AUTOEVALUACION' && a.evaluadorId !== a.evaluadoId && a.tipoEvaluacion !== 'PAR'
+            );
+            const supervisoresCompletados = supervisorAsigs.filter((s: any) => s.estadoEvaluacion === 'COMPLETADO');
+            const notasSupervisores = supervisoresCompletados
+                .map((s: any) => Number(s.puntajeFinal))
+                .filter((n: any) => !isNaN(n) && n !== null);
+            const promedioSupervisores = notasSupervisores.length > 0
+                ? Math.round((notasSupervisores.reduce((a: any, b: any) => a + b, 0) / notasSupervisores.length) * 100) / 100
+                : null;
+
+            // Asignaciones Entre Pares (Criterio 3)
+            const parAsigs = asigs.filter((a: any) => a.tipoEvaluacion === 'PAR');
+            const paresCompletados = parAsigs.filter((s: any) => s.estadoEvaluacion === 'COMPLETADO');
+            const notasPares = paresCompletados
+                .map((s: any) => Number(s.puntajeFinal))
+                .filter((n: any) => !isNaN(n) && n !== null);
+            const promedioPares = notasPares.length > 0
+                ? Math.round((notasPares.reduce((a: any, b: any) => a + b, 0) / notasPares.length) * 100) / 100
+                : null;
+
+            let sumaAportes = 0;
+
+            const formularios = criteriosOficiales.map((cg, idx) => {
+                let rendimiento = 0;
+                let isEvaluated = false;
+
+                if (cg.orden === 1) {
+                    // C1: Inmediato superior (15%)
+                    if (promedioSupervisores !== null) {
+                        rendimiento = promedioSupervisores;
+                        isEvaluated = true;
+                    }
+                } else if (cg.orden === 2) {
+                    // C2: Factores asociados / Examen personal (30%)
+                    if (notaExamen !== null) {
+                        rendimiento = notaExamen;
+                        isEvaluated = isExamenCompleted;
+                    }
+                } else if (cg.orden === 3) {
+                    // C3: Evaluación comunitaria (10%)
+                    const notaCom = promedioPares !== null ? promedioPares : promedioSupervisores;
+                    if (notaCom !== null) {
+                        rendimiento = notaCom;
+                        isEvaluated = true;
+                    }
+                } else if (cg.orden === 4) {
+                    // C4: Recolección y verificación de evidencias (45%)
+                    if (promedioSupervisores !== null) {
+                        rendimiento = promedioSupervisores;
+                        isEvaluated = true;
+                    }
+                }
+
+                const aporte = isEvaluated ? Math.round(((rendimiento * cg.peso) / 100) * 100) / 100 : 0;
+                sumaAportes += aporte;
+
+                return {
+                    codigo: `DO0${idx + 1}`,
+                    nombre: cg.nombre,
+                    pesoPorcentaje: cg.peso,
+                    resultado: Math.round(aporte * 10) / 10,
+                    aporte,
+                    rendimiento: Math.round(rendimiento * 10) / 10,
+                    isEvaluated,
+                };
+            });
+
+            const puntajeTotal = Math.round(sumaAportes * 100) / 100;
+
+            const codigoVerificacion = grupo.codigoVerificacion ||
+                asigs.find((a: any) => a.codigoVerificacion)?.codigoVerificacion ||
+                `601-${ficha?.user?.ci || ficha?.ci || 'EVAL'}`;
+
+            return {
+                ...grupo,
+                formularios,
+                puntajeTotal,
+                codigoVerificacion
+            };
+        });
+    }, [evaluations, ficha, criteriosOficiales]);
 
     useEffect(() => {
         setLoading(profileLoading);
@@ -297,19 +463,41 @@ export default function MiFichaPage() {
         }
     };
 
-    const handleDownloadConcepto = async (evalId: string) => {
+    const handleDownloadConcepto = async (periodoGrupo: any) => {
         try {
-            toast.info('Generando Hoja de Concepto...');
-            const blob = await evaluationService.getEvaluationPdf(evalId);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `hoja_concepto_${evalId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
+            toast.info('Generando Hoja de Concepto oficial en PDF...');
+            const apellidos = ficha?.user?.apellidos || ficha?.apellidos || '';
+            const nombre = ficha?.user?.nombre || ficha?.nombre || '';
+            const nombreCompleto = `${apellidos} ${nombre}`.trim() || 'DOCENTE EVALUADO';
+            const ci = ficha?.user?.ci || ficha?.ci || '---';
+
+            await descargarHojaConceptoIndividual({
+                evaluado: {
+                    id: ficha?.id || ficha?.user?.id,
+                    nombreCompleto,
+                    ci,
+                    expedido: ficha?.departamento ? ficha.departamento.slice(0, 2).toUpperCase() : 'TA',
+                    departamento: periodoGrupo.evaluaciones?.[0]?.tenant?.nombre || ficha?.user?.departamento || ficha?.departamento || 'TARIJA',
+                    esfm: periodoGrupo.evaluaciones?.[0]?.evaluado?.sedes?.[0]?.sede?.nombre
+                        || ficha?.user?.sedes?.[0]?.sede?.nombre
+                        || periodoGrupo.evaluaciones?.[0]?.tenant?.nombre
+                        || ficha?.institucion || profeConfig?.nombre || 'JUAN MISAEL SARACHO',
+                    cargo: periodoGrupo.evaluaciones?.[0]?.cargo?.nombre || ficha?.cargoPostulacion?.nombre || ficha?.cargoStr || ficha?.cargo || 'FACILITADOR',
+                    codigo: periodoGrupo.codigoVerificacion || `601-${ci}`,
+                },
+                periodo: {
+                    gestion: periodoGrupo.periodo?.gestion || '2026',
+                    periodo: periodoGrupo.periodo?.periodo || '1RA. FASE',
+                    semestre: periodoGrupo.periodo?.semestre || 'PRIMER SEMESTRE'
+                },
+                formularios: periodoGrupo.formularios,
+                puntajeTotal: periodoGrupo.puntajeTotal,
+                codigoVerificacion: periodoGrupo.codigoVerificacion
+            });
+            toast.success('Hoja de Concepto oficial descargada correctamente');
         } catch (error) {
-            toast.error('Error al descargar el PDF');
+            console.error('Error al generar PDF de Hoja de Concepto:', error);
+            toast.error('Error al generar la Hoja de Concepto en PDF');
         }
     };
 
@@ -580,7 +768,7 @@ export default function MiFichaPage() {
                         { id: 'personal', label: 'Datos Personales', icon: User, count: null },
                         { id: 'posgrados', label: 'Formación Superior', icon: GraduationCap, count: ficha.postgrados?.length },
                         { id: 'produccion', label: 'Producción Intelectual', icon: Book, count: ficha.produccionIntelectual?.length },
-                        { id: 'evaluaciones', label: 'Evaluaciones', icon: ClipboardSignature, count: evaluations.length },
+                        { id: 'evaluaciones', label: 'Evaluaciones', icon: ClipboardSignature, count: evaluacionesPorPeriodo.length || evaluations.length },
                         { id: 'cuenta', label: 'Cuenta y Seguridad', icon: Lock, count: null }
                     ].map((tab) => (
                         <button
@@ -1184,42 +1372,95 @@ export default function MiFichaPage() {
                         exit={{ opacity: 0, x: -20 }}
                         className="space-y-8"
                     >
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Historial de Hojas de Concepto</h2>
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                            <div>
+                                <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Historial de Hojas de Concepto</h2>
+                                <p className="text-xs text-muted-foreground font-medium">Evaluaciones de desempeño profesional consolidadas por periodo de evaluación</p>
+                            </div>
                         </div>
 
-                        {evaluations.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {evaluations.map((ev) => (
-                                    <Card key={ev.id} className="p-6 rounded-[2.5rem] border-border/40 shadow-sm hover:shadow-xl transition-all group bg-gradient-to-br from-background to-emerald-500/5">
-                                        <div className="flex flex-col gap-4">
-                                            <div className="flex justify-between items-start">
-                                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                                                    <ClipboardSignature className="w-6 h-6" />
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Puntaje Total</div>
-                                                    <div className="text-2xl font-black text-emerald-600">{ev.puntajeTotal} / 100</div>
-                                                </div>
-                                            </div>
+                        {evaluacionesPorPeriodo.length > 0 ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {evaluacionesPorPeriodo.map((grupo) => {
+                                    const calificacion = getCalificacionOficial(grupo.puntajeTotal);
+                                    const califColor =
+                                        calificacion === 'DESTACADO' ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' :
+                                            calificacion === 'BUENO' ? 'text-blue-600 bg-blue-500/10 border-blue-500/20' :
+                                                calificacion === 'ACEPTABLE' ? 'text-amber-600 bg-amber-500/10 border-amber-500/20' :
+                                                    'text-rose-600 bg-rose-500/10 border-rose-500/20';
 
-                                            <div className="space-y-1">
-                                                <h4 className="text-sm font-black uppercase tracking-tight">{ev.periodoEval?.gestion} - {ev.periodoEval?.periodo}</h4>
-                                                <p className="text-[10px] font-medium text-muted-foreground italic leading-tight">
-                                                    Verificación: <span className="font-bold text-primary">{ev.codigoVerificacion}</span>
-                                                </p>
+                                    return (
+                                        <Card key={grupo.periodoId} className="p-7 rounded-[2.5rem] border-border/40 shadow-sm hover:shadow-xl transition-all group bg-gradient-to-br from-background to-emerald-500/5 flex flex-col justify-between space-y-6">
+                                            <div className="space-y-5">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-black uppercase text-primary tracking-widest block">Periodo Oficial</span>
+                                                        <h3 className="text-lg font-black uppercase tracking-tight text-foreground">
+                                                            GESTIÓN {grupo.periodo?.gestion || '2026'} - {(grupo.periodo?.periodo || '1RA. FASE').toUpperCase()}
+                                                        </h3>
+                                                        {grupo.periodo?.semestre ? (
+                                                            <p className="text-[11px] font-semibold text-muted-foreground">
+                                                                {grupo.periodo.semestre}
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+
+                                                    <div className="text-right flex flex-col items-end">
+                                                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${califColor}`}>
+                                                            {calificacion}
+                                                        </span>
+                                                        <div className="text-2xl font-black text-foreground mt-1">
+                                                            {grupo.puntajeTotal} <span className="text-xs font-semibold text-muted-foreground">/ 100</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Tabla de Formularios Aplicados */}
+                                                <div className="bg-card rounded-2xl border border-border/40 overflow-hidden shadow-xs">
+                                                    <div className="px-4 py-2.5 bg-muted/40 border-b border-border/30 grid grid-cols-[1fr_60px_70px] items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                                        <span>Formulario Aplicado</span>
+                                                        <span className="text-center">%</span>
+                                                        <span className="text-right">Resultado</span>
+                                                    </div>
+                                                    <div className="divide-y divide-border/20 text-xs font-medium">
+                                                        {grupo.formularios.map((f) => (
+                                                            <div key={f.codigo} className="px-4 py-2.5 grid grid-cols-[1fr_60px_70px] items-center gap-2 hover:bg-muted/20 transition-colors">
+                                                                <div className="flex items-start gap-2 min-w-0 pr-1">
+                                                                    <span className="font-mono text-[10px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                                                                        {f.codigo}
+                                                                    </span>
+                                                                    <span className="text-foreground text-[11px] leading-tight line-clamp-2">
+                                                                        {f.nombre}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-center text-muted-foreground font-semibold text-[11px] whitespace-nowrap">
+                                                                    {f.pesoPorcentaje}%
+                                                                </span>
+                                                                <span className="text-right font-black text-foreground text-[11px] tabular-nums">
+                                                                    {f.resultado}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground px-1">
+                                                    <span>Código Verificación: <strong className="font-mono text-primary font-bold">{grupo.codigoVerificacion}</strong></span>
+                                                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">QR Oficial</span>
+                                                </div>
                                             </div>
 
                                             <Button
-                                                onClick={() => handleDownloadConcepto(ev.id)}
+                                                onClick={() => handleDownloadConcepto(grupo)}
                                                 variant="outline"
-                                                className="w-full h-11 rounded-xl bg-background border-emerald-500/20 text-emerald-600 hover:bg-emerald-500 hover:text-white font-black text-[10px] uppercase transition-all"
+                                                className="w-full h-12 rounded-2xl bg-background border-[#c9a751]/40 text-[#946e23] dark:text-[#c9a751] hover:bg-[#c9a751] hover:text-white font-black text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                                             >
-                                                <FileDown className="w-4 h-4 mr-2" /> Descargar PDF
+                                                <FileDown className="w-4 h-4" />
+                                                Descargar Documento (PDF Oficial)
                                             </Button>
-                                        </div>
-                                    </Card>
-                                ))}
+                                        </Card>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <Card className="p-12 text-center rounded-[3rem] border-dashed border-2 border-border/60 bg-muted/20">
@@ -1285,67 +1526,67 @@ export default function MiFichaPage() {
                                                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Correo Electrónico Institucional</label>
                                                 <div className="relative">
                                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
-                                                <div className="flex flex-col xl:flex-row gap-3">
-                                                    <div className="relative flex-1">
-                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                        <Input
-                                                            value={ficha.user?.correo || ficha.correo || ''}
-                                                            onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, correo: e.target.value } : { correo: e.target.value } as any, correo: e.target.value })}
-                                                            className={cn(
-                                                                "pl-11 h-12 rounded-xl bg-muted/30 border-transparent focus:bg-background transition-all",
-                                                                isEmailVerified && "border-emerald-500/50 bg-emerald-500/5"
-                                                            )}
-                                                            placeholder="correo@ejemplo.com"
-                                                        />
-                                                    </div>
-                                                    
-                                                    {ficha.user?.correo !== originalEmail && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={handleRequestVerification}
-                                                            disabled={isSendingVerification || countdown > 0 || isEmailVerified}
-                                                            className="h-12 px-6 rounded-xl border-primary/20 text-primary hover:bg-primary/10 whitespace-nowrap"
-                                                        >
-                                                            {isSendingVerification ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : countdown > 0 ? (
-                                                                `Reenviar en ${countdown}s`
-                                                            ) : isEmailVerified ? (
-                                                                <>
-                                                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                                                    Verificado
-                                                                </>
-                                                            ) : (
-                                                                'Verificar Correo'
-                                                            )}
-                                                        </Button>
-                                                    )}
-                                                </div>
+                                                    <div className="flex flex-col xl:flex-row gap-3">
+                                                        <div className="relative flex-1">
+                                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                                            <Input
+                                                                value={ficha.user?.correo || ficha.correo || ''}
+                                                                onChange={(e) => setFicha({ ...ficha, user: ficha.user ? { ...ficha.user, correo: e.target.value } : { correo: e.target.value } as any, correo: e.target.value })}
+                                                                className={cn(
+                                                                    "pl-11 h-12 rounded-xl bg-muted/30 border-transparent focus:bg-background transition-all",
+                                                                    isEmailVerified && "border-emerald-500/50 bg-emerald-500/5"
+                                                                )}
+                                                                placeholder="correo@ejemplo.com"
+                                                            />
+                                                        </div>
 
-                                                <AnimatePresence>
-                                                    {showVerificationInput && !isEmailVerified && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, height: 0 }}
-                                                            animate={{ opacity: 1, height: 'auto' }}
-                                                            exit={{ opacity: 0, height: 0 }}
-                                                            className="space-y-2 mt-2"
-                                                        >
-                                                            <label className="text-[9px] font-black text-primary uppercase tracking-widest ml-1">Código de Verificación</label>
-                                                            <div className="relative">
-                                                                <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                                                <Input
-                                                                    value={verificationCode}
-                                                                    onChange={(e) => handleVerifyCode(e.target.value)}
-                                                                    placeholder="Ingresa el código de 6 dígitos"
-                                                                    className="pl-11 h-11 rounded-xl bg-primary/5 border-primary/20 text-primary font-bold tracking-[0.2em]"
-                                                                    maxLength={6}
-                                                                />
-                                                            </div>
-                                                            <p className="text-[10px] text-muted-foreground italic pl-1">Ingresa el código que enviamos a tu nuevo correo</p>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
+                                                        {ficha.user?.correo !== originalEmail && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={handleRequestVerification}
+                                                                disabled={isSendingVerification || countdown > 0 || isEmailVerified}
+                                                                className="h-12 px-6 rounded-xl border-primary/20 text-primary hover:bg-primary/10 whitespace-nowrap"
+                                                            >
+                                                                {isSendingVerification ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : countdown > 0 ? (
+                                                                    `Reenviar en ${countdown}s`
+                                                                ) : isEmailVerified ? (
+                                                                    <>
+                                                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                                                        Verificado
+                                                                    </>
+                                                                ) : (
+                                                                    'Verificar Correo'
+                                                                )}
+                                                            </Button>
+                                                        )}
+                                                    </div>
+
+                                                    <AnimatePresence>
+                                                        {showVerificationInput && !isEmailVerified && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, height: 0 }}
+                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                exit={{ opacity: 0, height: 0 }}
+                                                                className="space-y-2 mt-2"
+                                                            >
+                                                                <label className="text-[9px] font-black text-primary uppercase tracking-widest ml-1">Código de Verificación</label>
+                                                                <div className="relative">
+                                                                    <CheckCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                                                                    <Input
+                                                                        value={verificationCode}
+                                                                        onChange={(e) => handleVerifyCode(e.target.value)}
+                                                                        placeholder="Ingresa el código de 6 dígitos"
+                                                                        className="pl-11 h-11 rounded-xl bg-primary/5 border-primary/20 text-primary font-bold tracking-[0.2em]"
+                                                                        maxLength={6}
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground italic pl-1">Ingresa el código que enviamos a tu nuevo correo</p>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
                                                 </div>
                                             </div>
                                         </div>

@@ -19,9 +19,15 @@ import {
     Loader2,
     MapPin,
     ArrowUpDown,
+    FileDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+    descargarHojaConceptoIndividual,
+    descargarHojasConceptoMultiples,
+    HojaConceptoDatos
+} from '@/lib/hojaConceptoPdf';
 
 interface ReporteConsolidadoModalProps {
     isOpen: boolean;
@@ -75,6 +81,7 @@ export function ReporteConsolidadoModal({
     const [filterDepto, setFilterDepto] = useState<string>('');
     const [generatingPdf, setGeneratingPdf] = useState(false);
     const [generatingExcel, setGeneratingExcel] = useState(false);
+    const [generatingIndividuales, setGeneratingIndividuales] = useState(false);
 
     const activePeriod = useMemo(() => {
         return periods.find((p) => p.id === selectedPeriod) || null;
@@ -629,6 +636,88 @@ export function ReporteConsolidadoModal({
         }
     };
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // CONSTRUCCIÓN Y DESCARGA DE HOJAS DE CONCEPTO OFICIALES SEPARADAS POR PERSONA
+    // ─────────────────────────────────────────────────────────────────────────────
+    const buildHojaConceptoDeFila = (fila: FilaConsolidada): HojaConceptoDatos => {
+        const userAsignacion = asignaciones.find((a) => a.evaluadoId === fila.id);
+        const codigoVerificacion = userAsignacion?.codigoVerificacion || `601-${fila.ci}`;
+
+        // Mapear los formularios aplicados en los 4 criterios oficiales
+        const formularios = fila.criteriosValores && fila.criteriosValores.length > 0
+            ? fila.criteriosValores.map((cv, idx) => ({
+                codigo: `DO0${idx + 1}`,
+                nombre: cv.nombre || (
+                    cv.orden === 1 ? 'Evaluación Inmediato Superior' :
+                        cv.orden === 2 ? 'Autoevaluacion' :
+                            cv.orden === 3 ? 'Evaluación Comunitaria' : 'Evaluación de evidencia'
+                ),
+                pesoPorcentaje: cv.peso,
+                resultado: Math.round(cv.aporte * 10) / 10,
+            }))
+            : [
+                { codigo: 'DO01', nombre: 'Evaluación del inmediato superior y dependientes.', pesoPorcentaje: 15, resultado: 0 },
+                { codigo: 'DO02', nombre: 'Evaluación de Factores Asociados al Desempeño Profesional del Personal del PROFE.', pesoPorcentaje: 30, resultado: 0 },
+                { codigo: 'DO03', nombre: 'Evaluación comunitaria.', pesoPorcentaje: 10, resultado: 0 },
+                { codigo: 'DO04', nombre: 'Recolección y verificación de evidencias.', pesoPorcentaje: 45, resultado: 0 },
+            ];
+
+        return {
+            evaluado: {
+                id: fila.id,
+                nombreCompleto: fila.nombreCompleto,
+                ci: fila.ci,
+                expedido: fila.ci.includes('-') ? fila.ci.split('-')[1] : 'TA',
+                departamento: fila.tenantNombre || 'TARIJA',
+                esfm: userAsignacion?.evaluado?.sedes?.[0]?.sede?.nombre
+                    || fila.tenantNombre || 'JUAN MISAEL SARACHO',
+                cargo: fila.cargo || 'DOCENTE',
+                codigo: codigoVerificacion,
+            },
+            periodo: {
+                gestion: activePeriod?.gestion || '2026',
+                periodo: activePeriod?.periodo || '1RA. FASE',
+                semestre: activePeriod?.semestre || 'PRIMER SEMESTRE',
+            },
+            formularios,
+            puntajeTotal: fila.notaFinalTotal,
+            codigoVerificacion,
+        };
+    };
+
+    const handleDownloadFilaIndividual = async (fila: FilaConsolidada) => {
+        try {
+            toast.info(`Generando Hoja de Concepto oficial para ${fila.nombreCompleto}...`);
+            const datos = buildHojaConceptoDeFila(fila);
+            await descargarHojaConceptoIndividual(datos);
+            toast.success('Hoja de Concepto descargada correctamente');
+        } catch (error) {
+            console.error('Error al descargar Hoja de Concepto individual:', error);
+            toast.error('Error al generar la Hoja de Concepto en PDF');
+        }
+    };
+
+    const handleDownloadIndividuales = async () => {
+        if (filteredFilas.length === 0) {
+            toast.warning('No hay datos de funcionarios para exportar');
+            return;
+        }
+
+        try {
+            setGeneratingIndividuales(true);
+            toast.info(`Generando ${filteredFilas.length} Hojas de Concepto oficiales separadas por persona...`);
+            const listaDatos = filteredFilas.map(buildHojaConceptoDeFila);
+            const nombreArchivo = `Hojas_de_Concepto_Separado_Por_Persona_${activePeriod?.gestion || '2026'}.pdf`;
+            await descargarHojasConceptoMultiples(listaDatos, nombreArchivo);
+            toast.success('Hojas de Concepto descargadas exitosamente (1 página por persona)');
+        } catch (error) {
+            console.error('Error al generar PDF individual múltiple:', error);
+            toast.error('Error al generar las Hojas de Concepto');
+        } finally {
+            setGeneratingIndividuales(false);
+        }
+    };
+
     // Impresión directa de navegador
     const handlePrintDirect = () => {
         window.print();
@@ -677,7 +766,17 @@ export function ReporteConsolidadoModal({
                             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#c9a751] text-white text-xs font-black uppercase tracking-wider hover:bg-[#b08e3b] transition-all shadow-md shadow-[#c9a751]/30 disabled:opacity-50 cursor-pointer"
                         >
                             {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            Descargar PDF Oficial (Dorado)
+                            Descargar Sábana PDF
+                        </button>
+
+                        <button
+                            onClick={handleDownloadIndividuales}
+                            disabled={generatingIndividuales || filteredFilas.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#946e23] text-white text-xs font-black uppercase tracking-wider hover:bg-[#785718] transition-all shadow-md shadow-[#946e23]/30 disabled:opacity-50 cursor-pointer"
+                            title="Descargar Hojas de Concepto oficiales separadas por persona (1 página oficial por evaluado con QR)"
+                        >
+                            {generatingIndividuales ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                            Hojas por Persona ({filteredFilas.length})
                         </button>
 
                         <button
@@ -686,7 +785,7 @@ export function ReporteConsolidadoModal({
                             title="Imprimir pantalla actual"
                         >
                             <Printer className="w-4 h-4 text-foreground" />
-                            Imprimir
+                            Imprimir Pantalla
                         </button>
                     </div>
                 </div>
@@ -802,12 +901,13 @@ export function ReporteConsolidadoModal({
                                         <span className="block text-[8.5px] font-medium">(100%)</span>
                                     </th>
                                     <th className="py-3 px-4 text-center min-w-[100px]">Estado</th>
+                                    <th className="py-3 px-3 text-center min-w-[70px]">Hoja</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/30">
                                 {filteredFilas.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                                        <td colSpan={11} className="text-center py-12 text-muted-foreground">
                                             No se encontraron funcionarios asignados que coincidan con los filtros.
                                         </td>
                                     </tr>
@@ -826,7 +926,7 @@ export function ReporteConsolidadoModal({
                                             <Fragment key={f.id}>
                                                 {isFirstInDepto && (
                                                     <tr className="bg-[#c9a751]/15 border-y border-[#c9a751]/30">
-                                                        <td colSpan={10} className="py-2.5 px-4">
+                                                        <td colSpan={11} className="py-2.5 px-4">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="font-black text-[#946e23] dark:text-[#c9a751] text-xs uppercase tracking-wider flex items-center gap-1.5">
                                                                     <MapPin className="w-3.5 h-3.5" />
@@ -902,6 +1002,17 @@ export function ReporteConsolidadoModal({
                                                                 <><AlertCircle className="w-3 h-3" /> Pendiente</>
                                                             )}
                                                         </span>
+                                                    </td>
+
+                                                    {/* Acción Hoja de Concepto Oficial Individual */}
+                                                    <td className="py-3 px-3 text-center">
+                                                        <button
+                                                            onClick={() => handleDownloadFilaIndividual(f)}
+                                                            title={`Descargar Hoja de Concepto oficial de ${f.nombreCompleto} (PDF con QR)`}
+                                                            className="p-1.5 rounded-xl border border-[#c9a751]/40 hover:bg-[#c9a751]/20 text-[#946e23] dark:text-[#c9a751] transition-all hover:scale-110 cursor-pointer inline-flex items-center justify-center shadow-xs"
+                                                        >
+                                                            <FileDown className="w-4 h-4" />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             </Fragment>
