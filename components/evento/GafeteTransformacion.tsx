@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Download, Printer, RotateCcw, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { ECE_ID_MESA, ECE_ID_INSTITUCION } from '@/lib/constants/eventoTransformacion';
 
 interface Props {
     persona: any;
@@ -28,6 +29,53 @@ export function GafeteTransformacion({
     const [generating, setGenerating] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string>('');
 
+    // Estados locales para soportar persistencia cuando el usuario reingresa a consultar
+    const [mesaLocal, setMesaLocal] = useState(mesa || '');
+    const [institucionLocal, setInstitucionLocal] = useState(institucion || '');
+
+    // Sincronizar props directos si cambian
+    useEffect(() => {
+        if (mesa) setMesaLocal(mesa);
+        if (institucion) setInstitucionLocal(institucion);
+    }, [mesa, institucion]);
+
+    // Recuperar mesa e institución si no vinieron en props (caso: "Ver Comprobante" tras reingreso)
+    useEffect(() => {
+        const currentCi = String(persona?.ci || '').split('-')[0].trim();
+        const eventoId = evento?.id;
+        if (!currentCi || !eventoId) return;
+
+        // 1. Intentar desde localStorage inmediato
+        try {
+            const saved = localStorage.getItem(`respuestas_evento_${eventoId}_${currentCi}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed[ECE_ID_MESA] && !mesaLocal) setMesaLocal(parsed[ECE_ID_MESA]);
+                if (parsed[ECE_ID_INSTITUCION] && !institucionLocal) setInstitucionLocal(parsed[ECE_ID_INSTITUCION]);
+            }
+        } catch {}
+
+        // 2. Consultar al endpoint en PostgreSQL para tener datos de la BD siempre
+        fetch(`/api/eventos/cupos?eventoId=${eventoId}&ci=${currentCi}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.respuestas) {
+                    if (data.respuestas[ECE_ID_MESA]) {
+                        setMesaLocal(data.respuestas[ECE_ID_MESA]);
+                    }
+                    if (data.respuestas[ECE_ID_INSTITUCION]) {
+                        setInstitucionLocal(data.respuestas[ECE_ID_INSTITUCION]);
+                    }
+                    try {
+                        localStorage.setItem(`respuestas_evento_${eventoId}_${currentCi}`, JSON.stringify(data.respuestas));
+                    } catch {}
+                }
+            })
+            .catch(err => {
+                console.warn('No se pudo recuperar mesa desde endpoint:', err);
+            });
+    }, [persona?.ci, evento?.id]);
+
     const nombreCompleto = [
         persona?.nombre1,
         persona?.nombre2,
@@ -38,7 +86,7 @@ export function GafeteTransformacion({
     const ciCompleto = String(persona?.ci || '').trim() + (persona?.complemento ? `-${persona.complemento}` : '');
     const ciSoloNumero = String(persona?.ci || '').split('-')[0].trim();
 
-    const tieneMesa = Boolean(mesa && String(mesa).trim() !== '');
+    const tieneMesa = Boolean(mesaLocal && String(mesaLocal).trim() !== '');
 
     // Generar la imagen compuesta en el Canvas
     const renderGafeteCanvas = useCallback(() => {
@@ -80,13 +128,12 @@ export function GafeteTransformacion({
                 });
 
                 // 3. Dibujar Código de Barras en el lado DERECHO (centrado verticalmente)
-                // Lado derecho: centro en X ~ 75% del ancho
                 const bcW = barcodeCanvas.width;
                 const bcH = barcodeCanvas.height;
                 const posX_Right = Math.round(W * 0.73 - bcW / 2);
                 const posY_Right = Math.round((H - bcH) / 2);
 
-                // Tarjeta contenedora blanca con esquinas redondeadas para el barcode
+                // Tarjeta contenedora blanca con sombra
                 ctx.save();
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
                 ctx.shadowBlur = 16;
@@ -121,8 +168,7 @@ export function GafeteTransformacion({
                 console.error('Error generando código de barras en gafete:', err);
             }
 
-            // 4. Dibujar Texto en el lado IZQUIERDO (centrado vertical y horizontalmente en su cuadrante)
-            // Lado izquierdo: centro en X ~ 28% del ancho
+            // 4. Dibujar Texto en el lado IZQUIERDO (centrado verticalmente)
             const centroX_Left = Math.round(W * 0.28);
             const centroY_Left = Math.round(H * 0.50);
 
@@ -135,7 +181,7 @@ export function GafeteTransformacion({
             if (nombreCompleto.length > 30) fontSizeNombre = 30;
             if (nombreCompleto.length > 40) fontSizeNombre = 24;
 
-            // División de nombre en dos líneas si es muy largo
+            // División de nombre en dos líneas si es extenso
             const palabras = nombreCompleto.split(' ');
             let linea1 = nombreCompleto;
             let linea2 = '';
@@ -150,7 +196,7 @@ export function GafeteTransformacion({
             const offsetNombre = tieneMesa ? -45 : 0;
 
             // ── NOMBRE COMPLETO ──
-            ctx.fillStyle = '#0f172a'; // Slate oscuro de alta legibilidad
+            ctx.fillStyle = '#0f172a';
             ctx.font = `900 ${fontSizeNombre}px 'Inter', system-ui, sans-serif`;
 
             if (linea2) {
@@ -171,7 +217,7 @@ export function GafeteTransformacion({
                 const posY_Mesa = centroY_Left + 65;
 
                 // Badge / Pastilla para la mesa
-                const textoMesa = `MESA: ${String(mesa).toUpperCase()}`;
+                const textoMesa = `MESA: ${String(mesaLocal).toUpperCase()}`;
                 ctx.font = `900 22px 'Inter', system-ui, sans-serif`;
                 const textMetrics = ctx.measureText(textoMesa);
                 const badgeW = textMetrics.width + 36;
@@ -180,7 +226,7 @@ export function GafeteTransformacion({
                 ctx.save();
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
                 ctx.shadowBlur = 10;
-                ctx.fillStyle = '#1e293b'; // Fondo contrastado oscuro
+                ctx.fillStyle = '#1e293b';
                 ctx.beginPath();
                 ctx.roundRect(centroX_Left - badgeW / 2, posY_Mesa - badgeH / 2, badgeW, badgeH, 22);
                 ctx.fill();
@@ -191,11 +237,11 @@ export function GafeteTransformacion({
                 ctx.font = `900 20px 'Inter', system-ui, sans-serif`;
                 ctx.fillText(textoMesa, centroX_Left, posY_Mesa + 1);
 
-                // Si viene institución, mostrarla abajo en fuente secundaria
-                if (institucion) {
+                // Si viene institución, mostrarla abajo
+                if (institucionLocal) {
                     ctx.fillStyle = '#334155';
                     ctx.font = `bold 16px 'Inter', system-ui, sans-serif`;
-                    const instTexto = String(institucion).toUpperCase();
+                    const instTexto = String(institucionLocal).toUpperCase();
                     const instAbrev = instTexto.length > 36 ? instTexto.substring(0, 34) + '...' : instTexto;
                     ctx.fillText(instAbrev, centroX_Left, posY_Mesa + 42);
                 }
@@ -213,7 +259,7 @@ export function GafeteTransformacion({
             console.error('No se pudo cargar la imagen base /gafete.png');
             toast.error('No se encontró la plantilla /gafete.png en el servidor.');
         };
-    }, [nombreCompleto, ciSoloNumero, ciCompleto, tieneMesa, mesa, institucion]);
+    }, [nombreCompleto, ciSoloNumero, ciCompleto, tieneMesa, mesaLocal, institucionLocal]);
 
     useEffect(() => {
         renderGafeteCanvas();
@@ -347,4 +393,3 @@ export function GafeteTransformacion({
         </div>
     );
 }
-

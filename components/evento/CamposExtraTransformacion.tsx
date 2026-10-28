@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
     ECE_ID_FECHA,
     ECE_ID_INSTITUCION,
@@ -8,9 +8,10 @@ import {
     INSTITUCIONES_EVENTO_TRANSFORMACION,
     MESAS_EVENTO_TRANSFORMACION,
     calcularDisponibilidadMesas,
-    CUPO_MAXIMO_GLOBAL_MESA
+    CUPO_MAXIMO_GLOBAL_MESA,
+    normalizarTexto
 } from '@/lib/constants/eventoTransformacion';
-import { ClipboardList, Building2, Layers, Check, AlertCircle, Search, Users } from 'lucide-react';
+import { ClipboardList, Building2, Layers, Check, AlertCircle, Users, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -34,8 +35,6 @@ export function CamposExtraTransformacion({
     onClearError,
     onRefreshCupos
 }: Props) {
-    const [busquedaInstitucion, setBusquedaInstitucion] = useState('');
-
     const campoFecha = camposExtras.find(c => c.id === ECE_ID_FECHA);
     const campoInstitucion = camposExtras.find(c => c.id === ECE_ID_INSTITUCION);
     const campoMesa = camposExtras.find(c => c.id === ECE_ID_MESA);
@@ -46,14 +45,12 @@ export function CamposExtraTransformacion({
     const valorInstitucion = String(respuestasExtras[ECE_ID_INSTITUCION] || '').trim();
     const valorMesa = String(respuestasExtras[ECE_ID_MESA] || '').trim();
 
-    // Filtro de instituciones
-    const institucionesFiltradas = useMemo(() => {
-        if (!busquedaInstitucion.trim()) return INSTITUCIONES_EVENTO_TRANSFORMACION;
-        const q = busquedaInstitucion.toLowerCase().trim();
-        return INSTITUCIONES_EVENTO_TRANSFORMACION.filter(i =>
-            i.nombre.toLowerCase().includes(q)
+    // Instituciones ordenadas alfabéticamente para búsqueda rápida en el select
+    const institucionesOrdenadas = useMemo(() => {
+        return [...INSTITUCIONES_EVENTO_TRANSFORMACION].sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
         );
-    }, [busquedaInstitucion]);
+    }, []);
 
     // Cálculo de disponibilidad de mesas según reglas de negocio
     const disponibilidadMesas = useMemo(() => {
@@ -81,7 +78,6 @@ export function CamposExtraTransformacion({
         onClearError(ECE_ID_FECHA);
 
         if (opcion === '05 DE NOVIEMBRE') {
-            // Limpiar institución y mesa si no aplica
             onChangeRespuesta(ECE_ID_INSTITUCION, '');
             onChangeRespuesta(ECE_ID_MESA, '');
             onClearError(ECE_ID_INSTITUCION);
@@ -137,7 +133,7 @@ export function CamposExtraTransformacion({
                                 type="button"
                                 onClick={() => handleSelectFecha(opt)}
                                 className={cn(
-                                    "px-5 py-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group",
+                                    "px-5 py-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group cursor-pointer",
                                     isSelected
                                         ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/30"
                                         : errores[ECE_ID_FECHA]
@@ -161,7 +157,7 @@ export function CamposExtraTransformacion({
                 </div>
             </div>
 
-            {/* 2. CAMPO INSTITUCIÓN (Solo si 06 de Noviembre o Ambas Fechas) */}
+            {/* 2. CAMPO INSTITUCIÓN (Sin buscador confuso, selector limpio directo) */}
             {requiereMesasEInstitucion && (
                 <div className="space-y-3 p-5 rounded-3xl bg-muted/20 border border-border/60">
                     <div className="flex items-center justify-between">
@@ -180,52 +176,46 @@ export function CamposExtraTransformacion({
                         )}
                     </div>
 
-                    {/* Buscador de institución */}
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder="Buscar institución por nombre..."
-                            value={busquedaInstitucion}
-                            onChange={e => setBusquedaInstitucion(e.target.value)}
-                            className="w-full h-11 pl-11 pr-4 rounded-xl bg-card border border-border text-xs font-semibold placeholder:text-muted-foreground outline-none focus:border-primary transition-all"
-                        />
-                    </div>
-
-                    {/* Selector de institución */}
+                    {/* Selector de institución desplegable */}
                     <div className="relative">
                         <select
                             value={valorInstitucion}
                             onChange={e => handleSelectInstitucion(e.target.value)}
                             className={cn(
-                                "w-full h-14 px-5 rounded-2xl bg-card border-2 font-bold text-xs uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all",
+                                "w-full h-14 pl-5 pr-10 rounded-2xl bg-card border-2 font-bold text-xs uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all",
                                 errores[ECE_ID_INSTITUCION]
                                     ? "border-red-500 bg-red-500/5 text-red-500"
-                                    : "border-border text-foreground focus:border-primary"
+                                    : "border-border text-foreground focus:border-primary hover:border-primary/40"
                             )}
                         >
                             <option value="">-- SELECCIONE SU INSTITUCIÓN --</option>
-                            {institucionesFiltradas.map(inst => (
+                            {institucionesOrdenadas.map(inst => (
                                 <option key={inst.nombre} value={inst.nombre}>
                                     {inst.nombre} {inst.cupo !== null ? `(Cupo: ${inst.cupo})` : '(Cupo: INDEFINIDO)'}
                                 </option>
                             ))}
                         </select>
+                        <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     </div>
 
-                    {/* Tarjeta de estado de cupo de la institución seleccionada */}
+                    {/* Resumen de cupos de la institución seleccionada */}
                     {valorInstitucion && (() => {
-                        const conf = INSTITUCIONES_EVENTO_TRANSFORMACION.find(i => i.nombre === valorInstitucion);
-                        const conteoInstMap = cuposInstitucion[valorInstitucion] || {};
-                        const totalInscritosInst = Object.values(conteoInstMap).reduce((a, b) => a + b, 0);
+                        const conf = INSTITUCIONES_EVENTO_TRANSFORMACION.find(
+                            i => normalizarTexto(i.nombre) === normalizarTexto(valorInstitucion)
+                        );
+                        const instKey = Object.keys(cuposInstitucion).find(
+                            k => normalizarTexto(k) === normalizarTexto(valorInstitucion)
+                        );
+                        const conteoInstMap = instKey ? cuposInstitucion[instKey] : (cuposInstitucion[valorInstitucion] || {});
+                        const totalInscritosInst = Object.values(conteoInstMap).reduce((a, b) => a + (Number(b) || 0), 0);
 
                         return (
-                            <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
                                 <span className="font-bold text-foreground">
                                     Participantes inscritos de su institución:
                                 </span>
-                                <span className="font-black text-primary font-mono">
-                                    {totalInscritosInst} {conf?.cupo !== null ? `/ ${conf?.cupo} max` : '(Sin límite)'}
+                                <span className="font-black text-primary font-mono text-sm">
+                                    {totalInscritosInst} {conf?.cupo !== null ? `/ ${conf?.cupo} máx.` : '(Sin límite)'}
                                 </span>
                             </div>
                         );
@@ -294,14 +284,14 @@ export function CamposExtraTransformacion({
                                         )}
                                     </div>
 
-                                    {/* Métricas y advertencias */}
+                                    {/* Métricas de cupos */}
                                     <div className="flex items-center justify-between text-[10px] w-full pt-1 border-t border-border/40 font-medium">
                                         <span className="flex items-center gap-1 text-muted-foreground">
                                             <Users className="w-3 h-3" />
-                                            Nacional: <strong>{dispInfo.conteoMesa}/{CUPO_MAXIMO_GLOBAL_MESA}</strong>
+                                            Nacional: <strong className={dispInfo.conteoMesa >= CUPO_MAXIMO_GLOBAL_MESA ? "text-red-500" : "text-foreground"}>{dispInfo.conteoMesa}/{CUPO_MAXIMO_GLOBAL_MESA}</strong>
                                         </span>
                                         <span className="text-muted-foreground">
-                                            Su inst.: <strong>{dispInfo.conteoInst}</strong>
+                                            Su inst.: <strong className={dispInfo.conteoInst >= (dispInfo.limiteInstMesa || 1) ? "text-amber-500" : "text-foreground"}>{dispInfo.conteoInst}</strong>
                                         </span>
                                     </div>
 
@@ -320,4 +310,3 @@ export function CamposExtraTransformacion({
         </div>
     );
 }
-

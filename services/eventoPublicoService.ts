@@ -63,4 +63,17 @@ export const eventoPublicoService = {
         const { data } = await publicApi.post(`/public/eventos/${eventoId}/cuestionario/${cuestionarioId}/marcar-video`, { ci, fechaNacimiento });
         return data;
     },
+
+    // Consultar conteo de cupos en tiempo real por mesa e institución
+    getCuposMesas: async (eventoId: string, ci?: string) => {
+        try {
+            const { data } = await publicApi.get(`/public/eventos/${eventoId}/cupos-mesas`, {
+                params: ci ? { ci } : undefined
+            });
+            return data;
+        } catch {
+            const res = await fetch(`/api/eventos/cupos?eventoId=${eventoId}${ci ? `&ci=${ci}` : ''}`);
+            return await res.json();
+        }
+    },
 };

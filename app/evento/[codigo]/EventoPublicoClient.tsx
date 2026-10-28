@@ -845,35 +845,6 @@ export default function EventoPublicoPage() {
 
     // States
     const [evento, setEvento] = useState<Evento | null>(null);
-    // Cupos y reglas para evento especial
-    const [cuposGlobales, setCuposGlobales] = useState<Record<string, number>>({});
-    const [cuposInstitucion, setCuposInstitucion] = useState<Record<string, Record<string, number>>>({});
-
-    const refreshCupos = useCallback(async () => {
-        if (!evento?.id) return;
-        try {
-            const res = await fetch(`/api/eventos/cupos?eventoId=${evento.id}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.cuposGlobales) setCuposGlobales(data.cuposGlobales);
-                if (data.cuposInstitucion) setCuposInstitucion(data.cuposInstitucion);
-            }
-        } catch (e) {
-            console.warn('No se pudo refrescar cupos:', e);
-        }
-    }, [evento?.id]);
-
-    const isEventoTransformacion = useMemo(() => {
-        const cod = String(codigo || '').toLowerCase().trim();
-        const slugMatch = cod.includes('tranformacion') || cod.includes('transformacion') || cod === EVENTO_TRANSFORMACION_SLUG;
-        const camposMatch = (evento?.camposExtras || []).some((c: any) => c.id === ECE_ID_INSTITUCION || c.id === ECE_ID_FECHA);
-        return slugMatch || camposMatch;
-    }, [codigo, evento?.camposExtras]);
-
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [step, setStep] = useState<'info' | 'identificacion' | 'inscripcion' | 'preview' | 'asistencia' | 'cuestionario' | 'resultado' | 'descargo'>('info');
-
     // Formulario identificación
     const [form, setForm] = useState({
         ci: '',
@@ -892,6 +863,36 @@ export default function EventoPublicoPage() {
         codigoAsistencia: '',
         respuestasExtras: {} as Record<string, any>
     });
+
+    // Cupos y reglas para evento especial
+    const [cuposGlobales, setCuposGlobales] = useState<Record<string, number>>({});
+    const [cuposInstitucion, setCuposInstitucion] = useState<Record<string, Record<string, number>>>({});
+
+    const refreshCupos = useCallback(async () => {
+        if (!evento?.id) return;
+        try {
+            const data = await eventoPublicoService.getCuposMesas(evento.id, form.ci);
+            if (data?.cuposGlobales) setCuposGlobales(data.cuposGlobales);
+            if (data?.cuposInstitucion) setCuposInstitucion(data.cuposInstitucion);
+            if (data?.respuestas && Object.keys(data.respuestas).length > 0) {
+                setForm(prev => ({ ...prev, respuestasExtras: { ...prev.respuestasExtras, ...data.respuestas } }));
+            }
+        } catch (e) {
+            console.warn('No se pudo refrescar cupos:', e);
+        }
+    }, [evento?.id, form.ci]);
+
+    const isEventoTransformacion = useMemo(() => {
+        const cod = String(codigo || '').toLowerCase().trim();
+        const slugMatch = cod.includes('tranformacion') || cod.includes('transformacion') || cod === EVENTO_TRANSFORMACION_SLUG;
+        const camposMatch = (evento?.camposExtras || []).some((c: any) => c.id === ECE_ID_INSTITUCION || c.id === ECE_ID_FECHA);
+        return slugMatch || camposMatch;
+    }, [codigo, evento?.camposExtras]);
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [step, setStep] = useState<'info' | 'identificacion' | 'inscripcion' | 'preview' | 'asistencia' | 'cuestionario' | 'resultado' | 'descargo'>('info');
+
 
     const [localVideosVistos, setLocalVideosVistos] = useState<Record<string, boolean>>(() => {
         if (typeof window !== 'undefined') {
