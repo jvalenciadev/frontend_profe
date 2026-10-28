@@ -2102,44 +2102,110 @@ export default function EventoPublicoPage() {
                     )}
                     {/* Info badges */}
                     {!persona && (
-                        <div className="flex flex-wrap items-center gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
-                            <div className="flex items-center gap-3 text-sm text-foreground">
-                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <Calendar className="w-5 h-5 text-primary" />
+                        isEventoTransformacion ? (
+                            <div className="space-y-4">
+                                <div className="bg-card border border-border p-6 rounded-[2.5rem] shadow-sm space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Sede Día 1 */}
+                                        <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-primary/5 border border-primary/15">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                <Calendar className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <span className="text-[10px] font-black uppercase text-primary tracking-widest block">Acto de Inauguración</span>
+                                                <p className="font-black text-sm text-foreground capitalize">Jueves, 5 de noviembre</p>
+                                                <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1 pt-1">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    Salón Avelino Siñani — MINISTERIO DE EDUCACIÓN
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Sede Día 2 */}
+                                        <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-primary/5 border border-primary/15">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                <Calendar className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <span className="text-[10px] font-black uppercase text-primary tracking-widest block">Mesas de Trabajo</span>
+                                                <p className="font-black text-sm text-foreground capitalize">Viernes, 6 de noviembre</p>
+                                                <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1 pt-1">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    Auditorio de Informática, Monoblock — UMSA
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center justify-between pt-3 border-t border-border/60 gap-4">
+                                        <div className="flex items-center gap-3 text-sm text-foreground">
+                                            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                <Users className="w-4 h-4 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Modalidad</p>
+                                                <span className="font-bold">PRESENCIAL</span>
+                                            </div>
+                                        </div>
+                                        <button onClick={handleCopyShareText} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider hover:bg-primary/20 transition-all active:scale-95">
+                                            <Copy className="w-4 h-4" /> Copiar URL
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Fecha</p>
-                                    <span className="font-bold capitalize">{fechaEvento}</span>
+
+                                {/* ALERTA: Obligatorio guardar comprobante para asistencia */}
+                                <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 flex items-start gap-3.5 text-amber-800 dark:text-amber-300 shadow-sm">
+                                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                                            Aviso importante para el registro de asistencia
+                                        </p>
+                                        <p className="text-xs font-bold leading-relaxed text-amber-800/90 dark:text-amber-300/90">
+                                            Al finalizar su inscripción, debe guardar o descargar su credencial/formulario de inscripción. Presentar este documento con su código de barras será indispensable para registrar su asistencia en ambas jornadas del evento.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 text-sm text-foreground">
-                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <MapPin className="w-5 h-5 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Lugar</p>
-                                    <span className="font-bold">{evento.lugar}</span>
-                                </div>
-                            </div>
-                            {evento.modalidadIds && (
+                        ) : (
+                            <div className="flex flex-wrap items-center gap-6 bg-card border border-border p-6 rounded-[2.5rem] shadow-sm">
                                 <div className="flex items-center gap-3 text-sm text-foreground">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <Users className="w-5 h-5 text-primary" />
+                                        <Calendar className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-none">Modalidad</p>
-                                        <span className="font-bold">
-                                            {(evento.modalidadIds || '').split(',').map(id => {
-                                                return allModalidades.find(m => m.id === id.trim())?.nombre;
-                                            }).filter(Boolean).join(', ') || evento.modalidadIds}
-                                        </span>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Fecha</p>
+                                        <span className="font-bold capitalize">{fechaEvento}</span>
                                     </div>
                                 </div>
-                            )}
-                            <button onClick={handleCopyShareText} className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider hover:bg-primary/20 transition-all active:scale-95">
-                                <Copy className="w-4 h-4" /> Copiar URL
-                            </button>
-                        </div>
+                                <div className="flex items-center gap-3 text-sm text-foreground">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <MapPin className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground leading-none">Lugar</p>
+                                        <span className="font-bold">{evento.lugar}</span>
+                                    </div>
+                                </div>
+                                {evento.modalidadIds && (
+                                    <div className="flex items-center gap-3 text-sm text-foreground">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                            <Users className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-none">Modalidad</p>
+                                            <span className="font-bold">
+                                                {(evento.modalidadIds || '').split(',').map(id => {
+                                                    return allModalidades.find(m => m.id === id.trim())?.nombre;
+                                                }).filter(Boolean).join(', ') || evento.modalidadIds}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                <button onClick={handleCopyShareText} className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider hover:bg-primary/20 transition-all active:scale-95">
+                                    <Copy className="w-4 h-4" /> Copiar URL
+                                </button>
+                            </div>
+                        )
                     )}
 
                     {/* Content switcher */}
