@@ -72,7 +72,7 @@ export function CamposExtraTransformacion({
             const raw = campoFecha.opciones;
             if (typeof raw === 'string') return JSON.parse(raw);
             if (Array.isArray(raw)) return raw;
-        } catch {}
+        } catch { }
         return ['05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)', '06 DE NOVIEMBRE (Monoblock UMSA)', 'AMBAS FECHAS'];
     }, [campoFecha]);
 
