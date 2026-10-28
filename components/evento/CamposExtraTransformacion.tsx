@@ -195,7 +195,7 @@ export function CamposExtraTransformacion({
                             <option value="">-- SELECCIONE SU INSTITUCIÓN --</option>
                             {institucionesOrdenadas.map(inst => (
                                 <option key={inst.nombre} value={inst.nombre}>
-                                    {inst.nombre} {inst.cupo !== null ? `(Cupo: ${inst.cupo})` : '(Cupo: INDEFINIDO)'}
+                                    {inst.nombre}
                                 </option>
                             ))}
                         </select>
@@ -219,7 +219,7 @@ export function CamposExtraTransformacion({
                                     Participantes inscritos de su institución:
                                 </span>
                                 <span className="font-black text-primary font-mono text-sm">
-                                    {totalInscritosInst} {conf?.cupo !== null ? `/ ${conf?.cupo} máx.` : '(Sin límite)'}
+                                    {totalInscritosInst} inscritos
                                 </span>
                             </div>
                         );
