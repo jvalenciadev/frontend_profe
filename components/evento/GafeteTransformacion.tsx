@@ -168,82 +168,114 @@ export function GafeteTransformacion({
                 console.error('Error generando código de barras en gafete:', err);
             }
 
-            // 4. Dibujar Texto en el lado IZQUIERDO (centrado verticalmente)
+            // 4. Dibujar Texto en el lado IZQUIERDO (centrado verticalmente con auto-fit y delimitador estricto)
             const centroX_Left = Math.round(W * 0.28);
             const centroY_Left = Math.round(H * 0.50);
+
+            // Ancho y alto máximos permitidos dentro del cuadro para garantizar que NUNCA sobresalga
+            const MAX_NOMBRE_WIDTH = 380;
+            const MAX_NOMBRE_HEIGHT = 120;
+
+            let fontSizeNombre = 36;
+            const minFontSize = 18;
+            let lineasNombre: string[] = [];
+            let lineHeightNombre = Math.round(fontSizeNombre * 1.15);
+
+            const palabrasNombre = nombreCompleto.trim().split(/\s+/).filter(Boolean);
+
+            while (fontSizeNombre >= minFontSize) {
+                ctx.font = `900 ${fontSizeNombre}px 'Inter', system-ui, sans-serif`;
+                lineHeightNombre = Math.round(fontSizeNombre * 1.15);
+                lineasNombre = [];
+                let lineaActual = '';
+                let entra = true;
+
+                for (let i = 0; i < palabrasNombre.length; i++) {
+                    const p = palabrasNombre[i];
+                    const lineaPrueba = lineaActual ? `${lineaActual} ${p}` : p;
+                    const w = ctx.measureText(lineaPrueba).width;
+
+                    if (w <= MAX_NOMBRE_WIDTH) {
+                        lineaActual = lineaPrueba;
+                    } else {
+                        if (lineaActual) {
+                            lineasNombre.push(lineaActual);
+                            lineaActual = p;
+                            if (ctx.measureText(p).width > MAX_NOMBRE_WIDTH) {
+                                entra = false;
+                                break;
+                            }
+                        } else {
+                            entra = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (lineaActual) {
+                    lineasNombre.push(lineaActual);
+                }
+
+                const alturaTotal = lineasNombre.length * lineHeightNombre;
+                if (entra && alturaTotal <= MAX_NOMBRE_HEIGHT && lineasNombre.length <= 3) {
+                    break;
+                }
+
+                fontSizeNombre -= 2;
+            }
+
+            const alturaBloqueNombre = lineasNombre.length * lineHeightNombre;
+            const posBaseY = tieneMesa ? centroY_Left - 35 : centroY_Left;
+            const startNombreY = posBaseY - (alturaBloqueNombre / 2) + (lineHeightNombre / 2);
 
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Ajuste dinámico de tamaño de fuente para el nombre
-            let fontSizeNombre = 38;
-            if (nombreCompleto.length > 30) fontSizeNombre = 30;
-            if (nombreCompleto.length > 40) fontSizeNombre = 24;
-
-            // División de nombre en dos líneas si es extenso
-            const palabras = nombreCompleto.split(' ');
-            let linea1 = nombreCompleto;
-            let linea2 = '';
-
-            if (palabras.length > 3 && nombreCompleto.length > 25) {
-                const mitad = Math.ceil(palabras.length / 2);
-                linea1 = palabras.slice(0, mitad).join(' ');
-                linea2 = palabras.slice(mitad).join(' ');
-            }
-
-            // Posicionamiento de bloques en Y
-            const offsetNombre = tieneMesa ? -45 : 0;
-
-            // ── NOMBRE COMPLETO ──
+            // ── NOMBRE COMPLETO (Perfectamente encajado en su cuadro) ──
             ctx.fillStyle = '#0f172a';
             ctx.font = `900 ${fontSizeNombre}px 'Inter', system-ui, sans-serif`;
+            lineasNombre.forEach((lin, idx) => {
+                ctx.fillText(lin, centroX_Left, startNombreY + idx * lineHeightNombre);
+            });
 
-            if (linea2) {
-                ctx.fillText(linea1, centroX_Left, centroY_Left + offsetNombre - 20);
-                ctx.fillText(linea2, centroX_Left, centroY_Left + offsetNombre + 20);
-            } else {
-                ctx.fillText(linea1, centroX_Left, centroY_Left + offsetNombre);
-            }
-
-            // ── CÉDULA DE IDENTIDAD (Subtítulo del nombre) ──
+            // ── CÉDULA DE IDENTIDAD ──
+            const posCiY = startNombreY + (lineasNombre.length - 1) * lineHeightNombre + 28;
             ctx.fillStyle = '#64748b';
-            ctx.font = `700 20px monospace`;
-            const posCiY = linea2 ? centroY_Left + offsetNombre + 55 : centroY_Left + offsetNombre + 35;
+            ctx.font = `700 19px monospace`;
             ctx.fillText(`C.I. ${ciCompleto}`, centroX_Left, posCiY);
 
             // ── MESA DE TRABAJO (Abajo del nombre si compete) ──
             if (tieneMesa) {
-                const posY_Mesa = centroY_Left + 65;
+                const posY_Mesa = posCiY + 42;
 
-                // Badge / Pastilla para la mesa
                 const textoMesa = `MESA: ${String(mesaLocal).toUpperCase()}`;
-                ctx.font = `900 22px 'Inter', system-ui, sans-serif`;
-                const textMetrics = ctx.measureText(textoMesa);
-                const badgeW = textMetrics.width + 36;
-                const badgeH = 44;
+                ctx.font = `900 20px 'Inter', system-ui, sans-serif`;
+                let badgeW = ctx.measureText(textoMesa).width + 36;
+                if (badgeW > MAX_NOMBRE_WIDTH) badgeW = MAX_NOMBRE_WIDTH;
+                const badgeH = 40;
 
                 ctx.save();
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 8;
                 ctx.fillStyle = '#1e293b';
                 ctx.beginPath();
-                ctx.roundRect(centroX_Left - badgeW / 2, posY_Mesa - badgeH / 2, badgeW, badgeH, 22);
+                ctx.roundRect(centroX_Left - badgeW / 2, posY_Mesa - badgeH / 2, badgeW, badgeH, 20);
                 ctx.fill();
                 ctx.restore();
 
-                // Texto de la mesa en blanco brillante
                 ctx.fillStyle = '#ffffff';
-                ctx.font = `900 20px 'Inter', system-ui, sans-serif`;
+                ctx.font = `900 18px 'Inter', system-ui, sans-serif`;
                 ctx.fillText(textoMesa, centroX_Left, posY_Mesa + 1);
 
-                // Si viene institución, mostrarla abajo
                 if (institucionLocal) {
                     ctx.fillStyle = '#334155';
-                    ctx.font = `bold 16px 'Inter', system-ui, sans-serif`;
-                    const instTexto = String(institucionLocal).toUpperCase();
-                    const instAbrev = instTexto.length > 36 ? instTexto.substring(0, 34) + '...' : instTexto;
-                    ctx.fillText(instAbrev, centroX_Left, posY_Mesa + 42);
+                    ctx.font = `bold 15px 'Inter', system-ui, sans-serif`;
+                    let instTexto = String(institucionLocal).toUpperCase();
+                    while (ctx.measureText(instTexto).width > MAX_NOMBRE_WIDTH && instTexto.length > 10) {
+                        instTexto = instTexto.substring(0, instTexto.length - 4) + '...';
+                    }
+                    ctx.fillText(instTexto, centroX_Left, posY_Mesa + 38);
                 }
             }
 
