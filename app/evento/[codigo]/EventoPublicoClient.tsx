@@ -2148,6 +2148,40 @@ export default function EventoPublicoPage() {
                         {/* ── STEP INFO ── */}
                         {step === 'info' && (
                             <motion.div key="info" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                                {!persona && (
+                                    <div className="flex flex-col gap-4">
+                                        {evento.inscripcionAbierta && (
+                                            <button onClick={() => setStep(inscripcion ? 'descargo' : 'identificacion')}
+                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                                    {inscripcion ? <CheckCircle2 className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                                                </div>
+                                                <div className="text-left text-foreground">
+                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">
+                                                        {inscripcion ? 'Ver mi Comprobante' : 'Inscripción Oficial'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">
+                                                        {inscripcion ? 'Ya te encuentras registrado. Haz clic para ver tu certificado.' : 'Garantiza tu participación en esta actividad académica.'}
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                            </button>
+                                        )}
+                                        {evento.asistencia && evento.codigoAsistencia && (
+                                            <button onClick={() => setStep('asistencia')}
+                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
+                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                                    <CheckCircle2 className="w-6 h-6" />
+                                                </div>
+                                                <div className="text-left text-foreground">
+                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Registro de Asistencia</div>
+                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Valida y confirma tu asistencia mediante código oficial.</div>
+                                                </div>
+                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                                 {/* ── DESCRIPCIÓN DEL EVENTO ── */}
                                 {evento.descripcion && (
                                     <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-sm">
@@ -3845,40 +3879,6 @@ export default function EventoPublicoPage() {
                                     </div>
                                 )}
 
-                                {!persona && (
-                                    <div className="flex flex-col gap-4">
-                                        {evento.inscripcionAbierta && (
-                                            <button onClick={() => setStep(inscripcion ? 'descargo' : 'identificacion')}
-                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
-                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                                                    {inscripcion ? <CheckCircle2 className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                                                </div>
-                                                <div className="text-left text-foreground">
-                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">
-                                                        {inscripcion ? 'Ver mi Comprobante' : 'Inscripción Oficial'}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">
-                                                        {inscripcion ? 'Ya te encuentras registrado. Haz clic para ver tu certificado.' : 'Garantiza tu participación en esta actividad académica.'}
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                            </button>
-                                        )}
-                                        {evento.asistencia && evento.codigoAsistencia && (
-                                            <button onClick={() => setStep('asistencia')}
-                                                className="group p-8 bg-card border border-border rounded-3xl font-black uppercase tracking-wide hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-start gap-5 shadow-sm hover:shadow-lg">
-                                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
-                                                    <CheckCircle2 className="w-6 h-6" />
-                                                </div>
-                                                <div className="text-left text-foreground">
-                                                    <div className="text-xl group-hover:text-primary transition-colors tracking-tight">Registro de Asistencia</div>
-                                                    <div className="text-xs text-muted-foreground font-medium normal-case mt-1 max-w-[90%] tracking-normal">Valida y confirma tu asistencia mediante código oficial.</div>
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 self-end text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
                             </motion.div>
                         )}
 
