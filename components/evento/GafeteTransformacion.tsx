@@ -422,6 +422,41 @@ export function GafeteTransformacion({
                     Volver al Evento
                 </button>
             </div>
+
+            {/* Documento Oficial del Evento */}
+            <div className="bg-card border border-border rounded-3xl p-4 md:p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-black uppercase text-foreground tracking-widest">
+                            Documento Informativo del Evento
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                            Información oficial — Encuentro Nacional por la Transformación de Maestros
+                        </p>
+                    </div>
+                </div>
+                <div className="rounded-2xl overflow-hidden border border-border/60 bg-muted/10" style={{ height: '780px' }}>
+                    <iframe
+                        src="https://drive.google.com/file/d/1h5yBGpCjdHBGPeUuZFLMtgXW7M57zeND/preview"
+                        className="w-full h-full"
+                        allow="autoplay"
+                        title="Documento Oficial del Encuentro Nacional"
+                        loading="lazy"
+                    />
+                </div>
+                <a
+                    href="https://drive.google.com/file/d/1h5yBGpCjdHBGPeUuZFLMtgXW7M57zeND/view"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[11px] font-bold text-primary hover:underline"
+                >
+                    <Download className="w-3.5 h-3.5" />
+                    Abrir documento en nueva pestaña
+                </a>
+            </div>
         </div>
     );
 }
