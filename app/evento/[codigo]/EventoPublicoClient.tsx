@@ -19,6 +19,14 @@ import publicService from '@/services/publicService';
 import Link from 'next/link';
 import { getImageUrl, cn, stripHtml, formatEventShareText } from '@/lib/utils';
 import YouTube from 'react-youtube';
+import { CamposExtraTransformacion } from '@/components/evento/CamposExtraTransformacion';
+import { GafeteTransformacion } from '@/components/evento/GafeteTransformacion';
+import {
+    EVENTO_TRANSFORMACION_SLUG,
+    ECE_ID_FECHA,
+    ECE_ID_INSTITUCION,
+    ECE_ID_MESA
+} from '@/lib/constants/eventoTransformacion';
 import React from 'react';
 
 // ─── TYPES ─────────────────────────────────────────────────────────────────
@@ -837,6 +845,31 @@ export default function EventoPublicoPage() {
 
     // States
     const [evento, setEvento] = useState<Evento | null>(null);
+    // Cupos y reglas para evento especial
+    const [cuposGlobales, setCuposGlobales] = useState<Record<string, number>>({});
+    const [cuposInstitucion, setCuposInstitucion] = useState<Record<string, Record<string, number>>>({});
+
+    const refreshCupos = useCallback(async () => {
+        if (!evento?.id) return;
+        try {
+            const res = await fetch(`/api/eventos/cupos?eventoId=${evento.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.cuposGlobales) setCuposGlobales(data.cuposGlobales);
+                if (data.cuposInstitucion) setCuposInstitucion(data.cuposInstitucion);
+            }
+        } catch (e) {
+            console.warn('No se pudo refrescar cupos:', e);
+        }
+    }, [evento?.id]);
+
+    const isEventoTransformacion = useMemo(() => {
+        const cod = String(codigo || '').toLowerCase().trim();
+        const slugMatch = cod.includes('tranformacion') || cod.includes('transformacion') || cod === EVENTO_TRANSFORMACION_SLUG;
+        const camposMatch = (evento?.camposExtras || []).some((c: any) => c.id === ECE_ID_INSTITUCION || c.id === ECE_ID_FECHA);
+        return slugMatch || camposMatch;
+    }, [codigo, evento?.camposExtras]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [step, setStep] = useState<'info' | 'identificacion' | 'inscripcion' | 'preview' | 'asistencia' | 'cuestionario' | 'resultado' | 'descargo'>('info');
@@ -1177,6 +1210,7 @@ export default function EventoPublicoPage() {
             setEvento(evt);
             setDepartamentos(deps);
             setAllModalidades(mods);
+            refreshCupos();
 
             // Calcular desfase con el servidor
             if (evt.serverTime) {
@@ -1535,21 +1569,31 @@ export default function EventoPublicoPage() {
 
         // Validar campos extras (solo si no es edición)
         if (!isEditingProfile) {
-            (evento.camposExtras || []).forEach(campo => {
-                if (!campo.esObligatorio) return;
-                const valor = form.respuestasExtras[campo.id];
-
-                let esVacio = false;
-                if (campo.tipo === 'MULTIPLE_SELECT') {
-                    esVacio = !valor || valor.length === 0;
-                } else if (campo.tipo === 'BOOLEAN') {
-                    esVacio = valor === undefined || valor === null;
-                } else {
-                    esVacio = !valor || String(valor).trim() === '';
+            if (isEventoTransformacion) {
+                const valFecha = String(form.respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
+                if (!valFecha) {
+                    nuevosErrores[ECE_ID_FECHA] = true;
+                } else if (valFecha === '06 DE NOVIEMBRE' || valFecha === 'AMBAS FECHAS') {
+                    if (!form.respuestasExtras[ECE_ID_INSTITUCION]) nuevosErrores[ECE_ID_INSTITUCION] = true;
+                    if (!form.respuestasExtras[ECE_ID_MESA]) nuevosErrores[ECE_ID_MESA] = true;
                 }
+            } else {
+                (evento.camposExtras || []).forEach(campo => {
+                    if (!campo.esObligatorio) return;
+                    const valor = form.respuestasExtras[campo.id];
 
-                if (esVacio) nuevosErrores[campo.id] = true;
-            });
+                    let esVacio = false;
+                    if (campo.tipo === 'MULTIPLE_SELECT') {
+                        esVacio = !valor || valor.length === 0;
+                    } else if (campo.tipo === 'BOOLEAN') {
+                        esVacio = valor === undefined || valor === null;
+                    } else {
+                        esVacio = !valor || String(valor).trim() === '';
+                    }
+
+                    if (esVacio) nuevosErrores[campo.id] = true;
+                });
+            }
         }
 
         setErrores(nuevosErrores);
@@ -1584,7 +1628,9 @@ export default function EventoPublicoPage() {
                 apellido2: (form.apellido2 || '').trim(),
                 departamentoId: form.departamentoId,
                 modalidadId: form.modalidadId,
-                respuestasExtras: Object.entries(form.respuestasExtras).map(([campoId, valor]) => ({ campoId, valor })),
+                respuestasExtras: Object.entries(form.respuestasExtras)
+                    .filter(([_, valor]) => valor !== undefined && valor !== null && String(valor).trim() !== '')
+                    .map(([campoId, valor]) => ({ campoId, valor })),
                 isEditingProfile
             });
 
@@ -4047,7 +4093,26 @@ export default function EventoPublicoPage() {
 
 
                                     {/* CAMPOS EXTRAS */}
-                                    {!isEditingProfile && evento.camposExtras?.map((campo: any) => (
+                                    {!isEditingProfile && isEventoTransformacion ? (
+                                        <CamposExtraTransformacion
+                                            camposExtras={evento.camposExtras || []}
+                                            respuestasExtras={form.respuestasExtras ?? {}}
+                                            errores={errores}
+                                            cuposGlobales={cuposGlobales}
+                                            cuposInstitucion={cuposInstitucion}
+                                            onChangeRespuesta={(campoId, valor) => {
+                                                setForm(f => ({
+                                                    ...f,
+                                                    respuestasExtras: { ...f.respuestasExtras, [campoId]: valor }
+                                                }));
+                                            }}
+                                            onClearError={(campoId) => {
+                                                if (errores[campoId]) setErrores(prev => ({ ...prev, [campoId]: false }));
+                                            }}
+                                            onRefreshCupos={refreshCupos}
+                                        />
+                                    ) : (
+                                        !isEditingProfile && evento.camposExtras?.map((campo: any) => (
                                         <div key={campo.id} className="md:col-span-2 space-y-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -4175,7 +4240,8 @@ export default function EventoPublicoPage() {
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
+                                    ))
+                                    )}
                                 </div>
                                 <div className="flex gap-3">
                                     <button
@@ -4250,7 +4316,13 @@ export default function EventoPublicoPage() {
                                                         <Info className="w-3 h-3" /> Información Adicional
                                                     </h3>
                                                     <div className="space-y-3">
-                                                        {evento?.camposExtras?.map((campo: any) => {
+                                                        {evento?.camposExtras?.filter((campo: any) => {
+                                                            if (isEventoTransformacion) {
+                                                                const v = form.respuestasExtras[campo.id];
+                                                                return v !== undefined && v !== null && String(v).trim() !== '';
+                                                            }
+                                                            return true;
+                                                        }).map((campo: any) => {
                                                             const valor = form.respuestasExtras[campo.id];
                                                             let displayValor = valor;
                                                             if (Array.isArray(valor)) displayValor = valor.join(', ');
@@ -5413,17 +5485,29 @@ export default function EventoPublicoPage() {
                         {/* ── STEP DESCARGO ── */}
                         {step === 'descargo' && (
                             <motion.div key="desc" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                                <Descargo
-                                    tipo={tipoDescargo || (resultado ? 'cuestionario' : inscripcion?.asistencia ? 'asistencia' : 'inscripcion')}
-                                    persona={persona}
-                                    evento={evento}
-                                    resultado={resultado}
-                                    inscripcionId={inscripcion?.id}
-                                    cuestionarioActivo={cuestionarioActivo}
-                                    onBackToStart={() => setStep('info')}
-                                    onRegisterOther={() => handleReset()}
-                                    onLogout={() => router.back()}
-                                />
+                                {isEventoTransformacion ? (
+                                    <GafeteTransformacion
+                                        persona={persona}
+                                        evento={evento}
+                                        mesa={form.respuestasExtras[ECE_ID_MESA]}
+                                        institucion={form.respuestasExtras[ECE_ID_INSTITUCION]}
+                                        fechaAsistencia={form.respuestasExtras[ECE_ID_FECHA]}
+                                        onBackToStart={() => setStep('info')}
+                                        onRegisterOther={() => handleReset()}
+                                    />
+                                ) : (
+                                    <Descargo
+                                        tipo={tipoDescargo || (resultado ? 'cuestionario' : inscripcion?.asistencia ? 'asistencia' : 'inscripcion')}
+                                        persona={persona}
+                                        evento={evento}
+                                        resultado={resultado}
+                                        inscripcionId={inscripcion?.id}
+                                        cuestionarioActivo={cuestionarioActivo}
+                                        onBackToStart={() => setStep('info')}
+                                        onRegisterOther={() => handleReset()}
+                                        onLogout={() => router.back()}
+                                    />
+                                )}
                             </motion.div>
                         )}
 
