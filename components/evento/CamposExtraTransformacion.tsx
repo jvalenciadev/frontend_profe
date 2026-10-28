@@ -40,7 +40,10 @@ export function CamposExtraTransformacion({
     const campoMesa = camposExtras.find(c => c.id === ECE_ID_MESA);
 
     const valorFecha = String(respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
-    const requiereMesasEInstitucion = valorFecha === '06 DE NOVIEMBRE' || valorFecha === 'AMBAS FECHAS';
+    // Detectar si la opción seleccionada requiere institución y mesa de trabajo
+    // (cualquier variante que contenga "06 DE NOVIEMBRE" o sea "AMBAS FECHAS")
+    const requiereMesasEInstitucion =
+        valorFecha.includes('06 DE NOVIEMBRE') || valorFecha === 'AMBAS FECHAS';
 
     const valorInstitucion = String(respuestasExtras[ECE_ID_INSTITUCION] || '').trim();
     const valorMesa = String(respuestasExtras[ECE_ID_MESA] || '').trim();
@@ -64,20 +67,21 @@ export function CamposExtraTransformacion({
 
     // Opciones del campo Fecha
     const opcionesFecha = useMemo(() => {
-        if (!campoFecha?.opciones) return ['05 DE NOVIEMBRE', '06 DE NOVIEMBRE', 'AMBAS FECHAS'];
+        if (!campoFecha?.opciones) return ['05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)', '06 DE NOVIEMBRE (Monoblock UMSA)', 'AMBAS FECHAS'];
         try {
             const raw = campoFecha.opciones;
             if (typeof raw === 'string') return JSON.parse(raw);
             if (Array.isArray(raw)) return raw;
         } catch {}
-        return ['05 DE NOVIEMBRE', '06 DE NOVIEMBRE', 'AMBAS FECHAS'];
+        return ['05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)', '06 DE NOVIEMBRE (Monoblock UMSA)', 'AMBAS FECHAS'];
     }, [campoFecha]);
 
     const handleSelectFecha = (opcion: string) => {
         onChangeRespuesta(ECE_ID_FECHA, opcion);
         onClearError(ECE_ID_FECHA);
 
-        if (opcion === '05 DE NOVIEMBRE') {
+        // Solo limpiar institución/mesa si eligió la fecha de INAUGURACIÓN (sin mesas)
+        if (!opcion.toUpperCase().includes('06 DE NOVIEMBRE') && opcion.toUpperCase() !== 'AMBAS FECHAS') {
             onChangeRespuesta(ECE_ID_INSTITUCION, '');
             onChangeRespuesta(ECE_ID_MESA, '');
             onClearError(ECE_ID_INSTITUCION);

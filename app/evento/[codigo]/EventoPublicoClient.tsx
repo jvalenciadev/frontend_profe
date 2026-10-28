@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -1379,6 +1379,25 @@ export default function EventoPublicoPage() {
                 setPersona(check.persona);
                 setInscripcion(check.inscripcion);
 
+                // -- EVENTO TRANSFORMACION: mostrar gafete directamente --
+                if (isEventoTransformacion) {
+                    try {
+                        const cuposData = await eventoPublicoService.getCuposMesas(evento!.id, ciLimpio);
+                        if (cuposData?.respuestas && Object.keys(cuposData.respuestas).length > 0) {
+                            setForm(prev => ({ ...prev, respuestasExtras: { ...prev.respuestasExtras, ...cuposData.respuestas } }));
+                        }
+                        if (cuposData?.cuposGlobales) setCuposGlobales(cuposData.cuposGlobales);
+                        if (cuposData?.cuposInstitucion) setCuposInstitucion(cuposData.cuposInstitucion);
+                    } catch (e) {
+                        console.warn('No se pudo obtener datos del gafete:', e);
+                    }
+                    setTipoDescargo('inscripcion');
+                    setStep('descargo');
+                    toast.success('Bienvenido de nuevo! Aqui esta tu credencial de inscripcion.');
+                    return;
+                }
+                // ---------------------------------------------------------------
+
                 // Cargar progreso real del backend
                 // ── OBTENER PROGRESO FRESCO (una sola llamada) ────────────────────
                 let progActualizado: any[] = [];
@@ -1574,7 +1593,7 @@ export default function EventoPublicoPage() {
                 const valFecha = String(form.respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
                 if (!valFecha) {
                     nuevosErrores[ECE_ID_FECHA] = true;
-                } else if (valFecha === '06 DE NOVIEMBRE' || valFecha === 'AMBAS FECHAS') {
+                } else if (valFecha.includes('06 DE NOVIEMBRE') || valFecha === 'AMBAS FECHAS') {
                     if (!form.respuestasExtras[ECE_ID_INSTITUCION]) nuevosErrores[ECE_ID_INSTITUCION] = true;
                     if (!form.respuestasExtras[ECE_ID_MESA]) nuevosErrores[ECE_ID_MESA] = true;
                 }
