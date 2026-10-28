@@ -39,16 +39,15 @@ export function CamposExtraTransformacion({
     const campoInstitucion = camposExtras.find(c => c.id === ECE_ID_INSTITUCION);
     const campoMesa = camposExtras.find(c => c.id === ECE_ID_MESA);
 
-    const valorFecha = String(respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
-    // Detectar si la opción seleccionada requiere institución y mesa de trabajo
-    // (cualquier variante que contenga "06 DE NOVIEMBRE" o sea "AMBAS FECHAS")
-    const requiereMesasEInstitucion =
-        valorFecha.includes('06 DE NOVIEMBRE') || valorFecha === 'AMBAS FECHAS';
-
     const valorInstitucion = String(respuestasExtras[ECE_ID_INSTITUCION] || '').trim();
+    const valorFecha = String(respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
     const valorMesa = String(respuestasExtras[ECE_ID_MESA] || '').trim();
 
-    // Instituciones ordenadas alfabéticamente para búsqueda rápida en el select
+    // Mesas solo si la fecha elegida incluye el 06 de noviembre
+    const requiereMesas =
+        valorFecha.includes('06 DE NOVIEMBRE') || valorFecha === 'AMBAS FECHAS';
+
+    // Instituciones ordenadas alfabéticamente
     const institucionesOrdenadas = useMemo(() => {
         return [...INSTITUCIONES_EVENTO_TRANSFORMACION].sort((a, b) =>
             a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
@@ -65,47 +64,46 @@ export function CamposExtraTransformacion({
         });
     }, [valorInstitucion, cuposGlobales, cuposInstitucion]);
 
-    // Opciones del campo Fecha
+    // Opciones del campo Fecha (leídas del backend; fallback hardcoded)
     const opcionesFecha = useMemo(() => {
-        if (!campoFecha?.opciones) return ['05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)', '06 DE NOVIEMBRE (Monoblock UMSA)', 'AMBAS FECHAS'];
+        if (!campoFecha?.opciones) return [
+            '05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)',
+            '06 DE NOVIEMBRE (Monoblock UMSA)',
+            'AMBAS FECHAS'
+        ];
         try {
             const raw = campoFecha.opciones;
             if (typeof raw === 'string') return JSON.parse(raw);
             if (Array.isArray(raw)) return raw;
         } catch { }
-        return ['05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)', '06 DE NOVIEMBRE (Monoblock UMSA)', 'AMBAS FECHAS'];
+        return [
+            '05 DE NOVIEMBRE (ACTO DE INAGURACIÓN)',
+            '06 DE NOVIEMBRE (Monoblock UMSA)',
+            'AMBAS FECHAS'
+        ];
     }, [campoFecha]);
-
-    const handleSelectFecha = (opcion: string) => {
-        onChangeRespuesta(ECE_ID_FECHA, opcion);
-        onClearError(ECE_ID_FECHA);
-
-        // Solo limpiar institución/mesa si eligió la fecha de INAUGURACIÓN (sin mesas)
-        if (!opcion.toUpperCase().includes('06 DE NOVIEMBRE') && opcion.toUpperCase() !== 'AMBAS FECHAS') {
-            onChangeRespuesta(ECE_ID_INSTITUCION, '');
-            onChangeRespuesta(ECE_ID_MESA, '');
-            onClearError(ECE_ID_INSTITUCION);
-            onClearError(ECE_ID_MESA);
-        } else {
-            onRefreshCupos();
-        }
-    };
 
     const handleSelectInstitucion = (nombreInst: string) => {
         onChangeRespuesta(ECE_ID_INSTITUCION, nombreInst);
         onClearError(ECE_ID_INSTITUCION);
+        // Limpiar fecha y mesa al cambiar institución
+        onChangeRespuesta(ECE_ID_FECHA, '');
+        onChangeRespuesta(ECE_ID_MESA, '');
+        onClearError(ECE_ID_FECHA);
+        onClearError(ECE_ID_MESA);
         onRefreshCupos();
+    };
 
-        // Si ya tenía una mesa seleccionada, verificar si sigue disponible con la nueva institución
-        if (valorMesa) {
-            const nuevaDisp = calcularDisponibilidadMesas({
-                institucionNombre: nombreInst,
-                cuposGlobales,
-                cuposInstitucion
-            });
-            if (!nuevaDisp[valorMesa]?.disponible) {
-                onChangeRespuesta(ECE_ID_MESA, '');
-            }
+    const handleSelectFecha = (opcion: string) => {
+        onChangeRespuesta(ECE_ID_FECHA, opcion);
+        onClearError(ECE_ID_FECHA);
+        // Limpiar mesa si la nueva fecha no requiere mesas
+        const nuevaFecha = opcion.toUpperCase();
+        if (!nuevaFecha.includes('06 DE NOVIEMBRE') && nuevaFecha !== 'AMBAS FECHAS') {
+            onChangeRespuesta(ECE_ID_MESA, '');
+            onClearError(ECE_ID_MESA);
+        } else {
+            onRefreshCupos();
         }
     };
 
@@ -117,118 +115,114 @@ export function CamposExtraTransformacion({
 
     return (
         <div className="md:col-span-2 space-y-6">
-            {/* 1. CAMPO FECHA */}
-            <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <ClipboardList className="w-4 h-4 text-primary" />
+
+            {/* 1. CAMPO INSTITUCIÓN — siempre visible */}
+            <div className="space-y-3 p-5 rounded-3xl bg-muted/20 border border-border/60">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Building2 className="w-4 h-4 text-primary" />
+                        </div>
+                        <label className="text-[11px] font-black uppercase text-foreground tracking-widest pl-1">
+                            {campoInstitucion?.label || 'Institución a la que representa'} <span className="text-red-500">*</span>
+                        </label>
                     </div>
-                    <label className="text-[11px] font-black uppercase text-foreground tracking-widest pl-1">
-                        {campoFecha?.label || 'Fecha de Asistencia'} <span className="text-red-500">*</span>
-                    </label>
+                    {valorInstitucion && (
+                        <span className="text-[10px] font-bold text-primary px-3 py-1 rounded-full bg-primary/10">
+                            Seleccionada
+                        </span>
+                    )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {opcionesFecha.map((opt: string) => {
-                        const isSelected = valorFecha === opt.toUpperCase();
-                        return (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => handleSelectFecha(opt)}
-                                className={cn(
-                                    "px-5 py-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group cursor-pointer",
-                                    isSelected
-                                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/30"
-                                        : errores[ECE_ID_FECHA]
-                                            ? "border-red-500 bg-red-500/5"
-                                            : "border-border bg-muted/10 text-muted-foreground hover:border-primary/20"
-                                )}
-                            >
-                                <span className={cn("text-xs font-bold", isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground")}>
-                                    {opt}
-                                </span>
-                                {isSelected ? (
-                                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                        <Check className="w-3 h-3 text-white" />
-                                    </div>
-                                ) : (
-                                    <div className="w-5 h-5 rounded-full border-2 border-border group-hover:border-primary/30" />
-                                )}
-                            </button>
-                        );
-                    })}
+                <div className="relative">
+                    <select
+                        value={valorInstitucion}
+                        onChange={e => handleSelectInstitucion(e.target.value)}
+                        className={cn(
+                            "w-full h-14 pl-5 pr-10 rounded-2xl bg-card border-2 font-bold text-xs uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all",
+                            errores[ECE_ID_INSTITUCION]
+                                ? "border-red-500 bg-red-500/5 text-red-500"
+                                : "border-border text-foreground focus:border-primary hover:border-primary/40"
+                        )}
+                    >
+                        <option value="">-- SELECCIONE SU INSTITUCIÓN --</option>
+                        {institucionesOrdenadas.map(inst => (
+                            <option key={inst.nombre} value={inst.nombre}>
+                                {inst.nombre}
+                            </option>
+                        ))}
+                    </select>
+                    <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 </div>
+
+                {/* Resumen de inscritos de la institución */}
+                {valorInstitucion && (() => {
+                    const instKey = Object.keys(cuposInstitucion).find(
+                        k => normalizarTexto(k) === normalizarTexto(valorInstitucion)
+                    );
+                    const conteoInstMap = instKey ? cuposInstitucion[instKey] : (cuposInstitucion[valorInstitucion] || {});
+                    const totalInscritosInst = Object.values(conteoInstMap).reduce((a, b) => a + (Number(b) || 0), 0);
+                    return (
+                        <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                            <span className="font-bold text-foreground">
+                                Participantes inscritos de su institución:
+                            </span>
+                            <span className="font-black text-primary font-mono text-sm">
+                                {totalInscritosInst} inscritos
+                            </span>
+                        </div>
+                    );
+                })()}
             </div>
 
-            {/* 2. CAMPO INSTITUCIÓN (Sin buscador confuso, selector limpio directo) */}
-            {requiereMesasEInstitucion && (
-                <div className="space-y-3 p-5 rounded-3xl bg-muted/20 border border-border/60">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Building2 className="w-4 h-4 text-primary" />
-                            </div>
-                            <label className="text-[11px] font-black uppercase text-foreground tracking-widest pl-1">
-                                {campoInstitucion?.label || 'Institución a la que representa'} <span className="text-red-500">*</span>
-                            </label>
+            {/* 2. CAMPO FECHA — visible cuando hay institución seleccionada */}
+            {valorInstitucion && (
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <ClipboardList className="w-4 h-4 text-primary" />
                         </div>
-                        {valorInstitucion && (
-                            <span className="text-[10px] font-bold text-primary px-3 py-1 rounded-full bg-primary/10">
-                                Seleccionada
-                            </span>
-                        )}
+                        <label className="text-[11px] font-black uppercase text-foreground tracking-widest pl-1">
+                            {campoFecha?.label || 'Fecha de Asistencia'} <span className="text-red-500">*</span>
+                        </label>
                     </div>
 
-                    {/* Selector de institución desplegable */}
-                    <div className="relative">
-                        <select
-                            value={valorInstitucion}
-                            onChange={e => handleSelectInstitucion(e.target.value)}
-                            className={cn(
-                                "w-full h-14 pl-5 pr-10 rounded-2xl bg-card border-2 font-bold text-xs uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all",
-                                errores[ECE_ID_INSTITUCION]
-                                    ? "border-red-500 bg-red-500/5 text-red-500"
-                                    : "border-border text-foreground focus:border-primary hover:border-primary/40"
-                            )}
-                        >
-                            <option value="">-- SELECCIONE SU INSTITUCIÓN --</option>
-                            {institucionesOrdenadas.map(inst => (
-                                <option key={inst.nombre} value={inst.nombre}>
-                                    {inst.nombre}
-                                </option>
-                            ))}
-                        </select>
-                        <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {opcionesFecha.map((opt: string) => {
+                            const isSelected = valorFecha === opt.toUpperCase();
+                            return (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => handleSelectFecha(opt)}
+                                    className={cn(
+                                        "px-5 py-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group cursor-pointer",
+                                        isSelected
+                                            ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/30"
+                                            : errores[ECE_ID_FECHA]
+                                                ? "border-red-500 bg-red-500/5"
+                                                : "border-border bg-muted/10 text-muted-foreground hover:border-primary/20"
+                                    )}
+                                >
+                                    <span className={cn("text-xs font-bold", isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground")}>
+                                        {opt}
+                                    </span>
+                                    {isSelected ? (
+                                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                            <Check className="w-3 h-3 text-white" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-5 h-5 rounded-full border-2 border-border group-hover:border-primary/30" />
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
-
-                    {/* Resumen de cupos de la institución seleccionada */}
-                    {valorInstitucion && (() => {
-                        const conf = INSTITUCIONES_EVENTO_TRANSFORMACION.find(
-                            i => normalizarTexto(i.nombre) === normalizarTexto(valorInstitucion)
-                        );
-                        const instKey = Object.keys(cuposInstitucion).find(
-                            k => normalizarTexto(k) === normalizarTexto(valorInstitucion)
-                        );
-                        const conteoInstMap = instKey ? cuposInstitucion[instKey] : (cuposInstitucion[valorInstitucion] || {});
-                        const totalInscritosInst = Object.values(conteoInstMap).reduce((a, b) => a + (Number(b) || 0), 0);
-
-                        return (
-                            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
-                                <span className="font-bold text-foreground">
-                                    Participantes inscritos de su institución:
-                                </span>
-                                <span className="font-black text-primary font-mono text-sm">
-                                    {totalInscritosInst} inscritos
-                                </span>
-                            </div>
-                        );
-                    })()}
                 </div>
             )}
 
-            {/* 3. CAMPO MESA / ÁREA TEMÁTICA (Solo si seleccionó Institución) */}
-            {requiereMesasEInstitucion && valorInstitucion && (
+            {/* 3. CAMPO MESA — solo si la fecha requiere mesas y hay institución */}
+            {valorInstitucion && requiereMesas && (
                 <div className="space-y-3 p-5 rounded-3xl bg-muted/20 border border-border/60">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

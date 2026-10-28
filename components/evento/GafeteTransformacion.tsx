@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Download, Printer, RotateCcw, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ECE_ID_MESA, ECE_ID_INSTITUCION } from '@/lib/constants/eventoTransformacion';
+import { eventoPublicoService } from '@/services/eventoPublicoService';
 
 interface Props {
     persona: any;
@@ -55,11 +56,10 @@ export function GafeteTransformacion({
             }
         } catch {}
 
-        // 2. Consultar al endpoint en PostgreSQL para tener datos de la BD siempre
-        fetch(`/api/eventos/cupos?eventoId=${eventoId}&ci=${currentCi}`)
-            .then(res => res.json())
+        // 2. Consultar al backend / endpoint para tener datos de la BD siempre
+        eventoPublicoService.getCuposMesas(eventoId, currentCi)
             .then(data => {
-                if (data.respuestas) {
+                if (data?.respuestas) {
                     if (data.respuestas[ECE_ID_MESA]) {
                         setMesaLocal(data.respuestas[ECE_ID_MESA]);
                     }

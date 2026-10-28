@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -1590,11 +1590,11 @@ export default function EventoPublicoPage() {
         // Validar campos extras (solo si no es edición)
         if (!isEditingProfile) {
             if (isEventoTransformacion) {
+                if (!form.respuestasExtras[ECE_ID_INSTITUCION]) nuevosErrores[ECE_ID_INSTITUCION] = true;
                 const valFecha = String(form.respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
                 if (!valFecha) {
                     nuevosErrores[ECE_ID_FECHA] = true;
                 } else if (valFecha.includes('06 DE NOVIEMBRE') || valFecha === 'AMBAS FECHAS') {
-                    if (!form.respuestasExtras[ECE_ID_INSTITUCION]) nuevosErrores[ECE_ID_INSTITUCION] = true;
                     if (!form.respuestasExtras[ECE_ID_MESA]) nuevosErrores[ECE_ID_MESA] = true;
                 }
             } else {
