@@ -2148,6 +2148,18 @@ export default function EventoPublicoPage() {
                         {/* ── STEP INFO ── */}
                         {step === 'info' && (
                             <motion.div key="info" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                                {!persona && evento.afiche && (
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-px flex-1 bg-border" />
+                                            <h2 className="text-sm font-black uppercase text-muted-foreground tracking-widest">Información Visual</h2>
+                                            <div className="h-px flex-1 bg-border" />
+                                        </div>
+                                        <div className="relative group rounded-[3rem] overflow-hidden border border-border shadow-2xl bg-black/50 backdrop-blur-sm p-4 md:p-8">
+                                            <img src={getImageUrl(evento.afiche)} alt="Afiche del evento" className="w-full h-auto mx-auto max-w-[600px] rounded-2xl shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]" />
+                                        </div>
+                                    </div>
+                                )}
                                 {!persona && (
                                     <div className="flex flex-col gap-4">
                                         {evento.inscripcionAbierta && (
@@ -3866,18 +3878,7 @@ export default function EventoPublicoPage() {
                                         </div>
                                     </div>
                                 )}{/* Afiche Principal */}
-                                {!persona && evento.afiche && (
-                                    <div className="space-y-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-px flex-1 bg-border" />
-                                            <h2 className="text-sm font-black uppercase text-muted-foreground tracking-widest">Información Visual</h2>
-                                            <div className="h-px flex-1 bg-border" />
-                                        </div>
-                                        <div className="relative group rounded-[3rem] overflow-hidden border border-border shadow-2xl bg-black/50 backdrop-blur-sm p-4 md:p-8">
-                                            <img src={getImageUrl(evento.afiche)} alt="Afiche del evento" className="w-full h-auto mx-auto max-w-[600px] rounded-2xl shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]" />
-                                        </div>
-                                    </div>
-                                )}
+
 
                             </motion.div>
                         )}
