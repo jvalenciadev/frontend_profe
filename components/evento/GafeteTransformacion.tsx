@@ -54,7 +54,7 @@ export function GafeteTransformacion({
                 if (parsed[ECE_ID_MESA] && !mesaLocal) setMesaLocal(parsed[ECE_ID_MESA]);
                 if (parsed[ECE_ID_INSTITUCION] && !institucionLocal) setInstitucionLocal(parsed[ECE_ID_INSTITUCION]);
             }
-        } catch {}
+        } catch { }
 
         // 2. Consultar al backend / endpoint para tener datos de la BD siempre
         eventoPublicoService.getCuposMesas(eventoId, currentCi)
@@ -68,7 +68,7 @@ export function GafeteTransformacion({
                     }
                     try {
                         localStorage.setItem(`respuestas_evento_${eventoId}_${currentCi}`, JSON.stringify(data.respuestas));
-                    } catch {}
+                    } catch { }
                 }
             })
             .catch(err => {
