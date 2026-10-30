@@ -25,6 +25,7 @@ export interface InstitucionConfig {
 export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'MINEDU', cupo: null },
     { nombre: 'CÁMARA DE DIPUTADOS', cupo: 9 },
+    { nombre: 'OTROS', cupo: 10 },
     { nombre: 'CÁMARA DE SENADORES', cupo: 3 },
     { nombre: 'GOBERNACION DE LA PAZ', cupo: 2 },
     { nombre: 'GOBERNACION DE ORURO', cupo: 2 },

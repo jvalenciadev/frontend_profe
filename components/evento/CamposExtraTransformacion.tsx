@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ECE_ID_FECHA,
     ECE_ID_INSTITUCION,
@@ -11,7 +11,7 @@ import {
     CUPO_MAXIMO_GLOBAL_MESA,
     normalizarTexto
 } from '@/lib/constants/eventoTransformacion';
-import { ClipboardList, Building2, Layers, Check, AlertCircle, Users, ChevronDown } from 'lucide-react';
+import { ClipboardList, Building2, Layers, Check, AlertCircle, Users, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -47,12 +47,24 @@ export function CamposExtraTransformacion({
     const requiereMesas =
         valorFecha.includes('06 DE NOVIEMBRE') || valorFecha === 'AMBAS FECHAS';
 
+    // Estado del buscador de institución
+    const [filtroInstitucion, setFiltroInstitucion] = useState('');
+
     // Instituciones ordenadas alfabéticamente
     const institucionesOrdenadas = useMemo(() => {
         return [...INSTITUCIONES_EVENTO_TRANSFORMACION].sort((a, b) =>
             a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
         );
     }, []);
+
+    // Instituciones filtradas según búsqueda
+    const institucionesFiltradas = useMemo(() => {
+        if (!filtroInstitucion.trim()) return institucionesOrdenadas;
+        const fNorm = normalizarTexto(filtroInstitucion);
+        return institucionesOrdenadas.filter(inst =>
+            normalizarTexto(inst.nombre).includes(fNorm)
+        );
+    }, [institucionesOrdenadas, filtroInstitucion]);
 
     // Cálculo de disponibilidad de mesas según reglas de negocio
     const disponibilidadMesas = useMemo(() => {
@@ -134,6 +146,27 @@ export function CamposExtraTransformacion({
                     )}
                 </div>
 
+                {/* Buscador de institución por nombre */}
+                <div className="relative">
+                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                        type="text"
+                        placeholder="Buscar institución por nombre (ej: Tamayo, Llica, UMSA, Potosí)..."
+                        value={filtroInstitucion}
+                        onChange={e => setFiltroInstitucion(e.target.value)}
+                        className="w-full h-12 pl-11 pr-10 rounded-2xl bg-card border-2 border-border text-xs font-bold text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all"
+                    />
+                    {filtroInstitucion && (
+                        <button
+                            type="button"
+                            onClick={() => setFiltroInstitucion('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
                 <div className="relative">
                     <select
                         value={valorInstitucion}
@@ -145,8 +178,18 @@ export function CamposExtraTransformacion({
                                 : "border-border text-foreground focus:border-primary hover:border-primary/40"
                         )}
                     >
-                        <option value="">-- SELECCIONE SU INSTITUCIÓN --</option>
-                        {institucionesOrdenadas.map(inst => (
+                        <option value="">
+                            {filtroInstitucion.trim()
+                                ? `-- SELECCIONE (${institucionesFiltradas.length} encontrada${institucionesFiltradas.length === 1 ? '' : 's'}) --`
+                                : "-- SELECCIONE SU INSTITUCIÓN --"}
+                        </option>
+                        {/* Mantener la institución seleccionada si fue filtrada por la búsqueda actual */}
+                        {valorInstitucion && !institucionesFiltradas.some(i => i.nombre === valorInstitucion) && (
+                            <option value={valorInstitucion}>
+                                {valorInstitucion}
+                            </option>
+                        )}
+                        {institucionesFiltradas.map(inst => (
                             <option key={inst.nombre} value={inst.nombre}>
                                 {inst.nombre}
                             </option>
