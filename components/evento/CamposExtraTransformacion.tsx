@@ -50,7 +50,6 @@ export function CamposExtraTransformacion({
 
     // Estado del buscador de institución
     const [filtroInstitucion, setFiltroInstitucion] = useState('');
-    const [showDropdown, setShowDropdown] = useState(false);
 
     // Instituciones ordenadas alfabéticamente
     const institucionesOrdenadas = useMemo(() => {
@@ -157,131 +156,57 @@ export function CamposExtraTransformacion({
                     )}
                 </div>
 
-                {/* Combobox buscador con lista visible */}
+                {/* Buscador de institución por nombre */}
                 <div className="relative">
-                    {/* Barra de entrada / selección */}
-                    <div className={cn(
-                        "flex items-center min-h-[3.5rem] rounded-2xl bg-card border-2 px-4 gap-3 transition-all cursor-text",
-                        errores[ECE_ID_INSTITUCION]
-                            ? "border-red-500 bg-red-500/5 ring-2 ring-red-500/20"
-                            : showDropdown
-                                ? "border-primary ring-2 ring-primary/20 shadow-md"
-                                : "border-border hover:border-primary/50"
+                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                        type="text"
+                        placeholder="Buscar institución por nombre (ej: Tamayo, Llica, UMSA, Potosí)..."
+                        value={filtroInstitucion}
+                        onChange={e => setFiltroInstitucion(e.target.value)}
+                        className="w-full h-12 pl-11 pr-10 rounded-2xl bg-card border-2 border-border text-xs font-bold text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all"
+                    />
+                    {filtroInstitucion && (
+                        <button
+                            type="button"
+                            onClick={() => setFiltroInstitucion('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     )}
-                    onClick={() => setShowDropdown(true)}
-                    >
-                        <Search className="w-4 h-4 text-primary shrink-0" />
-                        <input
-                            type="text"
-                            placeholder={valorInstitucion ? valorInstitucion : "Escribe para buscar tu institución (ej: UMSA, Tamayo, Llica, Potosí)..."}
-                            value={showDropdown ? filtroInstitucion : (valorInstitucion || '')}
-                            onFocus={() => {
-                                setFiltroInstitucion('');
-                                setShowDropdown(true);
-                            }}
-                            onChange={e => {
-                                setFiltroInstitucion(e.target.value);
-                                if (!showDropdown) setShowDropdown(true);
-                            }}
-                            onBlur={() => {
-                                // Pequeño delay para permitir clic en las opciones
-                                setTimeout(() => setShowDropdown(false), 200);
-                            }}
-                            className={cn(
-                                "flex-1 bg-transparent outline-none text-xs font-bold uppercase tracking-wide placeholder:normal-case placeholder:font-medium truncate",
-                                valorInstitucion && !showDropdown
-                                    ? "text-primary"
-                                    : "text-foreground placeholder:text-muted-foreground/60"
-                            )}
-                        />
-                        {valorInstitucion ? (
-                            <button
-                                type="button"
-                                onMouseDown={e => {
-                                    e.preventDefault();
-                                    handleSelectInstitucion('');
-                                    setFiltroInstitucion('');
-                                    setShowDropdown(false);
-                                }}
-                                className="shrink-0 text-muted-foreground hover:text-red-500 p-1 transition-colors"
-                                title="Limpiar selección"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onMouseDown={e => {
-                                    e.preventDefault();
-                                    setShowDropdown(prev => !prev);
-                                }}
-                                className="shrink-0 text-muted-foreground p-1"
-                            >
-                                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", showDropdown && "rotate-180")} />
-                            </button>
+                </div>
+
+                <div className="relative">
+                    <select
+                        value={valorInstitucion}
+                        onChange={e => handleSelectInstitucion(e.target.value)}
+                        className={cn(
+                            "w-full h-14 pl-5 pr-10 rounded-2xl bg-card border-2 font-bold text-xs uppercase tracking-wide outline-none appearance-none cursor-pointer transition-all",
+                            errores[ECE_ID_INSTITUCION]
+                                ? "border-red-500 bg-red-500/5 text-red-500"
+                                : "border-border text-foreground focus:border-primary hover:border-primary/40"
                         )}
-                    </div>
-
-                    {/* Menú desplegable con lista visible filtrable */}
-                    {showDropdown && (
-                        <div className="absolute z-50 w-full mt-2 rounded-2xl bg-card border-2 border-border shadow-2xl overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
-                            {/* Cabecera del dropdown con conteo */}
-                            <div className="px-4 py-2.5 bg-muted/60 border-b border-border flex items-center justify-between text-[11px]">
-                                <span className="font-black uppercase tracking-wider text-muted-foreground">
-                                    Listado de Instituciones
-                                </span>
-                                <span className="font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full text-[10px]">
-                                    {institucionesFiltradas.length} encontrada{institucionesFiltradas.length === 1 ? '' : 's'}
-                                </span>
-                            </div>
-
-                            {/* Opciones clickeables */}
-                            <ul className="max-h-64 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
-                                {institucionesFiltradas.length === 0 ? (
-                                    <li className="p-6 text-center text-xs text-muted-foreground">
-                                        No se encontraron resultados para <strong>"{filtroInstitucion}"</strong>.
-                                    </li>
-                                ) : (
-                                    institucionesFiltradas.map(inst => {
-                                        const isSelected = inst.nombre === valorInstitucion;
-                                        return (
-                                            <li key={inst.nombre}>
-                                                <button
-                                                    type="button"
-                                                    onMouseDown={e => {
-                                                        e.preventDefault();
-                                                        handleSelectInstitucion(inst.nombre);
-                                                        setFiltroInstitucion('');
-                                                        setShowDropdown(false);
-                                                    }}
-                                                    className={cn(
-                                                        "w-full px-4 py-3 text-left flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wide transition-colors cursor-pointer",
-                                                        isSelected
-                                                            ? "bg-primary/10 text-primary"
-                                                            : "hover:bg-muted/70 text-foreground"
-                                                    )}
-                                                >
-                                                    <span className="flex-1 leading-snug">
-                                                        {inst.nombre}
-                                                    </span>
-                                                    {inst.cupo !== null && (
-                                                        <span className="text-[10px] font-semibold text-muted-foreground shrink-0 bg-muted px-2 py-0.5 rounded-md">
-                                                            Cupo: {inst.cupo}
-                                                        </span>
-                                                    )}
-                                                    {isSelected && (
-                                                        <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                                                            <Check className="w-3 h-3 text-white" />
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            </li>
-                                        );
-                                    })
-                                )}
-                            </ul>
-                        </div>
-                    )}
+                    >
+                        <option value="">
+                            {filtroInstitucion.trim()
+                                ? `-- SELECCIONE (${institucionesFiltradas.length} encontrada${institucionesFiltradas.length === 1 ? '' : 's'}) --`
+                                : "-- SELECCIONE SU INSTITUCIÓN --"}
+                        </option>
+                        {/* Mantener la institución seleccionada si fue filtrada por la búsqueda actual */}
+                        {valorInstitucion && !institucionesFiltradas.some(i => i.nombre === valorInstitucion) && (
+                            <option value={valorInstitucion}>
+                                {valorInstitucion}
+                            </option>
+                        )}
+                        {institucionesFiltradas.map(inst => (
+                            <option key={inst.nombre} value={inst.nombre}>
+                                {inst.nombre}
+                            </option>
+                        ))}
+                    </select>
+                    <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                </div>
 
                 {/* Resumen de cupo o alerta de cupo lleno */}
                 {valorInstitucion && estadoInstitucion && (
