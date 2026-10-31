@@ -25,7 +25,8 @@ import {
     EVENTO_TRANSFORMACION_SLUG,
     ECE_ID_FECHA,
     ECE_ID_INSTITUCION,
-    ECE_ID_MESA
+    ECE_ID_MESA,
+    obtenerEstadoCupoInstitucion
 } from '@/lib/constants/eventoTransformacion';
 import React from 'react';
 
@@ -1590,7 +1591,19 @@ export default function EventoPublicoPage() {
         // Validar campos extras (solo si no es edición)
         if (!isEditingProfile) {
             if (isEventoTransformacion) {
-                if (!form.respuestasExtras[ECE_ID_INSTITUCION]) nuevosErrores[ECE_ID_INSTITUCION] = true;
+                const nombreInst = String(form.respuestasExtras[ECE_ID_INSTITUCION] || '').trim();
+                if (!nombreInst) {
+                    nuevosErrores[ECE_ID_INSTITUCION] = true;
+                } else {
+                    const estadoInst = obtenerEstadoCupoInstitucion({
+                        institucionNombre: nombreInst,
+                        cuposInstitucion
+                    });
+                    if (estadoInst.estaLleno) {
+                        toast.error(`La institución "${nombreInst}" ya completó su cupo (${estadoInst.totalInscritos}/${estadoInst.cupoTotal}). No se admiten más inscripciones.`);
+                        nuevosErrores[ECE_ID_INSTITUCION] = true;
+                    }
+                }
                 const valFecha = String(form.respuestasExtras[ECE_ID_FECHA] || '').trim().toUpperCase();
                 if (!valFecha) {
                     nuevosErrores[ECE_ID_FECHA] = true;

@@ -119,7 +119,45 @@ export function normalizarTexto(txt: string | undefined | null): string {
 }
 
 /**
- * Evalúa la disponibilidad de cada una de las 8 mesas según las reglas de negocio
+ * Obtiene el estado del cupo institucional (inscritos, cupo total, si está lleno)
+ */
+export function obtenerEstadoCupoInstitucion({
+    institucionNombre,
+    cuposInstitucion = {}
+}: {
+    institucionNombre: string;
+    cuposInstitucion: Record<string, Record<string, number>>;
+}): {
+    cupoTotal: number | null;
+    totalInscritos: number;
+    estaLleno: boolean;
+    cuposDisponibles: number | null;
+} {
+    const instNorm = normalizarTexto(institucionNombre);
+    const instConfig = INSTITUCIONES_EVENTO_TRANSFORMACION.find(
+        i => normalizarTexto(i.nombre) === instNorm
+    );
+    const cupoTotal = instConfig ? instConfig.cupo : null;
+
+    const instKey = Object.keys(cuposInstitucion).find(
+        k => normalizarTexto(k) === instNorm
+    );
+    const instConteoMesas = instKey ? cuposInstitucion[instKey] : (cuposInstitucion[institucionNombre] || {});
+    const totalInscritos = Object.values(instConteoMesas).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+
+    const estaLleno = cupoTotal !== null && totalInscritos >= cupoTotal;
+    const cuposDisponibles = cupoTotal !== null ? Math.max(0, cupoTotal - totalInscritos) : null;
+
+    return {
+        cupoTotal,
+        totalInscritos,
+        estaLleno,
+        cuposDisponibles
+    };
+}
+
+/**
+ * Evalúa la disponibilidad de cada una de las 8 mesas según el cupo institucional y nacional
  */
 export function calcularDisponibilidadMesas({
     institucionNombre,
@@ -131,52 +169,27 @@ export function calcularDisponibilidadMesas({
     cuposInstitucion: Record<string, Record<string, number>>;
 }): Record<string, { disponible: boolean; motivo?: string; conteoMesa: number; conteoInst: number; limiteInstMesa: number | null }> {
     const instNorm = normalizarTexto(institucionNombre);
-    const instConfig = INSTITUCIONES_EVENTO_TRANSFORMACION.find(
-        i => normalizarTexto(i.nombre) === instNorm
-    );
+    const estadoInst = obtenerEstadoCupoInstitucion({ institucionNombre, cuposInstitucion });
 
-    // Buscar clave de la institución de manera normalizada
+    // Buscar clave de la institución para conteos por mesa
     const instKey = Object.keys(cuposInstitucion).find(
         k => normalizarTexto(k) === instNorm
     );
     const instConteoMesas = instKey ? cuposInstitucion[instKey] : (cuposInstitucion[institucionNombre] || {});
 
-    // Suma de inscritos totales de esta institución
-    const totalInstGeneral = Object.values(instConteoMesas).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-
-    const cupoTotalInst = instConfig ? instConfig.cupo : null;
-    const totalMesas = MESAS_EVENTO_TRANSFORMACION.length; // 8
-
-    // Límite máximo por mesa para esta institución:
-    // Si cupo <= 8: el límite es estrictamente 1 por mesa (no pueden repetir mesa).
-    // Si cupo > 8: límite = ceil(cupo / 8)
-    let limiteInstPorMesa: number | null = null;
-    if (cupoTotalInst !== null) {
-        if (cupoTotalInst <= totalMesas) {
-            limiteInstPorMesa = 1;
-        } else {
-            limiteInstPorMesa = Math.ceil(cupoTotalInst / totalMesas);
-        }
-    }
-
-    // Helper para obtener conteo de una mesa para esta institución
+    // Helper para conteo de mesa de esta institución
     const getConteoInstMesa = (nombreMesa: string): number => {
         const mNorm = normalizarTexto(nombreMesa);
         const mKey = Object.keys(instConteoMesas).find(k => normalizarTexto(k) === mNorm);
         return mKey ? (Number(instConteoMesas[mKey]) || 0) : (Number(instConteoMesas[nombreMesa]) || 0);
     };
 
-    // Helper para obtener conteo global de una mesa
+    // Helper para conteo global de una mesa
     const getConteoGlobalMesa = (nombreMesa: string): number => {
         const mNorm = normalizarTexto(nombreMesa);
         const mKey = Object.keys(cuposGlobales).find(k => normalizarTexto(k) === mNorm);
         return mKey ? (Number(cuposGlobales[mKey]) || 0) : (Number(cuposGlobales[nombreMesa]) || 0);
     };
-
-    // Verificar si alguna mesa aún no tiene al menos 1 inscrito de esta institución
-    const tieneMesasEnCero = MESAS_EVENTO_TRANSFORMACION.some(
-        m => getConteoInstMesa(m) === 0
-    );
 
     const resultado: Record<string, { disponible: boolean; motivo?: string; conteoMesa: number; conteoInst: number; limiteInstMesa: number | null }> = {};
 
@@ -184,78 +197,36 @@ export function calcularDisponibilidadMesas({
         const inscritosGlobalesMesa = getConteoGlobalMesa(mesa);
         const inscritosInstMesa = getConteoInstMesa(mesa);
 
-        // Regla 1: Tope global de la mesa (35 participantes)
+        // Regla 1: Cupo total institucional agotado
+        if (estadoInst.estaLleno) {
+            resultado[mesa] = {
+                disponible: false,
+                motivo: `Cupo institucional completado (${estadoInst.totalInscritos}/${estadoInst.cupoTotal})`,
+                conteoMesa: inscritosGlobalesMesa,
+                conteoInst: inscritosInstMesa,
+                limiteInstMesa: estadoInst.cupoTotal
+            };
+            return;
+        }
+
+        // Regla 2: Tope global de la mesa nacional (35 participantes)
         if (inscritosGlobalesMesa >= CUPO_MAXIMO_GLOBAL_MESA) {
             resultado[mesa] = {
                 disponible: false,
                 motivo: `Mesa completa a nivel nacional (${CUPO_MAXIMO_GLOBAL_MESA}/${CUPO_MAXIMO_GLOBAL_MESA})`,
                 conteoMesa: inscritosGlobalesMesa,
                 conteoInst: inscritosInstMesa,
-                limiteInstMesa: limiteInstPorMesa
+                limiteInstMesa: estadoInst.cupoTotal
             };
             return;
         }
 
-        // Regla 2: Cupo total institucional agotado
-        if (cupoTotalInst !== null && totalInstGeneral >= cupoTotalInst) {
-            resultado[mesa] = {
-                disponible: false,
-                motivo: `Cupo total de la institución completado (${cupoTotalInst}/${cupoTotalInst})`,
-                conteoMesa: inscritosGlobalesMesa,
-                conteoInst: inscritosInstMesa,
-                limiteInstMesa: limiteInstPorMesa
-            };
-            return;
-        }
-
-        // Regla 3: Si cupo <= 8 (ej. ESFM FRAN TAMAYO DE LLICA = 5 cupos),
-        // solo puede haber MÁXIMO 1 participante de esta institución por mesa.
-        if (cupoTotalInst !== null && cupoTotalInst <= totalMesas) {
-            if (inscritosInstMesa >= 1) {
-                resultado[mesa] = {
-                    disponible: false,
-                    motivo: `Su institución ya tiene un participante en esta mesa (Máx. 1)`,
-                    conteoMesa: inscritosGlobalesMesa,
-                    conteoInst: inscritosInstMesa,
-                    limiteInstMesa: 1
-                };
-                return;
-            }
-        }
-
-        // Regla 4: Fase 1 obligatoria para cupos grandes (cupo > 8)
-        // Debe cubrir primero al menos 1 por cada una de las 8 mesas antes de habilitar la segunda ronda
-        if (cupoTotalInst !== null && cupoTotalInst > totalMesas && tieneMesasEnCero) {
-            if (inscritosInstMesa >= 1) {
-                resultado[mesa] = {
-                    disponible: false,
-                    motivo: `Su institución debe cubrir primero 1 cupo en cada una de las 8 mesas`,
-                    conteoMesa: inscritosGlobalesMesa,
-                    conteoInst: inscritosInstMesa,
-                    limiteInstMesa: limiteInstPorMesa
-                };
-                return;
-            }
-        }
-
-        // Regla 5: Límite proporcional por mesa para la institución (cupo > 8)
-        if (limiteInstPorMesa !== null && inscritosInstMesa >= limiteInstPorMesa) {
-            resultado[mesa] = {
-                disponible: false,
-                motivo: `Límite por mesa de su institución alcanzado (${limiteInstPorMesa})`,
-                conteoMesa: inscritosGlobalesMesa,
-                conteoInst: inscritosInstMesa,
-                limiteInstMesa: limiteInstPorMesa
-            };
-            return;
-        }
-
-        // Mesa disponible
+        // Mesa disponible según cupo de institución y disponibilidad nacional
         resultado[mesa] = {
             disponible: true,
             conteoMesa: inscritosGlobalesMesa,
             conteoInst: inscritosInstMesa,
-            limiteInstMesa: limiteInstPorMesa
+            limiteInstMesa: estadoInst.cupoTotal
         };
     });
 
