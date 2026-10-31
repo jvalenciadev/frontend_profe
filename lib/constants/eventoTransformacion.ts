@@ -191,6 +191,11 @@ export function calcularDisponibilidadMesas({
         return mKey ? (Number(cuposGlobales[mKey]) || 0) : (Number(cuposGlobales[nombreMesa]) || 0);
     };
 
+    // Distribución equitativa: conteos de todas las mesas para esta institución
+    const conteosPorMesa = MESAS_EVENTO_TRANSFORMACION.map(m => getConteoInstMesa(m));
+    const tieneMesasEnCero = conteosPorMesa.some(c => c === 0);
+    const minConteoInst = Math.min(...conteosPorMesa);
+
     const resultado: Record<string, { disponible: boolean; motivo?: string; conteoMesa: number; conteoInst: number; limiteInstMesa: number | null }> = {};
 
     MESAS_EVENTO_TRANSFORMACION.forEach(mesa => {
@@ -217,6 +222,21 @@ export function calcularDisponibilidadMesas({
                 conteoMesa: inscritosGlobalesMesa,
                 conteoInst: inscritosInstMesa,
                 limiteInstMesa: estadoInst.cupoTotal
+            };
+            return;
+        }
+
+        // Regla 3: Distribución equitativa por rondas:
+        // Bloquear mesas que ya tienen participante hasta que todas las mesas tengan al menos 1
+        if (inscritosInstMesa > minConteoInst) {
+            resultado[mesa] = {
+                disponible: false,
+                motivo: tieneMesasEnCero
+                    ? `Su institución ya tiene un participante en esta mesa. Primero debe completar las mesas sin participantes.`
+                    : `Su institución debe completar primero las mesas con menos participantes.`,
+                conteoMesa: inscritosGlobalesMesa,
+                conteoInst: inscritosInstMesa,
+                limiteInstMesa: minConteoInst + 1
             };
             return;
         }
