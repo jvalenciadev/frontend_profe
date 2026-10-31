@@ -1212,6 +1212,10 @@ export default function EventoPublicoPage() {
             setEvento(evt);
             setDepartamentos(deps);
             setAllModalidades(mods);
+            const modsEvento = (mods || []).filter((m: any) => (evt.modalidadIds || '').includes(m.id));
+            if (modsEvento.length === 1) {
+                setForm(fp => ({ ...fp, modalidadId: modsEvento[0].id }));
+            }
             refreshCupos();
 
             // Calcular desfase con el servidor
@@ -1632,7 +1636,21 @@ export default function EventoPublicoPage() {
         setErrores(nuevosErrores);
 
         if (Object.keys(nuevosErrores).length > 0) {
-            toast.error('Por favor completa todos los campos marcados en rojo.');
+            if (nuevosErrores.nombre1 || nuevosErrores.apellido1) {
+                toast.error('Por favor ingresa tu nombre y primer apellido.');
+            } else if (nuevosErrores.departamentoId) {
+                toast.error('Por favor selecciona tu Departamento de origen.');
+            } else if (nuevosErrores.modalidadId) {
+                toast.error('Por favor selecciona la modalidad de participación.');
+            } else if (nuevosErrores[ECE_ID_INSTITUCION]) {
+                toast.error('Por favor selecciona tu institución.');
+            } else if (nuevosErrores[ECE_ID_FECHA]) {
+                toast.error('Por favor selecciona la fecha de asistencia.');
+            } else if (nuevosErrores[ECE_ID_MESA]) {
+                toast.error('Por favor selecciona una mesa de trabajo disponible.');
+            } else {
+                toast.error('Por favor completa todos los campos marcados en rojo.');
+            }
             return;
         }
 
@@ -4201,10 +4219,24 @@ export default function EventoPublicoPage() {
                                             cuposGlobales={cuposGlobales}
                                             cuposInstitucion={cuposInstitucion}
                                             onChangeRespuesta={(campoId, valor) => {
-                                                setForm(f => ({
-                                                    ...f,
-                                                    respuestasExtras: { ...f.respuestasExtras, [campoId]: valor }
-                                                }));
+                                                setForm(f => {
+                                                    const updatedResp = { ...f.respuestasExtras, [campoId]: valor };
+                                                    let updatedDepto = f.departamentoId;
+                                                    // Inferir automáticamente departamento si la institución contiene sigla (ej: - LP, - CB)
+                                                    if (campoId === ECE_ID_INSTITUCION && valor && !updatedDepto) {
+                                                        const match = String(valor).match(/-\s*([A-Z]{2})$/);
+                                                        if (match) {
+                                                            const sigla = match[1];
+                                                            const d = departamentos.find(dep => dep.abreviacion?.toUpperCase() === sigla);
+                                                            if (d) updatedDepto = d.id;
+                                                        }
+                                                    }
+                                                    return {
+                                                        ...f,
+                                                        departamentoId: updatedDepto,
+                                                        respuestasExtras: updatedResp
+                                                    };
+                                                });
                                             }}
                                             onClearError={(campoId) => {
                                                 if (errores[campoId]) setErrores(prev => ({ ...prev, [campoId]: false }));
@@ -4361,8 +4393,8 @@ export default function EventoPublicoPage() {
                                     >
                                         {isEditingProfile ? 'Cancelar' : 'Volver'}
                                     </button>
-                                    <button onClick={handleInscribirse} disabled={!form.nombre1 || !form.apellido1 || (!isEditingProfile && (allModalidades.filter(m => (evento?.modalidadIds || '').includes(m.id)).length > 1 && !form.modalidadId) || !form.departamentoId) || submitting}
-                                        className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                                    <button onClick={handleInscribirse} disabled={submitting}
+                                        className="flex-1 h-14 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-primary/20">
                                         Vista Previa
                                         <ArrowRight className="w-4 h-4" />
                                     </button>
