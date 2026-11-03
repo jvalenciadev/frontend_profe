@@ -97,7 +97,7 @@ export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'CAF', cupo: 3 },
     { nombre: 'CETUB', cupo: 22 },
     { nombre: 'CONMERB', cupo: 30 },
-    { nombre: 'CEFOM-B', cupo: 30 },
+    { nombre: 'CEFOM-B', cupo: 50 },
     { nombre: 'FEFOM', cupo: 30 },
     { nombre: 'FUNDACION ALMA', cupo: 3 },
     { nombre: 'CONSULTORES EXTERNOS', cupo: 5 },
