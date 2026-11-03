@@ -25,7 +25,7 @@ export interface InstitucionConfig {
 export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'MINEDU', cupo: null },
     { nombre: 'CÁMARA DE DIPUTADOS', cupo: 9 },
-    { nombre: 'OTROS', cupo: 10 },
+    { nombre: 'OTROS', cupo: 30 },
     { nombre: 'CÁMARA DE SENADORES', cupo: 3 },
     { nombre: 'GOBERNACION DE LA PAZ', cupo: 2 },
     { nombre: 'GOBERNACION DE ORURO', cupo: 2 },
@@ -94,6 +94,7 @@ export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'GOBIERNO AUTONOMO MUNICIPAL DE SAN LUCAS', cupo: 3 },
     { nombre: 'GOBIERNO AUTONOMO MUNICIPAL DE CORIPATA', cupo: 3 },
     { nombre: 'UNICEF', cupo: 5 },
+    { nombre: 'CONVENIO ANDRES BELLO', cupo: 5 },
     { nombre: 'CAF', cupo: 3 },
     { nombre: 'CETUB', cupo: 22 },
     { nombre: 'CONMERB', cupo: 30 },
