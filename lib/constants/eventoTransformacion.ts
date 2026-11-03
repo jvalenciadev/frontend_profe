@@ -4,7 +4,7 @@ export const EVENTO_TRANSFORMACION_SLUG = 'encuentro-nacional-por-la-tranformaci
 export const ECE_ID_FECHA = '8fb36258-dd5d-4a49-8574-931a473f381e';
 export const ECE_ID_INSTITUCION = '211f76be-1dba-4b26-b4d8-ae6720a5c4c3';
 export const ECE_ID_MESA = 'a51efab3-3776-4548-8722-40e0ab18536b';
-export const CUPO_MAXIMO_GLOBAL_MESA = 35;
+export const CUPO_MAXIMO_GLOBAL_MESA = 30;
 
 export const MESAS_EVENTO_TRANSFORMACION = [
     'Inicial',
