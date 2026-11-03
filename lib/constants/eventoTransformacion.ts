@@ -93,7 +93,7 @@ export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'GOBIERNO AUTONOMO MUNICIPAL DE LLICA', cupo: 3 },
     { nombre: 'GOBIERNO AUTONOMO MUNICIPAL DE SAN LUCAS', cupo: 3 },
     { nombre: 'GOBIERNO AUTONOMO MUNICIPAL DE CORIPATA', cupo: 3 },
-    { nombre: 'UNICEF', cupo: 3 },
+    { nombre: 'UNICEF', cupo: 5 },
     { nombre: 'CAF', cupo: 3 },
     { nombre: 'CETUB', cupo: 22 },
     { nombre: 'CONMERB', cupo: 30 },
