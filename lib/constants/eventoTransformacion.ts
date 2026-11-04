@@ -192,10 +192,14 @@ export function calcularDisponibilidadMesas({
         return mKey ? (Number(cuposGlobales[mKey]) || 0) : (Number(cuposGlobales[nombreMesa]) || 0);
     };
 
-    // Distribución equitativa: conteos de todas las mesas para esta institución
-    const conteosPorMesa = MESAS_EVENTO_TRANSFORMACION.map(m => getConteoInstMesa(m));
-    const tieneMesasEnCero = conteosPorMesa.some(c => c === 0);
-    const minConteoInst = Math.min(...conteosPorMesa);
+    // Distribución equitativa: considerar ÚNICAMENTE las mesas que tienen cupo disponible a nivel nacional
+    // para evitar bloqueos si una mesa ya está llena al 100% (30/30).
+    const mesasNacionalesDisponibles = MESAS_EVENTO_TRANSFORMACION.filter(
+        m => getConteoGlobalMesa(m) < CUPO_MAXIMO_GLOBAL_MESA
+    );
+    const conteosDisponibles = mesasNacionalesDisponibles.map(m => getConteoInstMesa(m));
+    const tieneMesasDisponiblesEnCero = conteosDisponibles.some(c => c === 0);
+    const minConteoInstDisponibles = conteosDisponibles.length > 0 ? Math.min(...conteosDisponibles) : 0;
 
     const resultado: Record<string, { disponible: boolean; motivo?: string; conteoMesa: number; conteoInst: number; limiteInstMesa: number | null }> = {};
 
@@ -215,7 +219,7 @@ export function calcularDisponibilidadMesas({
             return;
         }
 
-        // Regla 2: Tope global de la mesa nacional (35 participantes)
+        // Regla 2: Tope global de la mesa nacional (ej. 30 participantes)
         if (inscritosGlobalesMesa >= CUPO_MAXIMO_GLOBAL_MESA) {
             resultado[mesa] = {
                 disponible: false,
@@ -227,17 +231,17 @@ export function calcularDisponibilidadMesas({
             return;
         }
 
-        // Regla 3: Distribución equitativa por rondas:
-        // Bloquear mesas que ya tienen participante hasta que todas las mesas tengan al menos 1
-        if (inscritosInstMesa > minConteoInst) {
+        // Regla 3: Distribución equitativa por rondas sobre mesas disponibles nacionalmente:
+        // Bloquear mesas que ya tienen participante si existen otras mesas DISPONIBLES con menos participantes
+        if (inscritosInstMesa > minConteoInstDisponibles) {
             resultado[mesa] = {
                 disponible: false,
-                motivo: tieneMesasEnCero
+                motivo: tieneMesasDisponiblesEnCero
                     ? `Su institución ya tiene un participante en esta mesa. Primero debe completar las mesas sin participantes.`
                     : `Su institución debe completar primero las mesas con menos participantes.`,
                 conteoMesa: inscritosGlobalesMesa,
                 conteoInst: inscritosInstMesa,
-                limiteInstMesa: minConteoInst + 1
+                limiteInstMesa: minConteoInstDisponibles + 1
             };
             return;
         }
