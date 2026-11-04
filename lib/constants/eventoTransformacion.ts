@@ -57,7 +57,7 @@ export const INSTITUCIONES_EVENTO_TRANSFORMACION: InstitucionConfig[] = [
     { nombre: 'ESFM MARISCAL ANDRES DE SANTA CRUZ Y CALAHUMANA - LP', cupo: 7 },
     { nombre: 'ESFM SANTIAGO DE HUATA - LP', cupo: 5 },
     { nombre: 'ESFM SIMON BOLIVAR - LP', cupo: 6 },
-    { nombre: 'ESFM TECNOLOGICO HUMANISTICO DE EL ALTO - LP', cupo: 5 },
+    { nombre: 'ESFM TECNOLOGICO HUMANISTICO DE EL ALTO - LP', cupo: 8 },
     { nombre: 'ESFM VILLA AROMA - LP', cupo: 5 },
     { nombre: 'ESFM WARISATA - LP', cupo: 5 },
     { nombre: 'ESFM ANGEL MENDOZA JUSTINIANO - OR', cupo: 6 },
