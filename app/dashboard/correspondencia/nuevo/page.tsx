@@ -133,8 +133,9 @@ function NuevaNotaPage() {
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (loading) return;
         if (!referencia.trim()) { toast.error('La referencia es obligatoria'); return; }
         if (destinatarios.length === 0) { toast.error('Seleccione al menos un destinatario'); return; }
         setLoading(true);
@@ -685,7 +686,7 @@ function NuevaNotaPage() {
                     <h1 className="text-6xl font-black tracking-tighter leading-none">Nueva <span className="text-primary italic">Vía PROFE</span></h1>
                 </div>
                 <div className="flex items-center gap-3 bg-card/50 p-2 rounded-2xl border border-border/50 backdrop-blur-xl">
-                    <button onClick={handleSubmit} disabled={loading} className="h-12 px-8 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
+                    <button type="button" onClick={handleSubmit} disabled={loading} className="h-12 px-8 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50">
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}{loading ? 'GENERANDO...' : 'GENERAR CITE'}
                     </button>
                 </div>
