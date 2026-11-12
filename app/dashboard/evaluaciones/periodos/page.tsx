@@ -193,16 +193,14 @@ export default function PeriodosEvaluacionPage() {
             periodo: period.periodo || 'ANUAL',
             fechaInicio: period.fechaInicio ? period.fechaInicio.split('T')[0] : '',
             fechaFin: period.fechaFin ? period.fechaFin.split('T')[0] : '',
-            criterios: (period.criterios || []).filter(c => Number(c.pesoPorcentaje) > 0 || (!c.nombre.toLowerCase().startsWith('evaluación lenguaje') && !c.nombre.toLowerCase().startsWith('evaluación matemática'))).map((c, i) => ({
+            criterios: (period.criterios || []).filter(c => !isCuestionarioCriterio(c)).map((c, i) => ({
                 id: c.id,
                 nombre: c.nombre,
                 descripcion: c.descripcion || '',
                 pesoPorcentaje: Number(c.pesoPorcentaje) || 0,
                 orden: c.orden || i + 1,
                 cargoIds: c.cargos?.map(cg => cg.cargoId) || c.cargoIds || [],
-                subcriterios: isCuestionarioCriterio(c)
-                    ? []
-                    : (c.subcriterios || []).map((s, si) => ({
+                subcriterios: (c.subcriterios || []).map((s, si) => ({
                         id: s.id,
                         codigo: s.codigo || `IND-${i + 1}.${si + 1}`,
                         indicador: s.indicador,
@@ -233,10 +231,11 @@ export default function PeriodosEvaluacionPage() {
                 periodo: periodFormData.periodo,
                 fechaInicio: periodFormData.fechaInicio || undefined,
                 fechaFin: periodFormData.fechaFin || undefined,
-                criterios: periodFormData.criterios.map(c => ({
-                    ...c,
-                    subcriterios: isCuestionarioCriterio(c) ? [] : c.subcriterios,
-                })),
+                criterios: periodFormData.criterios
+                    // Excluir criterios de cuestionario: el backend los gestiona de forma independiente
+                    // Enviarlos con subcriterios:[] causaba borrado de preguntas del cuestionario
+                    .filter(c => !isCuestionarioCriterio(c))
+                    .map(c => ({ ...c, subcriterios: c.subcriterios })),
                 activo: true,
             };
 
