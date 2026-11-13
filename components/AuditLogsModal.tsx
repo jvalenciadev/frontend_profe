@@ -117,7 +117,7 @@ export function AuditLogsModal({ isOpen, onClose }: AuditLogsModalProps) {
                             <Filter className="w-3.5 h-3.5" />
                             Acción:
                         </div>
-                        {['ALL', 'CREATE', 'UPDATE', 'DELETE'].map((action) => (
+                        {['ALL', 'CREATE', 'UPDATE', 'DELETE', 'SFTP'].map((action) => (
                             <button
                                 key={action}
                                 onClick={() => handleActionChange(action)}

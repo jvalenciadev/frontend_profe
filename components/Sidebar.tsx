@@ -31,7 +31,8 @@ import {
     Settings,
     Star,
     Database,
-    Mail
+    Mail,
+    HardDrive
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -172,10 +173,31 @@ export function Sidebar() {
     const { config: profe } = useProfe();
 
     const isPostulante = hasRole('POSTULACION_PROFE');
+    const isSftp = hasRole('sftp') || hasRole('SFTP');
 
-    const filteredMenuItems = useMemo(() => {
-        // Si es SuperAdmin, ve todo
-        if (isSuperAdmin) return menuItems;
+    const filteredMenuItems = useMemo((): MenuItem[] => {
+        // Si el usuario tiene rol SFTP exclusivo, SOLO ve el acceso a Documentos SFTP
+        if (!isSuperAdmin && isSftp) {
+            return [
+                {
+                    title: 'Documentos SFTP',
+                    href: '/dashboard/sftp-documentos',
+                    icon: HardDrive,
+                },
+            ];
+        }
+
+        // Si es SuperAdmin, ve todo incluyendo el acceso al repositorio SFTP
+        if (isSuperAdmin) {
+            return [
+                ...menuItems,
+                {
+                    title: 'Repositorio SFTP',
+                    href: '/dashboard/sftp-documentos',
+                    icon: HardDrive,
+                },
+            ];
+        }
 
         // Si es Postulante, SOLO ve Dashboard y Mi Ficha
         if (isPostulante) {

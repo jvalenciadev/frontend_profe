@@ -33,7 +33,13 @@ export function useAbility() {
                     else if (r?.name) roles.push(r.name);
                 });
             }
-            return roles.includes(roleName) || isSuperAdmin();
+            return (
+                roles.some(
+                    (r) =>
+                        r.toLowerCase() === roleName.toLowerCase() ||
+                        r.toUpperCase() === roleName.toUpperCase(),
+                ) || isSuperAdmin()
+            );
         },
         /** Cerrar sesión */
         logout,

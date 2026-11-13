@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Can } from '@/components/Can';
 import Link from 'next/link';
@@ -129,11 +130,26 @@ function QuickCard({ href, icon: Icon, label, sub, colorClass, permission }: any
 }
 
 export default function DashboardPage() {
+    const router = useRouter();
     const { user } = useAuth();
     const [metrics, setMetrics] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'academy' | 'events' | 'finance'>('overview');
     const [isAuditOpen, setIsAuditOpen] = useState(false);
+
+    // Redirección inmediata si el usuario es exclusivo de rol SFTP
+    useEffect(() => {
+        if (!user) return;
+        const roles = (user.roles || []).map((r: any) =>
+            (typeof r === 'string' ? r : r.name || '').toLowerCase(),
+        );
+        const isSftp = roles.some((r: string) => r === 'sftp');
+        const isAdmin = roles.some((r: string) => r.includes('admin'));
+
+        if (isSftp && !isAdmin) {
+            router.replace('/dashboard/sftp-documentos');
+        }
+    }, [user, router]);
 
 
     useEffect(() => {
