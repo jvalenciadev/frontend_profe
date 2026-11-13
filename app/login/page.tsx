@@ -167,7 +167,7 @@ export default function LoginPage() {
                 <div className="w-full max-w-sm space-y-10" suppressHydrationWarning={true}>
                     {/* Logo Context */}
                     <div className="space-y-4" suppressHydrationWarning={true}>
-                        <motion.div
+                        {/* <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className="w-16 h-16 bg-white dark:bg-card rounded-[2rem] flex items-center justify-center shadow-2xl shadow-primary/30 mx-auto lg:mx-0 overflow-hidden border border-border/50"
@@ -178,7 +178,7 @@ export default function LoginPage() {
                             ) : (
                                 <span className="text-primary font-black text-3xl">P</span>
                             )}
-                        </motion.div>
+                        </motion.div> */}
                         <div className="text-center lg:text-left" suppressHydrationWarning={true}>
                             <h3 className="text-3xl font-black tracking-tighter">
                                 {view === 'login' ? 'Acceso Institucional' : view === 'forgot' ? 'Recuperar Acceso' : 'Verificar Código'}
