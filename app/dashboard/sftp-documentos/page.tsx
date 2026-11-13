@@ -345,7 +345,6 @@ export default function SftpDocumentosPage() {
                                     </div>
                                 ))}
                             </div>
-                            </div>
                         </div>
                     )}
 
@@ -419,7 +418,8 @@ export default function SftpDocumentosPage() {
                         </div>
                     )}
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
