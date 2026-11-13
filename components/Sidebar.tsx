@@ -246,7 +246,7 @@ export function Sidebar() {
         };
 
         return filterItems(menuItems);
-    }, [isPostulante, isSuperAdmin, can]);
+    }, [isPostulante, isSuperAdmin, isSftp, can]);
 
     const [openSubmenus, setOpenSubmenus] = useState<string[]>([]);
     const [mounted, setMounted] = useState(false);
