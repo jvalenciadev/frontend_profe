@@ -176,8 +176,8 @@ export function Sidebar() {
     const isSftp = hasRole('sftp') || hasRole('SFTP');
 
     const filteredMenuItems = useMemo((): MenuItem[] => {
-        // Si el usuario tiene rol SFTP exclusivo, SOLO ve el acceso a Documentos SFTP
-        if (!isSuperAdmin && isSftp) {
+        // SFTP exclusivo: solo ve Documentos SFTP, nada más
+        if (isSftp && !isSuperAdmin) {
             return [
                 {
                     title: 'Documentos SFTP',
@@ -187,8 +187,8 @@ export function Sidebar() {
             ];
         }
 
-        // Si es SuperAdmin, ve todo incluyendo el acceso al repositorio SFTP
-        if (isSuperAdmin) {
+        // SuperAdmin con rol SFTP: ve todo + el repositorio SFTP
+        if (isSuperAdmin && isSftp) {
             return [
                 ...menuItems,
                 {
@@ -197,6 +197,11 @@ export function Sidebar() {
                     icon: HardDrive,
                 },
             ];
+        }
+
+        // SuperAdmin SIN rol SFTP: ve todo EXCEPTO el repositorio SFTP
+        if (isSuperAdmin) {
+            return [...menuItems];
         }
 
         // Si es Postulante, SOLO ve Dashboard y Mi Ficha
