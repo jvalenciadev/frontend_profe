@@ -346,7 +346,7 @@ export function Sidebar() {
                             animate={{ opacity: 1, x: 0 }}
                             className="flex flex-col overflow-hidden"
                         >
-                            <span className="text-xl font-black tracking-tighter whitespace-nowrap uppercase leading-none truncate max-w-[180px]">
+                            {/* <span className="text-xl font-black tracking-tighter whitespace-nowrap uppercase leading-none truncate max-w-[180px]">
                                 {profe?.nombreAbreviado ? (
                                     <>
                                         {profe.nombreAbreviado.split(' ')[0]} <span className="text-primary">{profe.nombreAbreviado.split(' ').slice(1).join(' ')}</span>
@@ -358,7 +358,7 @@ export function Sidebar() {
                                 ) : (
                                     <>PROGRAMA <span className="text-primary">PROFE</span></>
                                 )}
-                            </span>
+                            </span> */}
                             <span className="text-[7px] font-black uppercase tracking-[0.4em] text-muted-foreground mt-0.5 whitespace-nowrap opacity-60">Dirección Nacional</span>
                         </motion.div>
                     )}

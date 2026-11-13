@@ -53,6 +53,7 @@ export default function SftpDocumentosPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+    const [downloadingFolder, setDownloadingFolder] = useState<string | null>(null);
 
     // Cargar directorio actual
     const cargarDirectorio = async (subpath: string = currentPath) => {
@@ -118,6 +119,39 @@ export default function SftpDocumentosPage() {
             toast.error('Error al descargar el documento', { id: `dl-${item.nombre}` });
         } finally {
             setDownloadingFile(null);
+        }
+    };
+
+    // Descargar carpeta completa como ZIP
+    const handleDownloadFolder = async (carpeta: SftpItem, e: React.MouseEvent) => {
+        e.stopPropagation(); // Evitar navegar a la carpeta al hacer clic en el botón
+        const toastId = `dlf-${carpeta.nombre}`;
+        try {
+            setDownloadingFolder(carpeta.nombre);
+            toast.loading(`Comprimiendo "${carpeta.nombre}"... puede tardar unos segundos`, { id: toastId });
+
+            const response = await api.get('/sftp/documentos/download-folder', {
+                params: { folderpath: carpeta.rutaRelativa },
+                responseType: 'blob',
+                timeout: 300000, // 5 minutos para carpetas grandes
+            });
+
+            const blob = new Blob([response.data], { type: 'application/zip' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${carpeta.nombre}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast.success(`"${carpeta.nombre}.zip" descargado (Acción auditada)`, { id: toastId });
+        } catch (error: any) {
+            console.error('Error descargando carpeta:', error);
+            toast.error(`Error al comprimir "${carpeta.nombre}"`, { id: toastId });
+        } finally {
+            setDownloadingFolder(null);
         }
     };
 
@@ -292,9 +326,25 @@ export default function SftpDocumentosPage() {
                                                 </p>
                                             </div>
                                         </div>
-                                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                            {/* Botón descargar carpeta como ZIP */}
+                                            <button
+                                                onClick={(e) => handleDownloadFolder(carpeta, e)}
+                                                disabled={downloadingFolder === carpeta.nombre}
+                                                title={`Descargar "${carpeta.nombre}" como ZIP`}
+                                                className="p-1.5 rounded-lg bg-secondary/80 hover:bg-primary/10 hover:text-primary text-muted-foreground transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                                            >
+                                                {downloadingFolder === carpeta.nombre ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                                ) : (
+                                                    <Download className="w-3.5 h-3.5" />
+                                                )}
+                                            </button>
+                                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                                        </div>
                                     </div>
                                 ))}
+                            </div>
                             </div>
                         </div>
                     )}
